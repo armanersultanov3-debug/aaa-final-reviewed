@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **193**
+Total rules: **194**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (110), external (72), universal (11) |
-| Severity | high (12), medium (61), low (109), info (11) |
-| Input kind | ast (76), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (111), external (72), universal (11) |
+| Severity | high (12), medium (61), low (110), info (11) |
+| Input kind | ast (77), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 48
+Count: 49
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -165,6 +165,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.client_max_body_size_unlimited` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.2 (partial: detects disabled body-size enforcement, not application-specific maximums) |
 | `nginx.ssl_session_tickets_disabled` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §4.1.11 |
 | `nginx.large_client_header_buffers_too_restrictive` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §5.2.3 (partial: detects values below the default 4 8k; documented lower limits remain operator policy) |
+| `nginx.ssl_stapling_disabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (detects missing or off `ssl_stapling` in TLS server blocks) |
 
 Mapping rationale (nginx rules):
 
@@ -234,6 +235,10 @@ Mapping rationale (nginx rules):
   modern browsers ignore it; we keep the rule for legacy hardening but leave
   CWE/OWASP empty rather than mapping to controls that no longer apply.
 - `server_tokens_on` -- nginx version disclosure: CWE-200, OWASP A05.
+- `ssl_stapling_disabled` -- a TLS server block without `ssl_stapling on`
+  silently skips OCSP stapling, leaving clients to fetch revocation status
+  themselves; the CIS guidance treats this as a hardening misconfig, so CWE
+  stays empty and OWASP A05 covers it.
 - `ssl_stapling_missing_resolver` -- enabling `ssl_stapling` without a
   resolver silently disables stapling, but it is a configuration mistake
   rather than a vulnerability class; CWE empty, OWASP A05 (misconfig).
@@ -268,7 +273,6 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.3 | `host-depth` | Private-key permission checks require filesystem metadata. |
 | §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
-| §4.1.7 | `direct-rule` | Current OCSP stapling rules only cover resolver/verify when stapling is already enabled; add missing-`ssl_stapling on` coverage. |
 | §4.1.9, §4.1.10 | `parser-depth` | Upstream TLS client-certificate and upstream trust checks need proxy SSL directive modeling. |
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
 | §5.1.1 | `direct-rule` | Existing sensitive-location access checks are partial; full coverage needs IP-focused `allow`/`deny` policy validation. |
@@ -798,7 +802,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (48) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (49) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (27) — CWE/OWASP filled; CIS existing-rule reference
   pass complete

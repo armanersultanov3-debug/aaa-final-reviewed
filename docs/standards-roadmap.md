@@ -37,10 +37,10 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 193 rules:
+The current project inventory is 194 rules:
 
 - Universal: 11
-- Nginx local: 48
+- Nginx local: 49
 - Apache local: 27
 - Lighttpd local: 15
 - IIS local: 20
@@ -346,7 +346,7 @@ standard section before implementation.
 | --- | --- | --- | --- | --- |
 | STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
-| STD-GAP-003 | Nginx CIS | direct-rule | P2 | Add remaining follow-up Nginx rules for benchmark items that current parser data can support, such as unknown-host rejection, deeper connection/rate-limit validation, HTTPS redirects, cipher-string validation, and OCSP stapling completeness. Timeout-value, unlimited-body-size, URI-buffer-floor, and session-ticket checks are now present. |
+| STD-GAP-003 | Nginx CIS | direct-rule | P2 | Add remaining follow-up Nginx rules for benchmark items that current parser data can support, such as unknown-host rejection, deeper connection/rate-limit validation, HTTPS redirects, and cipher-string validation. Timeout-value, unlimited-body-size, URI-buffer-floor, session-ticket, and OCSP stapling completeness checks are now present. |
 | STD-GAP-004 | Nginx CIS | host-depth | P3 | Keep Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations in host-depth unless an explicit host mode is added. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | Add follow-up Apache rules for benchmark items that current parser data can support, such as full `AllowOverride None` validation, method restrictions, denied sensitive file patterns, security-header presence/value checks, `FileETag`, timeout/keepalive values, request-limit thresholds, and Apache TLS directives. |
