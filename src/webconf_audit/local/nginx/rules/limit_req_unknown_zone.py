@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst
 from webconf_audit.local.nginx.rules._limit_utils import (
-    defined_zone_names,
     find_zone_name,
     iter_directives,
     make_finding,
@@ -28,7 +27,12 @@ def find_limit_req_unknown_zone(config_ast: ConfigAst) -> list[Finding]:
     if not zone_directives:
         return []
 
-    defined_zones = defined_zone_names(config_ast, "limit_req_zone")
+    defined_zones: set[str] = set()
+    for directive in zone_directives:
+        zone_name = find_zone_name(directive.args)
+        if zone_name is not None:
+            defined_zones.add(zone_name)
+
     findings: list[Finding] = []
 
     for directive in iter_directives(config_ast, "limit_req"):
