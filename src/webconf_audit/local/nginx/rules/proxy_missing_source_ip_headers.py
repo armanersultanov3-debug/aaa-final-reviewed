@@ -93,10 +93,20 @@ def _has_proxy_pass(block: BlockNode) -> bool:
 
 
 def _has_required_headers(headers: dict[str, str]) -> bool:
-    return all(
-        headers.get(header_name) in allowed_values
-        for header_name, allowed_values in _REQUIRED_PROXY_HEADERS.items()
-    )
+    for header_name, allowed_values in _REQUIRED_PROXY_HEADERS.items():
+        header_value = headers.get(header_name)
+        if header_value is None:
+            return False
+        normalized_allowed_values = {
+            _normalize_header_value(value) for value in allowed_values
+        }
+        if _normalize_header_value(header_value) not in normalized_allowed_values:
+            return False
+    return True
+
+
+def _normalize_header_value(value: str) -> str:
+    return value.strip().strip('"').strip("'").lower()
 
 
 __all__ = ["find_proxy_missing_source_ip_headers"]

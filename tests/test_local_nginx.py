@@ -505,6 +505,17 @@ def _http_block(*blocks: str) -> str:
             id="log-format-missing-fields",
         ),
         pytest.param(
+            "http {\n"
+            "    log_format main \"$time_iso8601 $remote_addr $remote_user $request_time $status $http_user_agent\";\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        access_log /var/log/nginx/access.log main;\n"
+            "    }\n"
+            "}\n",
+            "nginx.log_format_missing_fields",
+            id="log-format-does-not-substring-match-request",
+        ),
+        pytest.param(
             "server {\n"
             "    listen 80;\n"
             "    error_log /dev/null crit;\n"
@@ -532,11 +543,26 @@ def _http_block(*blocks: str) -> str:
         ),
         pytest.param(
             "server {\n"
+            "    server_name example.com;\n"
+            "}\n",
+            "nginx.missing_http_to_https_redirect",
+            id="named-server-without-listen-defaults-to-http",
+        ),
+        pytest.param(
+            "server {\n"
             "    listen 80;\n"
             "    add_header Content-Security-Policy \"default-src 'self'; script-src 'unsafe-inline'\";\n"
             "}\n",
             "nginx.content_security_policy_unsafe",
             id="unsafe-csp",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    add_header Content-Security-Policy \"default-src-elem 'self'; frame-ancestors 'self'\" always;\n"
+            "}\n",
+            "nginx.content_security_policy_unsafe",
+            id="csp-does-not-substring-match-default-src-elem",
         ),
         pytest.param(
             "server {\n"
@@ -614,6 +640,32 @@ def test_analyze_nginx_config_accepts_cis_policy_control_baseline(
 
     assert result.issues == []
     assert not (new_rule_ids & {finding.rule_id for finding in result.findings})
+
+
+def test_analyze_nginx_config_accepts_normalized_proxy_source_headers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    proxy_set_header X-Forwarded-For \"$PROXY_ADD_X_FORWARDED_FOR\";\n"
+        "    proxy_set_header X-Real-IP '$REMOTE_ADDR';\n"
+        "    proxy_set_header X-Forwarded-Proto \"$SCHEME\";\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+        for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: Path) -> None:

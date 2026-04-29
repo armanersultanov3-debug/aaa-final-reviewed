@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import re
+
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.log_format_missing_fields"
+_NGINX_VARIABLE_RE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z0-9_]+)\}|(?P<plain>[A-Za-z0-9_]+))")
 
 _REQUIRED_FIELDS = (
     "$time_iso8601",
@@ -36,7 +39,8 @@ def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:
         if not isinstance(node, DirectiveNode) or node.name != "log_format":
             continue
         format_text = " ".join(node.args[1:])
-        missing_fields = [field for field in _REQUIRED_FIELDS if field not in format_text]
+        parsed_vars = _extract_variables(format_text)
+        missing_fields = [field for field in _REQUIRED_FIELDS if field not in parsed_vars]
         if not missing_fields:
             continue
         findings.append(
@@ -61,6 +65,13 @@ def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:
         )
 
     return findings
+
+
+def _extract_variables(format_text: str) -> set[str]:
+    return {
+        f"${match.group('braced') or match.group('plain')}"
+        for match in _NGINX_VARIABLE_RE.finditer(format_text)
+    }
 
 
 __all__ = ["find_log_format_missing_fields"]

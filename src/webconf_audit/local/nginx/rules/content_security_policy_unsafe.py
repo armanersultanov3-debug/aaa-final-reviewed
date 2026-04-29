@@ -69,7 +69,12 @@ def _header_value(args: list[str]) -> str:
 
 
 def _policy_is_baseline_safe(policy: str) -> bool:
-    if "default-src" not in policy or "frame-ancestors" not in policy:
+    directive_names = {
+        parts[0]
+        for directive in policy.split(";")
+        if (parts := directive.strip().split(maxsplit=1))
+    }
+    if "default-src" not in directive_names or "frame-ancestors" not in directive_names:
         return False
     script_src = _directive_value(policy, "script-src")
     if script_src is None:

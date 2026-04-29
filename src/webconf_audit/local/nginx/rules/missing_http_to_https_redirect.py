@@ -58,6 +58,8 @@ def _is_named_http_server(server_block: BlockNode) -> bool:
     if not find_child_directives(server_block, "server_name"):
         return False
     listen_directives = find_child_directives(server_block, "listen")
+    if not listen_directives:
+        return True
     return any(_listen_targets_http(directive) for directive in listen_directives)
 
 
