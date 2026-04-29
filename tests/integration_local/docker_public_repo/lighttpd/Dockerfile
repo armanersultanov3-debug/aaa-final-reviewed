@@ -1,6 +1,6 @@
 FROM alpine:3.21
 
-ARG PUBLIC_REPO_URL=https://github.com/Armanyich/aaa-final-reviewed.git
+ARG PUBLIC_REPO_URL=https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git
 
 RUN apk add --no-cache \
         ca-certificates \

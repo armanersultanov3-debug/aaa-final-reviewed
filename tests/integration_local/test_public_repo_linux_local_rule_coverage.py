@@ -17,7 +17,7 @@ from webconf_audit.rule_registry import registry
 _ROOT = Path(__file__).resolve().parents[2]
 _DEMO_ROOT = _ROOT / "demo" / "local_admin"
 _DOCKER_ROOT = Path(__file__).resolve().parent / "docker_public_repo"
-_PUBLIC_REPO_URL = "https://github.com/Armanyich/aaa-final-reviewed.git"
+_PUBLIC_REPO_URL = "https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git"
 _PROJECT_NAME = "webconf_audit_public_repo_local_rules_it"
 _READINESS_URLS: tuple[str, ...] = (
     "http://127.0.0.1:19180/",
