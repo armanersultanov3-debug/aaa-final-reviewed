@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **194**
+Total rules: **199**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (111), external (72), universal (11) |
-| Severity | high (12), medium (61), low (110), info (11) |
-| Input kind | ast (77), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (116), external (72), universal (11) |
+| Severity | high (12), medium (61), low (115), info (11) |
+| Input kind | ast (82), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 49
+Count: 54
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -142,6 +142,11 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_limit_conn_zone` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 (supporting directive; presence only) |
 | `nginx.missing_limit_req` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 (partial: directive presence only; does not validate per-IP key or rate policy) |
 | `nginx.missing_limit_req_zone` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 (supporting directive; presence only) |
+| `nginx.limit_conn_invalid_limit` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 |
+| `nginx.limit_conn_zone_not_per_ip` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 |
+| `nginx.limit_req_unknown_zone` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
+| `nginx.limit_req_zone_invalid_rate` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
+| `nginx.limit_req_zone_not_per_ip` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
 | `nginx.missing_log_format` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: directive presence; does not validate detailed log fields) |
 | `nginx.missing_permissions_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.missing_referrer_policy` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | CIS NGINX v3.0.0 §5.3.3 (partial: header presence only; does not validate policy value) |
@@ -209,9 +214,11 @@ Mapping rationale (nginx rules):
   reason.
 - `missing_client_max_body_size`, `missing_limit_conn`, `missing_limit_conn_zone`,
   `missing_limit_req`, `missing_limit_req_zone`,
-  `client_max_body_size_unlimited` -- no upper bound / rate limit on bodies,
-  connections, or requests: CWE-770 (allocation without limits or throttling).
-  OWASP cells empty for the same reason.
+  `client_max_body_size_unlimited`, `limit_conn_invalid_limit`,
+  `limit_conn_zone_not_per_ip`, `limit_req_unknown_zone`,
+  `limit_req_zone_invalid_rate`, `limit_req_zone_not_per_ip` -- no upper
+  bound / rate limit on bodies, connections, or requests: CWE-770 (allocation
+  without limits or throttling). OWASP cells empty for the same reason.
 - `missing_content_security_policy`, `missing_x_content_type_options`,
   `missing_permissions_policy` -- protective response headers; CWE-693
   (protection mechanism failure), OWASP A05.
@@ -277,7 +284,7 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
 | §5.1.1 | `direct-rule` | Existing sensitive-location access checks are partial; full coverage needs IP-focused `allow`/`deny` policy validation. |
 | §5.1.2 | `direct-rule` | Existing method checks are scoped to sensitive/upload-like locations; full coverage needs an approved-method policy model. |
-| §5.2.4-§5.2.5 | `direct-rule` | Current connection/rate-limit rules mostly check presence; add per-IP key, numeric limit, and rate-policy validation for full CIS coverage. |
+| §5.2.4-§5.2.5 | `manual-context` | Current connection/rate-limit rules now check presence, defined zones, per-IP keys, positive connection limits, and positive request rates; remaining CIS judgment is whether the chosen values and application scopes are reasonable for the deployment. |
 | §5.3.2, §5.3.3 | `direct-rule` | Existing CSP and Referrer-Policy checks are presence-only; add value-quality checks for full CIS coverage. |
 | §6 | `out-of-scope` | The benchmark reserves Mandatory Access Control and points to OS/IdP/application sources rather than an Nginx config check. |
 
@@ -802,7 +809,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (49) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (54) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (27) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
