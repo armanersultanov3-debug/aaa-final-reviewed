@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **199**
+Total rules: **206**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (116), external (72), universal (11) |
-| Severity | high (12), medium (61), low (115), info (11) |
-| Input kind | ast (82), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (123), external (72), universal (11) |
+| Severity | high (12), medium (61), low (122), info (11) |
+| Input kind | ast (89), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 54
+Count: 61
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -120,7 +120,10 @@ the benchmark covers but webconf-audit does not.
 | `nginx.alias_without_trailing_slash` | low | ast | - | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
 | `nginx.allow_all_with_deny_all` | low | ast | - | [CWE-863](https://cwe.mitre.org/data/definitions/863.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
 | `nginx.autoindex_on` | medium | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
+| `nginx.content_security_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: baseline directives and unsafe script tokens only) | CIS NGINX v3.0.0 §5.3.2 (partial: baseline policy quality checks) |
+| `nginx.default_server_not_rejecting_unknown_hosts` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.4.2 (partial: validates configured `default_server` rejection behavior) |
 | `nginx.duplicate_listen` | low | ast | - | - | - | - | - |
+| `nginx.error_log_too_restrictive` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: detects `/dev/null` and overly restrictive levels) |
 | `nginx.executable_scripts_allowed_in_uploads` | medium | ast | - | [CWE-434](https://cwe.mitre.org/data/definitions/434.html) | [A04:2021](https://owasp.org/Top10/A04_2021-Insecure_Design/) | - | - |
 | `nginx.if_in_location` | low | ast | - | - | - | - | - |
 | `nginx.missing_access_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.2 |
@@ -137,6 +140,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_hsts_header` | low | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8 (partial: header presence only; does not validate HSTS policy value) |
 | `nginx.missing_http2_on_tls_listener` | low | ast | - | - | - | - | - |
 | `nginx.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: scoped to sensitive locations and `limit_except`, not a full approved-method policy) |
+| `nginx.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: named HTTP server blocks only) | CIS NGINX v3.0.0 §4.1.1 (partial: local redirect directive check) |
 | `nginx.missing_keepalive_timeout` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §2.4.3 (partial: directive presence; does not validate `<= 10` value) |
 | `nginx.missing_limit_conn` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 (partial: directive presence only; does not validate per-IP key or numeric limit) |
 | `nginx.missing_limit_conn_zone` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 (supporting directive; presence only) |
@@ -147,6 +151,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.limit_req_unknown_zone` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
 | `nginx.limit_req_zone_invalid_rate` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
 | `nginx.limit_req_zone_not_per_ip` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
+| `nginx.log_format_missing_fields` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: validates recommended field presence) |
 | `nginx.missing_log_format` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: directive presence; does not validate detailed log fields) |
 | `nginx.missing_permissions_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.missing_referrer_policy` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | CIS NGINX v3.0.0 §5.3.3 (partial: header presence only; does not validate policy value) |
@@ -159,6 +164,8 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_x_content_type_options` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | CIS NGINX v3.0.0 §5.3.1 |
 | `nginx.missing_x_frame_options` | low | ast | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.missing_x_xss_protection` | low | ast | headers | - | - | - | - |
+| `nginx.proxy_missing_source_ip_headers` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.4 (partial: `proxy_pass` source header forwarding) |
+| `nginx.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value and `always` checks) | CIS NGINX v3.0.0 §5.3.3 (partial: policy value and `always`) |
 | `nginx.server_tokens_on` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS NGINX v3.0.0 §2.5.1 |
 | `nginx.ssl_stapling_missing_resolver` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: resolver presence requirement only) |
 | `nginx.ssl_stapling_without_verify` | low | ast | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: stapling verification requirement) |
@@ -184,12 +191,17 @@ Mapping rationale (nginx rules):
 - `duplicate_listen`, `if_in_location`, `missing_http2_on_tls_listener`,
   `missing_server_name` -- operational anti-patterns and best-practice
   hints, not vulnerabilities; CWE/OWASP cells stay empty.
+- `default_server_not_rejecting_unknown_hosts` -- a default virtual host that
+  serves unknown names can expose the wrong application or default content.
+  This is best represented as OWASP A05 hardening rather than a precise CWE.
 - `executable_scripts_allowed_in_uploads` -- upload directories that also
   serve PHP/CGI are the textbook CWE-434 (unrestricted upload of dangerous
   file types). Categorised as OWASP A04 (insecure design): the issue is the
   combination of upload + script execution, not a single misconfig.
-- `missing_access_log`, `missing_error_log`, `missing_log_format` -- without
-  logs you cannot detect or investigate attacks: CWE-778, OWASP A09.
+- `missing_access_log`, `missing_error_log`, `missing_log_format`,
+  `error_log_too_restrictive`, `log_format_missing_fields`,
+  `proxy_missing_source_ip_headers` -- without useful logs and source-IP
+  context you cannot detect or investigate attacks: CWE-778, OWASP A09.
 - `missing_access_restrictions_on_sensitive_locations` -- /admin, /private,
   /backup left open to the public: CWE-284 (improper access control),
   OWASP A01.
@@ -219,13 +231,18 @@ Mapping rationale (nginx rules):
   `limit_req_zone_invalid_rate`, `limit_req_zone_not_per_ip` -- no upper
   bound / rate limit on bodies, connections, or requests: CWE-770 (allocation
   without limits or throttling). OWASP cells empty for the same reason.
-- `missing_content_security_policy`, `missing_x_content_type_options`,
-  `missing_permissions_policy` -- protective response headers; CWE-693
-  (protection mechanism failure), OWASP A05.
+- `missing_content_security_policy`, `content_security_policy_unsafe`,
+  `missing_x_content_type_options`, `missing_permissions_policy` --
+  protective response headers; CWE-693 (protection mechanism failure),
+  OWASP A05.
 - `missing_hsts_header` -- missing HSTS allows downgrade to HTTP:
   CWE-319, OWASP A05 (matches the universal HSTS rule's mapping).
-- `missing_referrer_policy` -- as in the universal table, no clean CWE for
-  "policy not set"; we only keep OWASP A05.
+- `missing_http_to_https_redirect` -- leaving a named HTTP virtual host
+  reachable without an HTTPS redirect keeps a cleartext channel available:
+  CWE-319, OWASP A02.
+- `missing_referrer_policy`, `referrer_policy_unsafe` -- as in the universal
+  table, no clean CWE maps to "policy not set" or to every unsafe policy
+  value; we only keep OWASP A05.
 - `missing_ssl_certificate`, `missing_ssl_certificate_key` -- listening on
   443 with `ssl` but no cert / key configured leaves the listener unable to
   establish TLS, so HTTPS to it fails: CWE-319, OWASP A02. As with the
@@ -269,13 +286,13 @@ Nginx CIS v3.0.0 gap table:
 | §2.2.1-§2.2.3 | `host-depth` | Service-account user, lock state, and shell require OS account inspection. |
 | §2.3.1-§2.3.3 | `host-depth` | Ownership, permissions, and PID-file checks require filesystem metadata. |
 | §2.4.1 | `research` | Authorized listening ports require an environment-specific approved-port policy. |
-| §2.4.2 | `direct-rule` | Add a local rule for rejecting unknown host names, for example default-server handling and explicit rejection behavior. |
+| §2.4.2 | `manual-context` | Current coverage validates configured `default_server` rejection behavior through `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on`; absent-default-server policy and runtime invalid-Host behavior remain environment-specific. |
 | §2.5.2 | `probe-depth` | Default error and index page content needs response-body probing or filesystem content inspection. |
 | §2.5.4 | `parser-depth` | Reverse-proxy disclosure checks need proxy-header semantics beyond the current generic header rules. |
-| §3.1 | `direct-rule` | Current `log_format` coverage is presence-only; add detailed field validation if we want full CIS coverage. |
-| §3.3 | `direct-rule` | Current `error_log` coverage is presence-only; add log-level validation for the benchmark-required `info` posture. |
-| §3.4 | `direct-rule` | Add proxy source-IP forwarding checks such as `X-Forwarded-For` / related proxy header directives. |
-| §4.1.1 | `direct-rule` | Add local redirect analysis for HTTP-to-HTTPS server blocks; external redirect probes can provide runtime corroboration later. |
+| §3.1 | `manual-context` | Current coverage checks `log_format` presence and recommended request/source/status/user-agent fields; usage of the selected format and organisation-specific JSON/escape policy remain manual. |
+| §3.3 | `manual-context` | Current coverage checks `error_log` presence and flags `/dev/null` plus overly restrictive `error`/`crit`/`alert`/`emerg` levels; final `warn`/`notice`/`info` level choice remains policy. |
+| §3.4 | `parser-depth` | Current coverage checks common `proxy_pass` source-IP headers; FastCGI, gRPC, trust-chain, and privacy semantics remain follow-up parser/effective-config work. |
+| §4.1.1 | `probe-depth` | Current coverage checks named local HTTP server blocks that redirect with `return` to HTTPS; runtime redirect probes can corroborate later. |
 | §4.1.2 | `probe-depth` | Trusted certificate and chain validation is runtime/certificate data, not fully knowable from local `ssl_certificate` paths alone. |
 | §4.1.3 | `host-depth` | Private-key permission checks require filesystem metadata. |
 | §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
@@ -285,7 +302,7 @@ Nginx CIS v3.0.0 gap table:
 | §5.1.1 | `direct-rule` | Existing sensitive-location access checks are partial; full coverage needs IP-focused `allow`/`deny` policy validation. |
 | §5.1.2 | `direct-rule` | Existing method checks are scoped to sensitive/upload-like locations; full coverage needs an approved-method policy model. |
 | §5.2.4-§5.2.5 | `manual-context` | Current connection/rate-limit rules now check presence, defined zones, per-IP keys, positive connection limits, and positive request rates; remaining CIS judgment is whether the chosen values and application scopes are reasonable for the deployment. |
-| §5.3.2, §5.3.3 | `direct-rule` | Existing CSP and Referrer-Policy checks are presence-only; add value-quality checks for full CIS coverage. |
+| §5.3.2, §5.3.3 | `manual-context` | Current coverage checks CSP/Referrer-Policy presence plus baseline CSP directives, unsafe script tokens, Referrer-Policy values, and `always`; full app-specific CSP semantics remain manual. |
 | §6 | `out-of-scope` | The benchmark reserves Mandatory Access Control and points to OS/IdP/application sources rather than an Nginx config check. |
 
 ### Apache (Local)
@@ -809,7 +826,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (54) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (27) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
@@ -822,9 +839,9 @@ Progress:
 Stage 2 step 3 is complete for CWE / OWASP Top 10. This file is already the
 canonical rule-level store for those completed mappings. Reviewed ASVS 5.0.0
 direct/partial references are now stored in the dedicated `ASVS` column.
-Candidate CIS section numbers and unresolved ASVS follow-up gaps stay in
-`docs/standards-roadmap.md` until each standards family is reviewed. After
-review, CIS references are copied into the existing `CIS / Vendor` column.
+Unresolved standards follow-up gaps stay in `docs/standards-roadmap.md`.
+CIS references that passed review are copied into the existing
+`CIS / Vendor` column.
 
 Each follow-up PR fills one standards family at a time and only writes a CWE,
 OWASP Top 10, ASVS, or CIS reference when it is verifiable. Cells without an

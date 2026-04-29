@@ -435,8 +435,9 @@ def _safe_server_block(*directives: str) -> str:
         "server_name example.com;",
         "add_header X-Content-Type-Options nosniff;",
         "add_header X-Frame-Options DENY;",
-        "add_header Referrer-Policy no-referrer;",
-        "add_header Content-Security-Policy \"default-src 'self'\";",
+        "return 301 https://$host$request_uri;",
+        "add_header Referrer-Policy strict-origin-when-cross-origin always;",
+        "add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'; form-action 'self'\" always;",
         "add_header Permissions-Policy geolocation=();",
         'add_header X-XSS-Protection "1; mode=block";',
         "client_max_body_size 10m;",
@@ -451,9 +452,15 @@ def _safe_server_block(*directives: str) -> str:
         "limit_req zone=perip burst=10;",
         "limit_conn_zone $binary_remote_addr zone=addr:10m;",
         "limit_conn addr 10;",
-        'log_format main "$remote_addr";',
+        (
+            'log_format main "$time_iso8601 $remote_addr $remote_user '
+            '$request $status $http_user_agent";'
+        ),
         "access_log /var/log/nginx/access.log;",
         "error_log /var/log/nginx/error.log warn;",
+        "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
+        "proxy_set_header X-Real-IP $remote_addr;",
+        "proxy_set_header X-Forwarded-Proto $scheme;",
         "location ~ /\\. {",
         "    deny all;",
         "}",
@@ -473,6 +480,140 @@ def _http_block(*blocks: str) -> str:
     content = "".join("".join(f"    {line}\n" for line in block.splitlines()) for block in blocks)
 
     return f"http {{\n{content}}}\n"
+
+
+@pytest.mark.parametrize(
+    ("config_text", "expected_rule_id"),
+    [
+        pytest.param(
+            "server {\n"
+            "    listen 80 default_server;\n"
+            "    server_name _;\n"
+            "}\n",
+            "nginx.default_server_not_rejecting_unknown_hosts",
+            id="default-server-does-not-reject",
+        ),
+        pytest.param(
+            "http {\n"
+            "    log_format main \"$remote_addr\";\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        access_log /var/log/nginx/access.log main;\n"
+            "    }\n"
+            "}\n",
+            "nginx.log_format_missing_fields",
+            id="log-format-missing-fields",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    error_log /dev/null crit;\n"
+            "}\n",
+            "nginx.error_log_too_restrictive",
+            id="error-log-too-restrictive",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    location / {\n"
+            "        proxy_pass http://backend;\n"
+            "    }\n"
+            "}\n",
+            "nginx.proxy_missing_source_ip_headers",
+            id="proxy-missing-source-headers",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    server_name example.com;\n"
+            "}\n",
+            "nginx.missing_http_to_https_redirect",
+            id="missing-http-to-https-redirect",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    add_header Content-Security-Policy \"default-src 'self'; script-src 'unsafe-inline'\";\n"
+            "}\n",
+            "nginx.content_security_policy_unsafe",
+            id="unsafe-csp",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    add_header Referrer-Policy unsafe-url always;\n"
+            "}\n",
+            "nginx.referrer_policy_unsafe",
+            id="unsafe-referrer-policy",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    add_header Referrer-Policy no-referrer;\n"
+            "}\n",
+            "nginx.referrer_policy_unsafe",
+            id="referrer-policy-missing-always",
+        ),
+    ],
+)
+def test_analyze_nginx_config_reports_cis_policy_control_findings(
+    tmp_path: Path,
+    config_text: str,
+    expected_rule_id: str,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(finding.rule_id == expected_rule_id for finding in result.findings)
+
+
+def test_analyze_nginx_config_accepts_cis_policy_control_baseline(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    log_format main \"$time_iso8601 $remote_addr $remote_user $request $status $http_user_agent\";\n"
+        "    server {\n"
+        "        listen 80 default_server;\n"
+        "        server_name _;\n"
+        "        return 444;\n"
+        "    }\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name example.com;\n"
+        "        return 301 https://$host$request_uri;\n"
+        "        error_log /var/log/nginx/error.log notice;\n"
+        "        access_log /var/log/nginx/access.log main;\n"
+        "        add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'\" always;\n"
+        "        add_header Referrer-Policy strict-origin-when-cross-origin always;\n"
+        "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "        proxy_set_header X-Real-IP $remote_addr;\n"
+        "        proxy_set_header X-Forwarded-Proto $scheme;\n"
+        "        location / {\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+    new_rule_ids = {
+        "nginx.content_security_policy_unsafe",
+        "nginx.default_server_not_rejecting_unknown_hosts",
+        "nginx.error_log_too_restrictive",
+        "nginx.log_format_missing_fields",
+        "nginx.missing_http_to_https_redirect",
+        "nginx.proxy_missing_source_ip_headers",
+        "nginx.referrer_policy_unsafe",
+    }
+
+    assert result.issues == []
+    assert not (new_rule_ids & {finding.rule_id for finding in result.findings})
 
 
 def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: Path) -> None:
