@@ -246,6 +246,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
             _nginx_server_block(
                 "listen 443 ssl;",
                 "ssl_protocols TLSv1.2;",
+                "ssl_stapling off;",
             ),
         ),
         expected_rule_ids=frozenset(
