@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (
+    AstNode,
     BlockNode,
     ConfigAst,
     DirectiveNode,
     find_child_directives,
-    iter_nodes,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
@@ -27,21 +27,26 @@ RULE_ID = "nginx.ssl_stapling_disabled"
 def find_ssl_stapling_disabled(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_ssl_stapling_disabled_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in _iter_server_blocks_with_http_stapling(config_ast):
+        finding = _find_ssl_stapling_disabled_in_server(
+            server_block,
+            inherited_directives,
+        )
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_ssl_stapling_disabled_in_server(server_block: BlockNode) -> Finding | None:
+def _find_ssl_stapling_disabled_in_server(
+    server_block: BlockNode,
+    inherited_directives: list[DirectiveNode],
+) -> Finding | None:
     if not server_uses_tls(server_block):
         return None
 
     ssl_stapling_directives = find_child_directives(server_block, "ssl_stapling")
-    if _last_directive_is_on(ssl_stapling_directives):
+    if _effective_ssl_stapling_is_on(ssl_stapling_directives, inherited_directives):
         return None
 
     return Finding(
@@ -57,6 +62,39 @@ def _find_ssl_stapling_disabled_in_server(server_block: BlockNode) -> Finding | 
             line=server_block.source.line,
         ),
     )
+
+
+def _iter_server_blocks_with_http_stapling(
+    config_ast: ConfigAst,
+) -> list[tuple[BlockNode, list[DirectiveNode]]]:
+    servers: list[tuple[BlockNode, list[DirectiveNode]]] = []
+
+    def walk(nodes: list[AstNode], inherited_directives: list[DirectiveNode]) -> None:
+        for node in nodes:
+            if not isinstance(node, BlockNode):
+                continue
+
+            current_directives = inherited_directives
+            if node.name == "http":
+                current_directives = find_child_directives(node, "ssl_stapling")
+
+            if node.name == "server":
+                servers.append((node, current_directives))
+                continue
+
+            walk(node.children, current_directives)
+
+    walk(config_ast.nodes, [])
+    return servers
+
+
+def _effective_ssl_stapling_is_on(
+    server_directives: list[DirectiveNode],
+    inherited_directives: list[DirectiveNode],
+) -> bool:
+    if server_directives:
+        return _last_directive_is_on(server_directives)
+    return _last_directive_is_on(inherited_directives)
 
 
 def _last_directive_is_on(directives: list[DirectiveNode]) -> bool:
