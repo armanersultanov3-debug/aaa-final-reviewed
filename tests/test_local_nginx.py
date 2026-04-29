@@ -430,12 +430,11 @@ def test_analyze_nginx_config_reports_issue_for_mutual_include_cycle(tmp_path: P
 
 
 # nginx rules
-def _safe_server_block(*directives: str) -> str:
+def _safe_server_block(*directives: str, include_http_redirect: bool = False) -> str:
     safe_directives = (
         "server_name example.com;",
         "add_header X-Content-Type-Options nosniff;",
         "add_header X-Frame-Options DENY;",
-        "return 301 https://$host$request_uri;",
         "add_header Referrer-Policy strict-origin-when-cross-origin always;",
         "add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'; form-action 'self'\" always;",
         "add_header Permissions-Policy geolocation=();",
@@ -456,7 +455,7 @@ def _safe_server_block(*directives: str) -> str:
             'log_format main "$time_iso8601 $remote_addr $remote_user '
             '$request $status $http_user_agent";'
         ),
-        "access_log /var/log/nginx/access.log;",
+        "access_log /var/log/nginx/access.log main;",
         "error_log /var/log/nginx/error.log warn;",
         "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
         "proxy_set_header X-Real-IP $remote_addr;",
@@ -471,7 +470,10 @@ def _safe_server_block(*directives: str) -> str:
         "    deny all;",
         "}",
     )
-    lines = directives + safe_directives
+    redirect_directives = (
+        ("return 301 https://$host$request_uri;",) if include_http_redirect else ()
+    )
+    lines = directives + redirect_directives + safe_directives
 
     return "server {\n" + "".join(f"    {line}\n" for line in lines) + "}\n"
 
@@ -642,6 +644,55 @@ def test_analyze_nginx_config_accepts_cis_policy_control_baseline(
     assert not (new_rule_ids & {finding.rule_id for finding in result.findings})
 
 
+def test_analyze_nginx_config_ignores_unused_short_log_format(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    log_format main \"$time_iso8601 $remote_addr $remote_user $request $status $http_user_agent\";\n"
+        "    log_format debug \"$remote_addr\";\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name example.com;\n"
+        "        return 301 https://$host$request_uri;\n"
+        "        access_log /var/log/nginx/access.log main;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.log_format_missing_fields"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_accepts_short_https_return_redirect(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    server_name example.com;\n"
+        "    return https://example.com$request_uri;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_http_to_https_redirect"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_accepts_normalized_proxy_source_headers(
     tmp_path: Path,
 ) -> None:
@@ -675,6 +726,7 @@ def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: 
             _safe_server_block(
                 "listen 80;",
                 "listen 80;",
+                include_http_redirect=True,
             )
         ),
         encoding="utf-8",
@@ -702,6 +754,7 @@ def test_analyze_nginx_config_does_not_report_when_listen_values_differ(tmp_path
             _safe_server_block(
                 "listen 80;",
                 "listen 443;",
+                include_http_redirect=True,
             )
         ),
         encoding="utf-8",
@@ -937,7 +990,10 @@ def test_analyze_nginx_config_does_not_report_executable_scripts_for_root_locati
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert result.findings == []
+    assert not any(
+        finding.rule_id == "nginx.executable_scripts_allowed_in_uploads"
+        for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_reports_executable_scripts_allowed_in_media_location(
@@ -1033,7 +1089,10 @@ def test_analyze_nginx_config_does_not_report_missing_http_method_restrictions_f
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert result.findings == []
+    assert not any(
+        finding.rule_id == "nginx.missing_http_method_restrictions"
+        for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_reports_missing_http_method_restrictions_for_api(
@@ -1515,7 +1574,9 @@ def test_analyze_nginx_config_does_not_report_if_outside_location(tmp_path: Path
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert result.findings == []
+    assert not any(
+        finding.rule_id == "nginx.if_in_location" for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
@@ -1553,6 +1614,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
     config_path.write_text(
         _safe_server_block(
             "ssl_protocols TLSv1.2 TLSv1.3;",
+            include_http_redirect=True,
         ),
         encoding="utf-8",
     )
@@ -4416,7 +4478,7 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_port_80_listener
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block("listen 80;"),
+        _safe_server_block("listen 80;", include_http_redirect=True),
         encoding="utf-8",
     )
 
@@ -4449,6 +4511,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
         _safe_server_block(
             "ssl_protocols TLSv1 TLSv1.2;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            include_http_redirect=True,
         ),
         encoding="utf-8",
     )
@@ -4473,6 +4536,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
         _safe_server_block(
             "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            include_http_redirect=True,
         ),
         encoding="utf-8",
     )
@@ -4499,6 +4563,7 @@ def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions
         _safe_server_block(
             "ssl_protocols TLSv1.2 TLSv1.3;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            include_http_redirect=True,
         ),
         encoding="utf-8",
     )

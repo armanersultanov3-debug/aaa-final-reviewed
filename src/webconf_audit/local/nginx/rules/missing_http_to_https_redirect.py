@@ -71,7 +71,11 @@ def _listen_targets_http(directive: DirectiveNode) -> bool:
 
 def _has_https_redirect(server_block: BlockNode) -> bool:
     for directive in find_child_directives(server_block, "return"):
-        if not directive.args or directive.args[0] not in _REDIRECT_STATUS_CODES:
+        if not directive.args:
+            continue
+        if len(directive.args) == 1 and directive.args[0].lower().startswith("https://"):
+            return True
+        if directive.args[0] not in _REDIRECT_STATUS_CODES:
             continue
         if any("https://" in arg.lower() for arg in directive.args[1:]):
             return True

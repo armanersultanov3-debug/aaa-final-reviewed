@@ -8,6 +8,7 @@ from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.log_format_missing_fields"
 _NGINX_VARIABLE_RE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z0-9_]+)\}|(?P<plain>[A-Za-z0-9_]+))")
+_ACCESS_LOG_OPTION_PREFIXES = ("buffer=", "flush=", "if=")
 
 _REQUIRED_FIELDS = (
     "$time_iso8601",
@@ -34,9 +35,12 @@ _REQUIRED_FIELDS = (
 )
 def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
+    used_format_names = _used_log_format_names(config_ast)
 
     for node in iter_nodes(config_ast.nodes):
         if not isinstance(node, DirectiveNode) or node.name != "log_format":
+            continue
+        if not node.args or node.args[0] not in used_format_names:
             continue
         format_text = " ".join(node.args[1:])
         parsed_vars = _extract_variables(format_text)
@@ -65,6 +69,27 @@ def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:
         )
 
     return findings
+
+
+def _used_log_format_names(config_ast: ConfigAst) -> set[str]:
+    used_format_names: set[str] = set()
+    for node in iter_nodes(config_ast.nodes):
+        if not isinstance(node, DirectiveNode) or node.name != "access_log":
+            continue
+        if len(node.args) < 2 or node.args[0].lower() == "off":
+            continue
+        format_name = node.args[1]
+        if _is_access_log_option(format_name):
+            continue
+        used_format_names.add(format_name)
+    return used_format_names
+
+
+def _is_access_log_option(arg: str) -> bool:
+    lowered = arg.lower()
+    return lowered == "gzip" or any(
+        lowered.startswith(prefix) for prefix in _ACCESS_LOG_OPTION_PREFIXES
+    )
 
 
 def _extract_variables(format_text: str) -> set[str]:
