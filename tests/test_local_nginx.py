@@ -444,6 +444,9 @@ def _safe_server_block(*directives: str) -> str:
         "client_header_timeout 10s;",
         "send_timeout 10s;",
         "keepalive_timeout 10s;",
+        "ssl_stapling on;",
+        "ssl_stapling_verify on;",
+        "resolver 1.1.1.1;",
         "limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;",
         "limit_req zone=perip burst=10;",
         "limit_conn_zone $binary_remote_addr zone=addr:10m;",
@@ -1906,6 +1909,220 @@ def test_analyze_nginx_config_reports_ssl_stapling_missing_resolver_when_only_lo
     assert result.issues == []
     assert any(
         finding.rule_id == "nginx.ssl_stapling_missing_resolver" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_stapling_disabled_when_directive_missing(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_stapling_disabled_when_off(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_stapling off;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_ssl_stapling_disabled_when_on(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_stapling on;\n"
+        "    ssl_stapling_verify on;\n"
+        "    resolver 1.1.1.1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_ssl_stapling_on_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling on;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_stapling_verify on;\n"
+        "        resolver 1.1.1.1;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_server_override_of_http_ssl_stapling(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling on;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_stapling off;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_stapling_disabled_when_inherited_off_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling off;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_uses_last_ssl_stapling_value(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_stapling off;\n"
+        "    ssl_stapling on;\n"
+        "    ssl_stapling_verify on;\n"
+        "    resolver 1.1.1.1;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_ssl_stapling_disabled_for_non_tls_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n    listen 80;\n}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_stapling_disabled_when_only_location_has_it(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    location / {\n"
+        "        ssl_stapling on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_disabled" for finding in result.findings
     )
 
 
