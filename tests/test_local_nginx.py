@@ -3514,142 +3514,104 @@ def test_analyze_nginx_config_does_not_report_missing_limit_conn_zone_when_only_
     assert not any(finding.rule_id == "nginx.missing_limit_conn_zone" for finding in result.findings)
 
 
-def test_analyze_nginx_config_reports_limit_conn_zone_not_per_ip(
+@pytest.mark.parametrize(
+    ("config_text", "expected_rule_id"),
+    [
+        pytest.param(
+            "http {\n"
+            "    limit_conn_zone $server_name zone=addr:10m;\n"
+            "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 10;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_conn_zone_not_per_ip",
+            id="limit-conn-zone-not-per-ip",
+        ),
+        pytest.param(
+            "http {\n"
+            "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+            "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 0;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_conn_invalid_limit",
+            id="limit-conn-invalid-limit",
+        ),
+        pytest.param(
+            "http {\n"
+            "    limit_req_zone $server_name zone=perip:10m rate=10r/s;\n"
+            "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 10;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_req_zone_not_per_ip",
+            id="limit-req-zone-not-per-ip",
+        ),
+        pytest.param(
+            "http {\n"
+            "    limit_req_zone $binary_remote_addr zone=perip:10m rate=0r/s;\n"
+            "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 10;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_req_zone_invalid_rate",
+            id="limit-req-zone-zero-rate",
+        ),
+        pytest.param(
+            "http {\n"
+            "    limit_req_zone $binary_remote_addr zone=perip:10m;\n"
+            "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 10;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_req_zone_invalid_rate",
+            id="limit-req-zone-missing-rate",
+        ),
+        pytest.param(
+            "http {\n"
+            "    limit_req_zone $binary_remote_addr zone=login:10m rate=10r/s;\n"
+            "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        limit_req zone=perip burst=10;\n"
+            "        limit_conn addr 10;\n"
+            "    }\n"
+            "}\n",
+            "nginx.limit_req_unknown_zone",
+            id="limit-req-unknown-zone",
+        ),
+    ],
+)
+def test_analyze_nginx_config_reports_limit_quality_findings(
     tmp_path: Path,
+    config_text: str,
+    expected_rule_id: str,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        "http {\n"
-        "    limit_conn_zone $server_name zone=addr:10m;\n"
-        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 10;\n"
-        "    }\n"
-        "}\n",
+        config_text,
         encoding="utf-8",
     )
 
     result = analyze_nginx_config(str(config_path))
 
     assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_conn_zone_not_per_ip" for f in result.findings)
-
-
-def test_analyze_nginx_config_reports_limit_conn_invalid_limit(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        "http {\n"
-        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
-        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 0;\n"
-        "    }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-
-    result = analyze_nginx_config(str(config_path))
-
-    assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_conn_invalid_limit" for f in result.findings)
-
-
-def test_analyze_nginx_config_reports_limit_req_zone_not_per_ip(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        "http {\n"
-        "    limit_req_zone $server_name zone=perip:10m rate=10r/s;\n"
-        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 10;\n"
-        "    }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-
-    result = analyze_nginx_config(str(config_path))
-
-    assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_req_zone_not_per_ip" for f in result.findings)
-
-
-def test_analyze_nginx_config_reports_limit_req_zone_invalid_rate(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        "http {\n"
-        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=0r/s;\n"
-        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 10;\n"
-        "    }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-
-    result = analyze_nginx_config(str(config_path))
-
-    assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_req_zone_invalid_rate" for f in result.findings)
-
-
-def test_analyze_nginx_config_reports_limit_req_zone_missing_rate(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        "http {\n"
-        "    limit_req_zone $binary_remote_addr zone=perip:10m;\n"
-        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 10;\n"
-        "    }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-
-    result = analyze_nginx_config(str(config_path))
-
-    assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_req_zone_invalid_rate" for f in result.findings)
-
-
-def test_analyze_nginx_config_reports_limit_req_unknown_zone(
-    tmp_path: Path,
-) -> None:
-    config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        "http {\n"
-        "    limit_req_zone $binary_remote_addr zone=login:10m rate=10r/s;\n"
-        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
-        "    server {\n"
-        "        listen 80;\n"
-        "        limit_req zone=perip burst=10;\n"
-        "        limit_conn addr 10;\n"
-        "    }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-
-    result = analyze_nginx_config(str(config_path))
-
-    assert result.issues == []
-    assert any(f.rule_id == "nginx.limit_req_unknown_zone" for f in result.findings)
+    assert any(f.rule_id == expected_rule_id for f in result.findings)
 
 
 def test_analyze_nginx_config_accepts_per_ip_limit_quality_controls(
