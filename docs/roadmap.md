@@ -164,6 +164,82 @@ Acceptance criteria:
 - Rule metadata can eventually power reports grouped by standard.
 - The project keeps false positives lower priority than raw rule count.
 
+## Cross-Server Precision Backlog
+
+These items support the Stage 2 goal of adding coverage without increasing
+noise. They should be handled before or alongside new rule families when the
+same limitation would otherwise create repeated false positives.
+
+### Redirect-only scopes
+
+Detect scopes that only redirect requests and do not serve local content. For
+those scopes, skip checks that do not meaningfully apply to redirect responses,
+such as content security headers, hidden-file deny rules, backup-file deny
+rules, body-size limits, and per-content rate limits.
+
+Applicability:
+
+| Server | Notes |
+|--------|-------|
+| Nginx | Common `server { return 301 ...; }` and rewrite-only redirect hosts. |
+| Apache | Common `Redirect`, `RedirectMatch`, and rewrite-only virtual hosts. |
+| Lighttpd | Redirect-only conditional scopes can be modeled conservatively. |
+| IIS | Applies to `httpRedirect` and rewrite-only sites, while respecting XML inheritance. |
+
+### Inheritance-aware missing checks
+
+Rules that report missing directives should consult the effective parent
+configuration before emitting a finding. A server block, virtual host, or site
+should not be reported as missing a setting when an inherited value already
+applies.
+
+Applicability:
+
+| Server | Notes |
+|--------|-------|
+| Nginx | Add effective `main -> http -> server -> location` handling for inherited directives. |
+| Apache | Extend existing effective helpers so more rules consume inherited `VirtualHost`, `Directory`, and `Location` state. |
+| Lighttpd | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
+| IIS | Prefer effective merged XML sections for rules that currently inspect only the local document. |
+
+### TLS hardening expansion
+
+Add missing-policy checks where the server exposes the setting locally, and use
+external TLS probing where local configuration cannot reliably show the value.
+
+Planned checks:
+
+- Missing TLS protocol policy, for example Nginx `ssl_protocols` or Apache
+  `SSLProtocol`.
+- TLS session settings, for example Nginx `ssl_session_cache` /
+  `ssl_session_timeout` or Apache `SSLSessionCache` /
+  `SSLSessionCacheTimeout`.
+- OCSP stapling not enabled at all, complementing existing checks for
+  incomplete stapling configuration.
+- Default TLS virtual host behavior, such as Nginx `listen 443 default_server
+  ssl` or the first/default Apache TLS virtual host serving unexpected host
+  names without a deliberate catch-all.
+
+Server notes:
+
+| Server | Notes |
+|--------|-------|
+| Nginx | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS hosts. |
+| Apache | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS virtual hosts. |
+| Lighttpd | Coverage depends on the TLS backend and modeled OpenSSL directives. |
+| IIS | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown, while external probing should provide the reliable signal. |
+
+### Severity calibration and report grouping
+
+Tune severity by context instead of treating every missing hardening directive
+the same way. Missing HSTS on an active TLS endpoint, missing TLS policy, and
+missing request limits on a public file listing can deserve stronger treatment
+than generic low-severity advice.
+
+Reports should also group repeated low-severity findings that share the same
+rule, recommendation, and effective cause, while preserving exact source
+locations in text and JSON output.
+
 ## Current Priority
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
