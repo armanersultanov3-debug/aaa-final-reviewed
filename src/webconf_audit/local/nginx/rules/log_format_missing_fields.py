@@ -8,7 +8,7 @@ from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.log_format_missing_fields"
 _NGINX_VARIABLE_RE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z0-9_]+)\}|(?P<plain>[A-Za-z0-9_]+))")
-_ACCESS_LOG_OPTION_PREFIXES = ("buffer=", "flush=", "if=")
+_ACCESS_LOG_OPTION_PREFIXES = ("buffer=", "flush=", "gzip=", "if=")
 
 _REQUIRED_FIELDS = (
     "$time_iso8601",

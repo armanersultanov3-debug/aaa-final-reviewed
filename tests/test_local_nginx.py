@@ -451,10 +451,6 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
         "limit_req zone=perip burst=10;",
         "limit_conn_zone $binary_remote_addr zone=addr:10m;",
         "limit_conn addr 10;",
-        (
-            'log_format main "$time_iso8601 $remote_addr $remote_user '
-            '$request $status $http_user_agent";'
-        ),
         "access_log /var/log/nginx/access.log main;",
         "error_log /var/log/nginx/error.log warn;",
         "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
@@ -479,9 +475,20 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
 
 
 def _http_block(*blocks: str) -> str:
-    content = "".join("".join(f"    {line}\n" for line in block.splitlines()) for block in blocks)
+    content_blocks = blocks + (_safe_http_log_format(),)
+    content = "".join(
+        "".join(f"    {line}\n" for line in block.splitlines())
+        for block in content_blocks
+    )
 
     return f"http {{\n{content}}}\n"
+
+
+def _safe_http_log_format() -> str:
+    return (
+        'log_format main "$time_iso8601 $remote_addr $remote_user '
+        '$request $status $http_user_agent";'
+    )
 
 
 @pytest.mark.parametrize(
@@ -549,6 +556,14 @@ def _http_block(*blocks: str) -> str:
             "}\n",
             "nginx.missing_http_to_https_redirect",
             id="named-server-without-listen-defaults-to-http",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 127.0.0.1;\n"
+            "    server_name example.com;\n"
+            "}\n",
+            "nginx.missing_http_to_https_redirect",
+            id="implicit-http-address-listen",
         ),
         pytest.param(
             "server {\n"
@@ -657,6 +672,32 @@ def test_analyze_nginx_config_ignores_unused_short_log_format(
         "        server_name example.com;\n"
         "        return 301 https://$host$request_uri;\n"
         "        access_log /var/log/nginx/access.log main;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.log_format_missing_fields"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_ignores_access_log_gzip_option_as_format_name(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    log_format main \"$time_iso8601 $remote_addr $remote_user $request $status $http_user_agent\";\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name example.com;\n"
+        "        return 301 https://$host$request_uri;\n"
+        "        access_log /var/log/nginx/access.log gzip=5;\n"
         "    }\n"
         "}\n",
         encoding="utf-8",
@@ -1584,11 +1625,13 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "listen 443 ssl http2;",
-            "ssl_certificate cert.pem;",
-            "ssl_certificate_key cert.key;",
-            'add_header Strict-Transport-Security "max-age=31536000";',
+        _http_block(
+            _safe_server_block(
+                "listen 127.0.0.1:443 ssl http2;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+            )
         ),
         encoding="utf-8",
     )
@@ -1604,7 +1647,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
     assert finding.title == "Missing ssl_ciphers directive"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 1
+    assert finding.location.line == 2
 
 
 def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_present(
@@ -1612,9 +1655,11 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "ssl_protocols TLSv1.2 TLSv1.3;",
-            include_http_redirect=True,
+        _http_block(
+            _safe_server_block(
+                "ssl_protocols TLSv1.2 TLSv1.3;",
+                include_http_redirect=True,
+            )
         ),
         encoding="utf-8",
     )
@@ -1632,13 +1677,15 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "listen 443 ssl http2;",
-            "ssl_certificate cert.pem;",
-            "ssl_certificate_key cert.key;",
-            "ssl_ciphers HIGH:!aNULL:!MD5;",
-            "ssl_prefer_server_ciphers on;",
-            'add_header Strict-Transport-Security "max-age=31536000";',
+        _http_block(
+            _safe_server_block(
+                "listen 127.0.0.1:443 ssl http2;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                "ssl_prefer_server_ciphers on;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+            )
         ),
         encoding="utf-8",
     )
@@ -4396,13 +4443,15 @@ def test_analyze_nginx_config_reports_missing_content_security_policy_when_only_
 def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "listen 443 ssl;",
-            'add_header Strict-Transport-Security "max-age=31536000";',
-            "ssl_certificate /etc/ssl/cert.pem;",
-            "ssl_certificate_key /etc/ssl/key.pem;",
-            "ssl_ciphers HIGH:!aNULL:!MD5;",
-            "ssl_prefer_server_ciphers on;",
+        _http_block(
+            _safe_server_block(
+                "listen 127.0.0.1:443 ssl;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+                "ssl_certificate /etc/ssl/cert.pem;",
+                "ssl_certificate_key /etc/ssl/key.pem;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                "ssl_prefer_server_ciphers on;",
+            )
         ),
         encoding="utf-8",
     )
@@ -4418,7 +4467,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
     assert finding.title == "TLS listener missing http2 parameter"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 2
+    assert finding.location.line == 3
 
 
 def test_analyze_nginx_config_does_not_report_missing_http2_when_http2_is_present(
@@ -4478,7 +4527,9 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_port_80_listener
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block("listen 80;", include_http_redirect=True),
+        _http_block(
+            _safe_server_block("listen 127.0.0.1:80;", include_http_redirect=True)
+        ),
         encoding="utf-8",
     )
 
@@ -4494,7 +4545,7 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_443_without_ssl(
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block("listen 443;"),
+        _http_block(_safe_server_block("listen 127.0.0.1:443;")),
         encoding="utf-8",
     )
 
@@ -4502,16 +4553,21 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_443_without_ssl(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert result.findings == []
+    assert not any(
+        finding.rule_id == "nginx.missing_http2_on_tls_listener"
+        for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "ssl_protocols TLSv1 TLSv1.2;",
-            "ssl_ciphers HIGH:!aNULL:!MD5;",
-            include_http_redirect=True,
+        _http_block(
+            _safe_server_block(
+                "ssl_protocols TLSv1 TLSv1.2;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                include_http_redirect=True,
+            )
         ),
         encoding="utf-8",
     )
@@ -4527,16 +4583,18 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 2
+    assert finding.location.line == 3
 
 
 def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
-            "ssl_ciphers HIGH:!aNULL:!MD5;",
-            include_http_redirect=True,
+        _http_block(
+            _safe_server_block(
+                "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                include_http_redirect=True,
+            )
         ),
         encoding="utf-8",
     )
@@ -4552,7 +4610,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 2
+    assert finding.location.line == 3
 
 
 def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions_only(
@@ -4560,10 +4618,12 @@ def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _safe_server_block(
-            "ssl_protocols TLSv1.2 TLSv1.3;",
-            "ssl_ciphers HIGH:!aNULL:!MD5;",
-            include_http_redirect=True,
+        _http_block(
+            _safe_server_block(
+                "ssl_protocols TLSv1.2 TLSv1.3;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                include_http_redirect=True,
+            )
         ),
         encoding="utf-8",
     )

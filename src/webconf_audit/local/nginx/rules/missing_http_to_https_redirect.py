@@ -66,7 +66,21 @@ def _is_named_http_server(server_block: BlockNode) -> bool:
 def _listen_targets_http(directive: DirectiveNode) -> bool:
     if listen_uses_tls(directive) or "default_server" in directive.args:
         return False
-    return any(arg == "80" or arg.endswith(":80") for arg in directive.args)
+    return any(
+        arg == "80" or arg.endswith(":80") or _is_implicit_http_listen_arg(arg)
+        for arg in directive.args
+    )
+
+
+def _is_implicit_http_listen_arg(arg: str) -> bool:
+    lowered = arg.lower()
+    if lowered in {"bind", "default_server", "http2", "proxy_protocol", "ssl"}:
+        return False
+    if "/" in arg or "=" in arg or arg.isdigit():
+        return False
+    if arg.startswith("[") and arg.endswith("]"):
+        return True
+    return ":" not in arg
 
 
 def _has_https_redirect(server_block: BlockNode) -> bool:
