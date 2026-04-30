@@ -16,6 +16,24 @@ from webconf_audit.rule_registry import rule
 RULE_ID = "nginx.missing_http_to_https_redirect"
 
 _REDIRECT_STATUS_CODES = {"301", "302", "307", "308"}
+_LISTEN_OPTION_TOKENS = {
+    "accept_filter",
+    "backlog",
+    "bind",
+    "default_server",
+    "deferred",
+    "fastopen",
+    "http2",
+    "ipv6only",
+    "proxy_protocol",
+    "quic",
+    "rcvbuf",
+    "reuseaddr",
+    "reuseport",
+    "sndbuf",
+    "so_keepalive",
+    "ssl",
+}
 
 
 @rule(
@@ -66,7 +84,8 @@ def _is_named_http_server(server_block: BlockNode) -> bool:
 
 
 def _listen_targets_http(directive: DirectiveNode) -> bool:
-    if listen_uses_tls(directive) or "default_server" in directive.args:
+    lowered_args = {arg.lower() for arg in directive.args}
+    if listen_uses_tls(directive) or "default_server" in lowered_args:
         return False
     return any(
         arg == "80" or arg.endswith(":80") or _is_implicit_http_listen_arg(arg)
@@ -76,7 +95,7 @@ def _listen_targets_http(directive: DirectiveNode) -> bool:
 
 def _is_implicit_http_listen_arg(arg: str) -> bool:
     lowered = arg.lower()
-    if lowered in {"bind", "default_server", "http2", "proxy_protocol", "ssl"}:
+    if lowered in _LISTEN_OPTION_TOKENS:
         return False
     if "/" in arg or "=" in arg or arg.isdigit():
         return False

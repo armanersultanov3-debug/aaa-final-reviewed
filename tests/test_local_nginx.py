@@ -430,7 +430,11 @@ def test_analyze_nginx_config_reports_issue_for_mutual_include_cycle(tmp_path: P
 
 
 # nginx rules
-def _safe_server_block(*directives: str, include_http_redirect: bool = False) -> str:
+def _safe_server_block(
+    *directives: str,
+    include_http_redirect: bool = False,
+    include_rate_limits: bool = False,
+) -> str:
     safe_directives = (
         "server_name example.com;",
         "add_header X-Content-Type-Options nosniff;",
@@ -447,8 +451,6 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
         "ssl_stapling on;",
         "ssl_stapling_verify on;",
         "resolver 1.1.1.1;",
-        "limit_req zone=perip burst=10;",
-        "limit_conn addr 10;",
         "access_log /var/log/nginx/access.log;",
         "error_log /var/log/nginx/error.log warn;",
         "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
@@ -464,10 +466,15 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
         "    deny all;",
         "}",
     )
+    rate_limit_directives = (
+        ("limit_req zone=perip burst=10;", "limit_conn addr 10;")
+        if include_rate_limits
+        else ()
+    )
     redirect_directives = (
         ("return 301 https://$host$request_uri;",) if include_http_redirect else ()
     )
-    lines = directives + redirect_directives + safe_directives
+    lines = directives + redirect_directives + rate_limit_directives + safe_directives
 
     return "server {\n" + "".join(f"    {line}\n" for line in lines) + "}\n"
 
@@ -636,7 +643,7 @@ def test_analyze_nginx_config_accepts_cis_policy_control_baseline(
         "        return 301 https://$host$request_uri;\n"
         "        error_log /var/log/nginx/error.log notice;\n"
         "        access_log /var/log/nginx/access.log main;\n"
-        "        add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'\" always;\n"
+        "        add_header Content-Security-Policy \"default-src 'self'; form-action 'self'; frame-ancestors 'self'\" always;\n"
         "        add_header Referrer-Policy strict-origin-when-cross-origin always;\n"
         "        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
         "        proxy_set_header X-Real-IP $remote_addr;\n"
@@ -761,6 +768,27 @@ def test_analyze_nginx_config_rejects_relative_redirect_with_https_query(
     )
 
 
+def test_analyze_nginx_config_ignores_non_http_listen_with_socket_option(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 8080 reuseport;\n"
+        "    server_name example.com;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_http_to_https_redirect"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_accepts_normalized_proxy_source_headers(
     tmp_path: Path,
 ) -> None:
@@ -795,6 +823,7 @@ def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: 
                 "listen 80;",
                 "listen 80;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -823,6 +852,7 @@ def test_analyze_nginx_config_does_not_report_when_listen_values_differ(tmp_path
                 "listen 80;",
                 "listen 443;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -1658,6 +1688,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
                 "ssl_certificate cert.pem;",
                 "ssl_certificate_key cert.key;",
                 'add_header Strict-Transport-Security "max-age=31536000";',
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -1686,6 +1717,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
             _safe_server_block(
                 "ssl_protocols TLSv1.2 TLSv1.3;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -1712,6 +1744,7 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 "ssl_prefer_server_ciphers on;",
                 'add_header Strict-Transport-Security "max-age=31536000";',
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -4516,6 +4549,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
                 "ssl_certificate_key /etc/ssl/key.pem;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 "ssl_prefer_server_ciphers on;",
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -4593,7 +4627,11 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_port_80_listener
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
         _http_block(
-            _safe_server_block("listen 127.0.0.1:80;", include_http_redirect=True)
+            _safe_server_block(
+                "listen 127.0.0.1:80;",
+                include_http_redirect=True,
+                include_rate_limits=True,
+            )
         ),
         encoding="utf-8",
     )
@@ -4610,7 +4648,7 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_443_without_ssl(
 ) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
-        _http_block(_safe_server_block("listen 127.0.0.1:443;")),
+        _http_block(_safe_server_block("listen 127.0.0.1:443;", include_rate_limits=True)),
         encoding="utf-8",
     )
 
@@ -4632,6 +4670,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
                 "ssl_protocols TLSv1 TLSv1.2;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -4659,6 +4698,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
                 "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
@@ -4688,6 +4728,7 @@ def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions
                 "ssl_protocols TLSv1.2 TLSv1.3;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 include_http_redirect=True,
+                include_rate_limits=True,
             )
         ),
         encoding="utf-8",
