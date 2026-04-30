@@ -451,7 +451,7 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
         "limit_req zone=perip burst=10;",
         "limit_conn_zone $binary_remote_addr zone=addr:10m;",
         "limit_conn addr 10;",
-        "access_log /var/log/nginx/access.log main;",
+        "access_log /var/log/nginx/access.log;",
         "error_log /var/log/nginx/error.log warn;",
         "proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;",
         "proxy_set_header X-Real-IP $remote_addr;",
@@ -729,6 +729,28 @@ def test_analyze_nginx_config_accepts_short_https_return_redirect(
 
     assert result.issues == []
     assert not any(
+        finding.rule_id == "nginx.missing_http_to_https_redirect"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_rejects_relative_redirect_with_https_query(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    server_name example.com;\n"
+        "    return 301 /login?next=https://idp.example;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
         finding.rule_id == "nginx.missing_http_to_https_redirect"
         for finding in result.findings
     )
@@ -4068,7 +4090,23 @@ def test_analyze_nginx_config_reports_missing_access_log_when_only_http_has_it(
     assert any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
 
 
-def test_analyze_nginx_config_reports_missing_log_format_when_access_log_is_used(
+def test_analyze_nginx_config_reports_missing_log_format_when_custom_format_is_used(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n    listen 80;\n    access_log /var/log/nginx/access.log main;\n}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(finding.rule_id == "nginx.missing_log_format" for finding in result.findings)
+
+
+def test_analyze_nginx_config_does_not_report_missing_log_format_for_default_format(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
@@ -4081,7 +4119,7 @@ def test_analyze_nginx_config_reports_missing_log_format_when_access_log_is_used
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_log_format" for finding in result.findings)
+    assert not any(finding.rule_id == "nginx.missing_log_format" for finding in result.findings)
 
 
 def test_analyze_nginx_config_does_not_report_missing_log_format_when_log_format_is_present(

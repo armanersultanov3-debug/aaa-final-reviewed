@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
@@ -87,13 +89,17 @@ def _has_https_redirect(server_block: BlockNode) -> bool:
     for directive in find_child_directives(server_block, "return"):
         if not directive.args:
             continue
-        if len(directive.args) == 1 and directive.args[0].lower().startswith("https://"):
+        if len(directive.args) == 1 and _is_https_redirect_target(directive.args[0]):
             return True
         if directive.args[0] not in _REDIRECT_STATUS_CODES:
             continue
-        if any("https://" in arg.lower() for arg in directive.args[1:]):
+        if len(directive.args) > 1 and _is_https_redirect_target(directive.args[1]):
             return True
     return False
+
+
+def _is_https_redirect_target(target: str) -> bool:
+    return urlparse(target.strip()).scheme.lower() == "https"
 
 
 __all__ = ["find_missing_http_to_https_redirect"]
