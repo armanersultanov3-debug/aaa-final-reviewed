@@ -447,9 +447,7 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
         "ssl_stapling on;",
         "ssl_stapling_verify on;",
         "resolver 1.1.1.1;",
-        "limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;",
         "limit_req zone=perip burst=10;",
-        "limit_conn_zone $binary_remote_addr zone=addr:10m;",
         "limit_conn addr 10;",
         "access_log /var/log/nginx/access.log;",
         "error_log /var/log/nginx/error.log warn;",
@@ -475,7 +473,7 @@ def _safe_server_block(*directives: str, include_http_redirect: bool = False) ->
 
 
 def _http_block(*blocks: str) -> str:
-    content_blocks = blocks + (_safe_http_log_format(),)
+    content_blocks = (_safe_http_log_format(), _safe_http_limit_zones()) + blocks
     content = "".join(
         "".join(f"    {line}\n" for line in block.splitlines())
         for block in content_blocks
@@ -488,6 +486,13 @@ def _safe_http_log_format() -> str:
     return (
         'log_format main "$time_iso8601 $remote_addr $remote_user '
         '$request $status $http_user_agent";'
+    )
+
+
+def _safe_http_limit_zones() -> str:
+    return (
+        "limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "limit_conn_zone $binary_remote_addr zone=addr:10m;"
     )
 
 
@@ -807,7 +812,7 @@ def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: 
     assert finding.title == "Duplicate listen directive"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 4
+    assert finding.location.line == 7
 
 
 def test_analyze_nginx_config_does_not_report_when_listen_values_differ(tmp_path: Path) -> None:
@@ -1669,7 +1674,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
     assert finding.title == "Missing ssl_ciphers directive"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 2
+    assert finding.location.line == 5
 
 
 def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_present(
@@ -4122,6 +4127,28 @@ def test_analyze_nginx_config_does_not_report_missing_log_format_for_default_for
     assert not any(finding.rule_id == "nginx.missing_log_format" for finding in result.findings)
 
 
+def test_analyze_nginx_config_does_not_report_missing_log_format_when_named_format_is_defined(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        '    log_format main "$remote_addr";\n'
+        "    server {\n"
+        "        listen 80;\n"
+        "        access_log /var/log/nginx/access.log main;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.missing_log_format" for finding in result.findings)
+
+
 def test_analyze_nginx_config_does_not_report_missing_log_format_when_log_format_is_present(
     tmp_path: Path,
 ) -> None:
@@ -4505,7 +4532,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
     assert finding.title == "TLS listener missing http2 parameter"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 3
+    assert finding.location.line == 6
 
 
 def test_analyze_nginx_config_does_not_report_missing_http2_when_http2_is_present(
@@ -4621,7 +4648,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 3
+    assert finding.location.line == 6
 
 
 def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path) -> None:
@@ -4648,7 +4675,7 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 3
+    assert finding.location.line == 6
 
 
 def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions_only(

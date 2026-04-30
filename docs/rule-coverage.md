@@ -289,7 +289,7 @@ Nginx CIS v3.0.0 gap table:
 | §2.4.2 | `manual-context` | Current coverage validates configured `default_server` rejection behavior through `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on`; absent-default-server policy and runtime invalid-Host behavior remain environment-specific. |
 | §2.5.2 | `probe-depth` | Default error and index page content needs response-body probing or filesystem content inspection. |
 | §2.5.4 | `parser-depth` | Reverse-proxy disclosure checks need proxy-header semantics beyond the current generic header rules. |
-| §3.1 | `manual-context` | Current coverage checks `log_format` presence and recommended request/source/status/user-agent fields; usage of the selected format and organisation-specific JSON/escape policy remain manual. |
+| §3.1 | `manual-context` | Current coverage validates named custom `log_format` references and recommended request/source/status/user-agent fields on referenced formats. Plain `access_log` entries that use Nginx's default format are not flagged; organisation-specific JSON/escape policy remains manual. |
 | §3.3 | `manual-context` | Current coverage checks `error_log` presence and flags `/dev/null` plus overly restrictive `error`/`crit`/`alert`/`emerg` levels; final `warn`/`notice`/`info` level choice remains policy. |
 | §3.4 | `parser-depth` | Current coverage checks common `proxy_pass` source-IP headers; FastCGI, gRPC, trust-chain, and privacy semantics remain follow-up parser/effective-config work. |
 | §4.1.1 | `probe-depth` | Current coverage checks named local HTTP server blocks that redirect with `return` to HTTPS; runtime redirect probes can corroborate later. |
