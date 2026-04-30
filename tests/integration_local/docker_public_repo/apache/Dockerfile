@@ -1,6 +1,6 @@
 FROM httpd:2.4
 
-ARG PUBLIC_REPO_URL=https://github.com/Armanyich/aaa-final-reviewed.git
+ARG PUBLIC_REPO_URL=https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
