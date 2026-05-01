@@ -43,25 +43,12 @@ def _is_safe_permissions_policy(value: str | None) -> bool:
     if value is None:
         return False
 
-    cleaned = value.strip().strip('"').strip("'").lower()
+    cleaned = value.strip().strip('"').strip("'")
     if not cleaned:
         return False
-
-    directives = [
-        directive.strip()
-        for directive in cleaned.split(",")
-        if directive.strip()
-    ]
-    if not directives:
+    if "*" in cleaned:
         return False
-
-    for directive in directives:
-        if "=" not in directive:
-            return False
-        feature, allowlist = directive.split("=", 1)
-        if not feature.strip() or "*" in allowlist:
-            return False
-    return True
+    return "=" in cleaned
 
 
 __all__ = ["find_permissions_policy_unsafe"]

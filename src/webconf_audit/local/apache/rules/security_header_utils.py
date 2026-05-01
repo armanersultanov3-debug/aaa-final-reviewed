@@ -49,6 +49,7 @@ class ApacheHeaderSetting:
 class _HeaderValue:
     value: str | None
     dynamic: bool = False
+    conditional: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,13 +218,16 @@ def iter_effective_header_scopes(
 
     global_collection = _collect_header_settings(config_ast.nodes, normalized_name)
     global_has_header_directive = _has_header_directive(config_ast.nodes)
-    global_has_listen = _has_effective_listen(config_ast, None)
+    global_has_uncovered_listen = _has_uncovered_global_listen(
+        config_ast,
+        virtualhosts,
+    )
 
     global_scope = _build_scope(
         label="global",
         source=_first_source(config_ast.nodes),
         collection=global_collection,
-        auditable=global_has_listen or global_has_header_directive,
+        auditable=global_has_uncovered_listen or global_has_header_directive,
     )
 
     scopes: list[ApacheHeaderScope] = [global_scope]
@@ -308,16 +312,27 @@ def _collect_header_settings(
             index += 1
             continue
 
-        action, name, value, dynamic, condition = parsed
-        collection = _apply_header_action(
-            collection,
-            action=action,
-            name=name,
-            value=value,
-            dynamic=dynamic,
-            source=node.source,
-            condition=condition,
-        )
+        action, name, value, dynamic, conditional, condition = parsed
+        if conditional:
+            collection = _apply_conditional_header_action(
+                collection,
+                action=action,
+                name=name,
+                value=value,
+                dynamic=dynamic,
+                source=node.source,
+                condition=condition,
+            )
+        else:
+            collection = _apply_header_action(
+                collection,
+                action=action,
+                name=name,
+                value=value,
+                dynamic=dynamic,
+                source=node.source,
+                condition=condition,
+            )
         index += 1
     return collection
 
@@ -412,6 +427,48 @@ def _apply_header_action(
     return _HeaderCollection(
         outcomes=new_outcomes,
         next_apply_index=collection.next_apply_index + 1,
+    )
+
+
+def _apply_conditional_header_action(
+    collection: _HeaderCollection,
+    *,
+    action: str,
+    name: str,
+    value: str | None,
+    dynamic: bool,
+    source: ApacheSourceSpan,
+    condition: HeaderCondition,
+) -> _HeaderCollection:
+    applied = _apply_header_action(
+        collection,
+        action=action,
+        name=name,
+        value=value,
+        dynamic=dynamic,
+        source=source,
+        condition=condition,
+    )
+    skipped = _HeaderCollection(
+        outcomes=[_clone_header_state(state) for state in collection.outcomes],
+        next_apply_index=collection.next_apply_index + 1,
+    )
+    return _merge_header_collections(applied, skipped)
+
+
+def _merge_header_collections(
+    *collections: _HeaderCollection,
+) -> _HeaderCollection:
+    outcomes: list[HeaderState] = []
+    seen: set[tuple] = set()
+    next_apply_index = 0
+    for collection in collections:
+        next_apply_index = max(next_apply_index, collection.next_apply_index)
+        for outcome in collection.outcomes:
+            _add_unique_state(outcomes, seen, _clone_header_state(outcome))
+    return _HeaderCollection(
+        outcomes=outcomes or [_empty_header_state()],
+        next_apply_index=next_apply_index,
     )
 
 
@@ -603,7 +660,7 @@ def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) ->
 
 def _parse_header_directive(
     directive: ApacheDirectiveNode,
-) -> tuple[str, str, str | None, bool, HeaderCondition] | None:
+) -> tuple[str, str, str | None, bool, bool, HeaderCondition] | None:
     if directive.name.lower() != "header":
         return None
     args = directive.args
@@ -628,27 +685,113 @@ def _parse_header_directive(
 
     header_name = args[action_index + 1].lower()
     value = _header_value(args[action_index + 2 :])
-    return action, header_name, value.value, value.dynamic, condition
+    return (
+        action,
+        header_name,
+        value.value,
+        value.dynamic,
+        value.conditional,
+        condition,
+    )
 
 
 def _header_value(args: list[str]) -> _HeaderValue:
     value_args: list[str] = []
     dynamic = False
+    conditional = False
     for arg in args:
         lowered = arg.lower()
         if lowered in _HEADER_VALUE_TRAILERS:
             continue
-        if lowered.startswith("env=") or lowered.startswith("expr="):
+        if lowered.startswith("env="):
+            conditional = True
+            continue
+        if lowered.startswith("expr="):
             dynamic = True
             continue
         value_args.append(arg)
 
     if not value_args:
-        return _HeaderValue(None, dynamic=dynamic)
+        return _HeaderValue(None, dynamic=dynamic, conditional=conditional)
     return _HeaderValue(
         " ".join(value_args).strip().strip('"').strip("'"),
         dynamic=dynamic,
+        conditional=conditional,
     )
+
+
+def _has_uncovered_global_listen(
+    config_ast: ApacheConfigAst,
+    virtualhosts: list[ApacheVirtualHostContext],
+) -> bool:
+    listen_addresses = _global_listen_addresses(config_ast.nodes)
+    if not listen_addresses:
+        return False
+
+    covered_addresses = [
+        normalized
+        for context in virtualhosts
+        if _is_unconditional_virtualhost(context)
+        and context.listen_address is not None
+        for normalized in [_normalize_apache_address(context.listen_address)]
+        if normalized is not None
+    ]
+    return any(
+        normalized is not None
+        and not _listen_address_is_covered(normalized, covered_addresses)
+        for normalized in (
+            _normalize_apache_address(address) for address in listen_addresses
+        )
+    )
+
+
+def _global_listen_addresses(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+) -> list[str]:
+    addresses: list[str] = []
+    for node in nodes:
+        if isinstance(node, ApacheDirectiveNode):
+            if node.name.lower() == "listen" and node.args:
+                addresses.append(node.args[0])
+            continue
+        if node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
+            addresses.extend(_global_listen_addresses(node.children))
+    return addresses
+
+
+def _normalize_apache_address(raw: str) -> tuple[str, str] | None:
+    value = raw.strip().lower()
+    if not value:
+        return None
+
+    if value.startswith("[") and "]" in value:
+        host, _, remainder = value[1:].partition("]")
+        port = remainder[1:] if remainder.startswith(":") else ""
+    elif ":" in value:
+        host, port = value.rsplit(":", 1)
+    else:
+        host, port = "*", value
+
+    host = host.strip("[]")
+    if host in {"", "*", "_default_", "0.0.0.0", "::"}:
+        host = "*"
+    port = port.strip()
+    if not port:
+        return None
+    return host, port
+
+
+def _listen_address_is_covered(
+    listen_address: tuple[str, str],
+    covered_addresses: list[tuple[str, str]],
+) -> bool:
+    listen_host, listen_port = listen_address
+    for covered_host, covered_port in covered_addresses:
+        if listen_port != covered_port:
+            continue
+        if listen_host == covered_host or covered_host == "*":
+            return True
+    return False
 
 
 def _has_effective_listen(

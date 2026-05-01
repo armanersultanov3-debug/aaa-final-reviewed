@@ -2483,12 +2483,21 @@ def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition
     matching = [
         finding
         for finding in result.findings
-        if finding.rule_id == "apache.x_frame_options_unsafe"
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
     ]
     assert result.issues == []
-    assert len(matching) == 1
-    assert matching[0].location is not None
-    assert matching[0].location.file_path == str(config_path)
+    assert {finding.rule_id for finding in matching} == {
+        "apache.missing_x_frame_options_header",
+        "apache.x_frame_options_unsafe",
+    }
+    assert all(finding.location is not None for finding in matching)
+    assert {finding.location.file_path for finding in matching if finding.location} == {
+        str(config_path)
+    }
 
 
 @pytest.mark.parametrize(
@@ -3122,7 +3131,7 @@ def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
             "    Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
             "</If>",
             "<Else>",
-            "    Header set X-Frame-Options DENY",
+            "    Header always set X-Frame-Options DENY",
             "</Else>",
             omit_headers={"x-frame-options"},
         ),
@@ -3138,6 +3147,61 @@ def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
         if finding.rule_id == "apache.x_frame_options_unsafe"
     ]
     assert len(matching) == 1
+
+
+def test_analyze_apache_config_accepts_permissions_policy_with_comma_allowlist(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            'Header always set Permissions-Policy "geolocation=(self, https://example.test)"',
+            omit_headers={"permissions-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_permissions_policy_header",
+            "apache.permissions_policy_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_skips_global_headers_when_listen_is_covered(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<VirtualHost *:80>",
+            "    ServerName covered.test",
+            "    Header set X-Frame-Options DENY",
+            "    Header always set X-Frame-Options DENY",
+            "</VirtualHost>",
+            omit_headers=set(_SAFE_SECURITY_HEADER_LINES),
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        and finding.metadata.get("scope_name") == "global"
+        for finding in result.findings
+    )
 
 
 def test_analyze_apache_config_flags_always_onsuccess_multi_instance_unsafe(
