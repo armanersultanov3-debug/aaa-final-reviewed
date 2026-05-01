@@ -77,16 +77,16 @@ def _safe_apache_config_without_headers(
     omit_headers: set[str] | None = None,
 ) -> str:
     omit = {header.lower() for header in omit_headers or set()}
+    base_lines = _safe_apache_config().splitlines()
     omitted_lines = {
         line
         for header, line in _SAFE_SECURITY_HEADER_LINES.items()
-        if header in omit
+        if header in omit and line in base_lines
     }
-    return "\n".join(
-        line
-        for line in _safe_apache_config(*extra_lines).splitlines()
-        if line not in omitted_lines
-    )
+    filtered_lines = [line for line in base_lines if line not in omitted_lines]
+    for extra_line in extra_lines:
+        filtered_lines.extend(extra_line.splitlines())
+    return "\n".join(filtered_lines)
 
 
 def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
@@ -2349,6 +2349,31 @@ def test_analyze_apache_config_reports_missing_security_header_policy(
     assert apache_findings[0].rule_id == rule_id
     assert apache_findings[0].location is not None
     assert apache_findings[0].location.file_path == str(config_path)
+
+
+def test_safe_apache_config_without_headers_preserves_matching_override(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            _SAFE_SECURITY_HEADER_LINES["x-frame-options"],
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
 
 
 @pytest.mark.parametrize(
