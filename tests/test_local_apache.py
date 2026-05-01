@@ -2586,6 +2586,33 @@ def test_analyze_apache_config_reports_missing_for_onsuccess_only_security_heade
     assert matching[0].rule_id == "apache.missing_x_frame_options_header"
 
 
+def test_analyze_apache_config_reports_missing_for_non_exhaustive_header_wrapper(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<IfModule mod_headers.c>",
+            "    Header always set X-Frame-Options DENY",
+            "</IfModule>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_x_frame_options_header"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
 def test_analyze_apache_config_reports_conditional_missing_security_header(
     tmp_path: Path,
 ) -> None:

@@ -233,7 +233,7 @@ def _build_scope(
         source=source,
         outcomes=header_outcomes,
         auditable=auditable,
-        missing_possible=not any(outcome.always for outcome in header_outcomes),
+        missing_possible=any(not outcome.always for outcome in header_outcomes),
     )
 
 
