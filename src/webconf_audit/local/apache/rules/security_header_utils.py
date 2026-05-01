@@ -43,10 +43,16 @@ class ApacheHeaderSetting:
 
 
 @dataclass(frozen=True, slots=True)
+class ApacheHeaderOutcome:
+    always: list[ApacheHeaderSetting]
+    onsuccess: list[ApacheHeaderSetting]
+
+
+@dataclass(frozen=True, slots=True)
 class ApacheHeaderScope:
     label: str
     source: ApacheSourceSpan | None
-    outcomes: list[list[ApacheHeaderSetting]]
+    outcomes: list[ApacheHeaderOutcome]
     auditable: bool
     missing_possible: bool = False
 
@@ -125,23 +131,38 @@ def unsafe_header_findings(
 
 
 def _select_unsafe_outcome(
-    outcomes: list[list[ApacheHeaderSetting]],
+    outcomes: list[ApacheHeaderOutcome],
     is_safe_value: Callable[[str | None], bool],
-) -> tuple[list[ApacheHeaderSetting], ApacheHeaderSetting, str] | None:
+) -> tuple[ApacheHeaderOutcome, ApacheHeaderSetting, str] | None:
     for outcome in outcomes:
-        if not outcome:
-            continue
-        unsafe_settings = [
-            setting for setting in outcome if not is_safe_value(setting.value)
-        ]
-        effective_value = _combine_effective_value(outcome)
-        combined_unsafe = not is_safe_value(effective_value)
-        if not unsafe_settings and not combined_unsafe:
-            continue
-        setting = _last_applied_setting(unsafe_settings or outcome)
-        reported = setting.value if unsafe_settings else effective_value
-        return outcome, setting, reported
+        for settings in (
+            outcome.always,
+            _success_response_settings(outcome),
+        ):
+            unsafe = _select_unsafe_settings(settings, is_safe_value)
+            if unsafe is None:
+                continue
+            setting, reported = unsafe
+            return outcome, setting, reported
     return None
+
+
+def _select_unsafe_settings(
+    settings: list[ApacheHeaderSetting],
+    is_safe_value: Callable[[str | None], bool],
+) -> tuple[ApacheHeaderSetting, str] | None:
+    if not settings:
+        return None
+    unsafe_settings = [
+        setting for setting in settings if not is_safe_value(setting.value)
+    ]
+    effective_value = _combine_effective_value(settings)
+    combined_unsafe = not is_safe_value(effective_value)
+    if not unsafe_settings and not combined_unsafe:
+        return None
+    setting = _last_applied_setting(unsafe_settings or settings)
+    reported = setting.value if unsafe_settings else effective_value
+    return setting, reported
 
 
 def _last_applied_setting(
@@ -206,13 +227,16 @@ def _build_scope(
     collection: _HeaderCollection,
     auditable: bool,
 ) -> ApacheHeaderScope:
-    flat_outcomes = [_flatten_header_state(state) for state in collection.outcomes]
+    header_outcomes = [_split_header_state(state) for state in collection.outcomes]
     return ApacheHeaderScope(
         label=label,
         source=source,
-        outcomes=flat_outcomes,
+        outcomes=header_outcomes,
         auditable=auditable,
-        missing_possible=any(not outcome for outcome in flat_outcomes),
+        missing_possible=any(
+            not outcome.always or not outcome.onsuccess
+            for outcome in header_outcomes
+        ),
     )
 
 
@@ -453,14 +477,46 @@ def _clone_header_state(state: HeaderState) -> HeaderState:
     }
 
 
-def _flatten_header_state(state: HeaderState) -> list[ApacheHeaderSetting]:
-    settings = [
-        setting
-        for condition in _HEADER_CONDITIONS
-        for setting in state.get(condition, [])
-    ]
-    settings.sort(key=_source_order)
-    return settings
+def _split_header_state(state: HeaderState) -> ApacheHeaderOutcome:
+    return ApacheHeaderOutcome(
+        always=_sorted_settings(state.get("always", [])),
+        onsuccess=_sorted_settings(state.get("onsuccess", [])),
+    )
+
+
+def _flatten_header_outcome(
+    outcome: ApacheHeaderOutcome,
+) -> list[ApacheHeaderSetting]:
+    return _sorted_settings([*outcome.always, *outcome.onsuccess])
+
+
+def _success_response_settings(
+    outcome: ApacheHeaderOutcome,
+) -> list[ApacheHeaderSetting]:
+    settings = _flatten_header_outcome(outcome)
+    deduped: list[ApacheHeaderSetting] = []
+    seen_values: set[tuple[str, str | None]] = set()
+    for setting in settings:
+        # Success responses can see both Apache header tables; identical
+        # values are harmless for value-safety checks, conflicting values are not.
+        key = (setting.name.lower(), _canonical_header_value(setting.value))
+        if key in seen_values:
+            continue
+        seen_values.add(key)
+        deduped.append(setting)
+    return deduped
+
+
+def _canonical_header_value(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.strip().strip('"').strip("'").lower()
+
+
+def _sorted_settings(
+    settings: list[ApacheHeaderSetting],
+) -> list[ApacheHeaderSetting]:
+    return sorted(settings, key=_source_order)
 
 
 def _state_key(

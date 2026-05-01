@@ -36,6 +36,18 @@ _SAFE_SECURITY_HEADER_LINES = {
         'Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"'
     ),
 }
+_SAFE_SECURITY_HEADER_ALWAYS_LINES = {
+    header: line.replace("Header set ", "Header always set ", 1)
+    for header, line in _SAFE_SECURITY_HEADER_LINES.items()
+}
+_SAFE_SECURITY_HEADER_BASELINE_LINES = [
+    line
+    for header in _SAFE_SECURITY_HEADER_LINES
+    for line in (
+        _SAFE_SECURITY_HEADER_LINES[header],
+        _SAFE_SECURITY_HEADER_ALWAYS_LINES[header],
+    )
+]
 
 
 def _with_backup_files_restriction(
@@ -44,7 +56,7 @@ def _with_backup_files_restriction(
     include_security_headers: bool = True,
 ) -> str:
     security_headers = (
-        "\n" + "\n".join(_SAFE_SECURITY_HEADER_LINES.values())
+        "\n" + "\n".join(_SAFE_SECURITY_HEADER_BASELINE_LINES)
         if include_security_headers
         else ""
     )
@@ -78,11 +90,16 @@ def _safe_apache_config_without_headers(
 ) -> str:
     omit = {header.lower() for header in omit_headers or set()}
     base_lines = _safe_apache_config().splitlines()
-    omitted_lines = {
-        line
-        for header, line in _SAFE_SECURITY_HEADER_LINES.items()
-        if header in omit and line in base_lines
-    }
+    omitted_lines = set()
+    for header in omit:
+        omitted_lines.update(
+            line
+            for line in (
+                _SAFE_SECURITY_HEADER_LINES.get(header),
+                _SAFE_SECURITY_HEADER_ALWAYS_LINES.get(header),
+            )
+            if line is not None and line in base_lines
+        )
     filtered_lines = [line for line in base_lines if line not in omitted_lines]
     for extra_line in extra_lines:
         filtered_lines.extend(extra_line.splitlines())
@@ -241,7 +258,7 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
                 "Listen 80",
-                *_SAFE_SECURITY_HEADER_LINES.values(),
+                *_SAFE_SECURITY_HEADER_BASELINE_LINES,
                 "<VirtualHost *:80>",
                 "    ServerName example.test",
                 '    <Directory "/var/www/html">',
@@ -2358,6 +2375,7 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
     config_path.write_text(
         _safe_apache_config_without_headers(
             _SAFE_SECURITY_HEADER_LINES["x-frame-options"],
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES["x-frame-options"],
             omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
@@ -2396,6 +2414,7 @@ def test_analyze_apache_config_reports_unsafe_security_header_policy(
     config_path.write_text(
         _safe_apache_config_without_headers(
             header_line,
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES[header_name],
             omit_headers={header_name},
         ),
         encoding="utf-8",
@@ -2446,10 +2465,16 @@ def test_analyze_apache_config_supports_security_header_actions(
     header_line: str,
     rule_id: str | None,
 ) -> None:
+    always_value = (
+        "DENY"
+        if rule_id is not None
+        else header_line.split("X-Frame-Options ", 1)[1]
+    )
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
             header_line,
+            f"Header always set X-Frame-Options {always_value}",
             omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
@@ -2486,6 +2511,7 @@ def test_analyze_apache_config_honors_virtualhost_security_header_override(
             "    ServerName safe.test",
             "    Header unset X-Frame-Options",
             "    Header always set X-Frame-Options DENY",
+            "    Header onsuccess set X-Frame-Options DENY",
             "</VirtualHost>",
         ),
         encoding="utf-8",
@@ -2519,15 +2545,46 @@ def test_analyze_apache_config_keeps_header_conditions_separate(
 
     result = analyze_apache_config(str(config_path))
 
-    assert result.issues == []
-    assert not any(
-        finding.rule_id
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
         in {
             "apache.missing_x_frame_options_header",
             "apache.x_frame_options_unsafe",
         }
-        for finding in result.findings
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].rule_id == "apache.missing_x_frame_options_header"
+
+
+def test_analyze_apache_config_reports_missing_for_onsuccess_only_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options DENY",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
     )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].rule_id == "apache.missing_x_frame_options_header"
 
 
 def test_analyze_apache_config_reports_conditional_missing_security_header(
@@ -2564,9 +2621,11 @@ def test_analyze_apache_config_treats_if_else_header_chain_as_exhaustive(
         _safe_apache_config_without_headers(
             "<IfModule mod_headers.c>",
             "    Header set X-Frame-Options DENY",
+            "    Header always set X-Frame-Options DENY",
             "</IfModule>",
             "<Else>",
             "    Header set X-Frame-Options SAMEORIGIN",
+            "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
             omit_headers={"x-frame-options"},
         ),
@@ -2874,9 +2933,11 @@ def test_analyze_apache_config_treats_if_else_branches_as_alternatives(
         _safe_apache_config_without_headers(
             "<If \"%{HTTP_HOST} == 'a.test'\">",
             "    Header set X-Frame-Options DENY",
+            "    Header always set X-Frame-Options DENY",
             "</If>",
             "<Else>",
             "    Header set X-Frame-Options SAMEORIGIN",
+            "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
             omit_headers={"x-frame-options"},
         ),
@@ -2984,6 +3045,7 @@ def test_analyze_apache_config_accepts_referrer_policy_fallback_chain(
     config_path.write_text(
         _safe_apache_config_without_headers(
             "Header set Referrer-Policy strict-origin-when-cross-origin",
+            "Header always set Referrer-Policy strict-origin-when-cross-origin",
             "Header merge Referrer-Policy no-referrer",
             omit_headers={"referrer-policy"},
         ),
