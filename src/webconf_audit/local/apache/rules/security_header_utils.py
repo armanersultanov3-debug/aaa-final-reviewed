@@ -100,9 +100,12 @@ def unsafe_header_findings(
         unsafe_settings = [
             setting for setting in scope.settings if not is_safe_value(setting.value)
         ]
-        if not unsafe_settings:
+        effective_value = _combine_effective_value(scope.settings)
+        combined_unsafe = not is_safe_value(effective_value)
+        if not unsafe_settings and not combined_unsafe:
             continue
-        setting = unsafe_settings[-1]
+        setting = unsafe_settings[-1] if unsafe_settings else scope.settings[-1]
+        reported_value = setting.value if unsafe_settings else effective_value
         findings.append(
             Finding(
                 rule_id=rule_id,
@@ -110,7 +113,7 @@ def unsafe_header_findings(
                 severity="low",
                 description=(
                     f"{description} Scope: {scope.label}; configured value: "
-                    f"{setting.value or '<missing value>'}."
+                    f"{reported_value or '<missing value>'}."
                 ),
                 recommendation=recommendation,
                 location=SourceLocation(
@@ -125,6 +128,12 @@ def unsafe_header_findings(
     return findings
 
 
+def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str:
+    return ", ".join(
+        setting.value for setting in settings if setting.value is not None
+    )
+
+
 def iter_effective_header_scopes(
     config_ast: ApacheConfigAst,
     header_name: str,
@@ -136,19 +145,15 @@ def iter_effective_header_scopes(
     global_has_header_directive = _has_header_directive(config_ast.nodes)
     global_has_listen = _has_effective_listen(config_ast, None)
 
-    if not virtualhosts:
-        global_settings = _flatten_header_state(global_collection.state)
-        return [
-            ApacheHeaderScope(
-                label="global",
-                source=_first_source(config_ast.nodes),
-                settings=global_settings,
-                auditable=global_has_listen or global_has_header_directive,
-                missing_possible=global_collection.missing_possible,
-            )
-        ]
+    global_scope = ApacheHeaderScope(
+        label="global",
+        source=_first_source(config_ast.nodes),
+        settings=_flatten_header_state(global_collection.state),
+        auditable=global_has_listen or global_has_header_directive,
+        missing_possible=global_collection.missing_possible,
+    )
 
-    scopes: list[ApacheHeaderScope] = []
+    scopes: list[ApacheHeaderScope] = [global_scope]
     for context in virtualhosts:
         collection = _collect_header_settings(
             context.node.children,

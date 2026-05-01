@@ -2736,10 +2736,66 @@ def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_
     result = analyze_apache_config(str(config_path))
 
     assert result.issues == []
-    assert not any(
-        finding.rule_id == "apache.x_frame_options_unsafe"
+    matching = [
+        finding
         for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata.get("scope_name") == "global"
+
+
+def test_analyze_apache_config_flags_always_onsuccess_multi_instance_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess set X-Frame-Options SAMEORIGIN",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
     )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+
+
+def test_analyze_apache_config_audits_global_scope_when_virtualhosts_present(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "<VirtualHost *:80>",
+            "    ServerName covered.test",
+            "    Header unset X-Frame-Options",
+            "    Header set X-Frame-Options DENY",
+            "</VirtualHost>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata.get("scope_name") == "global"
 
 
 def test_analyze_apache_config_accepts_referrer_policy_fallback_chain(
