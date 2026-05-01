@@ -66,6 +66,7 @@ class ApacheVirtualHostContext:
     listen_address: str | None
     node: ApacheBlockNode
     optional_ancestor_names: tuple[str, ...] = ()
+    listen_addresses: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,6 +133,7 @@ def extract_virtualhost_contexts(
                 listen_address=block.args[0] if block.args else None,
                 node=block,
                 optional_ancestor_names=optional_ancestor_names,
+                listen_addresses=tuple(block.args),
             )
         )
 

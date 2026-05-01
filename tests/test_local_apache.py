@@ -109,6 +109,12 @@ def _safe_apache_config_without_headers(
 def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
     config = _safe_apache_config()
     marker = '\n<FilesMatch "\\.(bak|old|swp)$">'
+    if marker not in config:
+        raise AssertionError(
+            "_safe_apache_config_with_late_lines: expected backup-files marker "
+            f"{marker!r} to be present in the safe base config so that late "
+            "lines can be inserted before the FilesMatch block."
+        )
     return config.replace(marker, "\n" + "\n".join(extra_lines) + marker, 1)
 
 
@@ -3128,7 +3134,7 @@ def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
     config_path.write_text(
         _safe_apache_config_without_headers(
             "<If \"%{HTTP_HOST} == 'legacy.test'\">",
-            "    Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
             "</If>",
             "<Else>",
             "    Header always set X-Frame-Options DENY",
@@ -3147,6 +3153,10 @@ def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
         if finding.rule_id == "apache.x_frame_options_unsafe"
     ]
     assert len(matching) == 1
+    assert not any(
+        finding.rule_id == "apache.missing_x_frame_options_header"
+        for finding in result.findings
+    )
 
 
 def test_analyze_apache_config_accepts_permissions_policy_with_comma_allowlist(
@@ -3280,6 +3290,98 @@ def test_analyze_apache_config_accepts_referrer_policy_fallback_chain(
             "apache.missing_referrer_policy_header",
             "apache.referrer_policy_unsafe",
         }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_recognizes_virtualhost_with_multiple_bind_addresses(
+    tmp_path: Path,
+) -> None:
+    safe_vh_headers = (
+        "    Header always set X-Frame-Options DENY",
+        "    Header always set X-Content-Type-Options nosniff",
+        '    Header always set Content-Security-Policy '
+        '"default-src \'self\'; frame-ancestors \'self\'"',
+        "    Header always set Referrer-Policy strict-origin-when-cross-origin",
+        '    Header always set Permissions-Policy '
+        '"geolocation=(), microphone=(), camera=()"',
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            (
+                "ServerSignature Off",
+                "ServerTokens Prod",
+                "TraceEnable Off",
+                "Listen 80",
+                "Listen 443",
+                "<VirtualHost *:80 *:443>",
+                "    ServerName covered.test",
+                *safe_vh_headers,
+                "</VirtualHost>",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    security_header_rules = {
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_permissions_policy_header",
+        "apache.x_frame_options_unsafe",
+        "apache.referrer_policy_unsafe",
+    }
+    assert not any(
+        finding.rule_id in security_header_rules
+        and finding.metadata.get("scope_name") == "global"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_ignores_conditional_listen_when_checking_coverage(
+    tmp_path: Path,
+) -> None:
+    safe_vh_headers = (
+        "    Header always set X-Frame-Options DENY",
+        "    Header always set X-Content-Type-Options nosniff",
+        '    Header always set Content-Security-Policy '
+        '"default-src \'self\'; frame-ancestors \'self\'"',
+        "    Header always set Referrer-Policy strict-origin-when-cross-origin",
+        '    Header always set Permissions-Policy '
+        '"geolocation=(), microphone=(), camera=()"',
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            (
+                "ServerSignature Off",
+                "ServerTokens Prod",
+                "TraceEnable Off",
+                "Listen 80",
+                "<IfDefine ENABLE_TLS>",
+                "    Listen 443",
+                "</IfDefine>",
+                "<VirtualHost *:80>",
+                "    ServerName covered.test",
+                *safe_vh_headers,
+                "</VirtualHost>",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    security_header_rules = {
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_permissions_policy_header",
+    }
+    assert not any(
+        finding.rule_id in security_header_rules
+        and finding.metadata.get("scope_name") == "global"
         for finding in result.findings
     )
 

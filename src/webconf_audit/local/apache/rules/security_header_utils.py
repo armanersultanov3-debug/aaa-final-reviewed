@@ -732,8 +732,8 @@ def _has_uncovered_global_listen(
         normalized
         for context in virtualhosts
         if _is_unconditional_virtualhost(context)
-        and context.listen_address is not None
-        for normalized in [_normalize_apache_address(context.listen_address)]
+        for raw_address in context.listen_addresses
+        for normalized in [_normalize_apache_address(raw_address)]
         if normalized is not None
     ]
     return any(
@@ -755,7 +755,10 @@ def _global_listen_addresses(
                 addresses.append(node.args[0])
             continue
         if node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
-            addresses.extend(_global_listen_addresses(node.children))
+            # Skip conditional wrappers entirely: a Listen inside <If*> blocks
+            # is only active when the condition holds, so it cannot be treated
+            # as an unconditional global Listen for coverage purposes.
+            continue
     return addresses
 
 
