@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **218**
+Total rules: **219**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (135), external (72), universal (11) |
-| Severity | high (12), medium (61), low (134), info (11) |
-| Input kind | ast (101), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (136), external (72), universal (11) |
+| Severity | high (12), medium (61), low (135), info (11) |
+| Input kind | ast (102), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 39
+Count: 40
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -364,6 +364,7 @@ rather than to ".htaccess" itself.
 | `apache.missing_referrer_policy_header` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §5.17 |
 | `apache.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value check only) | CIS Apache HTTP Server 2.4 v2.3.0 §5.17 (partial: validates `no-referrer` / `strict-origin-when-cross-origin` values) |
 | `apache.missing_permissions_policy_header` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (presence only; policy value remains application-specific) |
+| `apache.permissions_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (partial: flags wildcard feature grants; detailed allowlist choices remain application-specific) |
 
 Mapping rationale (apache rules):
 
@@ -398,8 +399,9 @@ Mapping rationale (apache rules):
 - `missing_referrer_policy_header`, `referrer_policy_unsafe` -- Referrer-Policy
   is a hardening header with nuanced privacy tradeoffs, so CWE stays empty and
   OWASP A05 covers the configuration weakness.
-- `missing_permissions_policy_header` -- absent Permissions-Policy leaves
-  browser feature access governed by defaults rather than explicit policy:
+- `missing_permissions_policy_header`, `permissions_policy_unsafe` -- absent
+  or overly broad Permissions-Policy leaves browser feature access governed by
+  defaults or wildcard grants rather than explicit least-privilege policy:
   CWE-693, OWASP A05.
 - `htaccess_enables_cgi`, `options_execcgi_enabled`, `options_includes_enabled`
   -- enabling CGI / SSI from `.htaccess` or `Options` is an attack-surface
@@ -462,7 +464,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.9 | `direct-rule` | Add old HTTP protocol-version checks after defining supported directive signals. |
 | §5.10-§5.13 | `direct-rule` | Current backup/temp file blocking is partial; add explicit `.ht*`, `.git`, `.svn`, and broader extension deny-list checks. |
 | §5.14-§5.15 | `direct-rule` | Add checks for IP-based requests and explicit listen-address policy after defining environment-specific expectations. |
-| §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Remaining work is application-specific Permissions-Policy value judgment and deeper per-directory / runtime response validation. |
+| §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
 | §6.1, §6.3 | `direct-rule` | Existing log checks are presence-only; add severity, filename, format, and destination validation for full coverage. |
 | §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |

@@ -2402,6 +2402,10 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
             "apache.x_frame_options_unsafe",
         ),
         ("Header set Referrer-Policy unsafe-url", "apache.referrer_policy_unsafe"),
+        (
+            'Header set Permissions-Policy "geolocation=*, microphone=()"',
+            "apache.permissions_policy_unsafe",
+        ),
     ],
 )
 def test_analyze_apache_config_reports_unsafe_security_header_policy(
@@ -2709,11 +2713,12 @@ def test_analyze_apache_config_reports_conditional_missing_security_header(
         _safe_apache_config_without_headers(
             "<If \"%{HTTP_HOST} == 'no-header.test'\">",
             "    Header unset X-Frame-Options",
+            "    Header always unset X-Frame-Options",
             "</If>",
             "<Else>",
-            "    Header unset X-Frame-Options",
+            "    Header set X-Frame-Options SAMEORIGIN",
+            "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
-            omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
     )
@@ -3221,7 +3226,7 @@ def test_analyze_apache_config_accepts_referrer_policy_with_unknown_trailing_tok
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            'Header set Referrer-Policy "strict-origin-when-cross-origin, future-policy"',
+            'Header always set Referrer-Policy "strict-origin-when-cross-origin, future-policy"',
             omit_headers={"referrer-policy"},
         ),
         encoding="utf-8",
@@ -3231,7 +3236,11 @@ def test_analyze_apache_config_accepts_referrer_policy_with_unknown_trailing_tok
 
     assert result.issues == []
     assert not any(
-        finding.rule_id == "apache.referrer_policy_unsafe"
+        finding.rule_id
+        in {
+            "apache.referrer_policy_unsafe",
+            "apache.missing_referrer_policy_header",
+        }
         for finding in result.findings
     )
 

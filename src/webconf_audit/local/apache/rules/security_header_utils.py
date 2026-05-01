@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from webconf_audit.local.apache.effective import (
@@ -28,6 +29,7 @@ _DEFAULT_HEADER_CONDITION = "onsuccess"
 _HEADER_SET_ACTIONS = frozenset({"set", "setifempty", "add", "append", "merge"})
 _HEADER_REMOVE_ACTIONS = frozenset({"unset"})
 _HEADER_VALUE_TRAILERS = frozenset({"early", "always"})
+_LOGGER = logging.getLogger(__name__)
 
 HeaderCondition = Literal["always", "onsuccess"]
 HeaderState = dict[HeaderCondition, list["ApacheHeaderSetting"]]
@@ -39,7 +41,7 @@ class ApacheHeaderSetting:
     value: str | None
     source: ApacheSourceSpan
     action: str = "set"
-    apply_index: int = -1
+    apply_index: int = 0
     dynamic: bool = False
 
 
@@ -291,6 +293,13 @@ def _collect_header_settings(
                 )
                 index += 1
                 continue
+            if block_name in _CONDITIONAL_CONTINUATION_BLOCKS:
+                _LOGGER.warning(
+                    "Ignoring standalone Apache %s block at %s:%s",
+                    node.name,
+                    node.source.file_path or "<memory>",
+                    node.source.line,
+                )
             index += 1
             continue
 
@@ -526,8 +535,17 @@ def _success_response_settings(
         if key in seen_values:
             continue
         seen_values.add(key)
-        deduped.append(setting)
+        deduped.append(_canonicalized_header_setting(setting))
     return deduped
+
+
+def _canonicalized_header_setting(
+    setting: ApacheHeaderSetting,
+) -> ApacheHeaderSetting:
+    canonical_value = _canonical_header_value(setting.value)
+    if canonical_value == setting.value:
+        return setting
+    return replace(setting, value=canonical_value)
 
 
 def _canonical_header_value(value: str | None) -> str | None:
