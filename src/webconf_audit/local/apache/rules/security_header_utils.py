@@ -45,15 +45,14 @@ class ApacheHeaderSetting:
 class ApacheHeaderScope:
     label: str
     source: ApacheSourceSpan | None
-    settings: list[ApacheHeaderSetting]
+    outcomes: list[list[ApacheHeaderSetting]]
     auditable: bool
     missing_possible: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class _HeaderCollection:
-    state: HeaderState
-    missing_possible: bool
+    outcomes: list[HeaderState]
 
 
 def missing_header_findings(
@@ -67,7 +66,7 @@ def missing_header_findings(
 ) -> list[Finding]:
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, header_name):
-        if not scope.auditable or (scope.settings and not scope.missing_possible):
+        if not scope.auditable or not scope.missing_possible:
             continue
         findings.append(
             Finding(
@@ -95,17 +94,12 @@ def unsafe_header_findings(
 ) -> list[Finding]:
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, header_name):
-        if not scope.auditable or not scope.settings:
+        if not scope.auditable:
             continue
-        unsafe_settings = [
-            setting for setting in scope.settings if not is_safe_value(setting.value)
-        ]
-        effective_value = _combine_effective_value(scope.settings)
-        combined_unsafe = not is_safe_value(effective_value)
-        if not unsafe_settings and not combined_unsafe:
+        unsafe_outcome = _select_unsafe_outcome(scope.outcomes, is_safe_value)
+        if unsafe_outcome is None:
             continue
-        setting = unsafe_settings[-1] if unsafe_settings else scope.settings[-1]
-        reported_value = setting.value if unsafe_settings else effective_value
+        outcome, setting, reported_value = unsafe_outcome
         findings.append(
             Finding(
                 rule_id=rule_id,
@@ -128,6 +122,26 @@ def unsafe_header_findings(
     return findings
 
 
+def _select_unsafe_outcome(
+    outcomes: list[list[ApacheHeaderSetting]],
+    is_safe_value: Callable[[str | None], bool],
+) -> tuple[list[ApacheHeaderSetting], ApacheHeaderSetting, str] | None:
+    for outcome in outcomes:
+        if not outcome:
+            continue
+        unsafe_settings = [
+            setting for setting in outcome if not is_safe_value(setting.value)
+        ]
+        effective_value = _combine_effective_value(outcome)
+        combined_unsafe = not is_safe_value(effective_value)
+        if not unsafe_settings and not combined_unsafe:
+            continue
+        setting = unsafe_settings[-1] if unsafe_settings else outcome[-1]
+        reported = setting.value if unsafe_settings else effective_value
+        return outcome, setting, reported
+    return None
+
+
 def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str:
     return ", ".join(
         setting.value for setting in settings if setting.value is not None
@@ -145,12 +159,11 @@ def iter_effective_header_scopes(
     global_has_header_directive = _has_header_directive(config_ast.nodes)
     global_has_listen = _has_effective_listen(config_ast, None)
 
-    global_scope = ApacheHeaderScope(
+    global_scope = _build_scope(
         label="global",
         source=_first_source(config_ast.nodes),
-        settings=_flatten_header_state(global_collection.state),
+        collection=global_collection,
         auditable=global_has_listen or global_has_header_directive,
-        missing_possible=global_collection.missing_possible,
     )
 
     scopes: list[ApacheHeaderScope] = [global_scope]
@@ -161,18 +174,34 @@ def iter_effective_header_scopes(
             initial=global_collection,
         )
         scopes.append(
-            ApacheHeaderScope(
+            _build_scope(
                 label=_virtualhost_label(context),
                 source=context.node.source,
-                settings=_flatten_header_state(collection.state),
+                collection=collection,
                 auditable=(
                     _has_effective_listen(config_ast, context)
                     or _has_header_directive(context.node.children)
                 ),
-                missing_possible=collection.missing_possible,
             )
         )
     return scopes
+
+
+def _build_scope(
+    *,
+    label: str,
+    source: ApacheSourceSpan | None,
+    collection: _HeaderCollection,
+    auditable: bool,
+) -> ApacheHeaderScope:
+    flat_outcomes = [_flatten_header_state(state) for state in collection.outcomes]
+    return ApacheHeaderScope(
+        label=label,
+        source=source,
+        outcomes=flat_outcomes,
+        auditable=auditable,
+        missing_possible=any(not outcome for outcome in flat_outcomes),
+    )
 
 
 def _collect_header_settings(
@@ -189,14 +218,14 @@ def _collect_header_settings(
             block_name = node.name.lower()
             if block_name in _IF_CHAIN_START_BLOCKS:
                 branches, index = _collect_conditional_chain(nodes, index)
-                collection = _merge_conditional_branches(
+                collection = _fork_conditional_branches(
                     collection,
                     branches,
                     header_name,
                 )
                 continue
             if block_name in _OPTIONAL_WRAPPER_BLOCKS:
-                collection = _merge_conditional_branches(
+                collection = _fork_conditional_branches(
                     collection,
                     [node],
                     header_name,
@@ -204,7 +233,7 @@ def _collect_header_settings(
                 index += 1
                 continue
             if block_name in _CONDITIONAL_CONTINUATION_BLOCKS:
-                collection = _merge_conditional_branches(
+                collection = _fork_conditional_branches(
                     collection,
                     [node],
                     header_name,
@@ -249,30 +278,25 @@ def _collect_conditional_chain(
     return branches, next_index
 
 
-def _merge_conditional_branches(
+def _fork_conditional_branches(
     collection: _HeaderCollection,
     branches: list[ApacheBlockNode],
     header_name: str,
 ) -> _HeaderCollection:
-    outcomes: list[_HeaderCollection] = [
-        _collect_header_settings(
-            branch.children,
-            header_name,
-            initial=collection,
-        )
-        for branch in branches
-    ]
     has_else = any(branch.name.lower() == "else" for branch in branches)
-    if not has_else:
-        outcomes.append(collection)
-
-    return _HeaderCollection(
-        state=_merge_header_states([outcome.state for outcome in outcomes]),
-        missing_possible=any(
-            outcome.missing_possible or not _state_has_settings(outcome.state)
-            for outcome in outcomes
-        ),
-    )
+    forked: list[HeaderState] = []
+    for outcome in collection.outcomes:
+        starting = _HeaderCollection(outcomes=[_clone_header_state(outcome)])
+        for branch in branches:
+            branch_collection = _collect_header_settings(
+                branch.children,
+                header_name,
+                initial=starting,
+            )
+            forked.extend(branch_collection.outcomes)
+        if not has_else:
+            forked.append(_clone_header_state(outcome))
+    return _HeaderCollection(outcomes=forked or [_empty_header_state()])
 
 
 def _apply_header_action(
@@ -284,29 +308,54 @@ def _apply_header_action(
     source: ApacheSourceSpan,
     condition: HeaderCondition,
 ) -> _HeaderCollection:
-    state = _clone_header_state(collection.state)
-    settings = state[condition]
+    new_outcomes: list[HeaderState] = []
+    for outcome in collection.outcomes:
+        new_outcomes.append(
+            _apply_action_to_state(
+                outcome,
+                action=action,
+                name=name,
+                value=value,
+                source=source,
+                condition=condition,
+            )
+        )
+    return _HeaderCollection(outcomes=new_outcomes)
+
+
+def _apply_action_to_state(
+    state: HeaderState,
+    *,
+    action: str,
+    name: str,
+    value: str | None,
+    source: ApacheSourceSpan,
+    condition: HeaderCondition,
+) -> HeaderState:
+    new_state = _clone_header_state(state)
+    settings = new_state[condition]
     new_setting = ApacheHeaderSetting(
         name=name, value=value, source=source, action=action
     )
 
     if action in _HEADER_REMOVE_ACTIONS:
-        state[condition] = []
+        new_state[condition] = []
     elif action == "set":
-        state[condition] = [new_setting]
+        new_state[condition] = [new_setting]
     elif action == "setifempty":
-        if not settings or collection.missing_possible:
+        if not settings:
             settings.append(new_setting)
-    elif action in {"add", "append", "merge"}:
+    elif action == "add":
         if not settings:
             settings.append(new_setting)
         else:
-            state[condition] = _apply_combine_action(settings, action, new_setting)
-
-    return _HeaderCollection(
-        state=state,
-        missing_possible=not _state_has_settings(state),
-    )
+            new_state[condition] = _apply_combine_action(settings, action, new_setting)
+    elif action in {"append", "merge"}:
+        if not settings:
+            settings.append(new_setting)
+        else:
+            new_state[condition] = _apply_combine_action(settings, action, new_setting)
+    return new_state
 
 
 def _apply_combine_action(
@@ -339,11 +388,9 @@ def _clone_header_collection(
     collection: _HeaderCollection | None,
 ) -> _HeaderCollection:
     if collection is None:
-        state = _empty_header_state()
-        return _HeaderCollection(state=state, missing_possible=True)
+        return _HeaderCollection(outcomes=[_empty_header_state()])
     return _HeaderCollection(
-        state=_clone_header_state(collection.state),
-        missing_possible=collection.missing_possible,
+        outcomes=[_clone_header_state(state) for state in collection.outcomes]
     )
 
 
@@ -358,39 +405,12 @@ def _clone_header_state(state: HeaderState) -> HeaderState:
     }
 
 
-def _merge_header_states(states: list[HeaderState]) -> HeaderState:
-    merged = _empty_header_state()
-    seen: set[
-        tuple[HeaderCondition, str, str | None, str, str | None, int | None]
-    ] = set()
-    for state in states:
-        for condition in _HEADER_CONDITIONS:
-            for setting in state.get(condition, []):
-                key = (
-                    condition,
-                    setting.name,
-                    setting.value,
-                    setting.action,
-                    setting.source.file_path,
-                    setting.source.line,
-                )
-                if key in seen:
-                    continue
-                seen.add(key)
-                merged[condition].append(setting)
-    return merged
-
-
 def _flatten_header_state(state: HeaderState) -> list[ApacheHeaderSetting]:
     return [
         setting
         for condition in _HEADER_CONDITIONS
         for setting in state.get(condition, [])
     ]
-
-
-def _state_has_settings(state: HeaderState) -> bool:
-    return any(state.get(condition) for condition in _HEADER_CONDITIONS)
 
 
 def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> bool:

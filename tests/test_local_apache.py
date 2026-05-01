@@ -2745,6 +2745,64 @@ def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_
     assert matching[0].metadata.get("scope_name") == "global"
 
 
+def test_analyze_apache_config_treats_if_else_branches_as_alternatives(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'a.test'\">",
+            "    Header set X-Frame-Options DENY",
+            "</If>",
+            "<Else>",
+            "    Header set X-Frame-Options SAMEORIGIN",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'legacy.test'\">",
+            "    Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "</If>",
+            "<Else>",
+            "    Header set X-Frame-Options DENY",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+
+
 def test_analyze_apache_config_flags_always_onsuccess_multi_instance_unsafe(
     tmp_path: Path,
 ) -> None:
