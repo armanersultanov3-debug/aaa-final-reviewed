@@ -2390,6 +2390,67 @@ def test_analyze_apache_config_reports_unsafe_security_header_policy(
     assert apache_findings[0].location.file_path == str(config_path)
 
 
+@pytest.mark.parametrize(
+    ("header_line", "rule_id"),
+    [
+        ("Header setifempty X-Frame-Options SAMEORIGIN", None),
+        (
+            "Header setifempty X-Frame-Options "
+            "ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header add X-Frame-Options DENY", None),
+        (
+            "Header add X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header append X-Frame-Options SAMEORIGIN", None),
+        (
+            "Header append X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header merge X-Frame-Options DENY", None),
+        (
+            "Header merge X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+    ],
+)
+def test_analyze_apache_config_supports_security_header_actions(
+    tmp_path: Path,
+    header_line: str,
+    rule_id: str | None,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            header_line,
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    if rule_id is None:
+        assert matching == []
+    else:
+        assert len(matching) == 1
+        assert matching[0].rule_id == rule_id
+        assert matching[0].location is not None
+        assert matching[0].location.file_path == str(config_path)
+
+
 def test_analyze_apache_config_honors_virtualhost_security_header_override(
     tmp_path: Path,
 ) -> None:

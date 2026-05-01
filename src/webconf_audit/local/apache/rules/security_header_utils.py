@@ -20,7 +20,8 @@ from webconf_audit.models import Finding, SourceLocation
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
-_CONDITIONAL_START_BLOCKS = frozenset({"if", "ifdefine", "ifmodule", "ifversion"})
+_IF_CHAIN_START_BLOCKS = frozenset({"if"})
+_OPTIONAL_WRAPPER_BLOCKS = frozenset({"ifdefine", "ifmodule", "ifversion"})
 _CONDITIONAL_CONTINUATION_BLOCKS = frozenset({"else", "elseif"})
 _HEADER_CONDITIONS = ("always", "onsuccess")
 _DEFAULT_HEADER_CONDITION = "onsuccess"
@@ -177,13 +178,21 @@ def _collect_header_settings(
         node = nodes[index]
         if isinstance(node, ApacheBlockNode):
             block_name = node.name.lower()
-            if block_name in _CONDITIONAL_START_BLOCKS:
+            if block_name in _IF_CHAIN_START_BLOCKS:
                 branches, index = _collect_conditional_chain(nodes, index)
                 collection = _merge_conditional_branches(
                     collection,
                     branches,
                     header_name,
                 )
+                continue
+            if block_name in _OPTIONAL_WRAPPER_BLOCKS:
+                collection = _merge_conditional_branches(
+                    collection,
+                    [node],
+                    header_name,
+                )
+                index += 1
                 continue
             if block_name in _CONDITIONAL_CONTINUATION_BLOCKS:
                 collection = _merge_conditional_branches(
