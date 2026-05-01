@@ -2775,6 +2775,38 @@ def test_analyze_apache_config_blames_last_applied_directive_for_combined_unsafe
     assert matching[0].location.line == expected_line
 
 
+def test_analyze_apache_config_preserves_include_apply_order_for_header_blame(
+    tmp_path: Path,
+) -> None:
+    included_path = tmp_path / "included-headers.conf"
+    included_path.write_text(
+        "Header always set X-Frame-Options SAMEORIGIN\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header onsuccess set X-Frame-Options DENY",
+            f'Include "{_posix_path(included_path)}"',
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(included_path)
+    assert matching[0].location.line == 1
+
+
 def test_analyze_apache_config_handles_many_independent_optional_blocks(
     tmp_path: Path,
 ) -> None:

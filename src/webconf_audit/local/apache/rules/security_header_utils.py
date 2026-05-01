@@ -39,6 +39,7 @@ class ApacheHeaderSetting:
     value: str | None
     source: ApacheSourceSpan
     action: str = "set"
+    apply_index: int = -1
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +54,7 @@ class ApacheHeaderScope:
 @dataclass(frozen=True, slots=True)
 class _HeaderCollection:
     outcomes: list[HeaderState]
+    next_apply_index: int = 0
 
 
 def missing_header_findings(
@@ -149,7 +151,7 @@ def _last_applied_setting(
 
 
 def _source_order(setting: ApacheHeaderSetting) -> int:
-    return setting.source.line if setting.source.line is not None else -1
+    return setting.apply_index
 
 
 def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str:
@@ -296,19 +298,30 @@ def _fork_conditional_branches(
     has_else = any(branch.name.lower() == "else" for branch in branches)
     forked: list[HeaderState] = []
     seen: set[tuple] = set()
+    next_apply_index = collection.next_apply_index
     for outcome in collection.outcomes:
-        starting = _HeaderCollection(outcomes=[_clone_header_state(outcome)])
+        starting = _HeaderCollection(
+            outcomes=[_clone_header_state(outcome)],
+            next_apply_index=collection.next_apply_index,
+        )
         for branch in branches:
             branch_collection = _collect_header_settings(
                 branch.children,
                 header_name,
                 initial=starting,
             )
+            next_apply_index = max(
+                next_apply_index,
+                branch_collection.next_apply_index,
+            )
             for branch_outcome in branch_collection.outcomes:
                 _add_unique_state(forked, seen, branch_outcome)
         if not has_else:
             _add_unique_state(forked, seen, _clone_header_state(outcome))
-    return _HeaderCollection(outcomes=forked or [_empty_header_state()])
+    return _HeaderCollection(
+        outcomes=forked or [_empty_header_state()],
+        next_apply_index=next_apply_index,
+    )
 
 
 def _add_unique_state(
@@ -342,9 +355,13 @@ def _apply_header_action(
             value=value,
             source=source,
             condition=condition,
+            apply_index=collection.next_apply_index,
         )
         _add_unique_state(new_outcomes, seen, new_state)
-    return _HeaderCollection(outcomes=new_outcomes)
+    return _HeaderCollection(
+        outcomes=new_outcomes,
+        next_apply_index=collection.next_apply_index + 1,
+    )
 
 
 def _apply_action_to_state(
@@ -355,11 +372,16 @@ def _apply_action_to_state(
     value: str | None,
     source: ApacheSourceSpan,
     condition: HeaderCondition,
+    apply_index: int,
 ) -> HeaderState:
     new_state = _clone_header_state(state)
     settings = new_state[condition]
     new_setting = ApacheHeaderSetting(
-        name=name, value=value, source=source, action=action
+        name=name,
+        value=value,
+        source=source,
+        action=action,
+        apply_index=apply_index,
     )
 
     if action in _HEADER_REMOVE_ACTIONS:
@@ -403,6 +425,7 @@ def _apply_combine_action(
                 value=combined,
                 source=incoming.source,
                 action=incoming.action,
+                apply_index=incoming.apply_index,
             )
         )
     return updated
@@ -414,7 +437,8 @@ def _clone_header_collection(
     if collection is None:
         return _HeaderCollection(outcomes=[_empty_header_state()])
     return _HeaderCollection(
-        outcomes=[_clone_header_state(state) for state in collection.outcomes]
+        outcomes=[_clone_header_state(state) for state in collection.outcomes],
+        next_apply_index=collection.next_apply_index,
     )
 
 
@@ -442,7 +466,10 @@ def _flatten_header_state(state: HeaderState) -> list[ApacheHeaderSetting]:
 def _state_key(
     state: HeaderState,
 ) -> tuple[
-    tuple[HeaderCondition, tuple[tuple[str, str | None, str, str | None, int | None], ...]],
+    tuple[
+        HeaderCondition,
+        tuple[tuple[str, str | None, str, str | None, int | None, int], ...],
+    ],
     ...,
 ]:
     return tuple(
@@ -455,6 +482,7 @@ def _state_key(
                     setting.action,
                     setting.source.file_path,
                     setting.source.line,
+                    setting.apply_index,
                 )
                 for setting in state.get(condition, [])
             ),
