@@ -2587,6 +2587,107 @@ def test_analyze_apache_config_reports_conditional_unsafe_security_header(
     assert matching[0].location.file_path == str(config_path)
 
 
+def test_analyze_apache_config_flags_combined_unsafe_security_header_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options DENY",
+            "Header append X-Frame-Options SAMEORIGIN",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_flags_merge_combined_unsafe_security_header_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set Referrer-Policy strict-origin-when-cross-origin",
+            "Header merge Referrer-Policy unsafe-url",
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.referrer_policy_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_skips_security_headers_when_no_listen(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\nServerTokens Prod\nTraceEnable Off\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.missing_referrer_policy_header",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_skips_inactive_virtualhost_security_headers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\nServerTokens Prod\nTraceEnable Off\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName inactive.test\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.missing_referrer_policy_header",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(
     tmp_path: Path,
 ) -> None:

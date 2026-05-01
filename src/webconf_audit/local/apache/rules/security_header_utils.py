@@ -38,6 +38,7 @@ class ApacheHeaderSetting:
     name: str
     value: str | None
     source: ApacheSourceSpan
+    action: str = "set"
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,7 +160,10 @@ def iter_effective_header_scopes(
                 label=_virtualhost_label(context),
                 source=context.node.source,
                 settings=_flatten_header_state(collection.state),
-                auditable=True,
+                auditable=(
+                    _has_effective_listen(config_ast, context)
+                    or _has_header_directive(context.node.children)
+                ),
                 missing_possible=collection.missing_possible,
             )
         )
@@ -277,7 +281,9 @@ def _apply_header_action(
 ) -> _HeaderCollection:
     state = _clone_header_state(collection.state)
     settings = state[condition]
-    new_setting = ApacheHeaderSetting(name=name, value=value, source=source)
+    new_setting = ApacheHeaderSetting(
+        name=name, value=value, source=source, action=action
+    )
 
     if action in _HEADER_REMOVE_ACTIONS:
         state[condition] = []
@@ -286,13 +292,44 @@ def _apply_header_action(
     elif action == "setifempty":
         if not settings or collection.missing_possible:
             settings.append(new_setting)
-    elif action in {"add", "append", "merge"}:
+    elif action == "add":
         settings.append(new_setting)
+    elif action in {"append", "merge"}:
+        if not settings:
+            settings.append(new_setting)
+        else:
+            state[condition] = _apply_combine_action(settings, action, new_setting)
 
     return _HeaderCollection(
         state=state,
         missing_possible=not _state_has_settings(state),
     )
+
+
+def _apply_combine_action(
+    settings: list[ApacheHeaderSetting],
+    action: str,
+    incoming: ApacheHeaderSetting,
+) -> list[ApacheHeaderSetting]:
+    new_value = (incoming.value or "").strip()
+    updated: list[ApacheHeaderSetting] = []
+    for instance in settings:
+        existing = (instance.value or "").strip()
+        if action == "merge":
+            parts = [part.strip() for part in existing.split(",") if part.strip()]
+            if new_value and new_value in parts:
+                updated.append(instance)
+                continue
+        combined = f"{existing}, {new_value}" if existing else new_value
+        updated.append(
+            ApacheHeaderSetting(
+                name=instance.name,
+                value=combined,
+                source=instance.source,
+                action=instance.action,
+            )
+        )
+    return updated
 
 
 def _clone_header_collection(
@@ -320,7 +357,9 @@ def _clone_header_state(state: HeaderState) -> HeaderState:
 
 def _merge_header_states(states: list[HeaderState]) -> HeaderState:
     merged = _empty_header_state()
-    seen: set[tuple[HeaderCondition, str, str | None, str | None, int | None]] = set()
+    seen: set[
+        tuple[HeaderCondition, str, str | None, str, str | None, int | None]
+    ] = set()
     for state in states:
         for condition in _HEADER_CONDITIONS:
             for setting in state.get(condition, []):
@@ -328,6 +367,7 @@ def _merge_header_states(states: list[HeaderState]) -> HeaderState:
                     condition,
                     setting.name,
                     setting.value,
+                    setting.action,
                     setting.source.file_path,
                     setting.source.line,
                 )
