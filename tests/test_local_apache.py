@@ -2718,6 +2718,77 @@ def test_analyze_apache_config_skips_inactive_virtualhost_security_headers(
     )
 
 
+def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_global(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\n"
+        "ServerTokens Prod\n"
+        "TraceEnable Off\n"
+        "Header set X-Frame-Options ALLOW-FROM https://legacy.example.test\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName inactive.test\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.x_frame_options_unsafe"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_referrer_policy_fallback_chain(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set Referrer-Policy strict-origin-when-cross-origin",
+            "Header merge Referrer-Policy no-referrer",
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_referrer_policy_with_unknown_trailing_token(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            'Header set Referrer-Policy "strict-origin-when-cross-origin, future-policy"',
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.referrer_policy_unsafe"
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(
     tmp_path: Path,
 ) -> None:

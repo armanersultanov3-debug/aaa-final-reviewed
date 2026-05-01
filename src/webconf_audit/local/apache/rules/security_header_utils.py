@@ -95,7 +95,7 @@ def unsafe_header_findings(
 ) -> list[Finding]:
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, header_name):
-        if not scope.settings:
+        if not scope.auditable or not scope.settings:
             continue
         unsafe_settings = [
             setting for setting in scope.settings if not is_safe_value(setting.value)

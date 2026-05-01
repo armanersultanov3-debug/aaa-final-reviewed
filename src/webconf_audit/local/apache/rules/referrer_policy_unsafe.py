@@ -15,6 +15,18 @@ RECOMMENDATION = (
     "or 'Header set Referrer-Policy no-referrer'."
 )
 _SAFE_REFERRER_POLICIES = frozenset({"no-referrer", "strict-origin-when-cross-origin"})
+_KNOWN_REFERRER_POLICIES = frozenset(
+    {
+        "no-referrer",
+        "no-referrer-when-downgrade",
+        "origin",
+        "origin-when-cross-origin",
+        "same-origin",
+        "strict-origin",
+        "strict-origin-when-cross-origin",
+        "unsafe-url",
+    }
+)
 
 
 @rule(
@@ -43,7 +55,14 @@ def find_referrer_policy_unsafe(config_ast: ApacheConfigAst) -> list[Finding]:
 def _is_safe_referrer_policy(value: str | None) -> bool:
     if value is None:
         return False
-    return value.strip().strip('"').strip("'").lower() in _SAFE_REFERRER_POLICIES
+    cleaned = value.strip().strip('"').strip("'").lower()
+    if not cleaned:
+        return False
+    tokens = [token.strip() for token in cleaned.split(",") if token.strip()]
+    for token in reversed(tokens):
+        if token in _KNOWN_REFERRER_POLICIES:
+            return token in _SAFE_REFERRER_POLICIES
+    return False
 
 
 __all__ = ["find_referrer_policy_unsafe"]
