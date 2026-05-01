@@ -76,29 +76,23 @@ def _safe_apache_config_without_headers(
     *extra_lines: str,
     omit_headers: set[str] | None = None,
 ) -> str:
-    omit = omit_headers or set()
-    lines = [
-        "ServerSignature Off",
-        "TraceEnable Off",
-        "ServerTokens Prod",
-        "LimitRequestBody 102400",
-        "LimitRequestFields 100",
-        "ErrorLog logs/error_log",
-        "CustomLog logs/access_log combined",
-        "ErrorDocument 404 /custom404.html",
-        "ErrorDocument 500 /custom500.html",
-        "Listen 80",
-    ]
-    lines.extend(
+    omit = {header.lower() for header in omit_headers or set()}
+    omitted_lines = {
         line
         for header, line in _SAFE_SECURITY_HEADER_LINES.items()
-        if header not in omit
+        if header in omit
+    }
+    return "\n".join(
+        line
+        for line in _safe_apache_config(*extra_lines).splitlines()
+        if line not in omitted_lines
     )
-    lines.extend(extra_lines)
-    return _with_backup_files_restriction(
-        "\n".join(lines),
-        include_security_headers=False,
-    )
+
+
+def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
+    config = _safe_apache_config()
+    marker = '\n<FilesMatch "\\.(bak|old|swp)$">'
+    return config.replace(marker, "\n" + "\n".join(extra_lines) + marker, 1)
 
 
 def test_context_sensitive_directives_normalizes_target_contexts() -> None:
@@ -235,30 +229,30 @@ def test_analyze_apache_config_accepts_files_match_block(tmp_path: Path) -> None
 def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _with_backup_files_restriction(
-            "\n".join(
-                [
-                    "ServerSignature Off",
-                    "ServerTokens Prod",
-                    "TraceEnable Off",
-                    "LimitRequestBody 102400",
-                    "LimitRequestFields 100",
-                    "ErrorLog logs/error_log",
-                    "CustomLog logs/access_log combined",
-                    "ErrorDocument 404 /custom404.html",
-                    "ErrorDocument 500 /custom500.html",
-                    "<VirtualHost *:80>",
-                    "    ServerName example.test",
-                    '    <Directory "/var/www/html">',
-                    "        AllowOverride None",
-                    "        Options -Indexes",
-                    '        <FilesMatch "\\.(bak|old|swp)$">',
-                    "            Require all denied",
-                    "        </FilesMatch>",
-                    "    </Directory>",
-                    "</VirtualHost>",
-                ]
-            )
+        "\n".join(
+            [
+                "ServerSignature Off",
+                "ServerTokens Prod",
+                "TraceEnable Off",
+                "LimitRequestBody 102400",
+                "LimitRequestFields 100",
+                "ErrorLog logs/error_log",
+                "CustomLog logs/access_log combined",
+                "ErrorDocument 404 /custom404.html",
+                "ErrorDocument 500 /custom500.html",
+                "Listen 80",
+                *_SAFE_SECURITY_HEADER_LINES.values(),
+                "<VirtualHost *:80>",
+                "    ServerName example.test",
+                '    <Directory "/var/www/html">',
+                "        AllowOverride None",
+                "        Options -Indexes",
+                '        <FilesMatch "\\.(bak|old|swp)$">',
+                "            Require all denied",
+                "        </FilesMatch>",
+                "    </Directory>",
+                "</VirtualHost>",
+            ]
         ),
         encoding="utf-8",
     )
@@ -2422,6 +2416,114 @@ def test_analyze_apache_config_honors_virtualhost_security_header_override(
         }
         for finding in result.findings
     )
+
+
+def test_analyze_apache_config_keeps_header_conditions_separate(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess unset X-Frame-Options",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_conditional_missing_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_with_late_lines(
+            "<IfModule mod_headers.c>",
+            "    Header unset X-Frame-Options",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_x_frame_options_header"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_treats_if_else_header_chain_as_exhaustive(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<IfModule mod_headers.c>",
+            "    Header set X-Frame-Options DENY",
+            "</IfModule>",
+            "<Else>",
+            "    Header set X-Frame-Options SAMEORIGIN",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_conditional_unsafe_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_with_late_lines(
+            "<IfModule mod_headers.c>",
+            "    Header set Referrer-Policy unsafe-url",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.referrer_policy_unsafe"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
 
 
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal
 
 from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
@@ -19,10 +20,16 @@ from webconf_audit.models import Finding, SourceLocation
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
-_HEADER_CONDITIONS = frozenset({"always", "onsuccess"})
+_CONDITIONAL_START_BLOCKS = frozenset({"if", "ifdefine", "ifmodule", "ifversion"})
+_CONDITIONAL_CONTINUATION_BLOCKS = frozenset({"else", "elseif"})
+_HEADER_CONDITIONS = ("always", "onsuccess")
+_DEFAULT_HEADER_CONDITION = "onsuccess"
 _HEADER_SET_ACTIONS = frozenset({"set", "setifempty", "add", "append", "merge"})
 _HEADER_REMOVE_ACTIONS = frozenset({"unset"})
 _HEADER_VALUE_TRAILERS = frozenset({"early", "always"})
+
+HeaderCondition = Literal["always", "onsuccess"]
+HeaderState = dict[HeaderCondition, list["ApacheHeaderSetting"]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,6 +45,13 @@ class ApacheHeaderScope:
     source: ApacheSourceSpan | None
     settings: list[ApacheHeaderSetting]
     auditable: bool
+    missing_possible: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _HeaderCollection:
+    state: HeaderState
+    missing_possible: bool
 
 
 def missing_header_findings(
@@ -51,7 +65,7 @@ def missing_header_findings(
 ) -> list[Finding]:
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, header_name):
-        if not scope.auditable or scope.settings:
+        if not scope.auditable or (scope.settings and not scope.missing_possible):
             continue
         findings.append(
             Finding(
@@ -116,33 +130,36 @@ def iter_effective_header_scopes(
     virtualhosts = extract_virtualhost_contexts(config_ast)
     normalized_name = header_name.lower()
 
-    global_state = _collect_header_settings(config_ast.nodes, normalized_name)
+    global_collection = _collect_header_settings(config_ast.nodes, normalized_name)
     global_has_header_directive = _has_header_directive(config_ast.nodes)
     global_has_listen = _has_effective_listen(config_ast, None)
 
     if not virtualhosts:
+        global_settings = _flatten_header_state(global_collection.state)
         return [
             ApacheHeaderScope(
                 label="global",
                 source=_first_source(config_ast.nodes),
-                settings=global_state,
+                settings=global_settings,
                 auditable=global_has_listen or global_has_header_directive,
+                missing_possible=global_collection.missing_possible,
             )
         ]
 
     scopes: list[ApacheHeaderScope] = []
     for context in virtualhosts:
-        settings = _collect_header_settings(
+        collection = _collect_header_settings(
             context.node.children,
             normalized_name,
-            initial=global_state,
+            initial=global_collection,
         )
         scopes.append(
             ApacheHeaderScope(
                 label=_virtualhost_label(context),
                 source=context.node.source,
-                settings=settings,
+                settings=_flatten_header_state(collection.state),
                 auditable=True,
+                missing_possible=collection.missing_possible,
             )
         )
     return scopes
@@ -152,38 +169,176 @@ def _collect_header_settings(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     header_name: str,
     *,
-    initial: list[ApacheHeaderSetting] | None = None,
-) -> list[ApacheHeaderSetting]:
-    settings = list(initial or [])
-    for node in nodes:
+    initial: _HeaderCollection | None = None,
+) -> _HeaderCollection:
+    collection = _clone_header_collection(initial)
+    index = 0
+    while index < len(nodes):
+        node = nodes[index]
         if isinstance(node, ApacheBlockNode):
-            if node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
-                settings = _collect_header_settings(
-                    node.children,
+            block_name = node.name.lower()
+            if block_name in _CONDITIONAL_START_BLOCKS:
+                branches, index = _collect_conditional_chain(nodes, index)
+                collection = _merge_conditional_branches(
+                    collection,
+                    branches,
                     header_name,
-                    initial=settings,
                 )
+                continue
+            if block_name in _CONDITIONAL_CONTINUATION_BLOCKS:
+                collection = _merge_conditional_branches(
+                    collection,
+                    [node],
+                    header_name,
+                )
+                index += 1
+                continue
+            index += 1
             continue
 
         parsed = _parse_header_directive(node)
         if parsed is None or parsed[1] != header_name:
+            index += 1
             continue
 
-        action, name, value = parsed
-        if action in _HEADER_REMOVE_ACTIONS:
-            settings = []
-        elif action == "set":
-            settings = [ApacheHeaderSetting(name=name, value=value, source=node.source)]
-        elif action == "setifempty":
-            if not settings:
-                settings = [
-                    ApacheHeaderSetting(name=name, value=value, source=node.source)
-                ]
-        elif action in {"add", "append", "merge"}:
-            settings.append(
-                ApacheHeaderSetting(name=name, value=value, source=node.source)
-            )
-    return settings
+        action, name, value, condition = parsed
+        collection = _apply_header_action(
+            collection,
+            action=action,
+            name=name,
+            value=value,
+            source=node.source,
+            condition=condition,
+        )
+        index += 1
+    return collection
+
+
+def _collect_conditional_chain(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    index: int,
+) -> tuple[list[ApacheBlockNode], int]:
+    branches = [nodes[index]]
+    next_index = index + 1
+    while next_index < len(nodes):
+        next_node = nodes[next_index]
+        if not isinstance(next_node, ApacheBlockNode):
+            break
+        if next_node.name.lower() not in _CONDITIONAL_CONTINUATION_BLOCKS:
+            break
+        branches.append(next_node)
+        next_index += 1
+    return branches, next_index
+
+
+def _merge_conditional_branches(
+    collection: _HeaderCollection,
+    branches: list[ApacheBlockNode],
+    header_name: str,
+) -> _HeaderCollection:
+    outcomes: list[_HeaderCollection] = [
+        _collect_header_settings(
+            branch.children,
+            header_name,
+            initial=collection,
+        )
+        for branch in branches
+    ]
+    has_else = any(branch.name.lower() == "else" for branch in branches)
+    if not has_else:
+        outcomes.append(collection)
+
+    return _HeaderCollection(
+        state=_merge_header_states([outcome.state for outcome in outcomes]),
+        missing_possible=any(
+            outcome.missing_possible or not _state_has_settings(outcome.state)
+            for outcome in outcomes
+        ),
+    )
+
+
+def _apply_header_action(
+    collection: _HeaderCollection,
+    *,
+    action: str,
+    name: str,
+    value: str | None,
+    source: ApacheSourceSpan,
+    condition: HeaderCondition,
+) -> _HeaderCollection:
+    state = _clone_header_state(collection.state)
+    settings = state[condition]
+    new_setting = ApacheHeaderSetting(name=name, value=value, source=source)
+
+    if action in _HEADER_REMOVE_ACTIONS:
+        state[condition] = []
+    elif action == "set":
+        state[condition] = [new_setting]
+    elif action == "setifempty":
+        if not settings or collection.missing_possible:
+            settings.append(new_setting)
+    elif action in {"add", "append", "merge"}:
+        settings.append(new_setting)
+
+    return _HeaderCollection(
+        state=state,
+        missing_possible=not _state_has_settings(state),
+    )
+
+
+def _clone_header_collection(
+    collection: _HeaderCollection | None,
+) -> _HeaderCollection:
+    if collection is None:
+        state = _empty_header_state()
+        return _HeaderCollection(state=state, missing_possible=True)
+    return _HeaderCollection(
+        state=_clone_header_state(collection.state),
+        missing_possible=collection.missing_possible,
+    )
+
+
+def _empty_header_state() -> HeaderState:
+    return {"always": [], "onsuccess": []}
+
+
+def _clone_header_state(state: HeaderState) -> HeaderState:
+    return {
+        condition: list(state.get(condition, []))
+        for condition in _HEADER_CONDITIONS
+    }
+
+
+def _merge_header_states(states: list[HeaderState]) -> HeaderState:
+    merged = _empty_header_state()
+    seen: set[tuple[HeaderCondition, str, str | None, str | None, int | None]] = set()
+    for state in states:
+        for condition in _HEADER_CONDITIONS:
+            for setting in state.get(condition, []):
+                key = (
+                    condition,
+                    setting.name,
+                    setting.value,
+                    setting.source.file_path,
+                    setting.source.line,
+                )
+                if key in seen:
+                    continue
+                seen.add(key)
+                merged[condition].append(setting)
+    return merged
+
+
+def _flatten_header_state(state: HeaderState) -> list[ApacheHeaderSetting]:
+    return [
+        setting
+        for condition in _HEADER_CONDITIONS
+        for setting in state.get(condition, [])
+    ]
+
+
+def _state_has_settings(state: HeaderState) -> bool:
+    return any(state.get(condition) for condition in _HEADER_CONDITIONS)
 
 
 def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> bool:
@@ -200,7 +355,7 @@ def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) ->
 
 def _parse_header_directive(
     directive: ApacheDirectiveNode,
-) -> tuple[str, str, str | None] | None:
+) -> tuple[str, str, str | None, HeaderCondition] | None:
     if directive.name.lower() != "header":
         return None
     args = directive.args
@@ -208,7 +363,13 @@ def _parse_header_directive(
         return None
 
     action_index = 0
-    if args[0].lower() in _HEADER_CONDITIONS:
+    condition: HeaderCondition = _DEFAULT_HEADER_CONDITION
+    first_arg = args[0].lower()
+    if first_arg == "always":
+        condition = "always"
+        action_index = 1
+    elif first_arg == "onsuccess":
+        condition = "onsuccess"
         action_index = 1
     if len(args) <= action_index + 1:
         return None
@@ -219,7 +380,7 @@ def _parse_header_directive(
 
     header_name = args[action_index + 1].lower()
     value = _header_value(args[action_index + 2 :])
-    return action, header_name, value
+    return action, header_name, value, condition
 
 
 def _header_value(args: list[str]) -> str | None:

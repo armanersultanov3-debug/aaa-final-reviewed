@@ -8,14 +8,17 @@ from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.missing_permissions_policy_header"
+TITLE = "Missing Permissions-Policy header"
+DESCRIPTION = "Apache server scope does not define a Permissions-Policy header."
+RECOMMENDATION = "Add a least-privilege Permissions-Policy header."
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Missing Permissions-Policy header",
+    title=TITLE,
     severity="low",
-    description="Apache server scope does not define a Permissions-Policy header.",
-    recommendation="Add a least-privilege Permissions-Policy header.",
+    description=DESCRIPTION,
+    recommendation=RECOMMENDATION,
     category="local",
     server_type="apache",
     tags=("headers",),
@@ -28,9 +31,9 @@ def find_missing_permissions_policy_header(
         config_ast,
         header_name="Permissions-Policy",
         rule_id=RULE_ID,
-        title="Missing Permissions-Policy header",
-        description="Apache server scope does not define a Permissions-Policy header.",
-        recommendation="Add a least-privilege Permissions-Policy header.",
+        title=TITLE,
+        description=DESCRIPTION,
+        recommendation=RECOMMENDATION,
     )
 
 

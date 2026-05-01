@@ -8,18 +8,21 @@ from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.referrer_policy_unsafe"
+TITLE = "Referrer-Policy header is weak"
+DESCRIPTION = "Apache sets Referrer-Policy to a weak value."
+RECOMMENDATION = (
+    "Use 'Header set Referrer-Policy strict-origin-when-cross-origin' "
+    "or 'Header set Referrer-Policy no-referrer'."
+)
 _SAFE_REFERRER_POLICIES = frozenset({"no-referrer", "strict-origin-when-cross-origin"})
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Referrer-Policy header is weak",
+    title=TITLE,
     severity="low",
-    description="Apache sets Referrer-Policy to a weak value.",
-    recommendation=(
-        "Use 'Header set Referrer-Policy strict-origin-when-cross-origin' "
-        "or 'Header set Referrer-Policy no-referrer'."
-    ),
+    description=DESCRIPTION,
+    recommendation=RECOMMENDATION,
     category="local",
     server_type="apache",
     tags=("headers",),
@@ -31,12 +34,9 @@ def find_referrer_policy_unsafe(config_ast: ApacheConfigAst) -> list[Finding]:
         header_name="Referrer-Policy",
         is_safe_value=_is_safe_referrer_policy,
         rule_id=RULE_ID,
-        title="Referrer-Policy header is weak",
-        description="Apache sets Referrer-Policy to a weak value.",
-        recommendation=(
-            "Use 'Header set Referrer-Policy strict-origin-when-cross-origin' "
-            "or 'Header set Referrer-Policy no-referrer'."
-        ),
+        title=TITLE,
+        description=DESCRIPTION,
+        recommendation=RECOMMENDATION,
     )
 
 
