@@ -292,9 +292,7 @@ def _apply_header_action(
     elif action == "setifempty":
         if not settings or collection.missing_possible:
             settings.append(new_setting)
-    elif action == "add":
-        settings.append(new_setting)
-    elif action in {"append", "merge"}:
+    elif action in {"add", "append", "merge"}:
         if not settings:
             settings.append(new_setting)
         else:
@@ -325,8 +323,8 @@ def _apply_combine_action(
             ApacheHeaderSetting(
                 name=instance.name,
                 value=combined,
-                source=instance.source,
-                action=instance.action,
+                source=incoming.source,
+                action=incoming.action,
             )
         )
     return updated

@@ -2613,6 +2613,36 @@ def test_analyze_apache_config_flags_combined_unsafe_security_header_value(
     assert matching[0].location.file_path == str(config_path)
 
 
+def test_analyze_apache_config_flags_add_multi_instance_unsafe_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    add_directive = "Header add X-Frame-Options SAMEORIGIN"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options DENY",
+            add_directive,
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+    config_lines = config_path.read_text(encoding="utf-8").splitlines()
+    expected_line = config_lines.index(add_directive) + 1
+    assert matching[0].location.line == expected_line
+
+
 def test_analyze_apache_config_flags_merge_combined_unsafe_security_header_value(
     tmp_path: Path,
 ) -> None:
