@@ -10,14 +10,18 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.limit_request_body_missing_or_invalid"
+MAX_LIMIT_REQUEST_BODY = 102400
 
 
 @rule(
     rule_id=RULE_ID,
     title="LimitRequestBody not configured safely",
     severity="low",
-    description="Apache config does not define an effective LimitRequestBody baseline.",
-    recommendation="Add a positive integer LimitRequestBody directive in the effective scope.",
+    description="Apache config does not define an effective safe LimitRequestBody baseline.",
+    recommendation=(
+        "Add a positive integer LimitRequestBody directive of 102400 bytes or less "
+        "in the effective scope."
+    ),
     category="local",
     server_type="apache",
     order=316,
@@ -41,7 +45,10 @@ def find_limit_request_body(config_ast: ApacheConfigAst) -> list[Finding]:
                 description=(
                     "Apache config does not define an effective 'LimitRequestBody' baseline."
                 ),
-                recommendation="Add a positive integer 'LimitRequestBody' directive.",
+                recommendation=(
+                    "Add a positive integer 'LimitRequestBody' directive of 102400 "
+                    "bytes or less."
+                ),
                 location=_default_location(config_ast),
             )
         ]
@@ -57,9 +64,13 @@ def find_limit_request_body(config_ast: ApacheConfigAst) -> list[Finding]:
             severity="low",
             description=(
                 "Apache config sets effective 'LimitRequestBody' to "
-                f"'{configured_value}', which is not a valid positive integer baseline."
+                f"'{configured_value}', which is not a positive integer of 102400 "
+                "bytes or less."
             ),
-            recommendation="Set effective 'LimitRequestBody' to a positive integer value.",
+            recommendation=(
+                "Set effective 'LimitRequestBody' to a positive integer value of "
+                "102400 bytes or less."
+            ),
             location=SourceLocation(
                 mode="local",
                 kind="file",
@@ -86,8 +97,8 @@ def _evaluate_virtualhost(
         configured_value = " ".join(directive.args) if directive.args else "<missing value>"
         description = (
             f"VirtualHost '{_virtualhost_label(context)}' sets effective "
-            f"'LimitRequestBody' to '{configured_value}', which is not a valid positive "
-            "integer baseline."
+            f"'LimitRequestBody' to '{configured_value}', which is not a positive "
+            "integer of 102400 bytes or less."
         )
         location = SourceLocation(
             mode="local",
@@ -113,7 +124,10 @@ def _evaluate_virtualhost(
             title="LimitRequestBody not configured safely",
             severity="low",
             description=description,
-            recommendation="Set the effective VirtualHost LimitRequestBody to a positive integer.",
+            recommendation=(
+                "Set the effective VirtualHost LimitRequestBody to a positive integer "
+                "of 102400 bytes or less."
+            ),
             location=location,
         )
     ]
@@ -124,9 +138,10 @@ def _is_valid_limit_value(args: list[str]) -> bool:
         return False
 
     try:
-        return int(args[0]) > 0
+        value = int(args[0])
     except ValueError:
         return False
+    return 0 < value <= MAX_LIMIT_REQUEST_BODY
 
 
 def _virtualhost_label(context: ApacheVirtualHostContext) -> str:

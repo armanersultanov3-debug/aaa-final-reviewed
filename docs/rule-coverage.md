@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **206**
+Total rules: **213**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (123), external (72), universal (11) |
-| Severity | high (12), medium (61), low (122), info (11) |
-| Input kind | ast (89), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (130), external (72), universal (11) |
+| Severity | high (12), medium (61), low (129), info (11) |
+| Input kind | ast (96), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 27
+Count: 34
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -341,8 +341,8 @@ rather than to ".htaccess" itself.
 | `apache.htaccess_weakens_security` | high | mixed | htaccess | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.2 (partial: `.htaccess` can re-enable signature disclosure; not the primary directive check) |
 | `apache.index_options_fancyindexing_enabled` | low | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: directory-listing detail option only) |
 | `apache.index_options_scanhtmltitles_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: directory-listing detail option only) |
-| `apache.limit_request_body_missing_or_invalid` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.4 (partial: requires a positive integer but does not validate `<= 102400`) |
-| `apache.limit_request_fields_missing_or_invalid` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.2 (partial: requires a positive integer but does not validate `<= 100`) |
+| `apache.limit_request_body_missing_or_invalid` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.4 |
+| `apache.limit_request_fields_missing_or_invalid` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.2 |
 | `apache.options_execcgi_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: specific `Options ExecCGI` token only) |
 | `apache.options_includes_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: specific `Options Includes` token only) |
 | `apache.options_indexes` | medium | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: specific `Options Indexes` token only) |
@@ -352,6 +352,13 @@ rather than to ".htaccess" itself.
 | `apache.server_status_exposed` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §2.4 (partial: detects exposed `/server-status`, not loaded-module inventory) |
 | `apache.server_tokens_not_prod` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Apache HTTP Server 2.4 v2.3.0 §8.1 (partial: enforces `Prod`; benchmark also allows `ProductOnly`) |
 | `apache.trace_enable_not_off` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | CIS Apache HTTP Server 2.4 v2.3.0 §5.8 |
+| `apache.file_etag_inodes` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.4 |
+| `apache.timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.1 (partial: explicit directive values only) |
+| `apache.keepalive_disabled` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.2 (partial: explicit directive values only) |
+| `apache.max_keepalive_requests_too_low` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.3 (partial: explicit directive values only) |
+| `apache.keepalive_timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.4 (partial: explicit directive values only) |
+| `apache.limit_request_line_too_high` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.1 (partial: explicit directive values only) |
+| `apache.limit_request_field_size_too_high` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §10.3 (partial: explicit directive values only) |
 
 Mapping rationale (apache rules):
 
@@ -400,10 +407,10 @@ Mapping rationale (apache rules):
   files for titles when rendering a directory listing; only matters once
   listing is already on, so we keep CWE empty and tag OWASP A05.
 - `limit_request_body_missing_or_invalid`, `limit_request_fields_missing_or_invalid`
-  -- absence of `LimitRequestBody` / `LimitRequestFields` lets clients send
-  arbitrarily large bodies or header lists: CWE-770 (allocation of resources
-  without limits or throttling). OWASP empty (no clean DoS-hardening home in
-  the 2021 Top 10).
+  -- absence of `LimitRequestBody` / `LimitRequestFields`, `0`, invalid
+  values, or values above the CIS limit lets clients send arbitrarily large
+  bodies or header lists: CWE-770 (allocation of resources without limits or
+  throttling). OWASP empty (no clean DoS-hardening home in the 2021 Top 10).
 - `options_multiviews_enabled` -- content negotiation can expose unintended
   files (e.g. backup variants), but this is about default behaviour rather
   than a single weakness; CWE empty, OWASP A05.
@@ -415,6 +422,16 @@ Mapping rationale (apache rules):
   available, the classic vector for cross-site tracing (XST) which lets an
   attacker echo back `Authorization` / `Cookie` headers: CWE-200 (information
   exposure), OWASP A05.
+- `file_etag_inodes` -- inode-derived ETag values expose filesystem metadata:
+  CWE-200, OWASP A05.
+- `timeout_too_high`, `keepalive_disabled`,
+  `max_keepalive_requests_too_low`, `keepalive_timeout_too_high` -- Apache
+  timeout / connection reuse values outside the CIS posture increase DoS
+  exposure: CWE-400. OWASP empty for the same DoS-hardening reason used by the
+  Nginx timeout rules.
+- `limit_request_line_too_high`, `limit_request_field_size_too_high` -- overly
+  large request line or header field limits can pass oversized input to
+  downstream applications: CWE-770.
 
 CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
@@ -439,9 +456,10 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
 | §7.3 | `host-depth` | Private-key protection needs filesystem ownership and permission metadata. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
-| §8.4 | `direct-rule` | Add `FileETag` checks to ensure ETag does not include inode data. |
-| §9.1-§9.6 | `direct-rule` | Add timeout and keepalive value validation for DoS controls. |
-| §10.1-§10.4 | `direct-rule` | Existing request-limit checks cover only `LimitRequestFields` and `LimitRequestBody` positive integers; add exact threshold checks plus `LimitRequestLine` and `LimitRequestFieldSize`. |
+| §8.4 | `covered` | `apache.file_etag_inodes` detects explicit `FileETag` values that include inode data. |
+| §9.1-§9.4 | `direct-rule` | Apache timeout and keepalive value checks now cover explicit `Timeout`, `KeepAlive`, `MaxKeepAliveRequests`, and `KeepAliveTimeout` directives; missing/default policy remains a future precision decision. |
+| §9.5-§9.6 | `parser-depth` | `RequestReadTimeout` header/body validation depends on module/default semantics and needs richer module inventory before broad findings are safe. |
+| §10.1-§10.4 | `direct-rule` | Request-limit threshold checks now cover `LimitRequestLine`, `LimitRequestFields`, `LimitRequestFieldSize`, and `LimitRequestBody`, with explicit-value limitations documented in the rule rows. |
 | §11.1-§11.4, §12.1-§12.3 | `host-depth` | SELinux and AppArmor posture require host security-framework inspection. |
 
 ### Lighttpd (Local)
@@ -828,7 +846,7 @@ Progress:
 - [x] Universal rules (11)
 - [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (27) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (34) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
 - [x] IIS local rules (20) — CWE/OWASP/ASVS filled; CIS existing-rule reference
