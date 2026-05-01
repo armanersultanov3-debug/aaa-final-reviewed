@@ -22,7 +22,6 @@ _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
 )
 _IF_CHAIN_START_BLOCKS = frozenset({"if"})
 _OPTIONAL_WRAPPER_BLOCKS = frozenset({"ifdefine", "ifmodule", "ifversion"})
-_CONDITIONAL_CHAIN_START_BLOCKS = _IF_CHAIN_START_BLOCKS | _OPTIONAL_WRAPPER_BLOCKS
 _CONDITIONAL_CONTINUATION_BLOCKS = frozenset({"else", "elseif"})
 _HEADER_CONDITIONS = ("always", "onsuccess")
 _DEFAULT_HEADER_CONDITION = "onsuccess"
@@ -41,6 +40,13 @@ class ApacheHeaderSetting:
     source: ApacheSourceSpan
     action: str = "set"
     apply_index: int = -1
+    dynamic: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _HeaderValue:
+    value: str | None
+    dynamic: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,15 +161,28 @@ def _select_unsafe_settings(
     if not settings:
         return None
     unsafe_settings = [
-        setting for setting in settings if not is_safe_value(setting.value)
+        setting for setting in settings if _is_known_unsafe(setting, is_safe_value)
     ]
     effective_value = _combine_effective_value(settings)
-    combined_unsafe = not is_safe_value(effective_value)
+    combined_unsafe = (
+        effective_value is not None and not is_safe_value(effective_value)
+    )
     if not unsafe_settings and not combined_unsafe:
         return None
     setting = _last_applied_setting(unsafe_settings or settings)
     reported = setting.value if unsafe_settings else effective_value
+    if reported is None:
+        reported = "<dynamic value>"
     return setting, reported
+
+
+def _is_known_unsafe(
+    setting: ApacheHeaderSetting,
+    is_safe_value: Callable[[str | None], bool],
+) -> bool:
+    if setting.value is None and setting.dynamic:
+        return False
+    return not is_safe_value(setting.value)
 
 
 def _last_applied_setting(
@@ -176,10 +195,15 @@ def _source_order(setting: ApacheHeaderSetting) -> int:
     return setting.apply_index
 
 
-def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str:
-    return ", ".join(
+def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str | None:
+    values = [
         setting.value for setting in settings if setting.value is not None
-    )
+    ]
+    if values:
+        return ", ".join(values)
+    if any(not setting.dynamic for setting in settings):
+        return ""
+    return None
 
 
 def iter_effective_header_scopes(
@@ -251,13 +275,21 @@ def _collect_header_settings(
         node = nodes[index]
         if isinstance(node, ApacheBlockNode):
             block_name = node.name.lower()
-            if block_name in _CONDITIONAL_CHAIN_START_BLOCKS:
+            if block_name in _IF_CHAIN_START_BLOCKS:
                 branches, index = _collect_conditional_chain(nodes, index)
                 collection = _fork_conditional_branches(
                     collection,
                     branches,
                     header_name,
                 )
+                continue
+            if block_name in _OPTIONAL_WRAPPER_BLOCKS:
+                collection = _fork_conditional_branches(
+                    collection,
+                    [node],
+                    header_name,
+                )
+                index += 1
                 continue
             index += 1
             continue
@@ -267,12 +299,13 @@ def _collect_header_settings(
             index += 1
             continue
 
-        action, name, value, condition = parsed
+        action, name, value, dynamic, condition = parsed
         collection = _apply_header_action(
             collection,
             action=action,
             name=name,
             value=value,
+            dynamic=dynamic,
             source=node.source,
             condition=condition,
         )
@@ -349,6 +382,7 @@ def _apply_header_action(
     action: str,
     name: str,
     value: str | None,
+    dynamic: bool,
     source: ApacheSourceSpan,
     condition: HeaderCondition,
 ) -> _HeaderCollection:
@@ -360,6 +394,7 @@ def _apply_header_action(
             action=action,
             name=name,
             value=value,
+            dynamic=dynamic,
             source=source,
             condition=condition,
             apply_index=collection.next_apply_index,
@@ -377,6 +412,7 @@ def _apply_action_to_state(
     action: str,
     name: str,
     value: str | None,
+    dynamic: bool,
     source: ApacheSourceSpan,
     condition: HeaderCondition,
     apply_index: int,
@@ -389,6 +425,7 @@ def _apply_action_to_state(
         source=source,
         action=action,
         apply_index=apply_index,
+        dynamic=dynamic,
     )
 
     if action in _HEADER_REMOVE_ACTIONS:
@@ -426,6 +463,8 @@ def _apply_combine_action(
                 updated.append(instance)
                 continue
         combined = f"{existing}, {new_value}" if existing else new_value
+        if not combined and instance.dynamic and incoming.dynamic:
+            combined = None
         updated.append(
             ApacheHeaderSetting(
                 name=instance.name,
@@ -433,6 +472,7 @@ def _apply_combine_action(
                 source=incoming.source,
                 action=incoming.action,
                 apply_index=incoming.apply_index,
+                dynamic=instance.dynamic or incoming.dynamic,
             )
         )
     return updated
@@ -507,7 +547,7 @@ def _state_key(
 ) -> tuple[
     tuple[
         HeaderCondition,
-        tuple[tuple[str, str | None, str, str | None, int | None, int], ...],
+        tuple[tuple[str, str | None, str, str | None, int | None, int, bool], ...],
     ],
     ...,
 ]:
@@ -522,6 +562,7 @@ def _state_key(
                     setting.source.file_path,
                     setting.source.line,
                     setting.apply_index,
+                    setting.dynamic,
                 )
                 for setting in state.get(condition, [])
             ),
@@ -544,7 +585,7 @@ def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) ->
 
 def _parse_header_directive(
     directive: ApacheDirectiveNode,
-) -> tuple[str, str, str | None, HeaderCondition] | None:
+) -> tuple[str, str, str | None, bool, HeaderCondition] | None:
     if directive.name.lower() != "header":
         return None
     args = directive.args
@@ -569,22 +610,27 @@ def _parse_header_directive(
 
     header_name = args[action_index + 1].lower()
     value = _header_value(args[action_index + 2 :])
-    return action, header_name, value, condition
+    return action, header_name, value.value, value.dynamic, condition
 
 
-def _header_value(args: list[str]) -> str | None:
+def _header_value(args: list[str]) -> _HeaderValue:
     value_args: list[str] = []
+    dynamic = False
     for arg in args:
         lowered = arg.lower()
         if lowered in _HEADER_VALUE_TRAILERS:
             continue
         if lowered.startswith("env=") or lowered.startswith("expr="):
+            dynamic = True
             continue
         value_args.append(arg)
 
     if not value_args:
-        return None
-    return " ".join(value_args).strip().strip('"').strip("'")
+        return _HeaderValue(None, dynamic=dynamic)
+    return _HeaderValue(
+        " ".join(value_args).strip().strip('"').strip("'"),
+        dynamic=dynamic,
+    )
 
 
 def _has_effective_listen(

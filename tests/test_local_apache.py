@@ -2434,6 +2434,59 @@ def test_analyze_apache_config_reports_unsafe_security_header_policy(
     assert apache_findings[0].location.file_path == str(config_path)
 
 
+def test_analyze_apache_config_treats_dynamic_security_header_value_as_unknown(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
+def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options "
+            "ALLOW-FROM https://legacy.example.test env=legacy",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
 @pytest.mark.parametrize(
     ("header_line", "rule_id"),
     [
@@ -2613,24 +2666,22 @@ def test_analyze_apache_config_reports_missing_for_non_exhaustive_header_wrapper
     assert matching[0].location.file_path == str(config_path)
 
 
-@pytest.mark.parametrize(
-    ("block_start", "block_end"),
-    [
-        ("<Else>", "</Else>"),
-        ("<ElseIf \"%{HTTP_HOST} == 'legacy.test'\">", "</ElseIf>"),
-    ],
-)
-def test_analyze_apache_config_ignores_standalone_header_continuation_blocks(
+def test_analyze_apache_config_treats_valid_else_if_header_chain_as_exhaustive(
     tmp_path: Path,
-    block_start: str,
-    block_end: str,
 ) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config(
-            block_start,
-            "    Header always unset X-Frame-Options",
-            block_end,
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'primary.test'\">",
+            "    Header always set X-Frame-Options DENY",
+            "</If>",
+            "<ElseIf \"%{HTTP_HOST} == 'legacy.test'\">",
+            "    Header always set X-Frame-Options SAMEORIGIN",
+            "</ElseIf>",
+            "<Else>",
+            "    Header always set X-Frame-Options DENY",
+            "</Else>",
+            omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
     )
@@ -2656,9 +2707,9 @@ def test_analyze_apache_config_reports_conditional_missing_security_header(
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            "<IfModule mod_headers.c>",
+            "<If \"%{HTTP_HOST} == 'no-header.test'\">",
             "    Header unset X-Frame-Options",
-            "</IfModule>",
+            "</If>",
             "<Else>",
             "    Header unset X-Frame-Options",
             "</Else>",
@@ -2686,10 +2737,10 @@ def test_analyze_apache_config_treats_if_else_header_chain_as_exhaustive(
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            "<IfModule mod_headers.c>",
+            "<If \"%{HTTP_HOST} == 'primary.test'\">",
             "    Header set X-Frame-Options DENY",
             "    Header always set X-Frame-Options DENY",
-            "</IfModule>",
+            "</If>",
             "<Else>",
             "    Header set X-Frame-Options SAMEORIGIN",
             "    Header always set X-Frame-Options SAMEORIGIN",
