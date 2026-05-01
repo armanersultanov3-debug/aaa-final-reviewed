@@ -1,4 +1,4 @@
-from pathlib import Path
+﻿from pathlib import Path
 
 import pytest
 
@@ -31,6 +31,23 @@ def _with_backup_files_restriction(config_text: str) -> str:
         "    Require all denied\n"
         "</FilesMatch>"
     )
+
+
+def _safe_apache_config(*extra_lines: str) -> str:
+    lines = [
+        "ServerSignature Off",
+        "TraceEnable Off",
+        "ServerTokens Prod",
+        "LimitRequestBody 102400",
+        "LimitRequestFields 100",
+        "ErrorLog logs/error_log",
+        "CustomLog logs/access_log combined",
+        "ErrorDocument 404 /custom404.html",
+        "ErrorDocument 500 /custom500.html",
+        "Listen 80",
+    ]
+    lines.extend(extra_lines)
+    return _with_backup_files_restriction("\n".join(lines))
 
 
 def test_context_sensitive_directives_normalizes_target_contexts() -> None:
@@ -74,7 +91,7 @@ def _analyze_with_htaccess(
         "ServerSignature Off",
         "ServerTokens Prod",
         "TraceEnable Off",
-        "LimitRequestBody 1048576",
+        "LimitRequestBody 102400",
         "LimitRequestFields 100",
         "ErrorLog logs/error_log",
         "CustomLog logs/access_log combined",
@@ -2135,6 +2152,83 @@ def test_analyze_apache_config_reports_zero_limit_request_body(tmp_path: Path) -
     assert finding.title == "LimitRequestBody not configured safely"
 
 
+def test_analyze_apache_config_accepts_cis_safe_apache_policy_values(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            "FileETag MTime Size",
+            "Timeout 10",
+            "KeepAlive On",
+            "MaxKeepAliveRequests 100",
+            "KeepAliveTimeout 15",
+            "LimitRequestLine 8190",
+            "LimitRequestFieldSize 8190",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    server_findings = [f for f in result.findings if not f.rule_id.startswith("universal.")]
+    assert server_findings == []
+
+
+@pytest.mark.parametrize(
+    ("bad_directive", "rule_id"),
+    [
+        ("FileETag All", "apache.file_etag_inodes"),
+        ("FileETag MTime +INode Size", "apache.file_etag_inodes"),
+        ("Timeout 60", "apache.timeout_too_high"),
+        ("KeepAlive Off", "apache.keepalive_disabled"),
+        ("MaxKeepAliveRequests 0", "apache.max_keepalive_requests_too_low"),
+        ("MaxKeepAliveRequests 50", "apache.max_keepalive_requests_too_low"),
+        ("KeepAliveTimeout 20", "apache.keepalive_timeout_too_high"),
+        ("LimitRequestLine 8191", "apache.limit_request_line_too_high"),
+        ("LimitRequestFieldSize 8191", "apache.limit_request_field_size_too_high"),
+        ("LimitRequestBody 102401", "apache.limit_request_body_missing_or_invalid"),
+        ("LimitRequestFields 101", "apache.limit_request_fields_missing_or_invalid"),
+    ],
+)
+def test_analyze_apache_config_reports_cis_apache_policy_value_findings(
+    tmp_path: Path,
+    bad_directive: str,
+    rule_id: str,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    baseline_lines = [
+        "FileETag MTime Size",
+        "Timeout 10",
+        "KeepAlive On",
+        "MaxKeepAliveRequests 100",
+        "KeepAliveTimeout 15",
+        "LimitRequestLine 8190",
+        "LimitRequestFieldSize 8190",
+    ]
+    directive_name = bad_directive.split()[0].lower()
+    config_path.write_text(
+        _safe_apache_config(
+            *[
+                line
+                for line in baseline_lines
+                if line.split()[0].lower() != directive_name
+            ],
+            bad_directive,
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    findings = [finding for finding in result.findings if finding.rule_id == rule_id]
+    assert len(findings) == 1
+    assert findings[0].location is not None
+    assert findings[0].location.file_path == str(config_path)
+
+
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(
     tmp_path: Path,
 ) -> None:
@@ -2792,7 +2886,7 @@ def test_rules_find_directory_inside_ifmodule(tmp_path: Path) -> None:
             "ServerSignature Off\n"
             "ServerTokens Prod\n"
             "TraceEnable Off\n"
-            "LimitRequestBody 1048576\n"
+            "LimitRequestBody 102400\n"
             "LimitRequestFields 100\n"
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
@@ -2845,7 +2939,7 @@ def test_parser_accepts_ifversion_block() -> None:
 
 
 def test_parser_accepts_completely_unknown_block() -> None:
-    """Any <Name> ... </Name> pair parses — not just blocks in KNOWN_BLOCK_NAMES."""
+    """Any <Name> ... </Name> pair parses вЂ” not just blocks in KNOWN_BLOCK_NAMES."""
     config = (
         "<CustomThing foo bar>\n"
         "    SomeDirective value\n"
@@ -2872,7 +2966,7 @@ def test_rules_find_location_inside_ifmodule(tmp_path: Path) -> None:
             "ServerSignature Off\n"
             "ServerTokens Prod\n"
             "TraceEnable Off\n"
-            "LimitRequestBody 1048576\n"
+            "LimitRequestBody 102400\n"
             "LimitRequestFields 100\n"
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
@@ -3069,7 +3163,7 @@ def test_htaccess_integrated_in_analyze(tmp_path: Path) -> None:
     web_dir = tmp_path / "www"
     web_dir.mkdir()
     (web_dir / ".htaccess").write_text(
-        "<IfModule broken\n",  # malformed — no closing >
+        "<IfModule broken\n",  # malformed вЂ” no closing >
         encoding="utf-8",
     )
 
@@ -3082,7 +3176,7 @@ def test_htaccess_integrated_in_analyze(tmp_path: Path) -> None:
             "ServerSignature Off\n"
             "ServerTokens Prod\n"
             "TraceEnable Off\n"
-            "LimitRequestBody 1048576\n"
+            "LimitRequestBody 102400\n"
             "LimitRequestFields 100\n"
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
@@ -3146,7 +3240,7 @@ def test_htaccess_stored_in_analysis_metadata(tmp_path: Path) -> None:
             "ServerSignature Off\n"
             "ServerTokens Prod\n"
             "TraceEnable Off\n"
-            "LimitRequestBody 1048576\n"
+            "LimitRequestBody 102400\n"
             "LimitRequestFields 100\n"
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
@@ -3192,7 +3286,7 @@ def test_htaccess_read_error_produces_issue(tmp_path: Path, monkeypatch: pytest.
 
 
 def test_htaccess_access_file_name_in_toplevel_ifmodule(tmp_path: Path) -> None:
-    """AccessFileName inside top-level <IfModule> is server-scope — found."""
+    """AccessFileName inside top-level <IfModule> is server-scope вЂ” found."""
     web_dir = tmp_path / "www"
     web_dir.mkdir()
     (web_dir / ".override").write_text("Options -Indexes\n", encoding="utf-8")
@@ -3232,7 +3326,7 @@ def test_htaccess_access_file_name_in_toplevel_ifdefine(tmp_path: Path) -> None:
 
 
 def test_htaccess_access_file_name_inside_directory_ignored(tmp_path: Path) -> None:
-    """AccessFileName inside <Directory> is directory-scope — ignored for global discovery."""
+    """AccessFileName inside <Directory> is directory-scope вЂ” ignored for global discovery."""
     dir_a = tmp_path / "app"
     dir_a.mkdir()
     (dir_a / ".appaccess").write_text("Options -Indexes\n", encoding="utf-8")
@@ -3422,7 +3516,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3436,7 +3530,7 @@ class TestAllowOverrideAllRule:
         assert "apache.allowoverride_all_in_directory" in ids
 
     def test_allowoverride_absent_fires(self, tmp_path: Path) -> None:
-        """Missing AllowOverride → treated as worst-case All → fires."""
+        """Missing AllowOverride в†’ treated as worst-case All в†’ fires."""
         config_path = tmp_path / "httpd.conf"
         config_path.write_text(
             _with_backup_files_restriction(
@@ -3446,7 +3540,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3469,7 +3563,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3492,7 +3586,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3612,7 +3706,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3643,7 +3737,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3671,7 +3765,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3704,7 +3798,7 @@ class TestAllowOverrideAllRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3738,7 +3832,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3752,7 +3846,7 @@ class TestHtaccessSecurityDirectiveRule:
         assert "apache.htaccess_contains_security_directive" in ids
 
     def test_allowoverride_none_blocks_htaccess_rule(self, tmp_path: Path) -> None:
-        """AllowOverride None → .htaccess ignored → no security override finding."""
+        """AllowOverride None в†’ .htaccess ignored в†’ no security override finding."""
         web_dir = tmp_path / "www"
         web_dir.mkdir()
         (web_dir / ".htaccess").write_text("Options Indexes\n", encoding="utf-8")
@@ -3766,7 +3860,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3780,7 +3874,7 @@ class TestHtaccessSecurityDirectiveRule:
         assert "apache.htaccess_contains_security_directive" not in ids
 
     def test_allowoverride_fileinfo_blocks_options(self, tmp_path: Path) -> None:
-        """AllowOverride FileInfo → Options directive in .htaccess is filtered out."""
+        """AllowOverride FileInfo в†’ Options directive in .htaccess is filtered out."""
         web_dir = tmp_path / "www"
         web_dir.mkdir()
         (web_dir / ".htaccess").write_text(
@@ -3797,7 +3891,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3812,7 +3906,7 @@ class TestHtaccessSecurityDirectiveRule:
             if f.rule_id == "apache.htaccess_contains_security_directive"
         ]
         # Options is blocked by FileInfo-only override,
-        # but Header (FileInfo) would pass — here only RewriteEngine which is not security-sensitive
+        # but Header (FileInfo) would pass вЂ” here only RewriteEngine which is not security-sensitive
         assert len(overrides) == 0
 
     def test_header_in_htaccess_fires(self, tmp_path: Path) -> None:
@@ -3832,7 +3926,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3859,7 +3953,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3895,7 +3989,7 @@ class TestHtaccessSecurityDirectiveRule:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -3989,7 +4083,7 @@ class TestAllowOverrideInheritance:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4003,7 +4097,7 @@ class TestAllowOverrideInheritance:
             f for f in result.findings
             if f.rule_id == "apache.htaccess_contains_security_directive"
         ]
-        # Parent <Directory> has AllowOverride None → child .htaccess should be blocked
+        # Parent <Directory> has AllowOverride None в†’ child .htaccess should be blocked
         assert len(security_findings) == 0
 
     def test_parent_allowoverride_all_allows_child_docroot(self, tmp_path: Path) -> None:
@@ -4024,7 +4118,7 @@ class TestAllowOverrideInheritance:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4063,7 +4157,7 @@ class TestAllowOverrideInheritance:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4084,7 +4178,7 @@ class TestAllowOverrideInheritance:
         assert relevant_ids == set()
 
     def test_sibling_dir_not_covered_by_prefix_match(self, tmp_path: Path) -> None:
-        """/var/www must NOT cover /var/www2 — path boundary check."""
+        """/var/www must NOT cover /var/www2 вЂ” path boundary check."""
         www_dir = tmp_path / "www"
         www_dir.mkdir()
         www2_dir = tmp_path / "www2"
@@ -4103,7 +4197,7 @@ class TestAllowOverrideInheritance:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4170,7 +4264,7 @@ class TestBuildEffectiveConfig:
             "</Directory>\n"
         )
         ec = build_effective_config(ast, "/var/www")
-        # /var/www (longer) applied last → wins
+        # /var/www (longer) applied last в†’ wins
         assert "indexes" in [a.lower() for a in ec.directives["options"].args]
 
     def test_options_merge_plus_minus(self) -> None:
@@ -4194,7 +4288,7 @@ class TestBuildEffectiveConfig:
             "</Directory>\n"
         )
         ec = build_effective_config(ast, "/var/www")
-        # Without +/- prefix → last-wins replacement
+        # Without +/- prefix в†’ last-wins replacement
         assert ec.directives["options"].args == ["None"]
 
     def test_options_none_cleared_before_relative_merge(self, tmp_path: Path) -> None:
@@ -4269,7 +4363,7 @@ class TestBuildEffectiveConfig:
             source_directory_block=ast.nodes[1],
         )
         ec = build_effective_config(ast, str(tmp_path), htaccess_file=htf)
-        # Options not in AllowOverride FileInfo → filtered out → no change
+        # Options not in AllowOverride FileInfo в†’ filtered out в†’ no change
         opts = set(ec.directives["options"].args)
         assert "indexes" not in opts
 
@@ -4305,7 +4399,7 @@ class TestHtaccessWeakensSecurity:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4338,7 +4432,7 @@ class TestHtaccessWeakensSecurity:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4369,7 +4463,7 @@ class TestHtaccessWeakensSecurity:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4399,7 +4493,7 @@ class TestHtaccessWeakensSecurity:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4436,7 +4530,7 @@ class TestHtaccessWeakensSecurity:
                 "ServerSignature Off\n"
                 "ServerTokens Prod\n"
                 "TraceEnable Off\n"
-                "LimitRequestBody 1048576\n"
+                "LimitRequestBody 102400\n"
                 "LimitRequestFields 100\n"
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
@@ -4635,7 +4729,7 @@ class TestHtaccessRulePack:
                         "ServerSignature Off",
                         "ServerTokens Prod",
                         "TraceEnable Off",
-                        "LimitRequestBody 1048576",
+                        "LimitRequestBody 102400",
                         "LimitRequestFields 100",
                         "ErrorLog logs/error_log",
                         "CustomLog logs/access_log combined",
@@ -4669,7 +4763,7 @@ class TestHtaccessRulePack:
                         "ServerSignature Off",
                         "ServerTokens Prod",
                         "TraceEnable Off",
-                        "LimitRequestBody 1048576",
+                        "LimitRequestBody 102400",
                         "LimitRequestFields 100",
                         "ErrorLog logs/error_log",
                         "CustomLog logs/access_log combined",
@@ -4896,7 +4990,7 @@ def test_analyze_apache_config_describes_inherited_virtualhost_server_tokens(
     assert result.issues == []
     assert len(findings) == 1
     # Assert the *semantic* parts of the description (directive name,
-    # offending value, scope) instead of the whole sentence — a harmless
+    # offending value, scope) instead of the whole sentence вЂ” a harmless
     # rewording of the human-readable text would otherwise break the
     # test without any actual regression in rule behaviour.
     description = findings[0].description
@@ -4946,7 +5040,7 @@ def test_analyze_apache_config_reports_options_includes_in_location_block(
     assert findings[0].location.line == 11
 
 
-# ── Block 2: analysis context tests ──────────────────────────────────
+# в”Ђв”Ђ Block 2: analysis context tests в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 def test_analysis_contexts_global_when_no_virtualhost(tmp_path: Path) -> None:
@@ -5150,7 +5244,7 @@ def test_options_indexes_vh_override_suppresses_finding(tmp_path: Path) -> None:
     assert index_findings == []
 
 
-# ── Block 3/5 regression: VH effective override suppresses Options-family ────
+# в”Ђв”Ђ Block 3/5 regression: VH effective override suppresses Options-family в”Ђв”Ђв”Ђв”Ђ
 
 
 def _make_vh_override_config(
@@ -5190,7 +5284,7 @@ def _make_vh_override_config(
 
 
 def test_options_includes_vh_override_suppresses_finding(tmp_path: Path) -> None:
-    """VH overrides global Options Includes with -Includes → no finding."""
+    """VH overrides global Options Includes with -Includes в†’ no finding."""
     config = _make_vh_override_config(
         tmp_path,
         global_options="Options Includes",
@@ -5204,7 +5298,7 @@ def test_options_includes_vh_override_suppresses_finding(tmp_path: Path) -> None
 
 
 def test_options_execcgi_vh_override_suppresses_finding(tmp_path: Path) -> None:
-    """VH overrides global Options ExecCGI with -ExecCGI → no finding."""
+    """VH overrides global Options ExecCGI with -ExecCGI в†’ no finding."""
     config = _make_vh_override_config(
         tmp_path,
         global_options="Options ExecCGI",
@@ -5218,7 +5312,7 @@ def test_options_execcgi_vh_override_suppresses_finding(tmp_path: Path) -> None:
 
 
 def test_options_multiviews_vh_override_suppresses_finding(tmp_path: Path) -> None:
-    """VH overrides global Options MultiViews with -MultiViews → no finding."""
+    """VH overrides global Options MultiViews with -MultiViews в†’ no finding."""
     config = _make_vh_override_config(
         tmp_path,
         global_options="Options MultiViews",
@@ -5232,7 +5326,7 @@ def test_options_multiviews_vh_override_suppresses_finding(tmp_path: Path) -> No
 
 
 def test_index_options_fancyindexing_vh_override_suppresses_finding(tmp_path: Path) -> None:
-    """VH overrides global IndexOptions FancyIndexing → no finding."""
+    """VH overrides global IndexOptions FancyIndexing в†’ no finding."""
     config = _make_vh_override_config(
         tmp_path,
         global_options="IndexOptions FancyIndexing",
@@ -5249,7 +5343,7 @@ def test_index_options_fancyindexing_vh_override_suppresses_finding(tmp_path: Pa
 
 
 def test_index_options_scanhtmltitles_vh_override_suppresses_finding(tmp_path: Path) -> None:
-    """VH overrides global IndexOptions ScanHTMLTitles → no finding."""
+    """VH overrides global IndexOptions ScanHTMLTitles в†’ no finding."""
     config = _make_vh_override_config(
         tmp_path,
         global_options="IndexOptions ScanHTMLTitles",

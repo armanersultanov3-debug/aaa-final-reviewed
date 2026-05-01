@@ -10,14 +10,18 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.limit_request_fields_missing_or_invalid"
+MAX_LIMIT_REQUEST_FIELDS = 100
 
 
 @rule(
     rule_id=RULE_ID,
     title="LimitRequestFields not configured safely",
     severity="low",
-    description="Apache config does not define an effective LimitRequestFields baseline.",
-    recommendation="Add a positive integer LimitRequestFields directive in the effective scope.",
+    description="Apache config does not define an effective safe LimitRequestFields baseline.",
+    recommendation=(
+        "Add a positive integer LimitRequestFields directive of 100 or less in the "
+        "effective scope."
+    ),
     category="local",
     server_type="apache",
     order=317,
@@ -41,7 +45,9 @@ def find_limit_request_fields(config_ast: ApacheConfigAst) -> list[Finding]:
                 description=(
                     "Apache config does not define an effective 'LimitRequestFields' baseline."
                 ),
-                recommendation="Add a positive integer 'LimitRequestFields' directive.",
+                recommendation=(
+                    "Add a positive integer 'LimitRequestFields' directive of 100 or less."
+                ),
                 location=_default_location(config_ast),
             )
         ]
@@ -57,9 +63,11 @@ def find_limit_request_fields(config_ast: ApacheConfigAst) -> list[Finding]:
             severity="low",
             description=(
                 "Apache config sets effective 'LimitRequestFields' to "
-                f"'{configured_value}', which is not a valid positive integer baseline."
+                f"'{configured_value}', which is not a positive integer of 100 or less."
             ),
-            recommendation="Set effective 'LimitRequestFields' to a positive integer value.",
+            recommendation=(
+                "Set effective 'LimitRequestFields' to a positive integer value of 100 or less."
+            ),
             location=SourceLocation(
                 mode="local",
                 kind="file",
@@ -86,8 +94,8 @@ def _evaluate_virtualhost(
         configured_value = " ".join(directive.args) if directive.args else "<missing value>"
         description = (
             f"VirtualHost '{_virtualhost_label(context)}' sets effective "
-            f"'LimitRequestFields' to '{configured_value}', which is not a valid positive "
-            "integer baseline."
+            f"'LimitRequestFields' to '{configured_value}', which is not a positive "
+            "integer of 100 or less."
         )
         location = SourceLocation(
             mode="local",
@@ -114,7 +122,8 @@ def _evaluate_virtualhost(
             severity="low",
             description=description,
             recommendation=(
-                "Set the effective VirtualHost LimitRequestFields to a positive integer."
+                "Set the effective VirtualHost LimitRequestFields to a positive integer "
+                "of 100 or less."
             ),
             location=location,
         )
@@ -126,9 +135,10 @@ def _is_valid_limit_value(args: list[str]) -> bool:
         return False
 
     try:
-        return int(args[0]) > 0
+        value = int(args[0])
     except ValueError:
         return False
+    return 0 < value <= MAX_LIMIT_REQUEST_FIELDS
 
 
 def _virtualhost_label(context: ApacheVirtualHostContext) -> str:
