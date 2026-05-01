@@ -136,10 +136,20 @@ def _select_unsafe_outcome(
         combined_unsafe = not is_safe_value(effective_value)
         if not unsafe_settings and not combined_unsafe:
             continue
-        setting = unsafe_settings[-1] if unsafe_settings else outcome[-1]
+        setting = _last_applied_setting(unsafe_settings or outcome)
         reported = setting.value if unsafe_settings else effective_value
         return outcome, setting, reported
     return None
+
+
+def _last_applied_setting(
+    settings: list[ApacheHeaderSetting],
+) -> ApacheHeaderSetting:
+    return max(settings, key=_source_order)
+
+
+def _source_order(setting: ApacheHeaderSetting) -> int:
+    return setting.source.line if setting.source.line is not None else -1
 
 
 def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str:
@@ -285,6 +295,7 @@ def _fork_conditional_branches(
 ) -> _HeaderCollection:
     has_else = any(branch.name.lower() == "else" for branch in branches)
     forked: list[HeaderState] = []
+    seen: set[tuple] = set()
     for outcome in collection.outcomes:
         starting = _HeaderCollection(outcomes=[_clone_header_state(outcome)])
         for branch in branches:
@@ -293,10 +304,23 @@ def _fork_conditional_branches(
                 header_name,
                 initial=starting,
             )
-            forked.extend(branch_collection.outcomes)
+            for branch_outcome in branch_collection.outcomes:
+                _add_unique_state(forked, seen, branch_outcome)
         if not has_else:
-            forked.append(_clone_header_state(outcome))
+            _add_unique_state(forked, seen, _clone_header_state(outcome))
     return _HeaderCollection(outcomes=forked or [_empty_header_state()])
+
+
+def _add_unique_state(
+    outcomes: list[HeaderState],
+    seen: set[tuple],
+    state: HeaderState,
+) -> None:
+    key = _state_key(state)
+    if key in seen:
+        return
+    seen.add(key)
+    outcomes.append(state)
 
 
 def _apply_header_action(
@@ -309,17 +333,17 @@ def _apply_header_action(
     condition: HeaderCondition,
 ) -> _HeaderCollection:
     new_outcomes: list[HeaderState] = []
+    seen: set[tuple] = set()
     for outcome in collection.outcomes:
-        new_outcomes.append(
-            _apply_action_to_state(
-                outcome,
-                action=action,
-                name=name,
-                value=value,
-                source=source,
-                condition=condition,
-            )
+        new_state = _apply_action_to_state(
+            outcome,
+            action=action,
+            name=name,
+            value=value,
+            source=source,
+            condition=condition,
         )
+        _add_unique_state(new_outcomes, seen, new_state)
     return _HeaderCollection(outcomes=new_outcomes)
 
 
@@ -406,11 +430,37 @@ def _clone_header_state(state: HeaderState) -> HeaderState:
 
 
 def _flatten_header_state(state: HeaderState) -> list[ApacheHeaderSetting]:
-    return [
+    settings = [
         setting
         for condition in _HEADER_CONDITIONS
         for setting in state.get(condition, [])
     ]
+    settings.sort(key=_source_order)
+    return settings
+
+
+def _state_key(
+    state: HeaderState,
+) -> tuple[
+    tuple[HeaderCondition, tuple[tuple[str, str | None, str, str | None, int | None], ...]],
+    ...,
+]:
+    return tuple(
+        (
+            condition,
+            tuple(
+                (
+                    setting.name,
+                    setting.value,
+                    setting.action,
+                    setting.source.file_path,
+                    setting.source.line,
+                )
+                for setting in state.get(condition, [])
+            ),
+        )
+        for condition in _HEADER_CONDITIONS
+    )
 
 
 def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> bool:

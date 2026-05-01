@@ -2745,6 +2745,70 @@ def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_
     assert matching[0].metadata.get("scope_name") == "global"
 
 
+def test_analyze_apache_config_blames_last_applied_directive_for_combined_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    onsuccess_directive = "Header onsuccess set X-Frame-Options DENY"
+    always_directive = "Header always set X-Frame-Options SAMEORIGIN"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            onsuccess_directive,
+            always_directive,
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    config_lines = config_path.read_text(encoding="utf-8").splitlines()
+    expected_line = config_lines.index(always_directive) + 1
+    assert matching[0].location is not None
+    assert matching[0].location.line == expected_line
+
+
+def test_analyze_apache_config_handles_many_independent_optional_blocks(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    optional_blocks = []
+    for index in range(12):
+        optional_blocks.extend(
+            [
+                f"<IfModule mod_extra_{index}.c>",
+                f"    SetEnv WEBCONF_AUDIT_FLAG_{index} on",
+                "</IfModule>",
+            ]
+        )
+    config_path.write_text(
+        _safe_apache_config(*optional_blocks),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_treats_if_else_branches_as_alternatives(
     tmp_path: Path,
 ) -> None:
