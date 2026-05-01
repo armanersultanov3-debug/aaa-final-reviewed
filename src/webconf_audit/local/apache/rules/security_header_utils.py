@@ -22,6 +22,7 @@ _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
 )
 _IF_CHAIN_START_BLOCKS = frozenset({"if"})
 _OPTIONAL_WRAPPER_BLOCKS = frozenset({"ifdefine", "ifmodule", "ifversion"})
+_CONDITIONAL_CHAIN_START_BLOCKS = _IF_CHAIN_START_BLOCKS | _OPTIONAL_WRAPPER_BLOCKS
 _CONDITIONAL_CONTINUATION_BLOCKS = frozenset({"else", "elseif"})
 _HEADER_CONDITIONS = ("always", "onsuccess")
 _DEFAULT_HEADER_CONDITION = "onsuccess"
@@ -211,7 +212,8 @@ def iter_effective_header_scopes(
                 label=_virtualhost_label(context),
                 source=context.node.source,
                 collection=collection,
-                auditable=(
+                auditable=_is_unconditional_virtualhost(context)
+                and (
                     _has_effective_listen(config_ast, context)
                     or _has_header_directive(context.node.children)
                 ),
@@ -249,29 +251,13 @@ def _collect_header_settings(
         node = nodes[index]
         if isinstance(node, ApacheBlockNode):
             block_name = node.name.lower()
-            if block_name in _IF_CHAIN_START_BLOCKS:
+            if block_name in _CONDITIONAL_CHAIN_START_BLOCKS:
                 branches, index = _collect_conditional_chain(nodes, index)
                 collection = _fork_conditional_branches(
                     collection,
                     branches,
                     header_name,
                 )
-                continue
-            if block_name in _OPTIONAL_WRAPPER_BLOCKS:
-                collection = _fork_conditional_branches(
-                    collection,
-                    [node],
-                    header_name,
-                )
-                index += 1
-                continue
-            if block_name in _CONDITIONAL_CONTINUATION_BLOCKS:
-                collection = _fork_conditional_branches(
-                    collection,
-                    [node],
-                    header_name,
-                )
-                index += 1
                 continue
             index += 1
             continue
@@ -613,6 +599,10 @@ def _has_effective_listen(
 
 def _virtualhost_label(context: ApacheVirtualHostContext) -> str:
     return context.server_name or context.listen_address or "<unnamed>"
+
+
+def _is_unconditional_virtualhost(context: ApacheVirtualHostContext) -> bool:
+    return not context.optional_ancestor_names
 
 
 def _first_source(

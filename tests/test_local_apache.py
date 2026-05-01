@@ -2613,6 +2613,43 @@ def test_analyze_apache_config_reports_missing_for_non_exhaustive_header_wrapper
     assert matching[0].location.file_path == str(config_path)
 
 
+@pytest.mark.parametrize(
+    ("block_start", "block_end"),
+    [
+        ("<Else>", "</Else>"),
+        ("<ElseIf \"%{HTTP_HOST} == 'legacy.test'\">", "</ElseIf>"),
+    ],
+)
+def test_analyze_apache_config_ignores_standalone_header_continuation_blocks(
+    tmp_path: Path,
+    block_start: str,
+    block_end: str,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            block_start,
+            "    Header always unset X-Frame-Options",
+            block_end,
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
 def test_analyze_apache_config_reports_conditional_missing_security_header(
     tmp_path: Path,
 ) -> None:
@@ -2830,6 +2867,38 @@ def test_analyze_apache_config_skips_inactive_virtualhost_security_headers(
         }
         for finding in result.findings
     )
+
+
+def test_analyze_apache_config_skips_conditional_virtualhost_security_header_scope(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            "<IfModule mod_optional_vhost.c>",
+            "    <VirtualHost *:80>",
+            "        ServerName optional.test",
+            "        Header always unset X-Frame-Options",
+            "    </VirtualHost>",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        and finding.metadata.get("scope_name") == "optional.test"
+    ]
+    assert result.issues == []
+    assert matching == []
 
 
 def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_global(
@@ -5718,8 +5787,10 @@ def test_extract_virtualhost_contexts_reads_server_names_and_aliases() -> None:
     assert contexts[0].server_name == "example.test"
     assert contexts[0].server_aliases == ["www.example.test", "api.example.test"]
     assert contexts[0].listen_address == "*:80"
+    assert contexts[0].optional_ancestor_names == ()
     assert contexts[1].server_name is None
     assert contexts[1].listen_address == "*:443"
+    assert contexts[1].optional_ancestor_names == ("ifmodule",)
 
 
 def test_select_applicable_virtualhosts_matches_serveralias() -> None:
