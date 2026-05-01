@@ -50,7 +50,10 @@ def find_keepalive_timeout_too_high(config_ast: ApacheConfigAst) -> list[Finding
                     f"'KeepAliveTimeout' to '{configured_value(directive)}', which "
                     "is not a positive value of 15 seconds or less."
                 ),
-                recommendation="Set the effective 'KeepAliveTimeout' directive to 15 seconds or less.",
+                recommendation=(
+                    "Set the effective 'KeepAliveTimeout' directive to a positive "
+                    "value greater than 0 and 15 seconds or less."
+                ),
                 location=directive_location(directive),
             )
         )

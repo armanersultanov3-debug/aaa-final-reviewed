@@ -26,7 +26,7 @@ _RISKY_TOKENS = frozenset({"all", "inode", "+inode"})
 def find_file_etag_inodes(config_ast: ApacheConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for directive in _iter_directives(config_ast.nodes, "fileetag"):
+    for directive in _effective_file_etag_directives(config_ast.nodes):
         risky_tokens = sorted(
             token for token in _normalized_args(directive.args) if token in _RISKY_TOKENS
         )
@@ -56,18 +56,44 @@ def find_file_etag_inodes(config_ast: ApacheConfigAst) -> list[Finding]:
     return findings
 
 
-def _iter_directives(
+_TRANSPARENT_WRAPPER_BLOCKS = frozenset(
+    {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
+)
+
+
+def _effective_file_etag_directives(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
-    directive_name: str,
+    scope_key: tuple[int, ...] = (),
 ) -> list[ApacheDirectiveNode]:
-    matches: list[ApacheDirectiveNode] = []
+    effective: dict[tuple[int, ...], ApacheDirectiveNode] = {}
+    _collect_effective_file_etag_directives(
+        nodes,
+        scope_key=scope_key,
+        effective=effective,
+    )
+    return list(effective.values())
+
+
+def _collect_effective_file_etag_directives(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    *,
+    scope_key: tuple[int, ...],
+    effective: dict[tuple[int, ...], ApacheDirectiveNode],
+) -> None:
     for node in nodes:
         if isinstance(node, ApacheDirectiveNode):
-            if node.name.lower() == directive_name:
-                matches.append(node)
+            if node.name.lower() == "fileetag":
+                effective[scope_key] = node
             continue
-        matches.extend(_iter_directives(node.children, directive_name))
-    return matches
+
+        child_scope = scope_key
+        if node.name.lower() not in _TRANSPARENT_WRAPPER_BLOCKS:
+            child_scope = (*scope_key, id(node))
+        _collect_effective_file_etag_directives(
+            node.children,
+            scope_key=child_scope,
+            effective=effective,
+        )
 
 
 def _normalized_args(args: list[str]) -> list[str]:
