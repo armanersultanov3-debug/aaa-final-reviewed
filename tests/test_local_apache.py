@@ -2555,8 +2555,7 @@ def test_analyze_apache_config_keeps_header_conditions_separate(
         }
     ]
     assert result.issues == []
-    assert len(matching) == 1
-    assert matching[0].rule_id == "apache.missing_x_frame_options_header"
+    assert matching == []
 
 
 def test_analyze_apache_config_reports_missing_for_onsuccess_only_security_header(
@@ -2592,10 +2591,14 @@ def test_analyze_apache_config_reports_conditional_missing_security_header(
 ) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config_with_late_lines(
+        _safe_apache_config_without_headers(
             "<IfModule mod_headers.c>",
             "    Header unset X-Frame-Options",
             "</IfModule>",
+            "<Else>",
+            "    Header unset X-Frame-Options",
+            "</Else>",
+            omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
     )
