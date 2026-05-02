@@ -548,7 +548,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -572,7 +573,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -595,7 +597,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -618,7 +621,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -738,7 +742,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -769,7 +774,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -797,7 +803,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -830,7 +837,8 @@ class TestAllowOverrideAllRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -864,7 +872,8 @@ class TestHtaccessSecurityDirectiveRule:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
@@ -1229,7 +1238,8 @@ class TestAllowOverrideInheritance:
                 "ErrorLog logs/error_log\n"
                 "CustomLog logs/access_log combined\n"
                 'ErrorDocument 404 "/error/404.html"\n'
-                'ErrorDocument 500 "/error/500.html"\n'
+                'ErrorDocument 500 "/error/500.html"\n',
+                include_cis_allowoverride_root=False,
             ),
             encoding="utf-8",
         )
