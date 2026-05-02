@@ -1907,6 +1907,30 @@ def test_analyze_apache_config_accepts_limitexcept_method_restriction(
     )
 
 
+def test_analyze_apache_config_accepts_limit_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/admin">',
+            "    <Limit POST PUT DELETE PATCH>",
+            "        Require all denied",
+            "    </Limit>",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_accepts_require_method_restriction(
     tmp_path: Path,
 ) -> None:
@@ -1915,6 +1939,31 @@ def test_analyze_apache_config_accepts_require_method_restriction(
         _safe_apache_config(
             '<Location "/api">',
             "    Require method GET POST OPTIONS",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_require_method_inside_authz_container(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/api">',
+            "    <RequireAll>",
+            "        Require method GET POST OPTIONS",
+            "        Require all granted",
+            "    </RequireAll>",
             "</Location>",
         ),
         encoding="utf-8",
