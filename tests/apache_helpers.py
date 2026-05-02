@@ -52,22 +52,57 @@ _SAFE_SECURITY_HEADER_BASELINE_LINES = [
         )
     ],
 ]
+_SAFE_APACHE_CIS_LOG_LINES = [
+    "LogLevel notice",
+]
+_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES = [
+    "<Directory />",
+    "    AllowOverride None",
+    "</Directory>",
+]
+_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
+    '<FilesMatch "^\\.ht">',
+    "    Require all denied",
+    "</FilesMatch>",
+    '<FilesMatch "\\.(conf|ini|log|orig|save|sql|tmp)$">',
+    "    Require all denied",
+    "</FilesMatch>",
+    '<DirectoryMatch "/\\.(git|svn)(/|$)">',
+    "    Require all denied",
+    "</DirectoryMatch>",
+]
+_SAFE_APACHE_CIS_BASELINE_LINES = [
+    *_SAFE_APACHE_CIS_LOG_LINES,
+    *_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES,
+    *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
+]
 
 
 def _with_backup_files_restriction(
     config_text: str,
     *,
     include_security_headers: bool = True,
+    include_cis_allowoverride_root: bool = True,
 ) -> str:
     security_headers = (
         "\n" + "\n".join(_SAFE_SECURITY_HEADER_BASELINE_LINES)
         if include_security_headers
         else ""
     )
+    cis_lines = [
+        *_SAFE_APACHE_CIS_LOG_LINES,
+        *(
+            _SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES
+            if include_cis_allowoverride_root
+            else []
+        ),
+        *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
+    ]
     return config_text.rstrip("\n") + security_headers + (
         '\n<FilesMatch "\\.(bak|old|swp)$">\n'
         "    Require all denied\n"
-        "</FilesMatch>"
+        "</FilesMatch>\n"
+        + "\n".join(cis_lines)
     )
 
 
@@ -231,6 +266,10 @@ __all__ = [
     "_SAFE_SECURITY_HEADER_ALWAYS_LINES",
     "_SAFE_SECURITY_HEADER_BASELINE_LINES",
     "_SAFE_SECURITY_HEADER_LINES",
+    "_SAFE_APACHE_CIS_BASELINE_LINES",
+    "_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES",
+    "_SAFE_APACHE_CIS_LOG_LINES",
+    "_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES",
     "_analyze_with_htaccess",
     "_make_vh_override_config",
     "_posix_path",

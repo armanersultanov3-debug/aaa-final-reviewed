@@ -268,6 +268,6 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: standards metadata in the rule registry / report formats. This
-adds machine-readable standards references without changing detector behavior.
-After review, start the first new rule PR from the prioritized backlog.
+Current step: Apache CIS direct-rule expansion. The active slice adds a larger
+set of configuration-level benchmark checks for `AllowOverride None`, sensitive
+file deny lists, and logging policy before returning to external probe growth.
