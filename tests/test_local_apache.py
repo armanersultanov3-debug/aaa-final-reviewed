@@ -1857,6 +1857,130 @@ def test_analyze_apache_config_respects_virtualhost_location_override_for_server
     assert findings[0].location.line == 23
 
 
+def test_analyze_apache_config_reports_sensitive_location_without_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/admin">',
+            "    Require all granted",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_http_method_restrictions"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_accepts_limitexcept_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/admin">',
+            "    <LimitExcept GET POST OPTIONS>",
+            "        Require all denied",
+            "    </LimitExcept>",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_require_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/api">',
+            "    Require method GET POST OPTIONS",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_ignores_non_sensitive_location_without_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/">',
+            "    Require all granted",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_virtualhost_sensitive_location_without_method_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            '    <LocationMatch "^/uploads/">',
+            "        Require all granted",
+            "    </LocationMatch>",
+            "</VirtualHost>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_http_method_restrictions"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+    assert matching[0].location.line == 13
+
+
 def test_analyze_apache_config_does_not_report_server_info_when_require_ip_is_present(
     tmp_path: Path,
 ) -> None:
