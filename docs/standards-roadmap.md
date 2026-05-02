@@ -358,6 +358,7 @@ standard section before implementation.
 | STD-GAP-012 | Standards output | direct-rule | P2 | Add typed standards metadata to rule registry entries, include standards references in JSON output, and add optional text report grouping by standard without changing rule behavior. |
 | STD-GAP-013 | ASVS 5.0.0 | direct-rule | P2 | Add remaining CSP quality probes for reporting directives, nonce/hash posture, and per-response policy after deciding the desired strictness. External `frame-ancestors`, `object-src`, and `base-uri` coverage is now present. |
 | STD-GAP-014 | ASVS 5.0.0 | probe-depth | P3 | Extend TLS probing for forward secrecy, cipher preference, OCSP stapling, and ECH before claiming deeper V12 coverage. |
+| STD-GAP-015 | External probes | direct-rule | P2 | Add a declarative safe probe catalog for the existing external mode, inspired by the safe subset of Nuclei templates: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 
 ## PR Slicing
 
@@ -371,6 +372,8 @@ Keep standards work small enough for CodeRabbit and human review:
 5. IIS source-of-truth decision and IIS/Windows mapping.
 6. Standards metadata in the rule registry and report formats.
 7. First new rule PR from the prioritized backlog.
+8. External safe-probe catalog PR: move fixed-path external exposure checks
+   behind a declarative catalog before importing any Nuclei-inspired checks.
 
 ## Acceptance Criteria For New Standards Rules
 
@@ -384,6 +387,8 @@ A standards-driven rule is ready only when:
   conditions (such as HTTP path, redirect target, endpoint mode, or probe
   result) or a controlled config fixture that changes the observed probe signal
   without relying on host inspection;
+- external template-style rules are limited to safe, non-mutating probes
+  unless a future PR explicitly introduces a separately gated active-scan mode;
 - `docs/rule-coverage.md` is updated in the same PR;
 - false-positive risk is described when the source item depends on host state
   not visible to the current analyzer.
