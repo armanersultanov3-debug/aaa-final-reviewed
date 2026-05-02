@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
+from webconf_audit.models import Severity
 from webconf_audit.rule_registry import RuleMeta, StandardReference
 
 SafeProbeMethod = Literal["GET", "HEAD", "OPTIONS"]
@@ -28,7 +29,7 @@ class IdentifiedServerSuppression:
 class SafePathRule:
     rule_id: str
     title: str
-    severity: str
+    severity: Severity
     description: str
     recommendation: str
     paths: tuple[str, ...]
