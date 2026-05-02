@@ -323,10 +323,14 @@ CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (
 
 def _conditional_safe_probe_paths_by_server_type(
     probes: tuple[ConditionalSafePathProbe, ...],
+    confidence: str | None = None,
 ) -> dict[str, tuple[str, ...]]:
     return {
         server_type: tuple(
-            probe.path for probe in probes if probe.server_type == server_type
+            probe.path
+            for probe in probes
+            if probe.server_type == server_type
+            and (confidence is None or confidence in probe.minimum_confidences)
         )
         for server_type in sorted({probe.server_type for probe in probes})
     }
@@ -347,10 +351,13 @@ def safe_probe_paths_for_identification(
     server_type: str | None,
     confidence: str | None,
 ) -> tuple[str, ...]:
-    if server_type is None or confidence not in CONDITIONAL_SAFE_PROBE_CONFIDENCES:
+    if server_type is None or confidence is None:
         return DEFAULT_SAFE_PROBE_PATHS
 
-    conditional_paths = CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE.get(server_type, ())
+    conditional_paths = _conditional_safe_probe_paths_by_server_type(
+        CONDITIONAL_SAFE_PATH_PROBES,
+        confidence,
+    ).get(server_type, ())
     if not conditional_paths:
         return DEFAULT_SAFE_PROBE_PATHS
 

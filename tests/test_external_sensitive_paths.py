@@ -68,6 +68,40 @@ def test_conditional_safe_probe_paths_are_grouped_by_server_type() -> None:
     }
 
 
+def test_conditional_safe_probe_paths_honor_minimum_confidences() -> None:
+    from webconf_audit.external.safe_probe_catalog import (
+        ConditionalSafePathProbe,
+        _conditional_safe_probe_paths_by_server_type,
+    )
+
+    probes = (
+        ConditionalSafePathProbe(
+            path="/server-status?auto",
+            server_type="apache",
+            minimum_confidences=frozenset({"medium", "high"}),
+        ),
+        ConditionalSafePathProbe(
+            path="/server-status-high",
+            server_type="apache",
+            minimum_confidences=frozenset({"high"}),
+        ),
+        ConditionalSafePathProbe(
+            path="/nginx_status",
+            server_type="nginx",
+            minimum_confidences=frozenset({"medium", "high"}),
+        ),
+    )
+
+    assert _conditional_safe_probe_paths_by_server_type(probes, "medium") == {
+        "apache": ("/server-status?auto",),
+        "nginx": ("/nginx_status",),
+    }
+    assert _conditional_safe_probe_paths_by_server_type(probes, "high") == {
+        "apache": ("/server-status?auto", "/server-status-high"),
+        "nginx": ("/nginx_status",),
+    }
+
+
 def test_safe_probe_catalog_default_paths_are_explicit_and_unique() -> None:
     from webconf_audit.external.safe_probe_catalog import (
         DEFAULT_SAFE_PROBE_PATHS,
