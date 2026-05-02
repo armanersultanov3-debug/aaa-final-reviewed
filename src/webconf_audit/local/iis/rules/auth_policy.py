@@ -101,11 +101,14 @@ def _anonymous_allow_users(children: list[IISChildElement]) -> list[str]:
 
 def _allows_anonymous_user(value: str, *, anonymous_denied: bool) -> bool:
     tokens = _user_tokens(value)
-    return "?" in tokens or ("*" in tokens and not anonymous_denied)
+    if anonymous_denied:
+        return False
+    return "?" in tokens or "*" in tokens
 
 
 def _contains_anonymous_token(value: str) -> bool:
-    return "?" in _user_tokens(value)
+    tokens = _user_tokens(value)
+    return "?" in tokens or "*" in tokens
 
 
 def _user_tokens(value: str) -> set[str]:

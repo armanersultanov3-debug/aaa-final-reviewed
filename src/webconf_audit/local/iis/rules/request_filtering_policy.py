@@ -191,9 +191,10 @@ def _limit_finding(
     title: str,
     unit_label: str,
 ) -> Finding | None:
-    if raw_val == "":
+    normalized = raw_val.strip()
+    if normalized == "":
         return None
-    if raw_val.isdigit() and int(raw_val) <= threshold:
+    if normalized.isdigit() and int(normalized) <= threshold:
         return None
     return Finding(
         rule_id=rule_id,
@@ -289,4 +290,3 @@ def _raw_isapi_cgi_finding(
 
 def _is_true(value: object) -> bool:
     return str(value).strip().lower() == "true"
-

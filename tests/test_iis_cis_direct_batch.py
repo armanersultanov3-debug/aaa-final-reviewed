@@ -85,6 +85,31 @@ def test_authorization_allows_all_after_anonymous_deny_silent(
     assert "iis.authorization_allows_anonymous_users" not in _rule_ids(result)
 
 
+def test_authorization_allows_anonymous_after_anonymous_deny_silent(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <add accessType="Deny" users="?" />
+                <add accessType="Allow" users="?" />
+            </authorization>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.authorization_allows_anonymous_users" not in _rule_ids(result)
+
+
 def test_basic_auth_without_ssl_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
@@ -220,7 +245,7 @@ def test_request_filtering_length_limits_safe_silent(tmp_path: Path) -> None:
     <system.webServer>
         <security>
             <requestFiltering>
-                <requestLimits maxAllowedContentLength="4194304" maxUrl="4096" maxQueryString="2048" />
+                <requestLimits maxAllowedContentLength="4194304" maxUrl="4096 " maxQueryString=" 2048" />
             </requestFiltering>
         </security>
     </system.webServer>
