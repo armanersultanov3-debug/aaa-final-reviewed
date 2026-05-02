@@ -670,19 +670,31 @@ def _has_header_directive(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     header_name: str,
 ) -> bool:
-    for node in nodes:
+    index = 0
+    while index < len(nodes):
+        node = nodes[index]
         if isinstance(node, ApacheBlockNode):
-            if node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
+            block_name = node.name.lower()
+            if block_name in _IF_CHAIN_START_BLOCKS:
+                branches, index = _collect_conditional_chain(nodes, index)
+                if any(
+                    _has_header_directive(branch.children, header_name)
+                    for branch in branches
+                ):
+                    return True
+                continue
+            if block_name in _OPTIONAL_WRAPPER_BLOCKS:
                 if _has_header_directive(node.children, header_name):
                     return True
+            index += 1
             continue
         if node.name.lower() != "header":
+            index += 1
             continue
         parsed = _parse_header_directive(node)
-        if parsed is None:
-            continue
-        if parsed[1] == header_name:
+        if parsed is not None and parsed[1] == header_name:
             return True
+        index += 1
     return False
 
 

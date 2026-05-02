@@ -106,6 +106,13 @@ def _safe_apache_config_without_headers(
     return "\n".join(filtered_lines)
 
 
+def _safe_apache_config_without_security_headers(*extra_lines: str) -> str:
+    return _safe_apache_config_without_headers(
+        *extra_lines,
+        omit_headers=set(_SAFE_SECURITY_HEADER_LINES),
+    )
+
+
 def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
     config = _safe_apache_config()
     marker = '\n<FilesMatch "\\.(bak|old|swp)$">'
@@ -2692,11 +2699,10 @@ def test_analyze_apache_config_reports_missing_for_non_exhaustive_header_wrapper
 ) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config_without_headers(
+        _safe_apache_config_without_security_headers(
             "<IfModule mod_headers.c>",
             "    Header always set X-Frame-Options DENY",
             "</IfModule>",
-            omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
     )
@@ -2817,7 +2823,7 @@ def test_analyze_apache_config_reports_conditional_unsafe_security_header(
 ) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config_with_late_lines(
+        _safe_apache_config_without_security_headers(
             "<IfModule mod_headers.c>",
             "    Header set Referrer-Policy unsafe-url",
             "</IfModule>",
@@ -2836,6 +2842,43 @@ def test_analyze_apache_config_reports_conditional_unsafe_security_header(
     assert len(matching) == 1
     assert matching[0].location is not None
     assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_ignores_header_inside_standalone_else_for_auditability(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            [
+                "ServerSignature Off",
+                "TraceEnable Off",
+                "ServerTokens Prod",
+                "LimitRequestBody 102400",
+                "LimitRequestFields 100",
+                "ErrorLog logs/error_log",
+                "CustomLog logs/access_log combined",
+                "ErrorDocument 404 /custom404.html",
+                "ErrorDocument 500 /custom500.html",
+                "<Else>",
+                "    Header always set X-Frame-Options DENY",
+                "</Else>",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
 
 
 def test_analyze_apache_config_flags_combined_unsafe_security_header_value(
