@@ -65,10 +65,44 @@ def test_analyze_apache_config_uses_last_allowoverride_for_same_directory(
     assert "apache.allowoverride_not_none" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_keeps_prior_allowoverride_when_later_block_omits_it(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        '<Directory "/var/www/html">',
+        "    AllowOverride AuthConfig",
+        "</Directory>",
+        '<Directory "/var/www/html">',
+        "    Options -Indexes",
+        "</Directory>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.allowoverride_not_none" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_reports_missing_ht_file_restriction(
     tmp_path: Path,
 ) -> None:
     config = _remove_simple_block(_safe_apache_config(), '<FilesMatch "^\\.ht">')
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.ht_files_not_restricted" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_does_not_count_html_denial_as_ht_file_restriction(
+    tmp_path: Path,
+) -> None:
+    config = _remove_simple_block(
+        _safe_apache_config(
+            '<FilesMatch "^\\.html$">',
+            "    Require all denied",
+            "</FilesMatch>",
+        ),
+        '<FilesMatch "^\\.ht">',
+    )
 
     findings = _analyze_config(tmp_path, config)
 
@@ -93,6 +127,23 @@ def test_analyze_apache_config_reports_missing_vcs_metadata_restriction(
 ) -> None:
     config = _remove_simple_block(
         _safe_apache_config(),
+        '<DirectoryMatch "/\\.(git|svn)(/|$)">',
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.vcs_metadata_not_restricted" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_does_not_count_gitignore_as_vcs_restriction(
+    tmp_path: Path,
+) -> None:
+    config = _remove_simple_block(
+        _safe_apache_config(
+            '<DirectoryMatch "/\\.gitignore$">',
+            "    Require all denied",
+            "</DirectoryMatch>",
+        ),
         '<DirectoryMatch "/\\.(git|svn)(/|$)">',
     )
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import re
 
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
@@ -85,7 +86,7 @@ def has_denied_pattern(
         if not block_denies_all(block):
             continue
         pattern = block_pattern_text(block)
-        if any(marker in pattern for marker in normalized_markers):
+        if any(_contains_pattern_segment(pattern, marker) for marker in normalized_markers):
             return True
 
     return False
@@ -96,15 +97,16 @@ def block_pattern_text(block: ApacheBlockNode) -> str:
 
 
 def pattern_mentions_extension(pattern: str, extension: str) -> bool:
-    explicit_markers = (
-        f"\\.{extension}",
-        f".{extension}",
-        f"({extension}",
-        f"|{extension}",
-        f"{extension}|",
-        f"{extension})",
+    escaped_extension = re.escape(extension.lower())
+    return (
+        re.search(
+            rf"(?<![a-z0-9_])\\?\.{escaped_extension}(?![a-z0-9_])",
+            pattern,
+        )
+        is not None
+        or re.search(rf"(?<=[(|]){escaped_extension}(?=[|)])", pattern)
+        is not None
     )
-    return any(marker in pattern for marker in explicit_markers)
 
 
 def default_location(
@@ -142,6 +144,16 @@ def _directive_denies_all(directive: ApacheDirectiveNode) -> bool:
         return True
 
     return False
+
+
+def _contains_pattern_segment(pattern: str, marker: str) -> bool:
+    return (
+        re.search(
+            rf"(?<![a-z0-9_]){re.escape(marker)}(?![a-z0-9_])",
+            pattern,
+        )
+        is not None
+    )
 
 
 __all__ = [

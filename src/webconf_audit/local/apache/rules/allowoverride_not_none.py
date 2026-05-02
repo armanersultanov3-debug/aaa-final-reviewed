@@ -33,20 +33,20 @@ RULE_ID = "apache.allowoverride_not_none"
 def find_allowoverride_not_none(config_ast: ApacheConfigAst) -> list[Finding]:
     findings: list[Finding] = []
     directory_blocks = list(iter_blocks(config_ast.nodes, frozenset({"directory"})))
-    winners = _winning_directory_blocks_by_path(directory_blocks)
+    groups = _group_directory_blocks_by_path(directory_blocks)
 
-    if not any(_is_os_root_directory(block) for block in winners.values()):
+    if not any(_is_os_root_directory(blocks) for blocks in groups.values()):
         findings.append(_make_missing_root_finding(config_ast))
 
-    for block in winners.values():
-        directive = _find_allowoverride_directive(block)
+    for blocks in groups.values():
+        directive = _effective_allowoverride_directive(blocks)
         if directive is not None and _is_allowoverride_none(directive):
             continue
 
-        if directive is None and not _is_os_root_directory(block):
+        if directive is None and not _is_os_root_directory(blocks):
             continue
 
-        findings.append(_make_finding(block, directive=directive))
+        findings.append(_make_finding(blocks[-1], directive=directive))
 
     return findings
 
@@ -95,22 +95,22 @@ def _make_finding(
         location=SourceLocation(
             mode="local",
             kind="file",
-            file_path=block.source.file_path,
-            line=block.source.line,
+            file_path=(directive.source if directive is not None else block.source).file_path,
+            line=(directive.source if directive is not None else block.source).line,
         ),
     )
 
 
-def _winning_directory_blocks_by_path(
+def _group_directory_blocks_by_path(
     directory_blocks: list[ApacheBlockNode],
-) -> dict[Path | str, ApacheBlockNode]:
-    winners: dict[Path | str, ApacheBlockNode] = {}
+) -> dict[Path | str, list[ApacheBlockNode]]:
+    groups: dict[Path | str, list[ApacheBlockNode]] = {}
     for block in directory_blocks:
         key = _directory_key(block)
         if key is None:
             continue
-        winners[key] = block
-    return winners
+        groups.setdefault(key, []).append(block)
+    return groups
 
 
 def _directory_key(block: ApacheBlockNode) -> Path | str | None:
@@ -132,8 +132,8 @@ def _directory_key(block: ApacheBlockNode) -> Path | str | None:
     return (Path(source_file_path).parent / path).resolve()
 
 
-def _is_os_root_directory(block: ApacheBlockNode) -> bool:
-    return bool(block.args and block.args[0] == "/")
+def _is_os_root_directory(blocks: list[ApacheBlockNode]) -> bool:
+    return any(block.args and block.args[0] == "/" for block in blocks)
 
 
 def _is_allowoverride_none(directive: ApacheDirectiveNode) -> bool:
@@ -149,6 +149,17 @@ def _find_allowoverride_directive(block: ApacheBlockNode) -> ApacheDirectiveNode
         ):
             winner = child
     return winner
+
+
+def _effective_allowoverride_directive(
+    blocks: list[ApacheBlockNode],
+) -> ApacheDirectiveNode | None:
+    effective: ApacheDirectiveNode | None = None
+    for block in blocks:
+        directive = _find_allowoverride_directive(block)
+        if directive is not None:
+            effective = directive
+    return effective
 
 
 __all__ = ["find_allowoverride_not_none"]

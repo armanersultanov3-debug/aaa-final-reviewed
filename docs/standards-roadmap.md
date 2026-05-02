@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 221 rules:
+The current project inventory is 229 rules:
 
 - Universal: 11
 - Nginx local: 61
