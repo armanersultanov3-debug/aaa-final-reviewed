@@ -866,7 +866,8 @@ def test_binding_without_host_header_fires_for_http_and_https(
         f for f in result.findings if f.rule_id == "iis.binding_without_host_header"
     ]
     assert len(findings) == 2
-    assert {f.location.xml_path for f in findings if f.location} == {
+    assert all(f.location is not None for f in findings)
+    assert {f.location.xml_path for f in findings} == {
         "configuration/system.applicationHost/sites/site/bindings/binding"
     }
     descriptions = [f.description for f in findings]
@@ -991,9 +992,11 @@ def test_binding_without_host_header_fires_when_host_field_is_missing(
     result = analyze_iis_config(str(tmp_path / "applicationHost.config"))
     _assert_no_analysis_issues(result)
 
-    assert "iis.binding_without_host_header" in {
-        f.rule_id for f in result.findings
-    }
+    findings = [
+        f for f in result.findings if f.rule_id == "iis.binding_without_host_header"
+    ]
+    assert len(findings) == 1
+    assert "*:80" in findings[0].description
 
 
 def test_ssl_not_required_absence_silent_without_https_binding(tmp_path: Path) -> None:
