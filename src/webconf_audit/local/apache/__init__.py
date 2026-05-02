@@ -32,6 +32,13 @@ from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
 
+_APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
+    {
+        "universal.missing_hsts",
+        "universal.weak_tls_ciphers",
+    }
+)
+
 
 @dataclass
 class ApacheAnalysisContext:
@@ -173,7 +180,11 @@ def _universal_apache_findings(
         ast=ast,
         effective_config={"config_dir": config_dir},
     )
-    return run_universal_rules(normalized, issues=issues)
+    return [
+        finding
+        for finding in run_universal_rules(normalized, issues=issues)
+        if finding.rule_id not in _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS
+    ]
 
 
 def _analysis_metadata(
