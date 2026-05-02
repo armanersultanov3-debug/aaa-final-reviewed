@@ -260,6 +260,12 @@ Out of scope for this mode: fuzzing, payload injection, brute force,
 state-changing HTTP methods, OOB callbacks, authentication bypass attempts,
 and exploit chains.
 
+Status: initial fixed-path exposure checks are catalog-backed by
+`src/webconf_audit/external/safe_probe_catalog.py`. The first cataloged set
+keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
+work can add curated safe probes from external sources without adding another
+hardcoded finder per path.
+
 ## Current Priority
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
@@ -268,6 +274,7 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: standards metadata in the rule registry / report formats. This
-adds machine-readable standards references without changing detector behavior.
-After review, start the first new rule PR from the prioritized backlog.
+Current step: external safe-probe catalog. Standards metadata in the rule
+registry / report formats and the first new IIS host-header rule are now
+implemented; the next external work should add only curated non-mutating probes
+on top of the catalog.

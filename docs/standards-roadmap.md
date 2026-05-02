@@ -358,7 +358,7 @@ standard section before implementation.
 | STD-GAP-012 | Standards output | direct-rule | P2 | Add typed standards metadata to rule registry entries, include standards references in JSON output, and add optional text report grouping by standard without changing rule behavior. |
 | STD-GAP-013 | ASVS 5.0.0 | direct-rule | P2 | Add remaining CSP quality probes for reporting directives, nonce/hash posture, and per-response policy after deciding the desired strictness. External `frame-ancestors`, `object-src`, and `base-uri` coverage is now present. |
 | STD-GAP-014 | ASVS 5.0.0 | probe-depth | P3 | Extend TLS probing for forward secrecy, cipher preference, OCSP stapling, and ECH before claiming deeper V12 coverage. |
-| STD-GAP-015 | External probes | direct-rule | P2 | Add a declarative safe probe catalog for the existing external mode, inspired by the safe subset of Nuclei templates: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
+| STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Next, expand the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 
 ## PR Slicing
 
@@ -374,6 +374,8 @@ Keep standards work small enough for CodeRabbit and human review:
 7. First new rule PR from the prioritized backlog.
 8. External safe-probe catalog PR: move fixed-path external exposure checks
    behind a declarative catalog before importing any Nuclei-inspired checks.
+   Follow-up PRs can add curated safe probes to the catalog without adding a
+   bespoke finder for each fixed path.
 
 ## Acceptance Criteria For New Standards Rules
 

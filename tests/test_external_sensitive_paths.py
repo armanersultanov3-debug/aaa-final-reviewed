@@ -16,8 +16,9 @@ from tests.external_helpers import (
 
 def test_sensitive_paths_phase_1_4_1_set() -> None:
     from webconf_audit.external.recon import _SENSITIVE_PATHS
+    from webconf_audit.external.safe_probe_catalog import DEFAULT_SAFE_PROBE_PATHS
 
-    assert _SENSITIVE_PATHS == (
+    assert _SENSITIVE_PATHS == DEFAULT_SAFE_PROBE_PATHS == (
         "/.git/HEAD",
         "/server-status",
         "/server-info",
@@ -34,6 +35,47 @@ def test_sensitive_paths_phase_1_4_1_set() -> None:
         "/sitemap.xml",
         "/.svn/entries",
     )
+
+
+def test_safe_probe_catalog_is_limited_to_safe_methods() -> None:
+    from webconf_audit.external.safe_probe_catalog import (
+        CONDITIONAL_SAFE_PATH_PROBES,
+        SAFE_PATH_RULES,
+    )
+
+    allowed_methods = {"GET", "HEAD", "OPTIONS"}
+    assert {rule.method for rule in SAFE_PATH_RULES} <= allowed_methods
+    assert {probe.method for probe in CONDITIONAL_SAFE_PATH_PROBES} <= allowed_methods
+
+
+def test_safe_probe_catalog_default_paths_are_explicit_and_unique() -> None:
+    from webconf_audit.external.safe_probe_catalog import (
+        DEFAULT_SAFE_PROBE_PATHS,
+        SAFE_PATH_RULES,
+    )
+
+    default_paths = [
+        path for rule in SAFE_PATH_RULES for path in (rule.default_paths or rule.paths)
+    ]
+
+    assert tuple(default_paths) == DEFAULT_SAFE_PROBE_PATHS
+    assert len(default_paths) == len(set(default_paths))
+    assert all(path in rule.paths for rule in SAFE_PATH_RULES for path in rule.default_paths)
+
+
+def test_safe_probe_catalog_registers_sensitive_rule_metadata() -> None:
+    from webconf_audit.external.safe_probe_catalog import SAFE_PATH_RULES
+    from webconf_audit.rule_registry import registry
+
+    for rule in SAFE_PATH_RULES:
+        meta = registry.get_meta(rule.rule_id)
+        assert meta is not None
+        assert meta.title == rule.title
+        assert meta.severity == rule.severity
+        assert meta.order == rule.order
+        assert meta.recommendation == (
+            rule.metadata_recommendation or rule.recommendation
+        )
 
 
 def test_probe_sensitive_paths_uses_all_universal_paths(monkeypatch) -> None:

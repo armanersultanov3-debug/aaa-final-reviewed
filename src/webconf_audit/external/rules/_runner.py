@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from webconf_audit.external.safe_probe_catalog import SAFE_PATH_RULE_METAS
 from webconf_audit.external.rules._conditional import collect_conditional_findings
 from webconf_audit.external.rules._cookies import collect_cookie_findings
 from webconf_audit.external.rules._cors import collect_cors_findings
@@ -83,22 +84,8 @@ _EXTERNAL_RULE_METAS = [
     RuleMeta(rule_id="external.dangerous_http_methods_enabled", title="Dangerous HTTP methods enabled", severity="medium", description="Dangerous HTTP methods enabled.", recommendation="Disable dangerous methods.", category="external", input_kind="probe", order=673),
     RuleMeta(rule_id="external.trace_method_exposed_via_options", title="TRACE method exposed via OPTIONS", severity="low", description="TRACE method exposed via OPTIONS.", recommendation="Disable TRACE method.", category="external", input_kind="probe", order=674),
     RuleMeta(rule_id="external.webdav_methods_exposed", title="WebDAV methods exposed", severity="medium", description="WebDAV methods exposed.", recommendation="Disable WebDAV unless required.", category="external", input_kind="probe", order=675),
-    # -- _sensitive_paths.py --
-    RuleMeta(rule_id="external.git_metadata_exposed", title="Git metadata exposed", severity="high", description="Git metadata exposed.", recommendation="Block access to .git/.", category="external", input_kind="probe", order=680),
-    RuleMeta(rule_id="external.server_status_exposed", title="Server status page exposed", severity="medium", description="Server status page exposed.", recommendation="Restrict access to status page.", category="external", input_kind="probe", order=681),
-    RuleMeta(rule_id="external.server_info_exposed", title="Server info page exposed", severity="medium", description="Server info page exposed.", recommendation="Restrict access to info page.", category="external", input_kind="probe", order=682),
-    RuleMeta(rule_id="external.nginx_status_exposed", title="Nginx status page exposed", severity="low", description="Nginx status page exposed.", recommendation="Restrict access to stub_status.", category="external", input_kind="probe", order=683),
-    RuleMeta(rule_id="external.env_file_exposed", title=".env file exposed", severity="high", description=".env file exposed.", recommendation="Block access to .env files.", category="external", input_kind="probe", order=684),
-    RuleMeta(rule_id="external.htaccess_exposed", title=".htaccess file exposed", severity="medium", description=".htaccess file exposed.", recommendation="Block access to .htaccess files.", category="external", input_kind="probe", order=685),
-    RuleMeta(rule_id="external.htpasswd_exposed", title=".htpasswd file exposed", severity="high", description=".htpasswd file exposed.", recommendation="Block access to .htpasswd files.", category="external", input_kind="probe", order=686),
-    RuleMeta(rule_id="external.wordpress_admin_panel_exposed", title="WordPress admin panel exposed", severity="low", description="WordPress admin panel exposed.", recommendation="Restrict access to wp-admin.", category="external", input_kind="probe", order=687),
-    RuleMeta(rule_id="external.phpinfo_exposed", title="phpinfo page exposed", severity="medium", description="phpinfo page exposed.", recommendation="Remove phpinfo files.", category="external", input_kind="probe", order=688),
-    RuleMeta(rule_id="external.elmah_axd_exposed", title="ELMAH error log endpoint exposed", severity="medium", description="ELMAH error log endpoint exposed.", recommendation="Restrict access to elmah.axd.", category="external", input_kind="probe", order=689),
-    RuleMeta(rule_id="external.trace_axd_exposed", title="ASP.NET trace endpoint exposed", severity="high", description="ASP.NET trace endpoint exposed.", recommendation="Disable trace.axd.", category="external", input_kind="probe", order=690),
-    RuleMeta(rule_id="external.web_config_exposed", title="web.config exposed", severity="high", description="web.config exposed.", recommendation="Block access to web.config.", category="external", input_kind="probe", order=691),
-    RuleMeta(rule_id="external.robots_txt_exposed", title="robots.txt exposed", severity="info", description="robots.txt exposed.", recommendation="Review robots.txt contents.", category="external", input_kind="probe", order=692),
-    RuleMeta(rule_id="external.sitemap_xml_exposed", title="sitemap.xml exposed", severity="info", description="sitemap.xml exposed.", recommendation="Review sitemap.xml contents.", category="external", input_kind="probe", order=693),
-    RuleMeta(rule_id="external.svn_metadata_exposed", title="SVN metadata exposed", severity="medium", description="SVN metadata exposed.", recommendation="Block access to .svn/.", category="external", input_kind="probe", order=694),
+    # -- _sensitive_paths.py / safe_probe_catalog.py --
+    *SAFE_PATH_RULE_METAS,
     # -- _tls.py --
     RuleMeta(rule_id="external.certificate_expired", title="TLS certificate expired", severity="high", description="TLS certificate expired.", recommendation="Renew the certificate.", category="external", input_kind="probe", order=700),
     RuleMeta(rule_id="external.certificate_expires_soon", title="TLS certificate expires soon", severity="medium", description="TLS certificate expires soon.", recommendation="Renew the certificate.", category="external", input_kind="probe", order=701),
