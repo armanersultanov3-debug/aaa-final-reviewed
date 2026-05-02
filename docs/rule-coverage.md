@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **219**
+Total rules: **220**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (136), external (72), universal (11) |
-| Severity | high (12), medium (61), low (135), info (11) |
-| Input kind | ast (102), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (137), external (72), universal (11) |
+| Severity | high (12), medium (61), low (136), info (11) |
+| Input kind | ast (103), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 40
+Count: 41
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -365,6 +365,7 @@ rather than to ".htaccess" itself.
 | `apache.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value check only) | CIS Apache HTTP Server 2.4 v2.3.0 §5.17 (partial: validates `no-referrer` / `strict-origin-when-cross-origin` values) |
 | `apache.missing_permissions_policy_header` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (presence only; policy value remains application-specific) |
 | `apache.permissions_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (partial: flags wildcard feature grants; detailed allowlist choices remain application-specific) |
+| `apache.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: sensitive `Location` / `LocationMatch` scopes only) |
 
 Mapping rationale (apache rules):
 
@@ -438,6 +439,10 @@ Mapping rationale (apache rules):
   available, the classic vector for cross-site tracing (XST) which lets an
   attacker echo back `Authorization` / `Cookie` headers: CWE-200 (information
   exposure), OWASP A05.
+- `missing_http_method_restrictions` -- sensitive `Location` /
+  `LocationMatch` scopes that do not define `Limit` / `LimitExcept` denial or
+  `Require method` policy leave unexpected HTTP methods governed by broader
+  server defaults: CWE-650, OWASP A05.
 - `file_etag_inodes` -- inode-derived ETag values expose filesystem metadata:
   CWE-200, OWASP A05.
 - `timeout_too_high`, `keepalive_disabled`,
@@ -460,7 +465,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §4.3-§4.4 | `direct-rule` | Existing `AllowOverride` rules are partial; full coverage needs explicit `AllowOverride None` validation for OS-root and all directory scopes. |
 | §5.1-§5.3 | `direct-rule` | Existing `Options` rules cover risky tokens individually; full coverage needs an allowed-options policy per directory class. |
 | §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
-| §5.7 | `direct-rule` | Add Apache HTTP method restriction checks; current TRACE coverage does not cover a full approved-method policy. |
+| §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes; a full site-wide approved-method policy model remains future work. |
 | §5.9 | `direct-rule` | Add old HTTP protocol-version checks after defining supported directive signals. |
 | §5.10-§5.13 | `direct-rule` | Current backup/temp file blocking is partial; add explicit `.ht*`, `.git`, `.svn`, and broader extension deny-list checks. |
 | §5.14-§5.15 | `direct-rule` | Add checks for IP-based requests and explicit listen-address policy after defining environment-specific expectations. |
@@ -862,7 +867,7 @@ Progress:
 - [x] Universal rules (11)
 - [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (40) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (41) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
 - [x] IIS local rules (20) — CWE/OWASP/ASVS filled; CIS existing-rule reference
