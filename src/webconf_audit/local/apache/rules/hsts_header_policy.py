@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.parser import ApacheConfigAst, ApacheSourceSpan
 from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
 from webconf_audit.local.apache.rules.security_header_utils import (
     ApacheHeaderScope,
@@ -16,6 +16,7 @@ MISSING_RULE_ID = "apache.missing_hsts_header"
 UNSAFE_RULE_ID = "apache.hsts_header_unsafe"
 HEADER_NAME = "Strict-Transport-Security"
 MIN_HSTS_MAX_AGE = 31_536_000
+ScopeKey = tuple[str, str | None, int | None]
 
 
 @rule(
@@ -36,10 +37,10 @@ MIN_HSTS_MAX_AGE = 31_536_000
     tags=("headers", "tls"),
 )
 def find_missing_hsts_header(config_ast: ApacheConfigAst) -> list[Finding]:
-    tls_labels = _tls_scope_labels(config_ast)
+    tls_scope_keys = _tls_scope_keys(config_ast)
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, HEADER_NAME):
-        if not _is_tls_header_scope(scope, tls_labels):
+        if not _is_tls_header_scope(scope, tls_scope_keys):
             continue
         if not scope.missing_possible:
             continue
@@ -79,10 +80,10 @@ def find_missing_hsts_header(config_ast: ApacheConfigAst) -> list[Finding]:
     tags=("headers", "tls"),
 )
 def find_hsts_header_unsafe(config_ast: ApacheConfigAst) -> list[Finding]:
-    tls_labels = _tls_scope_labels(config_ast)
+    tls_scope_keys = _tls_scope_keys(config_ast)
     findings: list[Finding] = []
     for scope in iter_effective_header_scopes(config_ast, HEADER_NAME):
-        if not _is_tls_header_scope(scope, tls_labels):
+        if not _is_tls_header_scope(scope, tls_scope_keys):
             continue
         unsafe = _unsafe_hsts_setting(scope)
         if unsafe is None:
@@ -113,12 +114,33 @@ def find_hsts_header_unsafe(config_ast: ApacheConfigAst) -> list[Finding]:
     return findings
 
 
-def _tls_scope_labels(config_ast: ApacheConfigAst) -> set[str]:
-    return {scope.label for scope in iter_tls_scopes(config_ast)}
+def _tls_scope_keys(config_ast: ApacheConfigAst) -> set[ScopeKey]:
+    return {
+        _scope_key(
+            scope.label,
+            (
+                scope.context.node.source
+                if scope.context is not None
+                else scope.fallback_source
+            ),
+        )
+        for scope in iter_tls_scopes(config_ast)
+    }
 
 
-def _is_tls_header_scope(scope: ApacheHeaderScope, tls_labels: set[str]) -> bool:
-    return scope.auditable and scope.label in tls_labels
+def _is_tls_header_scope(
+    scope: ApacheHeaderScope,
+    tls_scope_keys: set[ScopeKey],
+) -> bool:
+    return scope.auditable and _scope_key(scope.label, scope.source) in tls_scope_keys
+
+
+def _scope_key(label: str, source: ApacheSourceSpan | None) -> ScopeKey:
+    return (
+        label,
+        source.file_path if source is not None else None,
+        source.line if source is not None else None,
+    )
 
 
 def _unsafe_hsts_setting(

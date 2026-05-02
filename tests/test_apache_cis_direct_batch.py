@@ -91,6 +91,26 @@ def test_analyze_apache_config_does_not_flag_require_method_inside_requireany(
     assert "apache.http_method_policy_allows_unapproved" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_does_not_flag_nested_require_method_inside_requireany(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            '<Location "/api">',
+            "    <RequireAny>",
+            "        <IfModule mod_authz_core.c>",
+            "            Require method GET POST DELETE",
+            "        </IfModule>",
+            "        Require all granted",
+            "    </RequireAny>",
+            "</Location>",
+        ),
+    )
+
+    assert "apache.http_method_policy_allows_unapproved" not in _rule_ids(findings)
+
+
 def test_analyze_apache_config_reports_weak_ssl_cipher_suite(
     tmp_path: Path,
 ) -> None:
@@ -180,6 +200,21 @@ def test_analyze_apache_config_does_not_report_hsts_for_http_only(
         tmp_path,
         _safe_apache_config(
             'Header always set Strict-Transport-Security "max-age=300"'
+        ),
+    )
+
+    rule_ids = _rule_ids(findings)
+    assert "apache.missing_hsts_header" not in rule_ids
+    assert "apache.hsts_header_unsafe" not in rule_ids
+
+
+def test_analyze_apache_config_does_not_apply_hsts_policy_to_matching_http_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _redirect_pair_config(
+            '    Header always set Strict-Transport-Security "max-age=300"'
         ),
     )
 

@@ -123,7 +123,7 @@ def _child_require_method_active(
         return False
     if name in REQUIRE_METHOD_WRAPPER_BLOCKS:
         return parent_active
-    return True
+    return parent_active
 
 
 def _is_require_method(directive: ApacheDirectiveNode) -> bool:
