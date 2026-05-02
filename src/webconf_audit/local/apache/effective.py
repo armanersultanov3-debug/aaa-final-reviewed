@@ -41,6 +41,7 @@ from webconf_audit.local.apache.parser import (
 TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
+OPTIONAL_VIRTUALHOST_WRAPPER_BLOCKS = frozenset({"ifdefine", "ifmodule", "ifversion"})
 LOCATION_BLOCK_NAMES = frozenset({"location", "locationmatch"})
 ACCUMULATION_DIRECTIVES: dict[str, dict[str, Literal["replace", "accumulate", "remove"]]] = {
     "header": {
@@ -64,6 +65,8 @@ class ApacheVirtualHostContext:
     server_aliases: list[str]
     listen_address: str | None
     node: ApacheBlockNode
+    optional_ancestor_names: tuple[str, ...] = ()
+    listen_addresses: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,7 +115,7 @@ def extract_virtualhost_contexts(
     """Extract VirtualHost blocks with ServerName / ServerAlias metadata."""
     contexts: list[ApacheVirtualHostContext] = []
 
-    for block in _iter_virtualhost_blocks(config_ast.nodes):
+    for block, optional_ancestor_names in _iter_virtualhost_blocks(config_ast.nodes):
         server_name: str | None = None
         server_aliases: list[str] = []
 
@@ -129,6 +132,8 @@ def extract_virtualhost_contexts(
                 server_aliases=server_aliases,
                 listen_address=block.args[0] if block.args else None,
                 node=block,
+                optional_ancestor_names=optional_ancestor_names,
+                listen_addresses=tuple(block.args),
             )
         )
 
@@ -650,13 +655,23 @@ def _virtualhost_layer(context: ApacheVirtualHostContext) -> str:
 
 def _iter_virtualhost_blocks(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
-) -> list[ApacheBlockNode]:
-    blocks: list[ApacheBlockNode] = []
+    optional_ancestor_names: tuple[str, ...] = (),
+) -> list[tuple[ApacheBlockNode, tuple[str, ...]]]:
+    blocks: list[tuple[ApacheBlockNode, tuple[str, ...]]] = []
     for node in nodes:
         if isinstance(node, ApacheBlockNode):
-            if node.name.lower() == "virtualhost":
-                blocks.append(node)
-            blocks.extend(_iter_virtualhost_blocks(node.children))
+            name = node.name.lower()
+            child_optional_ancestor_names = optional_ancestor_names
+            if name in OPTIONAL_VIRTUALHOST_WRAPPER_BLOCKS:
+                child_optional_ancestor_names = (*optional_ancestor_names, name)
+            if name == "virtualhost":
+                blocks.append((node, optional_ancestor_names))
+            blocks.extend(
+                _iter_virtualhost_blocks(
+                    node.children,
+                    optional_ancestor_names=child_optional_ancestor_names,
+                )
+            )
     return blocks
 
 

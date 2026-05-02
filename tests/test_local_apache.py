@@ -24,9 +24,47 @@ from webconf_audit.local.apache.rules.htaccess_weakens_security import (
     find_htaccess_weakens_security,
 )
 
+_SAFE_SECURITY_HEADER_LINES = {
+    "x-content-type-options": "Header set X-Content-Type-Options nosniff",
+    "x-frame-options": "Header set X-Frame-Options SAMEORIGIN",
+    "content-security-policy": (
+        "Header set Content-Security-Policy "
+        "\"default-src 'self'; frame-ancestors 'self'\""
+    ),
+    "referrer-policy": "Header set Referrer-Policy strict-origin-when-cross-origin",
+    "permissions-policy": (
+        'Header set Permissions-Policy "geolocation=(), microphone=(), camera=()"'
+    ),
+}
+_SAFE_SECURITY_HEADER_ALWAYS_LINES = {
+    header: line.replace("Header set ", "Header always set ", 1)
+    for header, line in _SAFE_SECURITY_HEADER_LINES.items()
+}
+_SAFE_SECURITY_HEADER_BASELINE_LINES = [
+    _SAFE_SECURITY_HEADER_ALWAYS_LINES["x-frame-options"],
+    *[
+        line
+        for header in _SAFE_SECURITY_HEADER_LINES
+        if header != "x-frame-options"
+        for line in (
+            _SAFE_SECURITY_HEADER_LINES[header],
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES[header],
+        )
+    ],
+]
 
-def _with_backup_files_restriction(config_text: str) -> str:
-    return config_text.rstrip("\n") + (
+
+def _with_backup_files_restriction(
+    config_text: str,
+    *,
+    include_security_headers: bool = True,
+) -> str:
+    security_headers = (
+        "\n" + "\n".join(_SAFE_SECURITY_HEADER_BASELINE_LINES)
+        if include_security_headers
+        else ""
+    )
+    return config_text.rstrip("\n") + security_headers + (
         '\n<FilesMatch "\\.(bak|old|swp)$">\n'
         "    Require all denied\n"
         "</FilesMatch>"
@@ -48,6 +86,47 @@ def _safe_apache_config(*extra_lines: str) -> str:
     ]
     lines.extend(extra_lines)
     return _with_backup_files_restriction("\n".join(lines))
+
+
+def _safe_apache_config_without_headers(
+    *extra_lines: str,
+    omit_headers: set[str] | None = None,
+) -> str:
+    omit = {header.lower() for header in omit_headers or set()}
+    base_lines = _safe_apache_config().splitlines()
+    omitted_lines = set()
+    for header in omit:
+        omitted_lines.update(
+            line
+            for line in (
+                _SAFE_SECURITY_HEADER_LINES.get(header),
+                _SAFE_SECURITY_HEADER_ALWAYS_LINES.get(header),
+            )
+            if line is not None and line in base_lines
+        )
+    filtered_lines = [line for line in base_lines if line not in omitted_lines]
+    for extra_line in extra_lines:
+        filtered_lines.extend(extra_line.splitlines())
+    return "\n".join(filtered_lines)
+
+
+def _safe_apache_config_without_security_headers(*extra_lines: str) -> str:
+    return _safe_apache_config_without_headers(
+        *extra_lines,
+        omit_headers=set(_SAFE_SECURITY_HEADER_LINES),
+    )
+
+
+def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
+    config = _safe_apache_config()
+    marker = '\n<FilesMatch "\\.(bak|old|swp)$">'
+    if marker not in config:
+        raise AssertionError(
+            "_safe_apache_config_with_late_lines: expected backup-files marker "
+            f"{marker!r} to be present in the safe base config so that late "
+            "lines can be inserted before the FilesMatch block."
+        )
+    return config.replace(marker, "\n" + "\n".join(extra_lines) + marker, 1)
 
 
 def test_context_sensitive_directives_normalizes_target_contexts() -> None:
@@ -195,6 +274,8 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
+                "Listen 80",
+                *_SAFE_SECURITY_HEADER_BASELINE_LINES,
                 "<VirtualHost *:80>",
                 "    ServerName example.test",
                 '    <Directory "/var/www/html">',
@@ -2269,6 +2350,1193 @@ def test_analyze_apache_config_reports_final_unsafe_file_etag_value(
     assert len(findings) == 1
     assert findings[0].location is not None
     assert findings[0].location.file_path == str(config_path)
+
+
+@pytest.mark.parametrize(
+    ("header_name", "rule_id"),
+    [
+        ("x-frame-options", "apache.missing_x_frame_options_header"),
+        ("referrer-policy", "apache.missing_referrer_policy_header"),
+        ("permissions-policy", "apache.missing_permissions_policy_header"),
+    ],
+)
+def test_analyze_apache_config_reports_missing_security_header_policy(
+    tmp_path: Path,
+    header_name: str,
+    rule_id: str,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(omit_headers={header_name}),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    apache_findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id.startswith("apache.")
+    ]
+    assert len(apache_findings) == 1
+    assert apache_findings[0].rule_id == rule_id
+    assert apache_findings[0].location is not None
+    assert apache_findings[0].location.file_path == str(config_path)
+
+
+def test_safe_apache_config_without_headers_preserves_matching_override(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            _SAFE_SECURITY_HEADER_LINES["referrer-policy"],
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES["referrer-policy"],
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+@pytest.mark.parametrize(
+    ("header_line", "rule_id"),
+    [
+        (
+            "Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        (
+            'Header always set X-Frame-Options ""',
+            "apache.x_frame_options_unsafe",
+        ),
+        (
+            "Header always set Referrer-Policy unsafe-url",
+            "apache.referrer_policy_unsafe",
+        ),
+        (
+            'Header always set Permissions-Policy "geolocation=*, microphone=()"',
+            "apache.permissions_policy_unsafe",
+        ),
+    ],
+)
+def test_analyze_apache_config_reports_unsafe_security_header_policy(
+    tmp_path: Path,
+    header_line: str,
+    rule_id: str,
+) -> None:
+    header_name = header_line.split(" set ", 1)[1].split()[0].lower()
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            header_line,
+            omit_headers={header_name},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    apache_findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id.startswith("apache.")
+    ]
+    assert len(apache_findings) == 1
+    assert apache_findings[0].rule_id == rule_id
+    assert apache_findings[0].location is not None
+    assert apache_findings[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_treats_dynamic_security_header_value_as_unknown(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
+def test_analyze_apache_config_treats_trailing_expr_as_header_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert [finding.rule_id for finding in matching] == [
+        "apache.missing_x_frame_options_header"
+    ]
+
+
+def test_analyze_apache_config_treats_unset_expr_as_header_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "Header always unset X-Frame-Options expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = {
+        finding.rule_id
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    }
+    assert result.issues == []
+    assert matching == {
+        "apache.missing_x_frame_options_header",
+        "apache.x_frame_options_unsafe",
+    }
+
+
+def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options "
+            "ALLOW-FROM https://legacy.example.test env=legacy",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert {finding.rule_id for finding in matching} == {
+        "apache.missing_x_frame_options_header",
+        "apache.x_frame_options_unsafe",
+    }
+    assert all(finding.location is not None for finding in matching)
+    assert {finding.location.file_path for finding in matching if finding.location} == {
+        str(config_path)
+    }
+
+
+@pytest.mark.parametrize(
+    ("header_line", "rule_id"),
+    [
+        ("Header setifempty X-Frame-Options SAMEORIGIN", None),
+        (
+            "Header setifempty X-Frame-Options "
+            "ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header add X-Frame-Options DENY", None),
+        (
+            "Header add X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header append X-Frame-Options SAMEORIGIN", None),
+        (
+            "Header append X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+        ("Header merge X-Frame-Options DENY", None),
+        (
+            "Header merge X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "apache.x_frame_options_unsafe",
+        ),
+    ],
+)
+def test_analyze_apache_config_supports_security_header_actions(
+    tmp_path: Path,
+    header_line: str,
+    rule_id: str | None,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            header_line.replace("Header ", "Header always ", 1),
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    if rule_id is None:
+        assert matching == []
+    else:
+        assert len(matching) == 1
+        assert matching[0].rule_id == rule_id
+        assert matching[0].location is not None
+        assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_honors_virtualhost_security_header_override(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<VirtualHost *:80>",
+            "    ServerName safe.test",
+            "    Header unset X-Frame-Options",
+            "    Header always set X-Frame-Options DENY",
+            "</VirtualHost>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_keeps_header_conditions_separate(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess unset X-Frame-Options",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
+def test_analyze_apache_config_reports_missing_for_onsuccess_only_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options DENY",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].rule_id == "apache.missing_x_frame_options_header"
+
+
+def test_analyze_apache_config_reports_missing_for_non_exhaustive_header_wrapper(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_security_headers(
+            "<IfModule mod_headers.c>",
+            "    Header always set X-Frame-Options DENY",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_x_frame_options_header"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_treats_valid_else_if_header_chain_as_exhaustive(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'primary.test'\">",
+            "    Header always set X-Frame-Options DENY",
+            "</If>",
+            "<ElseIf \"%{HTTP_HOST} == 'legacy.test'\">",
+            "    Header always set X-Frame-Options SAMEORIGIN",
+            "</ElseIf>",
+            "<Else>",
+            "    Header always set X-Frame-Options DENY",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
+def test_analyze_apache_config_reports_conditional_missing_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'no-header.test'\">",
+            "    Header unset X-Frame-Options",
+            "    Header always unset X-Frame-Options",
+            "</If>",
+            "<Else>",
+            "    Header always set X-Frame-Options SAMEORIGIN",
+            "</Else>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.missing_x_frame_options_header"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_treats_if_else_header_chain_as_exhaustive(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'primary.test'\">",
+            "    Header always set X-Frame-Options DENY",
+            "</If>",
+            "<Else>",
+            "    Header always set X-Frame-Options SAMEORIGIN",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_conditional_unsafe_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_security_headers(
+            "<IfModule mod_headers.c>",
+            "    Header set Referrer-Policy unsafe-url",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.referrer_policy_unsafe"
+    ]
+    assert result.issues == []
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_ignores_header_inside_standalone_else_for_auditability(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            [
+                "ServerSignature Off",
+                "TraceEnable Off",
+                "ServerTokens Prod",
+                "LimitRequestBody 102400",
+                "LimitRequestFields 100",
+                "ErrorLog logs/error_log",
+                "CustomLog logs/access_log combined",
+                "ErrorDocument 404 /custom404.html",
+                "ErrorDocument 500 /custom500.html",
+                "Listen 80",
+                "Header always set X-Frame-Options DENY",
+                "<Else>",
+                "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+                "</Else>",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_flags_combined_unsafe_security_header_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header always append X-Frame-Options SAMEORIGIN",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_flags_add_multi_instance_unsafe_security_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    add_directive = "Header add X-Frame-Options SAMEORIGIN"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options DENY",
+            add_directive,
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+    config_lines = config_path.read_text(encoding="utf-8").splitlines()
+    expected_line = config_lines.index(add_directive) + 1
+    assert matching[0].location.line == expected_line
+
+
+def test_analyze_apache_config_flags_merge_combined_unsafe_security_header_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set Referrer-Policy strict-origin-when-cross-origin",
+            "Header always merge Referrer-Policy unsafe-url",
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.referrer_policy_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_skips_security_headers_when_no_listen(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\nServerTokens Prod\nTraceEnable Off\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.missing_referrer_policy_header",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_skips_inactive_virtualhost_security_headers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\nServerTokens Prod\nTraceEnable Off\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName inactive.test\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.missing_referrer_policy_header",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_skips_conditional_virtualhost_security_header_scope(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            "<IfModule mod_optional_vhost.c>",
+            "    <VirtualHost *:80>",
+            "        ServerName optional.test",
+            "        Header always unset X-Frame-Options",
+            "    </VirtualHost>",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        and finding.metadata.get("scope_name") == "optional.test"
+    ]
+    assert result.issues == []
+    assert matching == []
+
+
+def test_analyze_apache_config_skips_unsafe_for_inactive_virtualhost_inheriting_global(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "ServerSignature Off\n"
+        "ServerTokens Prod\n"
+        "TraceEnable Off\n"
+        "Header set X-Frame-Options ALLOW-FROM https://legacy.example.test\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName inactive.test\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata.get("scope_name") == "global"
+
+
+def test_analyze_apache_config_blames_last_applied_directive_for_combined_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    onsuccess_directive = "Header onsuccess set X-Frame-Options DENY"
+    always_directive = "Header always set X-Frame-Options SAMEORIGIN"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            onsuccess_directive,
+            always_directive,
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    config_lines = config_path.read_text(encoding="utf-8").splitlines()
+    expected_line = config_lines.index(always_directive) + 1
+    assert matching[0].location is not None
+    assert matching[0].location.line == expected_line
+
+
+def test_analyze_apache_config_preserves_include_apply_order_for_header_blame(
+    tmp_path: Path,
+) -> None:
+    included_path = tmp_path / "included-headers.conf"
+    included_path.write_text(
+        "Header always set X-Frame-Options SAMEORIGIN\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header onsuccess set X-Frame-Options DENY",
+            f'Include "{_posix_path(included_path)}"',
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.file_path == str(included_path)
+    assert matching[0].location.line == 1
+
+
+def test_analyze_apache_config_handles_many_independent_optional_blocks(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    optional_blocks = []
+    for index in range(12):
+        optional_blocks.extend(
+            [
+                f"<IfModule mod_extra_{index}.c>",
+                f"    SetEnv WEBCONF_AUDIT_FLAG_{index} on",
+                "</IfModule>",
+            ]
+        )
+    config_path.write_text(
+        _safe_apache_config(*optional_blocks),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
+            "apache.missing_permissions_policy_header",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_treats_if_else_branches_as_alternatives(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'a.test'\">",
+            "    Header always set X-Frame-Options DENY",
+            "</If>",
+            "<Else>",
+            "    Header always set X-Frame-Options SAMEORIGIN",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_flags_unsafe_if_branch_when_other_is_safe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'legacy.test'\">",
+            "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "</If>",
+            "<Else>",
+            "    Header always set X-Frame-Options DENY",
+            "</Else>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert not any(
+        finding.rule_id == "apache.missing_x_frame_options_header"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_permissions_policy_with_comma_allowlist(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            'Header always set Permissions-Policy "geolocation=(self, https://example.test)"',
+            omit_headers={"permissions-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_permissions_policy_header",
+            "apache.permissions_policy_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_skips_global_headers_when_listen_is_covered(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<VirtualHost *:80>",
+            "    ServerName covered.test",
+            "    Header set X-Frame-Options DENY",
+            "    Header always set X-Frame-Options DENY",
+            "</VirtualHost>",
+            omit_headers=set(_SAFE_SECURITY_HEADER_LINES),
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+        and finding.metadata.get("scope_name") == "global"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_flags_always_onsuccess_multi_instance_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess set X-Frame-Options SAMEORIGIN",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+
+
+def test_analyze_apache_config_flags_identical_always_onsuccess_xfo_instances(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess set X-Frame-Options DENY",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+
+
+def test_analyze_apache_config_audits_global_scope_when_virtualhosts_present(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "<VirtualHost *:80>",
+            "    ServerName covered.test",
+            "    Header unset X-Frame-Options",
+            "    Header set X-Frame-Options DENY",
+            "</VirtualHost>",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata.get("scope_name") == "global"
+
+
+def test_analyze_apache_config_accepts_referrer_policy_fallback_chain(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header set Referrer-Policy strict-origin-when-cross-origin",
+            "Header always set Referrer-Policy strict-origin-when-cross-origin",
+            "Header merge Referrer-Policy no-referrer",
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_recognizes_virtualhost_with_multiple_bind_addresses(
+    tmp_path: Path,
+) -> None:
+    safe_vh_headers = (
+        "    Header always set X-Frame-Options DENY",
+        "    Header always set X-Content-Type-Options nosniff",
+        '    Header always set Content-Security-Policy '
+        '"default-src \'self\'; frame-ancestors \'self\'"',
+        "    Header always set Referrer-Policy strict-origin-when-cross-origin",
+        '    Header always set Permissions-Policy '
+        '"geolocation=(), microphone=(), camera=()"',
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            (
+                "ServerSignature Off",
+                "ServerTokens Prod",
+                "TraceEnable Off",
+                "Listen 80",
+                "Listen 443",
+                "<VirtualHost *:80 *:443>",
+                "    ServerName covered.test",
+                *safe_vh_headers,
+                "</VirtualHost>",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    security_header_rules = {
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_permissions_policy_header",
+        "apache.x_frame_options_unsafe",
+        "apache.referrer_policy_unsafe",
+    }
+    assert not any(
+        finding.rule_id in security_header_rules
+        and finding.metadata.get("scope_name") == "global"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_ignores_conditional_listen_when_checking_coverage(
+    tmp_path: Path,
+) -> None:
+    safe_vh_headers = (
+        "    Header always set X-Frame-Options DENY",
+        "    Header always set X-Content-Type-Options nosniff",
+        '    Header always set Content-Security-Policy '
+        '"default-src \'self\'; frame-ancestors \'self\'"',
+        "    Header always set Referrer-Policy strict-origin-when-cross-origin",
+        '    Header always set Permissions-Policy '
+        '"geolocation=(), microphone=(), camera=()"',
+    )
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "\n".join(
+            (
+                "ServerSignature Off",
+                "ServerTokens Prod",
+                "TraceEnable Off",
+                "Listen 80",
+                "<IfDefine ENABLE_TLS>",
+                "    Listen 443",
+                "</IfDefine>",
+                "<VirtualHost *:80>",
+                "    ServerName covered.test",
+                *safe_vh_headers,
+                "</VirtualHost>",
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    security_header_rules = {
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_permissions_policy_header",
+    }
+    assert not any(
+        finding.rule_id in security_header_rules
+        and finding.metadata.get("scope_name") == "global"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_referrer_policy_with_unknown_trailing_token(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            'Header always set Referrer-Policy "strict-origin-when-cross-origin, future-policy"',
+            omit_headers={"referrer-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.referrer_policy_unsafe",
+            "apache.missing_referrer_policy_header",
+        }
+        for finding in result.findings
+    )
 
 
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(
@@ -4873,8 +6141,10 @@ def test_extract_virtualhost_contexts_reads_server_names_and_aliases() -> None:
     assert contexts[0].server_name == "example.test"
     assert contexts[0].server_aliases == ["www.example.test", "api.example.test"]
     assert contexts[0].listen_address == "*:80"
+    assert contexts[0].optional_ancestor_names == ()
     assert contexts[1].server_name is None
     assert contexts[1].listen_address == "*:443"
+    assert contexts[1].optional_ancestor_names == ("ifmodule",)
 
 
 def test_select_applicable_virtualhosts_matches_serveralias() -> None:
