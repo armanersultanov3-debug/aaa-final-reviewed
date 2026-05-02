@@ -724,7 +724,8 @@ def _parse_header_directive(
         return None
 
     header_name = args[action_index + 1].lower()
-    value = _header_value(args[action_index + 2 :])
+    expects_value = action in _HEADER_SET_ACTIONS
+    value = _header_value(args[action_index + 2 :], expects_value=expects_value)
     return (
         action,
         header_name,
@@ -735,7 +736,7 @@ def _parse_header_directive(
     )
 
 
-def _header_value(args: list[str]) -> _HeaderValue:
+def _header_value(args: list[str], *, expects_value: bool) -> _HeaderValue:
     value_args: list[str] = []
     dynamic = False
     conditional = False
@@ -747,11 +748,13 @@ def _header_value(args: list[str]) -> _HeaderValue:
             conditional = True
             continue
         if lowered.startswith("expr="):
-            if value_args:
+            if not expects_value or value_args:
                 conditional = True
-                break
+                continue
             dynamic = True
             value_args.append(arg)
+            continue
+        if not expects_value:
             continue
         value_args.append(arg)
 

@@ -2507,6 +2507,37 @@ def test_analyze_apache_config_treats_trailing_expr_as_header_condition(
     ]
 
 
+def test_analyze_apache_config_treats_unset_expr_as_header_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "Header always unset X-Frame-Options expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = {
+        finding.rule_id
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    }
+    assert result.issues == []
+    assert matching == {
+        "apache.missing_x_frame_options_header",
+        "apache.x_frame_options_unsafe",
+    }
+
+
 def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition(
     tmp_path: Path,
 ) -> None:
@@ -2614,13 +2645,14 @@ def test_analyze_apache_config_honors_virtualhost_security_header_override(
 ) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config(
+        _safe_apache_config_without_headers(
             "<VirtualHost *:80>",
             "    ServerName safe.test",
             "    Header unset X-Frame-Options",
             "    Header always set X-Frame-Options DENY",
             "    Header onsuccess set X-Frame-Options DENY",
             "</VirtualHost>",
+            omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
     )
@@ -2860,8 +2892,11 @@ def test_analyze_apache_config_ignores_header_inside_standalone_else_for_auditab
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
+                "Listen 80",
+                "Header set X-Frame-Options DENY",
+                "Header always set X-Frame-Options DENY",
                 "<Else>",
-                "    Header always set X-Frame-Options DENY",
+                "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
                 "</Else>",
             ]
         ),
