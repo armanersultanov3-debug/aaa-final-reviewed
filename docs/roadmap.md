@@ -275,8 +275,8 @@ v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
 Current step: Apache CIS direct-rule expansion. The active slice adds a larger
-set of configuration-level benchmark checks for `AllowOverride None`, sensitive
-file deny lists, and logging policy before returning to external probe growth.
+set of configuration-level benchmark checks for Apache TLS directives after the
+`AllowOverride None`, sensitive-file deny-list, and logging policy pass.
 
 The external safe-probe catalog is implemented. Future external probe growth
 should add only curated non-mutating probes on top of the catalog.
