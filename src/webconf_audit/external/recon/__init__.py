@@ -8,6 +8,12 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal, NamedTuple
 from urllib.parse import SplitResult, urljoin, urlsplit
 
+from webconf_audit.external.safe_probe_catalog import (
+    CONDITIONAL_SAFE_PROBE_CONFIDENCES,
+    CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE,
+    DEFAULT_SAFE_PROBE_PATHS,
+    safe_probe_paths_for_identification,
+)
 from webconf_audit.external.rules import run_external_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, SourceLocation
 
@@ -75,27 +81,11 @@ class OptionsObservation:
     error_message: str | None = None
 
 
-_SENSITIVE_PATHS: tuple[str, ...] = (
-    "/.git/HEAD",
-    "/server-status",
-    "/server-info",
-    "/nginx_status",
-    "/.env",
-    "/.htaccess",
-    "/.htpasswd",
-    "/wp-admin/",
-    "/phpinfo.php",
-    "/elmah.axd",
-    "/trace.axd",
-    "/web.config",
-    "/robots.txt",
-    "/sitemap.xml",
-    "/.svn/entries",
+_SENSITIVE_PATHS: tuple[str, ...] = DEFAULT_SAFE_PROBE_PATHS
+_CONDITIONAL_SENSITIVE_PATHS_BY_SERVER_TYPE = (
+    CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE
 )
-_CONDITIONAL_SENSITIVE_PATHS_BY_SERVER_TYPE: dict[str, tuple[str, ...]] = {
-    "apache": ("/server-status?auto",),
-}
-_CONDITIONAL_SENSITIVE_PATH_CONFIDENCES = frozenset({"medium", "high"})
+_CONDITIONAL_SENSITIVE_PATH_CONFIDENCES = CONDITIONAL_SAFE_PROBE_CONFIDENCES
 _REDIRECT_STATUS_CODES = frozenset({301, 302, 307, 308})
 _REDIRECT_CHAIN_MAX_HOPS = 5
 _BODY_SNIPPET_MAX_BYTES = 512
@@ -1150,22 +1140,9 @@ def _probe_sensitive_paths(
 def _sensitive_paths_for_identification(
     identification: ServerIdentification | None,
 ) -> tuple[str, ...]:
-    if identification is None:
-        return _SENSITIVE_PATHS
-    if identification.server_type is None:
-        return _SENSITIVE_PATHS
-    if identification.confidence not in _CONDITIONAL_SENSITIVE_PATH_CONFIDENCES:
-        return _SENSITIVE_PATHS
-
-    conditional_paths = _CONDITIONAL_SENSITIVE_PATHS_BY_SERVER_TYPE.get(
-        identification.server_type,
-        (),
-    )
-    if not conditional_paths:
-        return _SENSITIVE_PATHS
-
-    return _SENSITIVE_PATHS + tuple(
-        path for path in conditional_paths if path not in _SENSITIVE_PATHS
+    return safe_probe_paths_for_identification(
+        identification.server_type if identification is not None else None,
+        identification.confidence if identification is not None else None,
     )
 
 

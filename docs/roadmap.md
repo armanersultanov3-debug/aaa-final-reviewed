@@ -260,6 +260,12 @@ Out of scope for this mode: fuzzing, payload injection, brute force,
 state-changing HTTP methods, OOB callbacks, authentication bypass attempts,
 and exploit chains.
 
+Status: initial fixed-path exposure checks are catalog-backed by
+`src/webconf_audit/external/safe_probe_catalog.py`. The first cataloged set
+keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
+work can add curated safe probes from external sources without adding another
+hardcoded finder per path.
+
 ## Current Priority
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
@@ -271,3 +277,6 @@ reporting.
 Current step: Apache CIS direct-rule expansion. The active slice adds a larger
 set of configuration-level benchmark checks for Apache TLS directives after the
 `AllowOverride None`, sensitive-file deny-list, and logging policy pass.
+
+The external safe-probe catalog is implemented. Future external probe growth
+should add only curated non-mutating probes on top of the catalog.

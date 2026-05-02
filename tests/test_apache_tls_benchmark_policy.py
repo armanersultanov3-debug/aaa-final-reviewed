@@ -64,6 +64,21 @@ def test_analyze_apache_config_uses_any_global_listen_for_tls_intent(
     assert "apache.ssl_protocol_missing_or_weak" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_uses_https_listen_protocol_for_virtualhost(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        "Listen 10443 https",
+        "<VirtualHost *:10443>",
+        "    ServerName secure-alt.test",
+        "</VirtualHost>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.ssl_protocol_missing_or_weak" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_reports_missing_ssl_protocol(
     tmp_path: Path,
 ) -> None:
@@ -179,6 +194,19 @@ def test_analyze_apache_config_reports_disabled_ssl_session_cache(
     findings = _analyze_config(
         tmp_path,
         _safe_tls_config(replacements={"session_cache": "SSLSessionCache none"}),
+    )
+
+    assert "apache.ssl_session_cache_missing" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_disabled_ssl_session_cache_nonenotnull(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(
+            replacements={"session_cache": "SSLSessionCache nonenotnull"}
+        ),
     )
 
     assert "apache.ssl_session_cache_missing" in _rule_ids(findings)

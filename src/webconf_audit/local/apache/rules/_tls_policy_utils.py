@@ -47,13 +47,14 @@ class ApacheTLSScope:
 
 
 def iter_tls_scopes(config_ast: ApacheConfigAst) -> list[ApacheTLSScope]:
+    global_tls_ports = _global_tls_listen_ports(config_ast)
     contexts = extract_virtualhost_contexts(config_ast)
     if contexts:
         return [
             scope
             for context in contexts
             if (
-                scope := _virtualhost_tls_scope(config_ast, context)
+                scope := _virtualhost_tls_scope(config_ast, context, global_tls_ports)
             )
             is not None
         ]
@@ -129,10 +130,11 @@ def make_tls_finding(
 def _virtualhost_tls_scope(
     config_ast: ApacheConfigAst,
     context: ApacheVirtualHostContext,
+    global_tls_ports: frozenset[int],
 ) -> ApacheTLSScope | None:
     effective = build_server_effective_config(config_ast, virtualhost_context=context)
     if not (
-        _virtualhost_listens_on_tls(context)
+        _virtualhost_listens_on_tls(context, global_tls_ports)
         or _has_tls_directive_intent(effective.directives)
     ):
         return None
@@ -163,16 +165,18 @@ def _has_tls_directive_intent(directives: dict[str, EffectiveDirective]) -> bool
     return False
 
 
-def _virtualhost_listens_on_tls(context: ApacheVirtualHostContext) -> bool:
-    return any(_address_mentions_tls(address) for address in context.listen_addresses)
+def _virtualhost_listens_on_tls(
+    context: ApacheVirtualHostContext,
+    global_tls_ports: frozenset[int],
+) -> bool:
+    return any(
+        _address_mentions_tls(address, tls_ports=global_tls_ports)
+        for address in context.listen_addresses
+    )
 
 
 def _global_listens_on_tls(config_ast: ApacheConfigAst) -> bool:
-    return any(
-        _listen_directive_mentions_tls(directive)
-        for directive in _iter_top_level_directives(config_ast.nodes)
-        if directive.name.lower() == "listen"
-    )
+    return bool(_global_tls_listen_ports(config_ast))
 
 
 def _iter_top_level_directives(
@@ -188,20 +192,47 @@ def _iter_top_level_directives(
 
 
 def _listen_directive_mentions_tls(directive: ApacheDirectiveNode) -> bool:
+    return _listen_directive_tls_port(directive) is not None
+
+
+def _global_tls_listen_ports(config_ast: ApacheConfigAst) -> frozenset[int]:
+    return frozenset(
+        port
+        for directive in _iter_top_level_directives(config_ast.nodes)
+        if directive.name.lower() == "listen"
+        if (port := _listen_directive_tls_port(directive)) is not None
+    )
+
+
+def _listen_directive_tls_port(directive: ApacheDirectiveNode) -> int | None:
     if not directive.args:
-        return False
+        return None
+
+    port = _address_port(directive.args[0])
+    if port is None:
+        return None
+
     if any(arg.lower() == "https" for arg in directive.args[1:]):
-        return True
-    return _address_mentions_tls(directive.args[0])
+        return port
+    if port in TLS_PORTS:
+        return port
+    return None
 
 
-def _address_mentions_tls(value: str) -> bool:
+def _address_mentions_tls(value: str, *, tls_ports: frozenset[int]) -> bool:
+    port = _address_port(value)
+    return port is not None and (port in TLS_PORTS or port in tls_ports)
+
+
+def _address_port(value: str) -> int | None:
     if value.isdigit():
-        return int(value) in TLS_PORTS
+        return int(value)
     if ":" not in value:
-        return False
+        return None
     _, _, port = value.rpartition(":")
-    return port.isdigit() and int(port) in TLS_PORTS
+    if not port.isdigit():
+        return None
+    return int(port)
 
 
 __all__ = [
