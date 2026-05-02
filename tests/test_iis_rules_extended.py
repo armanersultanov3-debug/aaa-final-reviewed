@@ -27,6 +27,7 @@ def test_request_filtering_allow_high_bit_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.request_filtering_allow_high_bit" in {f.rule_id for f in result.findings}
 
 
@@ -64,6 +65,7 @@ def test_anonymous_auth_enabled_fires_with_other_scheme(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.anonymous_auth_enabled" in {f.rule_id for f in result.findings}
     findings = [f for f in result.findings if f.rule_id == "iis.anonymous_auth_enabled"]
     assert len(findings) == 1
@@ -125,6 +127,7 @@ def test_forms_auth_require_ssl_missing_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.forms_auth_require_ssl_missing" in {f.rule_id for f in result.findings}
 
 
@@ -141,6 +144,7 @@ def test_forms_auth_require_ssl_missing_fires_when_attribute_absent(tmp_path: Pa
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.forms_auth_require_ssl_missing" in {f.rule_id for f in result.findings}
 
 
@@ -172,6 +176,7 @@ def test_session_state_cookieless_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.session_state_cookieless" in {f.rule_id for f in result.findings}
 
 
@@ -186,6 +191,7 @@ def test_session_state_cookieless_true_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.session_state_cookieless" in {f.rule_id for f in result.findings}
 
 
@@ -222,6 +228,7 @@ def test_webdav_module_enabled_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     findings = [f for f in result.findings if f.rule_id == "iis.webdav_module_enabled"]
     assert len(findings) == 1
     finding = findings[0]
@@ -277,6 +284,7 @@ def test_cgi_handler_enabled_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.cgi_handler_enabled" in {f.rule_id for f in result.findings}
     findings = [f for f in result.findings if f.rule_id == "iis.cgi_handler_enabled"]
     assert len(findings) == 1
@@ -319,6 +327,7 @@ def test_cgi_handler_enabled_fires_for_combined_modules(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     findings = [f for f in result.findings if f.rule_id == "iis.cgi_handler_enabled"]
     assert len(findings) == 1
     assert "CGI-combined" in findings[0].description
@@ -339,6 +348,7 @@ def test_x_powered_by_present_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.custom_headers_expose_server" in {f.rule_id for f in result.findings}
 
 
@@ -401,6 +411,7 @@ def test_location_scoped_anonymous_auth_includes_context(tmp_path: Path) -> None
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     findings = [f for f in result.findings if f.rule_id == "iis.anonymous_auth_enabled"]
     assert len(findings) == 1
     assert "public" in findings[0].description
@@ -425,6 +436,7 @@ def test_ssl_not_required_fires_when_none(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" in {f.rule_id for f in result.findings}
 
 
@@ -441,6 +453,7 @@ def test_ssl_not_required_fires_when_empty(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" in {f.rule_id for f in result.findings}
 
 
@@ -475,6 +488,7 @@ def test_weak_tls_fires_ssl_without_ssl128(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_weak_cipher_strength" in {f.rule_id for f in result.findings}
     assert "iis.ssl_not_required" not in {f.rule_id for f in result.findings}
 
@@ -492,9 +506,29 @@ def test_weak_tls_uses_sslflag_tokens_not_substrings(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     rule_ids = {f.rule_id for f in result.findings}
     assert "iis.ssl_weak_cipher_strength" not in rule_ids
     assert "iis.ssl_not_required" in rule_ids
+
+
+def test_ssl_flags_semicolon_delimiter_is_tokenized(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <access sslFlags="Ssl;Ssl128" />
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+    rule_ids = {f.rule_id for f in result.findings}
+    assert "iis.ssl_not_required" not in rule_ids
+    assert "iis.ssl_weak_cipher_strength" not in rule_ids
 
 
 def test_missing_hsts_header_fires(tmp_path: Path) -> None:
@@ -512,6 +546,7 @@ def test_missing_hsts_header_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.missing_hsts_header" in {f.rule_id for f in result.findings}
 
 
@@ -549,6 +584,7 @@ def test_max_allowed_content_length_missing_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.max_allowed_content_length_missing" in {f.rule_id for f in result.findings}
 
 
@@ -582,6 +618,7 @@ def test_logging_not_configured_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.logging_not_configured" in {f.rule_id for f in result.findings}
 
 
@@ -617,6 +654,7 @@ def test_hsts_absence_fires_when_no_custom_headers_section(tmp_path: Path) -> No
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.missing_hsts_header" in {f.rule_id for f in result.findings}
 
 
@@ -632,6 +670,7 @@ def test_logging_absence_fires_when_no_httpLogging_section(tmp_path: Path) -> No
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.logging_not_configured" in {f.rule_id for f in result.findings}
 
 
@@ -679,6 +718,7 @@ def test_expose_server_aspnetmvc_version_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.custom_headers_expose_server" in {f.rule_id for f in result.findings}
     findings = [
         f for f in result.findings if f.rule_id == "iis.custom_headers_expose_server"
@@ -707,6 +747,7 @@ def test_expose_server_both_headers_single_finding(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     findings = [f for f in result.findings if f.rule_id == "iis.custom_headers_expose_server"]
     assert len(findings) == 1
     assert "X-Powered-By" in findings[0].description
@@ -775,6 +816,7 @@ def test_ssl_not_required_absence_fires_with_https_binding(tmp_path: Path) -> No
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" in {f.rule_id for f in result.findings}
 
 
@@ -828,6 +870,7 @@ def test_max_content_length_absence_fires_when_no_request_limits(tmp_path: Path)
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.max_allowed_content_length_missing" in {f.rule_id for f in result.findings}
 
 
@@ -854,6 +897,7 @@ def test_max_content_length_excessive_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     findings = [f for f in result.findings if f.rule_id == "iis.max_allowed_content_length_missing"]
     assert len(findings) == 1
     assert "excessive" in findings[0].description.lower() or "1073741824" in findings[0].description
