@@ -606,13 +606,20 @@ def _success_response_settings(
     deduped: list[ApacheHeaderSetting] = []
     seen_values: set[tuple[str, str | None]] = set()
     for setting in settings:
-        # Success responses can see both Apache header tables; identical
-        # values are harmless for value-safety checks, conflicting values are not.
-        key = (setting.name.lower(), _canonical_header_value(setting.value))
+        canonicalized = _canonicalized_header_setting(setting)
+        if setting.name.lower() == "x-frame-options":
+            # Multiple X-Frame-Options fields are not equivalent to one field,
+            # even when Apache emits the same value from both header tables.
+            deduped.append(canonicalized)
+            continue
+        # For other headers, success responses can see both Apache header
+        # tables; identical values are harmless for value-safety checks,
+        # conflicting values are not.
+        key = (setting.name.lower(), canonicalized.value)
         if key in seen_values:
             continue
         seen_values.add(key)
-        deduped.append(_canonicalized_header_setting(setting))
+        deduped.append(canonicalized)
     return deduped
 
 

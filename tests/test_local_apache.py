@@ -41,12 +41,16 @@ _SAFE_SECURITY_HEADER_ALWAYS_LINES = {
     for header, line in _SAFE_SECURITY_HEADER_LINES.items()
 }
 _SAFE_SECURITY_HEADER_BASELINE_LINES = [
-    line
-    for header in _SAFE_SECURITY_HEADER_LINES
-    for line in (
-        _SAFE_SECURITY_HEADER_LINES[header],
-        _SAFE_SECURITY_HEADER_ALWAYS_LINES[header],
-    )
+    _SAFE_SECURITY_HEADER_ALWAYS_LINES["x-frame-options"],
+    *[
+        line
+        for header in _SAFE_SECURITY_HEADER_LINES
+        if header != "x-frame-options"
+        for line in (
+            _SAFE_SECURITY_HEADER_LINES[header],
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES[header],
+        )
+    ],
 ]
 
 
@@ -2387,9 +2391,9 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            _SAFE_SECURITY_HEADER_LINES["x-frame-options"],
-            _SAFE_SECURITY_HEADER_ALWAYS_LINES["x-frame-options"],
-            omit_headers={"x-frame-options"},
+            _SAFE_SECURITY_HEADER_LINES["referrer-policy"],
+            _SAFE_SECURITY_HEADER_ALWAYS_LINES["referrer-policy"],
+            omit_headers={"referrer-policy"},
         ),
         encoding="utf-8",
     )
@@ -2400,8 +2404,8 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
     assert not any(
         finding.rule_id
         in {
-            "apache.missing_x_frame_options_header",
-            "apache.x_frame_options_unsafe",
+            "apache.missing_referrer_policy_header",
+            "apache.referrer_policy_unsafe",
         }
         for finding in result.findings
     )
@@ -2411,12 +2415,15 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
     ("header_line", "rule_id"),
     [
         (
-            "Header set X-Frame-Options ALLOW-FROM https://legacy.example.test",
+            "Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
             "apache.x_frame_options_unsafe",
         ),
-        ("Header set Referrer-Policy unsafe-url", "apache.referrer_policy_unsafe"),
         (
-            'Header set Permissions-Policy "geolocation=*, microphone=()"',
+            "Header always set Referrer-Policy unsafe-url",
+            "apache.referrer_policy_unsafe",
+        ),
+        (
+            'Header always set Permissions-Policy "geolocation=*, microphone=()"',
             "apache.permissions_policy_unsafe",
         ),
     ],
@@ -2426,12 +2433,11 @@ def test_analyze_apache_config_reports_unsafe_security_header_policy(
     header_line: str,
     rule_id: str,
 ) -> None:
-    header_name = header_line.split()[2].lower()
+    header_name = header_line.split(" set ", 1)[1].split()[0].lower()
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
             header_line,
-            _SAFE_SECURITY_HEADER_ALWAYS_LINES[header_name],
             omit_headers={header_name},
         ),
         encoding="utf-8",
@@ -2604,16 +2610,10 @@ def test_analyze_apache_config_supports_security_header_actions(
     header_line: str,
     rule_id: str | None,
 ) -> None:
-    always_value = (
-        "DENY"
-        if rule_id is not None
-        else header_line.split("X-Frame-Options ", 1)[1]
-    )
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            header_line,
-            f"Header always set X-Frame-Options {always_value}",
+            header_line.replace("Header ", "Header always ", 1),
             omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
@@ -2650,7 +2650,6 @@ def test_analyze_apache_config_honors_virtualhost_security_header_override(
             "    ServerName safe.test",
             "    Header unset X-Frame-Options",
             "    Header always set X-Frame-Options DENY",
-            "    Header onsuccess set X-Frame-Options DENY",
             "</VirtualHost>",
             omit_headers={"x-frame-options"},
         ),
@@ -2798,7 +2797,6 @@ def test_analyze_apache_config_reports_conditional_missing_security_header(
             "    Header always unset X-Frame-Options",
             "</If>",
             "<Else>",
-            "    Header set X-Frame-Options SAMEORIGIN",
             "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
         ),
@@ -2825,11 +2823,9 @@ def test_analyze_apache_config_treats_if_else_header_chain_as_exhaustive(
     config_path.write_text(
         _safe_apache_config_without_headers(
             "<If \"%{HTTP_HOST} == 'primary.test'\">",
-            "    Header set X-Frame-Options DENY",
             "    Header always set X-Frame-Options DENY",
             "</If>",
             "<Else>",
-            "    Header set X-Frame-Options SAMEORIGIN",
             "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
             omit_headers={"x-frame-options"},
@@ -2893,7 +2889,6 @@ def test_analyze_apache_config_ignores_header_inside_standalone_else_for_auditab
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
                 "Listen 80",
-                "Header set X-Frame-Options DENY",
                 "Header always set X-Frame-Options DENY",
                 "<Else>",
                 "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
@@ -3209,11 +3204,9 @@ def test_analyze_apache_config_treats_if_else_branches_as_alternatives(
     config_path.write_text(
         _safe_apache_config_without_headers(
             "<If \"%{HTTP_HOST} == 'a.test'\">",
-            "    Header set X-Frame-Options DENY",
             "    Header always set X-Frame-Options DENY",
             "</If>",
             "<Else>",
-            "    Header set X-Frame-Options SAMEORIGIN",
             "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
             omit_headers={"x-frame-options"},
@@ -3329,6 +3322,30 @@ def test_analyze_apache_config_flags_always_onsuccess_multi_instance_unsafe(
         _safe_apache_config_without_headers(
             "Header always set X-Frame-Options DENY",
             "Header onsuccess set X-Frame-Options SAMEORIGIN",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.x_frame_options_unsafe"
+    ]
+    assert len(matching) == 1
+
+
+def test_analyze_apache_config_flags_identical_always_onsuccess_xfo_instances(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY",
+            "Header onsuccess set X-Frame-Options DENY",
             omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
