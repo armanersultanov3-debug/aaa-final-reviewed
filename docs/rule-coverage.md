@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **229**
+Total rules: **237**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (146), external (72), universal (11) |
-| Severity | high (12), medium (64), low (142), info (11) |
-| Input kind | ast (112), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (154), external (72), universal (11) |
+| Severity | high (13), medium (67), low (146), info (11) |
+| Input kind | ast (120), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 49
+Count: 57
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -374,6 +374,14 @@ rather than to ".htaccess" itself.
 | `apache.missing_permissions_policy_header` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (presence only; policy value remains application-specific) |
 | `apache.permissions_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (partial: flags wildcard feature grants; detailed allowlist choices remain application-specific) |
 | `apache.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: sensitive `Location` / `LocationMatch` scopes only) |
+| `apache.ssl_protocol_missing_or_weak` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local `SSLProtocol` presence and weak-version checks) |
+| `apache.ssl_cipher_suite_missing` | low | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: cipher policy presence only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.4 (partial: `SSLCipherSuite` presence only) |
+| `apache.ssl_honor_cipher_order_not_on` | medium | ast | tls | [CWE-757](https://cwe.mitre.org/data/definitions/757.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: server preference only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.5 |
+| `apache.ssl_compression_enabled` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.6 |
+| `apache.ssl_insecure_renegotiation_enabled` | high | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.7 |
+| `apache.ssl_use_stapling_not_on` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local directive only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.10 (partial: `SSLUseStapling` only) |
+| `apache.ssl_stapling_cache_missing` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local cache directive only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.10 (partial: cache presence when stapling is enabled) |
+| `apache.ssl_session_cache_missing` | low | ast | tls | - | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.12 (partial: `SSLSessionCache` presence / disabled-state check) |
 
 Mapping rationale (apache rules):
 
@@ -466,6 +474,17 @@ Mapping rationale (apache rules):
 - `limit_request_line_too_high`, `limit_request_field_size_too_high` -- overly
   large request line or header field limits can pass oversized input to
   downstream applications: CWE-770.
+- `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_missing`,
+  `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, and
+  `ssl_insecure_renegotiation_enabled` -- missing or weak local TLS protocol,
+  cipher, and negotiation directives weaken cryptographic posture: CWE-327 or
+  CWE-757 where applicable, OWASP A02.
+- `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing` -- local OCSP
+  stapling policy is a TLS hardening signal; CWE stays empty and OWASP A05
+  covers the misconfiguration.
+- `ssl_session_cache_missing` -- missing TLS session cache is operational /
+  benchmark posture rather than a direct weakness class; CWE and OWASP stay
+  empty.
 
 CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
@@ -486,7 +505,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy stays host-depth. |
 | §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
-| §7.1, §7.4-§7.12 | `parser-depth` | Apache TLS directives need dedicated modeling for protocols, ciphers, renegotiation, compression, HTTPS redirect, OCSP, HSTS, and forward secrecy. |
+| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, and `SSLSessionCache`; remaining work is full benchmark cipher-string validation, HTTPS redirect / HSTS precision, and forward-secrecy runtime evidence. |
 | §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
 | §7.3 | `host-depth` | Private-key protection needs filesystem ownership and permission metadata. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
@@ -885,7 +904,7 @@ Progress:
 - [x] Universal rules (11)
 - [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (49) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (57) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
 - [x] IIS local rules (21) — CWE/OWASP/ASVS filled; CIS existing-rule reference
