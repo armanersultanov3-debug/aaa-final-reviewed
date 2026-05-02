@@ -5,6 +5,7 @@ from tests.apache_helpers import (
     find_context_sensitive_directives,
     parse_apache_config,
     pytest,
+    _SAFE_APACHE_CIS_BASELINE_LINES,
     _SAFE_SECURITY_HEADER_BASELINE_LINES,
     _with_backup_files_restriction,
 )
@@ -87,6 +88,7 @@ def test_analyze_apache_config_accepts_files_match_block(tmp_path: Path) -> None
                 '<FilesMatch "\\.(bak|old|swp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
@@ -116,6 +118,7 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
                 "ErrorDocument 500 /custom500.html",
                 "Listen 80",
                 *_SAFE_SECURITY_HEADER_BASELINE_LINES,
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
                 "<VirtualHost *:80>",
                 "    ServerName example.test",
                 '    <Directory "/var/www/html">',
@@ -159,6 +162,7 @@ def test_analyze_apache_config_does_not_report_backup_temp_files_when_denied(
                 '<FilesMatch "\\.(bak|old|swp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
@@ -274,6 +278,7 @@ def test_analyze_apache_config_reports_missing_backup_temp_files_restriction(
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
@@ -307,6 +312,7 @@ def test_analyze_apache_config_reports_backup_temp_files_match_without_deny(
                 '<FilesMatch "\\.(bak|old|swp)$">',
                 "    Require all granted",
                 "</FilesMatch>",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
@@ -340,6 +346,7 @@ def test_analyze_apache_config_reports_non_extension_files_match_pattern(
                 '<FilesMatch "^backup-old-swp-notes$">',
                 "    Require all denied",
                 "</FilesMatch>",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
@@ -487,6 +494,7 @@ def test_analyze_apache_config_reports_missing_trace_enable(tmp_path: Path) -> N
                 '<FilesMatch "\\.(bak|old|swp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
+                *_SAFE_APACHE_CIS_BASELINE_LINES,
             ]
         ),
         encoding="utf-8",
