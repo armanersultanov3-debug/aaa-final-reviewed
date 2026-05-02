@@ -1907,6 +1907,32 @@ def test_analyze_apache_config_accepts_limitexcept_method_restriction(
     )
 
 
+def test_analyze_apache_config_accepts_limitexcept_deny_inside_authz_container(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            '<Location "/admin">',
+            "    <LimitExcept GET POST OPTIONS>",
+            "        <RequireAll>",
+            "            Require all denied",
+            "        </RequireAll>",
+            "    </LimitExcept>",
+            "</Location>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_accepts_limit_method_restriction(
     tmp_path: Path,
 ) -> None:

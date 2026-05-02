@@ -116,7 +116,9 @@ def _block_denies_access(block: ApacheBlockNode) -> bool:
             if _is_require_all_denied(child) or _is_legacy_deny_all(child):
                 return True
             continue
-        if child.name.lower() in TRANSPARENT_WRAPPER_BLOCKS and _block_denies_access(child):
+        if child.name.lower() in METHOD_POLICY_WRAPPER_BLOCKS and _block_denies_access(
+            child
+        ):
             return True
     return False
 
