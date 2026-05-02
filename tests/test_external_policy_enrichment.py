@@ -1018,3 +1018,10 @@ def test_second_batch_rules_coexist_with_server_identification(monkeypatch) -> N
 
     # Server identification is present and correct.
     assert result.server_type == "nginx"
+    ident = result.metadata["server_identification"]
+    assert ident["server_type"] == "nginx"
+    assert ident["confidence"] == "high"
+    rule_ids = {f.rule_id for f in result.findings}
+    assert "external.hsts_missing_include_subdomains" in rule_ids
+    assert "external.cookie_samesite_none_without_secure" in rule_ids
+    assert "external.http_redirect_not_permanent" in rule_ids

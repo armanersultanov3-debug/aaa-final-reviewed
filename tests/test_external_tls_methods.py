@@ -202,9 +202,6 @@ def test_extract_san_all_non_dns_returns_empty() -> None:
 # --- Certificate expired rule ---
 
 
-# --- Certificate expired rule ---
-
-
 def test_certificate_expired_fires(monkeypatch) -> None:
     tls = TLSInfo(
         protocol_version="TLSv1.2",

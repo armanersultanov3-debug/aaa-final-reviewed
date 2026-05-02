@@ -59,7 +59,9 @@ def test_anonymous_auth_enabled_fires_with_other_scheme(tmp_path: Path) -> None:
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
     assert "iis.anonymous_auth_enabled" in {f.rule_id for f in result.findings}
-    finding = [f for f in result.findings if f.rule_id == "iis.anonymous_auth_enabled"][0]
+    findings = [f for f in result.findings if f.rule_id == "iis.anonymous_auth_enabled"]
+    assert len(findings) == 1
+    finding = findings[0]
     assert "basic" in finding.description
 
 
@@ -264,7 +266,9 @@ def test_cgi_handler_enabled_fires(tmp_path: Path) -> None:
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
     assert "iis.cgi_handler_enabled" in {f.rule_id for f in result.findings}
-    finding = [f for f in result.findings if f.rule_id == "iis.cgi_handler_enabled"][0]
+    findings = [f for f in result.findings if f.rule_id == "iis.cgi_handler_enabled"]
+    assert len(findings) == 1
+    finding = findings[0]
     assert "CGI-exe" in finding.description
 
 
@@ -654,7 +658,11 @@ def test_expose_server_aspnetmvc_version_fires(tmp_path: Path) -> None:
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
     assert "iis.custom_headers_expose_server" in {f.rule_id for f in result.findings}
-    finding = [f for f in result.findings if f.rule_id == "iis.custom_headers_expose_server"][0]
+    findings = [
+        f for f in result.findings if f.rule_id == "iis.custom_headers_expose_server"
+    ]
+    assert len(findings) == 1
+    finding = findings[0]
     assert "X-AspNetMvc-Version" in finding.description
 
 
