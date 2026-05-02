@@ -48,6 +48,26 @@ def test_safe_probe_catalog_is_limited_to_safe_methods() -> None:
     assert {probe.method for probe in CONDITIONAL_SAFE_PATH_PROBES} <= allowed_methods
 
 
+def test_conditional_safe_probe_paths_are_grouped_by_server_type() -> None:
+    from webconf_audit.external.safe_probe_catalog import (
+        ConditionalSafePathProbe,
+        _conditional_safe_probe_paths_by_server_type,
+    )
+
+    grouped_paths = _conditional_safe_probe_paths_by_server_type(
+        (
+            ConditionalSafePathProbe(path="/server-status?auto", server_type="apache"),
+            ConditionalSafePathProbe(path="/server-status", server_type="apache"),
+            ConditionalSafePathProbe(path="/nginx_status", server_type="nginx"),
+        )
+    )
+
+    assert grouped_paths == {
+        "apache": ("/server-status?auto", "/server-status"),
+        "nginx": ("/nginx_status",),
+    }
+
+
 def test_safe_probe_catalog_default_paths_are_explicit_and_unique() -> None:
     from webconf_audit.external.safe_probe_catalog import (
         DEFAULT_SAFE_PROBE_PATHS,

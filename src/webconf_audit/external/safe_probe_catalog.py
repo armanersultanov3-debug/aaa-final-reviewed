@@ -320,13 +320,24 @@ CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (
     ConditionalSafePathProbe(path="/server-status?auto", server_type="apache"),
 )
 
+
+def _conditional_safe_probe_paths_by_server_type(
+    probes: tuple[ConditionalSafePathProbe, ...],
+) -> dict[str, tuple[str, ...]]:
+    return {
+        server_type: tuple(
+            probe.path for probe in probes if probe.server_type == server_type
+        )
+        for server_type in sorted({probe.server_type for probe in probes})
+    }
+
+
 DEFAULT_SAFE_PROBE_PATHS: tuple[str, ...] = tuple(
     path for rule in SAFE_PATH_RULES for path in (rule.default_paths or rule.paths)
 )
-CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE: dict[str, tuple[str, ...]] = {
-    server_type: tuple(probe.path for probe in CONDITIONAL_SAFE_PATH_PROBES)
-    for server_type in sorted({probe.server_type for probe in CONDITIONAL_SAFE_PATH_PROBES})
-}
+CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE: dict[str, tuple[str, ...]] = (
+    _conditional_safe_probe_paths_by_server_type(CONDITIONAL_SAFE_PATH_PROBES)
+)
 SAFE_PATH_RULE_METAS: tuple[RuleMeta, ...] = tuple(
     rule.to_rule_meta() for rule in SAFE_PATH_RULES
 )
