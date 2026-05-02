@@ -2419,6 +2419,10 @@ def test_safe_apache_config_without_headers_preserves_matching_override(
             "apache.x_frame_options_unsafe",
         ),
         (
+            'Header always set X-Frame-Options ""',
+            "apache.x_frame_options_unsafe",
+        ),
+        (
             "Header always set Referrer-Policy unsafe-url",
             "apache.referrer_policy_unsafe",
         ),
