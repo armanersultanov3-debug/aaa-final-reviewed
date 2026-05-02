@@ -1,7 +1,12 @@
 from tests.iis_helpers import (
+    AnalysisResult,
     Path,
     analyze_iis_config,
 )
+
+
+def _assert_no_analysis_issues(result: AnalysisResult) -> None:
+    assert not result.issues
 
 
 # ---------------------------------------------------------------------------
@@ -38,6 +43,7 @@ def test_request_filtering_allow_high_bit_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.request_filtering_allow_high_bit" not in {f.rule_id for f in result.findings}
 
 
@@ -81,6 +87,7 @@ def test_anonymous_auth_alone_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.anonymous_auth_enabled" not in {f.rule_id for f in result.findings}
 
 
@@ -101,6 +108,7 @@ def test_anonymous_auth_disabled_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.anonymous_auth_enabled" not in {f.rule_id for f in result.findings}
 
 
@@ -149,6 +157,7 @@ def test_forms_auth_require_ssl_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.forms_auth_require_ssl_missing" not in {f.rule_id for f in result.findings}
 
 
@@ -191,6 +200,7 @@ def test_session_state_cookieless_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.session_state_cookieless" not in {f.rule_id for f in result.findings}
 
 
@@ -231,6 +241,7 @@ def test_webdav_module_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.webdav_module_enabled" not in {f.rule_id for f in result.findings}
 
 
@@ -249,6 +260,7 @@ def test_webdav_module_removed_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.webdav_module_enabled" not in {f.rule_id for f in result.findings}
 
 
@@ -285,6 +297,7 @@ def test_cgi_handler_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.cgi_handler_enabled" not in {f.rule_id for f in result.findings}
 
 
@@ -344,6 +357,7 @@ def test_x_powered_by_removed_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.custom_headers_expose_server" not in {f.rule_id for f in result.findings}
 
 
@@ -364,6 +378,7 @@ def test_x_powered_by_add_then_remove_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.custom_headers_expose_server" not in {f.rule_id for f in result.findings}
 
 
@@ -442,6 +457,7 @@ def test_ssl_not_required_silent_when_ssl(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" not in {f.rule_id for f in result.findings}
 
 
@@ -512,6 +528,7 @@ def test_missing_hsts_header_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.missing_hsts_header" not in {f.rule_id for f in result.findings}
 
 
@@ -548,6 +565,7 @@ def test_max_allowed_content_length_set_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.max_allowed_content_length_missing" not in {f.rule_id for f in result.findings}
 
 
@@ -576,6 +594,7 @@ def test_logging_not_configured_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.logging_not_configured" not in {f.rule_id for f in result.findings}
 
 
@@ -631,6 +650,7 @@ def test_hsts_absence_silent_when_hsts_present(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.missing_hsts_header" not in {f.rule_id for f in result.findings}
 
 
@@ -712,6 +732,7 @@ def test_expose_server_both_removed_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.custom_headers_expose_server" not in {f.rule_id for f in result.findings}
 
 
@@ -778,6 +799,7 @@ def test_ssl_not_required_absence_silent_without_https_binding(tmp_path: Path) -
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" not in {f.rule_id for f in result.findings}
 
 
@@ -858,4 +880,5 @@ def test_max_content_length_reasonable_value_silent(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
     assert "iis.max_allowed_content_length_missing" not in {f.rule_id for f in result.findings}
