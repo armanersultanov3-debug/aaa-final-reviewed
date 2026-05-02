@@ -24,7 +24,7 @@ MINIMAL_APPLICATION_HOST_CONFIG = """\
         <sites>
             <site name="Default Web Site" id="1">
                 <bindings>
-                    <binding protocol="http" bindingInformation="*:80:" />
+                    <binding protocol="http" bindingInformation="*:80:example.test" />
                 </bindings>
             </site>
         </sites>
@@ -68,5 +68,5 @@ __all__ = [
     "analyze_iis_config",
     "build_effective_config",
     "parse_iis_config",
-    "pytest"
+    "pytest",
 ]

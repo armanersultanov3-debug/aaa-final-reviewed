@@ -37,13 +37,13 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 220 rules:
+The current project inventory is 221 rules:
 
 - Universal: 11
 - Nginx local: 61
 - Apache local: 41
 - Lighttpd local: 15
-- IIS local: 20
+- IIS local: 21
 - External probes: 72
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
@@ -352,7 +352,7 @@ standard section before implementation.
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, and sensitive-location method restrictions are now partially covered. Remaining direct-rule work includes full `AllowOverride None` validation, full approved-method policy, denied sensitive file patterns, log-quality checks, and Apache TLS directives. |
 | STD-GAP-007 | Apache CIS | parser-depth | P2 | Improve module inventory, proxy/TLS directive modeling, and effective access-control semantics before adding rules that reason about loaded modules, upstream TLS trust, ModSecurity/CRS, or broad `Require` policy. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy remains `host-depth`. |
-| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Add follow-up IIS XML checks for host headers, application pools, authorization defaults, cookie protection, credential storage, request-filtering limits/deny lists, MachineKey/trust settings, handler exposure, and response-header behavior. |
+| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage is now present for HTTP/HTTPS bindings without host names. Remaining IIS XML checks include application pools, authorization defaults, cookie protection, credential storage, request-filtering limits/deny lists, MachineKey/trust settings, handler exposure, and response-header behavior. |
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | direct-rule | P2 | Add typed standards metadata to rule registry entries, include standards references in JSON output, and add optional text report grouping by standard without changing rule behavior. |

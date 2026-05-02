@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 220
+        assert len(full_reg._catalog) == 221
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 148
+        assert len(full_reg._executable) == 149
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ class TestCategoryCounts:
 
     def test_iis(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="iis")
-        assert len(rules) == 20
+        assert len(rules) == 21
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
