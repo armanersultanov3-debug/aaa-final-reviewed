@@ -210,8 +210,9 @@ def test_webdav_module_enabled_fires(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
-    assert "iis.webdav_module_enabled" in {f.rule_id for f in result.findings}
-    finding = [f for f in result.findings if f.rule_id == "iis.webdav_module_enabled"][0]
+    findings = [f for f in result.findings if f.rule_id == "iis.webdav_module_enabled"]
+    assert len(findings) == 1
+    finding = findings[0]
     assert "WebDAVModule" in finding.description
 
 

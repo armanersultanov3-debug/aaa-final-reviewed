@@ -2,6 +2,7 @@ from tests.nginx_helpers import (
     AnalysisResult,
     Path,
     _http_block,
+    _line_number,
     _safe_server_block,
     analyze_nginx_config,
 )
@@ -488,20 +489,18 @@ def test_analyze_nginx_config_reports_missing_content_security_policy_when_only_
 
 def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _http_block(
-            _safe_server_block(
-                "listen 127.0.0.1:443 ssl;",
-                'add_header Strict-Transport-Security "max-age=31536000";',
-                "ssl_certificate /etc/ssl/cert.pem;",
-                "ssl_certificate_key /etc/ssl/key.pem;",
-                "ssl_ciphers HIGH:!aNULL:!MD5;",
-                "ssl_prefer_server_ciphers on;",
-                include_rate_limits=True,
-            )
-        ),
-        encoding="utf-8",
+    config_text = _http_block(
+        _safe_server_block(
+            "listen 127.0.0.1:443 ssl;",
+            'add_header Strict-Transport-Security "max-age=31536000";',
+            "ssl_certificate /etc/ssl/cert.pem;",
+            "ssl_certificate_key /etc/ssl/key.pem;",
+            "ssl_ciphers HIGH:!aNULL:!MD5;",
+            "ssl_prefer_server_ciphers on;",
+            include_rate_limits=True,
+        )
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -514,7 +513,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
     assert finding.title == "TLS listener missing http2 parameter"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 6
+    assert finding.location.line == _line_number(config_text, "listen 127.0.0.1:443 ssl;")
 
 
 def test_analyze_nginx_config_does_not_report_missing_http2_when_http2_is_present(
@@ -612,17 +611,15 @@ def test_analyze_nginx_config_does_not_report_missing_http2_for_443_without_ssl(
 
 def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _http_block(
-            _safe_server_block(
-                "ssl_protocols TLSv1 TLSv1.2;",
-                "ssl_ciphers HIGH:!aNULL:!MD5;",
-                include_http_redirect=True,
-                include_rate_limits=True,
-            )
-        ),
-        encoding="utf-8",
+    config_text = _http_block(
+        _safe_server_block(
+            "ssl_protocols TLSv1 TLSv1.2;",
+            "ssl_ciphers HIGH:!aNULL:!MD5;",
+            include_http_redirect=True,
+            include_rate_limits=True,
+        )
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -635,22 +632,20 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 6
+    assert finding.location.line == _line_number(config_text, "ssl_protocols TLSv1 TLSv1.2;")
 
 
 def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _http_block(
-            _safe_server_block(
-                "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
-                "ssl_ciphers HIGH:!aNULL:!MD5;",
-                include_http_redirect=True,
-                include_rate_limits=True,
-            )
-        ),
-        encoding="utf-8",
+    config_text = _http_block(
+        _safe_server_block(
+            "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
+            "ssl_ciphers HIGH:!aNULL:!MD5;",
+            include_http_redirect=True,
+            include_rate_limits=True,
+        )
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -663,7 +658,9 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 6
+    assert finding.location.line == _line_number(
+        config_text, "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;"
+    )
 
 
 def test_analyze_nginx_config_does_not_report_ssl_protocols_with_modern_versions_only(

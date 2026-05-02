@@ -2,6 +2,7 @@ from tests.nginx_helpers import (
     AnalysisResult,
     Path,
     _http_block,
+    _line_number,
     _safe_server_block,
     analyze_nginx_config,
     pytest,
@@ -322,17 +323,15 @@ def test_analyze_nginx_config_accepts_normalized_proxy_source_headers(
 
 def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _http_block(
-            _safe_server_block(
-                "listen 80;",
-                "listen 80;",
-                include_http_redirect=True,
-                include_rate_limits=True,
-            )
-        ),
-        encoding="utf-8",
+    config_text = _http_block(
+        _safe_server_block(
+            "listen 80;",
+            "listen 80;",
+            include_http_redirect=True,
+            include_rate_limits=True,
+        )
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -346,7 +345,7 @@ def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: 
     assert finding.title == "Duplicate listen directive"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 7
+    assert finding.location.line == _line_number(config_text, "listen 80;", occurrence=2)
 
 
 def test_analyze_nginx_config_does_not_report_when_listen_values_differ(tmp_path: Path) -> None:
@@ -468,15 +467,13 @@ def test_analyze_nginx_config_reports_executable_scripts_allowed_in_uploads(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _safe_server_block(
-            "listen 80;",
-            "location /uploads {",
-            "    root /srv/www;",
-            "}",
-        ),
-        encoding="utf-8",
+    config_text = _safe_server_block(
+        "listen 80;",
+        "location /uploads {",
+        "    root /srv/www;",
+        "}",
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -492,7 +489,7 @@ def test_analyze_nginx_config_reports_executable_scripts_allowed_in_uploads(
     assert finding.title == "Executable scripts allowed in upload-like location"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 3
+    assert finding.location.line == _line_number(config_text, "location /uploads {")
 
 
 def test_analyze_nginx_config_does_not_report_executable_scripts_in_uploads_when_php_is_blocked(
@@ -1133,16 +1130,14 @@ def test_analyze_nginx_config_does_not_report_when_only_one_access_rule_targets_
 
 def test_analyze_nginx_config_reports_if_inside_location(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
-    config_path.write_text(
-        _safe_server_block(
-            "location /app {",
-            "    if ($deny) {",
-            "        return 403;",
-            "    }",
-            "}",
-        ),
-        encoding="utf-8",
+    config_text = _safe_server_block(
+        "location /app {",
+        "    if ($deny) {",
+        "        return 403;",
+        "    }",
+        "}",
     )
+    config_path.write_text(config_text, encoding="utf-8")
 
     result = analyze_nginx_config(str(config_path))
 
@@ -1156,7 +1151,7 @@ def test_analyze_nginx_config_reports_if_inside_location(tmp_path: Path) -> None
     assert finding.title == "if inside location block"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
-    assert finding.location.line == 3
+    assert finding.location.line == _line_number(config_text, "if ($deny) {")
 
 
 def test_analyze_nginx_config_does_not_report_if_outside_location(tmp_path: Path) -> None:

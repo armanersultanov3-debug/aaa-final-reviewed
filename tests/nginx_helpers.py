@@ -54,7 +54,7 @@ def _safe_server_block(
     redirect_directives = (
         ("return 301 https://$host$request_uri;",) if include_http_redirect else ()
     )
-    lines = directives + redirect_directives + rate_limit_directives + safe_directives
+    lines = safe_directives + directives + redirect_directives + rate_limit_directives
 
     return "server {\n" + "".join(f"    {line}\n" for line in lines) + "}\n"
 
@@ -80,6 +80,16 @@ def _safe_http_limit_zones() -> str:
     )
 
 
+def _line_number(config_text: str, needle: str, *, occurrence: int = 1) -> int:
+    seen = 0
+    for line_number, line in enumerate(config_text.splitlines(), start=1):
+        if needle in line:
+            seen += 1
+            if seen == occurrence:
+                return line_number
+    raise AssertionError(f"Could not find occurrence {occurrence} of {needle!r}")
+
+
 __all__ = [
     "AnalysisResult",
     "LoadContext",
@@ -87,6 +97,7 @@ __all__ = [
     "NginxTokenizer",
     "Path",
     "_http_block",
+    "_line_number",
     "_safe_http_limit_zones",
     "_safe_http_log_format",
     "_safe_server_block",

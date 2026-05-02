@@ -538,7 +538,7 @@ def test_csp_unsafe_inline_on_http_only_does_not_fire(monkeypatch) -> None:
 
 
 def test_csp_mixed_scheme_only_https_unsafe_fires(monkeypatch) -> None:
-    """HTTPS with unsafe CSP fires; HTTP with unsafe CSP on same target does not."""
+    """HTTPS with unsafe CSP fires; HTTP on the same target does not drive CSP findings."""
     probe_attempts = [
         ProbeAttempt(
             target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
@@ -549,7 +549,7 @@ def test_csp_mixed_scheme_only_https_unsafe_fires(monkeypatch) -> None:
             strict_transport_security_header="max-age=31536000",
             x_frame_options_header="DENY",
             x_content_type_options_header="nosniff",
-            content_security_policy_header="default-src 'self'",
+            content_security_policy_header="script-src 'unsafe-inline' 'unsafe-eval'",
             referrer_policy_header="strict-origin-when-cross-origin",
             permissions_policy_header="geolocation=()",
         ),
@@ -559,14 +559,22 @@ def test_csp_mixed_scheme_only_https_unsafe_fires(monkeypatch) -> None:
             status_code=200,
             reason_phrase="OK",
             server_header="nginx",
-            content_security_policy_header="script-src 'unsafe-inline' 'unsafe-eval'",
+            content_security_policy_header="default-src 'self'",
         ),
     ]
     result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
     rule_ids = {f.rule_id for f in result.findings}
-    # HTTPS endpoint has a safe CSP, so no unsafe findings from it.
-    assert "external.content_security_policy_unsafe_inline" not in rule_ids
-    assert "external.content_security_policy_unsafe_eval" not in rule_ids
+    assert "external.content_security_policy_unsafe_inline" in rule_ids
+    assert "external.content_security_policy_unsafe_eval" in rule_ids
+    unsafe_findings = [
+        f for f in result.findings
+        if f.rule_id
+        in {
+            "external.content_security_policy_unsafe_inline",
+            "external.content_security_policy_unsafe_eval",
+        }
+    ]
+    assert {f.location.target for f in unsafe_findings} == {"https://example.com/"}
 
 
 # ---------------------------------------------------------------------------

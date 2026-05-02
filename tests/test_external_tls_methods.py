@@ -3,6 +3,7 @@ from tests.external_helpers import (
     ProbeAttempt,
     ProbeTarget,
     TLSInfo,
+    analyze_external_target,
     hostname_matches_san,
     timezone,
     _ALL_SECURITY_HEADERS,
@@ -839,20 +840,48 @@ def test_allow_header_dangerous_methods_via_head_get_fallback(monkeypatch) -> No
     containing dangerous methods, GET succeeds, and _preserve_head_allow_header
     copies the Allow value onto the final ProbeAttempt.
     """
-    probe_attempts = [
-        ProbeAttempt(
-            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+    target = ProbeTarget(scheme="https", host="example.com", port=443, path="/")
+    methods_called: list[str] = []
+
+    def fake_try_http_method(probe_target: ProbeTarget, method: str) -> ProbeAttempt:
+        methods_called.append(method)
+        if method == "HEAD":
+            return ProbeAttempt(
+                target=probe_target,
+                tcp_open=True,
+                effective_method="HEAD",
+                status_code=405,
+                reason_phrase="Method Not Allowed",
+                server_header="nginx",
+                allow_header="GET, HEAD, PUT, DELETE, CONNECT",
+            )
+        return ProbeAttempt(
+            target=probe_target,
             tcp_open=True,
             effective_method="GET",
             status_code=200,
             reason_phrase="OK",
             server_header="nginx",
-            allow_header="GET, HEAD, PUT, DELETE, CONNECT",
             **_ALL_SECURITY_HEADERS,
-        ),
-    ]
-    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+        )
+
+    monkeypatch.setattr("webconf_audit.external.recon._build_probe_targets", lambda _: [target])
+    monkeypatch.setattr("webconf_audit.external.recon._is_tcp_port_open", lambda h, p: True)
+    monkeypatch.setattr("webconf_audit.external.recon._try_http_method", fake_try_http_method)
+    monkeypatch.setattr(
+        "webconf_audit.external.recon._try_options_request",
+        lambda probe_target: OptionsObservation(),
+    )
+    monkeypatch.setattr(
+        "webconf_audit.external.recon._probe_sensitive_paths",
+        lambda successful_attempts, identification=None: [],
+    )
+    monkeypatch.setattr("webconf_audit.external.recon._probe_error_pages", lambda _: [])
+    monkeypatch.setattr("webconf_audit.external.recon._probe_malformed_requests", lambda _: [])
+
+    result = analyze_external_target("example.com")
     rule_ids = {f.rule_id for f in result.findings}
+    assert methods_called == ["HEAD", "GET"]
     assert "external.allow_header_dangerous_methods" in rule_ids
     finding = next(
         f for f in result.findings
