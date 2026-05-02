@@ -869,7 +869,9 @@ def test_binding_without_host_header_fires_for_http_and_https(
     assert {f.location.xml_path for f in findings if f.location} == {
         "configuration/system.applicationHost/sites/site/bindings/binding"
     }
-    assert "*:80:" in findings[0].description
+    descriptions = [f.description for f in findings]
+    assert any("*:80:" in description for description in descriptions)
+    assert any("*:443:" in description for description in descriptions)
 
 
 def test_binding_without_host_header_silent_with_host_names(
