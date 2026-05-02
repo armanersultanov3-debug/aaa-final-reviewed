@@ -492,7 +492,9 @@ def test_weak_tls_uses_sslflag_tokens_not_substrings(tmp_path: Path) -> None:
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
-    assert "iis.ssl_weak_cipher_strength" not in {f.rule_id for f in result.findings}
+    rule_ids = {f.rule_id for f in result.findings}
+    assert "iis.ssl_weak_cipher_strength" not in rule_ids
+    assert "iis.ssl_not_required" in rule_ids
 
 
 def test_missing_hsts_header_fires(tmp_path: Path) -> None:
