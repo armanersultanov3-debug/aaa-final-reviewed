@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **220**
+Total rules: **221**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (137), external (72), universal (11) |
-| Severity | high (12), medium (61), low (136), info (11) |
-| Input kind | ast (103), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
+| Category | local (138), external (72), universal (11) |
+| Severity | high (12), medium (61), low (137), info (11) |
+| Input kind | ast (104), probe (72), effective (27), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -559,7 +559,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 20
+Count: 21
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -591,6 +591,7 @@ archive PDFs remain historical context only.
 | `iis.cgi_handler_enabled` | medium | effective | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.8 (partial: detects CGI handler module presence, not the full handler permission matrix) |
 | `iis.custom_headers_expose_server` | low | effective | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Microsoft IIS 10 v1.2.1 §3.11 (partial: covers server-revealing custom headers, not the native `Server` header removal path) |
 | `iis.anonymous_auth_enabled` | medium | effective | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.1/§2.2 (partial: rule detects anonymous auth combined with named auth, not a full authorization-policy audit) |
+| `iis.binding_without_host_header` | low | ast | - | - | - | - | CIS Microsoft IIS 10 v1.2.1 §1.2 (partial: detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific) |
 
 Mapping rationale (iis rules):
 
@@ -641,6 +642,10 @@ Mapping rationale (iis rules):
   authentication is enabled *together with* another scheme. The anonymous
   module wins the auth handshake first, so authenticated checks downstream
   do not run: CWE-287 (improper authentication), OWASP A07.
+- `binding_without_host_header` -- hostless HTTP/HTTPS bindings can make a
+  site answer unexpected Host headers on the same IP and port. This maps to
+  CIS IIS host-header hardening, but CWE/OWASP stay empty because deliberate
+  catch-all binding policy is deployment-specific.
 
 IIS / SChannel mappings for universal rules:
 
@@ -657,7 +662,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
 | §1.1, Windows Server host hardening | `host-depth` | Web-root partitioning, OS service posture, filesystem ACLs, and broader Windows Server host baseline checks require an explicit host-inspection mode. |
-| §1.2 | `direct-rule` | Host-header coverage can be added from IIS bindings once we define the policy for wildcard / default bindings. |
+| §1.2 | `covered` | `iis.binding_without_host_header` detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific. |
 | §1.4/§1.5/§1.6 | `parser-depth` | Application-pool identity, unique pools, and anonymous-user identity need first-class application-pool modeling. |
 | §2.1/§2.2/§2.5/§2.7/§2.8 | `direct-rule` | Authorization defaults, forms cookie protection, cleartext password formats, and credentials stored in config are XML-backed checks not yet implemented. |
 | §2.6 | `direct-rule` | Existing `iis.ssl_not_required` is broader than Basic Authentication. A sharper rule should check Basic Auth plus `sslFlags` together. |
@@ -870,7 +875,7 @@ Progress:
 - [x] Apache local rules (41) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
-- [x] IIS local rules (20) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] IIS local rules (21) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (72) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates

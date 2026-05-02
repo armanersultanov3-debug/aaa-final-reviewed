@@ -240,6 +240,26 @@ Reports should also group repeated low-severity findings that share the same
 rule, recommendation, and effective cause, while preserving exact source
 locations in text and JSON output.
 
+### External safe probe catalog
+
+The existing `analyze-external` mode already performs safe runtime probing,
+server fingerprinting, TLS checks, redirect analysis, and fixed sensitive-path
+checks. To grow external coverage without turning the tool into an active
+exploitation scanner, add a declarative catalog for safe probe rules before
+adding more hardcoded path checks.
+
+Initial scope:
+
+- fixed `GET`, `HEAD`, and `OPTIONS` requests only;
+- simple status, header, body, and content-type matchers;
+- per-rule metadata for severity, tags, standards references, and server
+  conditions;
+- curated Nuclei-template ideas only where they fit the safe subset.
+
+Out of scope for this mode: fuzzing, payload injection, brute force,
+state-changing HTTP methods, OOB callbacks, authentication bypass attempts,
+and exploit chains.
+
 ## Current Priority
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the

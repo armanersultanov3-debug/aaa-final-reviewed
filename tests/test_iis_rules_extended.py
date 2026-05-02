@@ -793,7 +793,7 @@ def test_ssl_not_required_absence_fires_with_https_binding(tmp_path: Path) -> No
         <sites>
             <site name="Default Web Site" id="1">
                 <bindings>
-                    <binding protocol="https" bindingInformation="*:443:" />
+                    <binding protocol="https" bindingInformation="*:443:secure.example.test" />
                 </bindings>
             </site>
         </sites>
@@ -818,6 +818,185 @@ def test_ssl_not_required_absence_fires_with_https_binding(tmp_path: Path) -> No
     result = analyze_iis_config(str(tmp_path / "web.config"))
     _assert_no_analysis_issues(result)
     assert "iis.ssl_not_required" in {f.rule_id for f in result.findings}
+
+
+# ---------------------------------------------------------------------------
+# binding_without_host_header - host-header coverage
+# ---------------------------------------------------------------------------
+
+
+def test_binding_without_host_header_fires_for_http_and_https(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <sites>
+            <site name="Default Web Site" id="1">
+                <bindings>
+                    <binding protocol="http" bindingInformation="*:80:" />
+                    <binding protocol="https" bindingInformation="*:443:" />
+                </bindings>
+            </site>
+        </sites>
+    </system.applicationHost>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security"
+                     value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+        <httpLogging dontLog="false" />
+        <security>
+            <access sslFlags="Ssl,Ssl128" />
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "applicationHost.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "applicationHost.config"))
+    _assert_no_analysis_issues(result)
+
+    findings = [
+        f for f in result.findings if f.rule_id == "iis.binding_without_host_header"
+    ]
+    assert len(findings) == 2
+    assert all(f.location is not None for f in findings)
+    assert {f.location.xml_path for f in findings} == {
+        "configuration/system.applicationHost/sites/site/bindings/binding"
+    }
+    descriptions = [f.description for f in findings]
+    assert any("*:80:" in description for description in descriptions)
+    assert any("*:443:" in description for description in descriptions)
+
+
+def test_binding_without_host_header_silent_with_host_names(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <sites>
+            <site name="Default Web Site" id="1">
+                <bindings>
+                    <binding protocol="http" bindingInformation="*:80:example.test" />
+                    <binding protocol="https" bindingInformation="*:443:www.example.test" />
+                </bindings>
+            </site>
+        </sites>
+    </system.applicationHost>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security"
+                     value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+        <httpLogging dontLog="false" />
+        <security>
+            <access sslFlags="Ssl,Ssl128" />
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "applicationHost.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "applicationHost.config"))
+    _assert_no_analysis_issues(result)
+
+    assert "iis.binding_without_host_header" not in {
+        f.rule_id for f in result.findings
+    }
+
+
+def test_binding_without_host_header_ignores_non_http_bindings(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <sites>
+            <site name="Default Web Site" id="1">
+                <bindings>
+                    <binding protocol="net.tcp" bindingInformation="808:*" />
+                </bindings>
+            </site>
+        </sites>
+    </system.applicationHost>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security"
+                     value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+        <httpLogging dontLog="false" />
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "applicationHost.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "applicationHost.config"))
+    _assert_no_analysis_issues(result)
+
+    assert "iis.binding_without_host_header" not in {
+        f.rule_id for f in result.findings
+    }
+
+
+def test_binding_without_host_header_fires_when_host_field_is_missing(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <sites>
+            <site name="Default Web Site" id="1">
+                <bindings>
+                    <binding protocol="http" bindingInformation="*:80" />
+                </bindings>
+            </site>
+        </sites>
+    </system.applicationHost>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security"
+                     value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+        <httpLogging dontLog="false" />
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "applicationHost.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "applicationHost.config"))
+    _assert_no_analysis_issues(result)
+
+    findings = [
+        f for f in result.findings if f.rule_id == "iis.binding_without_host_header"
+    ]
+    assert len(findings) == 1
+    assert "*:80" in findings[0].description
 
 
 def test_ssl_not_required_absence_silent_without_https_binding(tmp_path: Path) -> None:
