@@ -183,7 +183,7 @@ def _is_known_unsafe(
     setting: ApacheHeaderSetting,
     is_safe_value: Callable[[str | None], bool],
 ) -> bool:
-    if setting.value is None and setting.dynamic:
+    if setting.dynamic:
         return False
     return not is_safe_value(setting.value)
 
@@ -199,6 +199,8 @@ def _source_order(setting: ApacheHeaderSetting) -> int:
 
 
 def _combine_effective_value(settings: list[ApacheHeaderSetting]) -> str | None:
+    if any(setting.dynamic for setting in settings):
+        return None
     values = [
         setting.value for setting in settings if setting.value is not None
     ]
@@ -217,7 +219,9 @@ def iter_effective_header_scopes(
     normalized_name = header_name.lower()
 
     global_collection = _collect_header_settings(config_ast.nodes, normalized_name)
-    global_has_header_directive = _has_header_directive(config_ast.nodes)
+    global_has_header_directive = _has_header_directive(
+        config_ast.nodes, normalized_name
+    )
     global_has_uncovered_listen = _has_uncovered_global_listen(
         config_ast,
         virtualhosts,
@@ -245,7 +249,7 @@ def iter_effective_header_scopes(
                 auditable=_is_unconditional_virtualhost(context)
                 and (
                     _has_effective_listen(config_ast, context)
-                    or _has_header_directive(context.node.children)
+                    or _has_header_directive(context.node.children, normalized_name)
                 ),
             )
         )
@@ -519,18 +523,34 @@ def _apply_combine_action(
     action: str,
     incoming: ApacheHeaderSetting,
 ) -> list[ApacheHeaderSetting]:
-    new_value = (incoming.value or "").strip()
+    incoming_value = (
+        incoming.value.strip() if incoming.value is not None else None
+    )
     updated: list[ApacheHeaderSetting] = []
     for instance in settings:
-        existing = (instance.value or "").strip()
-        if action == "merge":
-            parts = [part.strip() for part in existing.split(",") if part.strip()]
-            if new_value and new_value in parts:
+        existing_value = (
+            instance.value.strip() if instance.value is not None else None
+        )
+        if action == "merge" and existing_value is not None:
+            parts = [
+                part.strip() for part in existing_value.split(",") if part.strip()
+            ]
+            if incoming_value and incoming_value in parts:
                 updated.append(instance)
                 continue
-        combined = f"{existing}, {new_value}" if existing else new_value
-        if not combined and instance.dynamic and incoming.dynamic:
+        is_dynamic = instance.dynamic or incoming.dynamic
+        combined: str | None
+        if is_dynamic and (existing_value is None or incoming_value is None):
             combined = None
+        elif existing_value is None and incoming_value is None:
+            combined = None
+        elif existing_value is None:
+            combined = incoming_value
+        elif incoming_value is None:
+            combined = existing_value
+        else:
+            non_empty = [v for v in (existing_value, incoming_value) if v]
+            combined = ", ".join(non_empty) if non_empty else None
         updated.append(
             ApacheHeaderSetting(
                 name=instance.name,
@@ -538,7 +558,7 @@ def _apply_combine_action(
                 source=incoming.source,
                 action=incoming.action,
                 apply_index=incoming.apply_index,
-                dynamic=instance.dynamic or incoming.dynamic,
+                dynamic=is_dynamic,
             )
         )
     return updated
@@ -646,14 +666,22 @@ def _state_key(
     )
 
 
-def _has_header_directive(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> bool:
+def _has_header_directive(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    header_name: str,
+) -> bool:
     for node in nodes:
         if isinstance(node, ApacheBlockNode):
             if node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
-                if _has_header_directive(node.children):
+                if _has_header_directive(node.children, header_name):
                     return True
             continue
-        if node.name.lower() == "header" and _parse_header_directive(node) is not None:
+        if node.name.lower() != "header":
+            continue
+        parsed = _parse_header_directive(node)
+        if parsed is None:
+            continue
+        if parsed[1] == header_name:
             return True
     return False
 
@@ -707,7 +735,11 @@ def _header_value(args: list[str]) -> _HeaderValue:
             conditional = True
             continue
         if lowered.startswith("expr="):
+            if value_args:
+                conditional = True
+                break
             dynamic = True
+            value_args.append(arg)
             continue
         value_args.append(arg)
 

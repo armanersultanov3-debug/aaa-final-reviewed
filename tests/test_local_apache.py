@@ -2471,6 +2471,35 @@ def test_analyze_apache_config_treats_dynamic_security_header_value_as_unknown(
     assert matching == []
 
 
+def test_analyze_apache_config_treats_trailing_expr_as_header_condition(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set X-Frame-Options DENY expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "apache.x_frame_options_unsafe",
+        }
+    ]
+    assert result.issues == []
+    assert [finding.rule_id for finding in matching] == [
+        "apache.missing_x_frame_options_header"
+    ]
+
+
 def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition(
     tmp_path: Path,
 ) -> None:
@@ -2815,8 +2844,8 @@ def test_analyze_apache_config_flags_combined_unsafe_security_header_value(
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            "Header set X-Frame-Options DENY",
-            "Header append X-Frame-Options SAMEORIGIN",
+            "Header always set X-Frame-Options DENY",
+            "Header always append X-Frame-Options SAMEORIGIN",
             omit_headers={"x-frame-options"},
         ),
         encoding="utf-8",
@@ -2871,8 +2900,8 @@ def test_analyze_apache_config_flags_merge_combined_unsafe_security_header_value
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         _safe_apache_config_without_headers(
-            "Header set Referrer-Policy strict-origin-when-cross-origin",
-            "Header merge Referrer-Policy unsafe-url",
+            "Header always set Referrer-Policy strict-origin-when-cross-origin",
+            "Header always merge Referrer-Policy unsafe-url",
             omit_headers={"referrer-policy"},
         ),
         encoding="utf-8",
