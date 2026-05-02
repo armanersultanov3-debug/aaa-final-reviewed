@@ -92,6 +92,7 @@ def test_safe_probe_catalog_registers_sensitive_rule_metadata() -> None:
         assert meta is not None
         assert meta.title == rule.title
         assert meta.severity == rule.severity
+        assert meta.description == rule.description
         assert meta.order == rule.order
         assert meta.recommendation == (
             rule.metadata_recommendation or rule.recommendation

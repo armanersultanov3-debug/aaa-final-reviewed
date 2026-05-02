@@ -46,7 +46,7 @@ class SafePathRule:
             rule_id=self.rule_id,
             title=self.title,
             severity=self.severity,
-            description=f"{self.title}.",
+            description=self.description,
             recommendation=self.metadata_recommendation or self.recommendation,
             category="external",
             input_kind="probe",
