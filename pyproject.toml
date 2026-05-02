@@ -32,3 +32,13 @@ dev = [
 [tool.ruff]
 line-length = 100
 exclude = [".tmp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [
+    ".git",
+    ".venv",
+    ".tmp",
+    "pytest-run-*",
+    "pytest-tmp-*",
+]
