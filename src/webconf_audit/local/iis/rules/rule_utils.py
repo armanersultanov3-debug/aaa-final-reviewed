@@ -88,6 +88,16 @@ def has_https_binding(doc: IISConfigDocument) -> bool:
     return False
 
 
+def ssl_flag_tokens(value: object) -> set[str]:
+    if value is None:
+        return set()
+    return {
+        token.strip().lower()
+        for token in str(value).replace(";", ",").split(",")
+        if token.strip()
+    }
+
+
 __all__ = [
     "_DANGEROUS_HANDLERS",
     "_EXPOSE_SERVER_HEADERS",
@@ -100,4 +110,5 @@ __all__ = [
     "is_pure_inheritance",
     "location_context",
     "raw_location",
+    "ssl_flag_tokens",
 ]

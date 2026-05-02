@@ -9,6 +9,7 @@ from webconf_audit.local.iis.rules.rule_utils import (
     is_pure_inheritance,
     location_context,
     raw_location,
+    ssl_flag_tokens,
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
@@ -66,8 +67,7 @@ def _raw_findings(doc: IISConfigDocument) -> list[Finding]:
 def _effective_ssl_not_required_finding(
     section: IISEffectiveSection,
 ) -> Finding | None:
-    ssl_flags = section.attributes.get("sslFlags", "").lower()
-    if ssl_flags not in ("", "none", "0"):
+    if _requires_ssl(section.attributes.get("sslFlags")):
         return None
     ctx = location_context(section)
     return Finding(
@@ -85,8 +85,7 @@ def _effective_ssl_not_required_finding(
 
 
 def _raw_ssl_not_required_finding(section: IISSection) -> Finding | None:
-    ssl_flags = section.attributes.get("sslFlags", "").lower()
-    if ssl_flags not in ("", "none", "0"):
+    if _requires_ssl(section.attributes.get("sslFlags")):
         return None
     return Finding(
         rule_id=RULE_ID,
@@ -111,3 +110,7 @@ def _missing_access_section_finding(doc: IISConfigDocument) -> Finding:
         recommendation='Add <access sslFlags="Ssl,Ssl128" /> inside <system.webServer><security> to require HTTPS connections.',
         location=file_location(doc),
     )
+
+
+def _requires_ssl(value: object) -> bool:
+    return "ssl" in ssl_flag_tokens(value)

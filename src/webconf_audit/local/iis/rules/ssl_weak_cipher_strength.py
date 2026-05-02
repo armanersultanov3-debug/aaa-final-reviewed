@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import IISConfigDocument
-from webconf_audit.local.iis.rules.rule_utils import effective_location, is_pure_inheritance, location_context, raw_location
+from webconf_audit.local.iis.rules.rule_utils import (
+    effective_location,
+    is_pure_inheritance,
+    location_context,
+    raw_location,
+    ssl_flag_tokens,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -52,7 +58,7 @@ def _raw_findings(doc: IISConfigDocument) -> list[Finding]:
 
 
 def _requires_ssl_without_ssl128(value: object) -> bool:
-    ssl_tokens = _ssl_flag_tokens(value)
+    ssl_tokens = ssl_flag_tokens(value)
     return "ssl" in ssl_tokens and "ssl128" not in ssl_tokens
 
 
@@ -82,12 +88,3 @@ def _raw_cipher_strength_finding(section) -> Finding:
         location=raw_location(section),
     )
 
-
-def _ssl_flag_tokens(value: object) -> set[str]:
-    if value is None:
-        return set()
-    return {
-        token.strip().lower()
-        for token in str(value).replace(";", ",").split(",")
-        if token.strip()
-    }
