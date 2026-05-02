@@ -6,7 +6,7 @@ from tests.iis_helpers import (
 
 
 def _assert_no_analysis_issues(result: AnalysisResult) -> None:
-    assert not result.issues
+    assert not result.issues, f"Unexpected analysis issues: {result.issues}"
 
 
 # ---------------------------------------------------------------------------
