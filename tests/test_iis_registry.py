@@ -25,8 +25,14 @@ class FakeRegistryReader:
     def open_subkeys(self, parent: str) -> list[str] | None:
         return self.subkeys.get(parent)
 
-    def query_dword(self, parent: str, value_name: str) -> int | None:
+    def query_value(self, parent: str, value_name: str) -> object | None:
         return self.values.get((parent, value_name))
+
+    def query_dword(self, parent: str, value_name: str) -> int | None:
+        value = self.query_value(parent, value_name)
+        if isinstance(value, int):
+            return value
+        return None
 
 
 def _write_json(path: Path, data: object) -> Path:
@@ -55,13 +61,31 @@ def _registry_export(
     *,
     protocols: dict[str, dict[str, int]] | None = None,
     ciphers: dict[str, dict[str, int]] | None = None,
+    cipher_suite_order: object | None = None,
 ) -> dict[str, object]:
     schannel: dict[str, object] = {}
     if protocols is not None:
         schannel["protocols"] = protocols
     if ciphers is not None:
         schannel["ciphers"] = ciphers
+    if cipher_suite_order is not None:
+        schannel["cipher_suite_order"] = cipher_suite_order
     return {"schannel": schannel}
+
+
+def _preferred_cipher_suite_order() -> list[str]:
+    return [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+        "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+        "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
+        "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
+        "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
+        "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
+    ]
 
 
 def test_load_registry_export_maps_enabled_protocols_and_ciphers(tmp_path: Path) -> None:
@@ -77,6 +101,7 @@ def test_load_registry_export_maps_enabled_protocols_and_ciphers(tmp_path: Path)
                 "RC4 40/128": {"enabled": 4294967295},
                 "AES 128/128": {"enabled": 0},
             },
+            cipher_suite_order={"Functions": "TLS_AES_256_GCM_SHA384,TLS_AES_128_GCM_SHA256"},
         ),
     )
 
@@ -86,6 +111,10 @@ def test_load_registry_export_maps_enabled_protocols_and_ciphers(tmp_path: Path)
     assert snapshot is not None
     assert snapshot.protocols_enabled == ["TLSv1.0", "TLSv1.2"]
     assert snapshot.ciphers_enabled == ["RC4 40/128"]
+    assert snapshot.cipher_suite_order == [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_AES_128_GCM_SHA256",
+    ]
     assert snapshot.source_kind == "export"
 
 
@@ -113,6 +142,7 @@ def test_load_registry_export_requires_tls_data(tmp_path: Path) -> None:
 
 def test_read_live_registry_uses_injected_reader(monkeypatch) -> None:
     base = registry_module._SCHANNEL_BASE
+    cipher_order_path = registry_module._CIPHER_SUITE_ORDER_PATH
     reader = FakeRegistryReader(
         values={
             (f"{base}\\Protocols\\TLS 1.0\\Server", "Enabled"): 1,
@@ -123,6 +153,10 @@ def test_read_live_registry_uses_injected_reader(monkeypatch) -> None:
             (f"{base}\\Protocols\\TLS 1.2\\Server", "DisabledByDefault"): 0,
             (f"{base}\\Ciphers\\RC4 40/128", "Enabled"): 4294967295,
             (f"{base}\\Ciphers\\AES 128/128", "Enabled"): 0,
+            (cipher_order_path, "Functions"): [
+                "TLS_AES_256_GCM_SHA384",
+                "TLS_AES_128_GCM_SHA256",
+            ],
         },
         subkeys={f"{base}\\Ciphers": ["RC4 40/128", "AES 128/128"]},
     )
@@ -134,6 +168,10 @@ def test_read_live_registry_uses_injected_reader(monkeypatch) -> None:
     assert snapshot is not None
     assert snapshot.protocols_enabled == ["TLSv1.0", "TLSv1.2"]
     assert snapshot.ciphers_enabled == ["RC4 40/128"]
+    assert snapshot.cipher_suite_order == [
+        "TLS_AES_256_GCM_SHA384",
+        "TLS_AES_128_GCM_SHA256",
+    ]
     assert snapshot.host == "iis-prod-1"
     assert "iis-prod-1" in snapshot.source_file_path
 
@@ -178,13 +216,41 @@ def test_analyze_iis_config_export_fires_weak_tls_ciphers(tmp_path: Path) -> Non
     assert "universal.weak_tls_ciphers" in {finding.rule_id for finding in result.findings}
 
 
-def test_analyze_iis_config_clean_export_has_no_weak_tls_findings(tmp_path: Path) -> None:
+def test_analyze_iis_config_export_fires_schannel_tls_policy_rules(
+    tmp_path: Path,
+) -> None:
+    config = _write_iis_config(tmp_path / "web.config")
+    export = _write_json(
+        tmp_path / "schannel.json",
+        _registry_export(
+            protocols={"TLS 1.0": {"server_enabled": 1, "server_disabled_by_default": 0}},
+            ciphers={"AES 128/128": {"enabled": 4294967295}},
+            cipher_suite_order=["TLS_RSA_WITH_AES_128_CBC_SHA"],
+        ),
+    )
+
+    result = analyze_iis_config(str(config), tls_registry_path=str(export))
+
+    rule_ids = {finding.rule_id for finding in result.findings}
+    assert "iis.schannel_tls12_not_enabled" in rule_ids
+    assert "iis.schannel_aes128_enabled" in rule_ids
+    assert "iis.schannel_aes256_not_enabled" in rule_ids
+    assert "iis.schannel_cipher_suite_order_not_preferred" in rule_ids
+
+
+def test_analyze_iis_config_clean_export_has_no_schannel_tls_findings(
+    tmp_path: Path,
+) -> None:
     config = _write_iis_config(tmp_path / "web.config")
     export = _write_json(
         tmp_path / "schannel.json",
         _registry_export(
             protocols={"TLS 1.2": {"server_enabled": 1, "server_disabled_by_default": 0}},
-            ciphers={"AES 128/128": {"enabled": 4294967295}},
+            ciphers={
+                "AES 128/128": {"enabled": 0},
+                "AES 256/256": {"enabled": 4294967295},
+            },
+            cipher_suite_order=_preferred_cipher_suite_order(),
         ),
     )
 
@@ -193,6 +259,10 @@ def test_analyze_iis_config_clean_export_has_no_weak_tls_findings(tmp_path: Path
     tls_ids = {
         "universal.weak_tls_protocol",
         "universal.weak_tls_ciphers",
+        "iis.schannel_tls12_not_enabled",
+        "iis.schannel_aes128_enabled",
+        "iis.schannel_aes256_not_enabled",
+        "iis.schannel_cipher_suite_order_not_preferred",
     }
     assert not (tls_ids & {finding.rule_id for finding in result.findings})
 

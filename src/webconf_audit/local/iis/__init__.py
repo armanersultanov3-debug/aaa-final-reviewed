@@ -180,7 +180,12 @@ def _analyze_single_config(
         "tls_registry_source": _registry_metadata(registry_tls),
     }
 
-    findings = run_iis_rules(doc, effective_config=effective, issues=issues)
+    findings = run_iis_rules(
+        doc,
+        effective_config=effective,
+        registry_tls=registry_tls,
+        issues=issues,
+    )
     normalized = normalize_config(
         "iis",
         doc=doc,
@@ -231,7 +236,14 @@ def _analyze_application_host(
             base_effective = merge_effective_configs(machine_effective, base_effective)
             base_chain = [discovery.machine_config_path, *base_chain]
 
-    all_findings.extend(run_iis_rules(doc, effective_config=base_effective, issues=all_issues))
+    all_findings.extend(
+        run_iis_rules(
+            doc,
+            effective_config=base_effective,
+            registry_tls=registry_tls,
+            issues=all_issues,
+        )
+    )
     normalized = normalize_config(
         "iis",
         doc=doc,
@@ -403,6 +415,7 @@ def _registry_metadata(registry_tls: IISRegistryTLS | None) -> dict[str, object]
         "host": registry_tls.host,
         "protocols_known": registry_tls.protocols_enabled is not None,
         "ciphers_known": registry_tls.ciphers_enabled is not None,
+        "cipher_suite_order_known": registry_tls.cipher_suite_order is not None,
     }
 
 

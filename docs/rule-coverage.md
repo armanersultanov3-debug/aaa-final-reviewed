@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **256**
+Total rules: **260**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (173), external (72), universal (11) |
-| Severity | high (13), medium (81), low (151), info (11) |
-| Input kind | ast (125), probe (72), effective (41), normalized (11), htaccess (6), mixed (1) |
+| Category | local (177), external (72), universal (11) |
+| Severity | high (13), medium (85), low (151), info (11) |
+| Input kind | ast (125), probe (72), effective (41), normalized (11), htaccess (6), mixed (5) |
 
 ## Inventory tables
 
@@ -604,7 +604,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 35
+Count: 39
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -631,6 +631,10 @@ archive PDFs remain historical context only.
 | `iis.max_allowed_content_length_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.1 (partial: requires a positive limit but does not validate the benchmark size) |
 | `iis.missing_hsts_header` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: header presence only) |
 | `iis.forms_auth_require_ssl_missing` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS Microsoft IIS 10 v1.2.1 §2.3 |
+| `iis.schannel_tls12_not_enabled` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Microsoft IIS 10 v1.2.1 §7.6 (partial: SChannel registry/export evidence only) |
+| `iis.schannel_aes128_enabled` | medium | mixed | tls | [CWE-326](https://cwe.mitre.org/data/definitions/326.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: registry cipher toggle only) | CIS Microsoft IIS 10 v1.2.1 §7.10 |
+| `iis.schannel_aes256_not_enabled` | medium | mixed | tls | [CWE-326](https://cwe.mitre.org/data/definitions/326.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: registry cipher toggle only) | CIS Microsoft IIS 10 v1.2.1 §7.11 |
+| `iis.schannel_cipher_suite_order_not_preferred` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: preferred-order prefix only) | CIS Microsoft IIS 10 v1.2.1 §7.12 (partial: validates CIS preferred prefix in `Functions`) |
 | `iis.session_state_cookieless` | medium | effective | - | [CWE-598](https://cwe.mitre.org/data/definitions/598.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.6 |
 | `iis.webdav_module_enabled` | medium | effective | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.7 |
 | `iis.cgi_handler_enabled` | medium | effective | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.8 (partial: detects CGI handler module presence, not the full handler permission matrix) |
@@ -690,6 +694,15 @@ Mapping rationale (iis rules):
   OWASP A05 (misconfig).
 - `forms_auth_require_ssl_missing` -- `<forms requireSSL="false">` lets the
   authentication ticket cookie travel in cleartext: CWE-319, OWASP A02.
+- `schannel_tls12_not_enabled` -- known SChannel protocol evidence without
+  TLS 1.2 support leaves IIS below the benchmark transport baseline:
+  CWE-327, OWASP A02.
+- `schannel_aes128_enabled`, `schannel_aes256_not_enabled` -- known SChannel
+  cipher toggle evidence that leaves AES 128/128 enabled or AES 256/256
+  unavailable weakens the configured transport baseline: CWE-326, OWASP A02.
+- `schannel_cipher_suite_order_not_preferred` -- a non-preferred SChannel
+  cipher-suite order can prioritize weaker choices over stronger suites:
+  CWE-327, OWASP A02.
 - `session_state_cookieless` -- cookieless session state embeds the session
   identifier in the URL, leaking it via Referer headers, browser history,
   proxy logs, and copy/paste: CWE-598 (use of GET method with sensitive
@@ -746,8 +759,8 @@ IIS / SChannel mappings for universal rules:
 | `universal.directory_listing_enabled` | IIS XML / effective config | CIS Microsoft IIS 10 v1.2.1 §1.3 |
 | `universal.missing_hsts` | IIS XML / effective config | CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: header presence only) |
 | `universal.server_identification_disclosed` | IIS response-header policy | CIS Microsoft IIS 10 v1.2.1 §3.11/§3.12 (partial: local rules cover X-Powered-By / ASP.NET family headers and explicit native `Server` header removal disablement) |
-| `universal.weak_tls_protocol` | Windows SChannel registry enrichment for IIS TLS normalization | CIS Microsoft IIS 10 v1.2.1 §7.2/§7.3/§7.4/§7.5 (partial: detects enabled weak protocols; does not enforce TLS 1.2 enabled) |
-| `universal.weak_tls_ciphers` | Windows SChannel registry enrichment for IIS TLS normalization | CIS Microsoft IIS 10 v1.2.1 §7.7/§7.8/§7.9 (partial: detects weak-pattern ciphers; does not enforce AES 128 disabled, AES 256 enabled, or cipher-suite ordering) |
+| `universal.weak_tls_protocol` | Windows SChannel registry enrichment for IIS TLS normalization | CIS Microsoft IIS 10 v1.2.1 §7.2/§7.3/§7.4/§7.5 (partial: detects enabled weak protocols) |
+| `universal.weak_tls_ciphers` | Windows SChannel registry enrichment for IIS TLS normalization | CIS Microsoft IIS 10 v1.2.1 §7.7/§7.8/§7.9 (partial: detects weak-pattern ciphers) |
 
 IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
@@ -765,7 +778,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §4.8 | `parser-depth` | Handler permission checks need richer handler access-policy semantics than the current CGI-module presence rule. |
 | §4.11/§5.1/§5.3 | `host-depth` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |
-| §7.6/§7.10/§7.11/§7.12 | `direct-rule` | SChannel enrichment can support TLS 1.2 enabled, AES 128 disabled, AES 256 enabled, and cipher ordering checks after the weak-protocol / weak-cipher baseline. |
+| §7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence; runtime negotiation evidence and complete source collection remain follow-up. |
 | CIS IIS 7/8 archive PDFs | `research` | Local archive PDFs are historical context only; they must not become primary references unless a future PR explicitly scopes legacy IIS. |
 
 ### External (Probe-based)
@@ -969,7 +982,7 @@ Progress:
 - [x] Apache local rules (62) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
-- [x] IIS local rules (35) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] IIS local rules (39) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (72) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates
