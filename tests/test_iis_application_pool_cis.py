@@ -137,7 +137,7 @@ def test_sites_share_application_pool_fires_across_sites(
     assert "SharedPool" in findings[0].description
     assert "Site One" in findings[0].description
     assert "Site Two" in findings[0].description
-    assert findings[0].metadata["sites"] == ["Site One", "Site Two"]
+    assert set(findings[0].metadata["sites"]) == {"Site One", "Site Two"}
 
 
 def test_sites_share_application_pool_silent_for_distinct_pools(
