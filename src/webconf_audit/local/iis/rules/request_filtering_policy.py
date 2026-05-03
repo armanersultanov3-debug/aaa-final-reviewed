@@ -15,6 +15,7 @@ MAX_URL_RULE_ID = "iis.request_filtering_max_url_too_high"
 MAX_QUERY_STRING_RULE_ID = "iis.request_filtering_max_query_string_too_high"
 FILE_EXTENSIONS_RULE_ID = "iis.file_extensions_allow_unlisted"
 ISAPI_CGI_RULE_ID = "iis.isapi_cgi_restrictions_allow_unlisted"
+REMOVE_SERVER_HEADER_RULE_ID = "iis.request_filtering_remove_server_header_disabled"
 
 _MAX_URL_THRESHOLD = 4096
 _MAX_QUERY_STRING_THRESHOLD = 2048
@@ -134,6 +135,37 @@ def find_isapi_cgi_restrictions_allow_unlisted(
         if unsafe_attrs:
             findings.append(_raw_isapi_cgi_finding(section, unsafe_attrs))
     return findings
+
+
+@rule(
+    rule_id=REMOVE_SERVER_HEADER_RULE_ID,
+    title="IIS Server header removal is disabled",
+    severity="low",
+    description="IIS request filtering is configured to return the native Server header.",
+    recommendation='Set requestFiltering removeServerHeader to "true".',
+    category="local",
+    server_type="iis",
+    tags=("disclosure",),
+    input_kind="effective",
+    order=533,
+)
+def find_request_filtering_remove_server_header_disabled(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    if effective_config is not None:
+        return [
+            _effective_remove_server_header_finding(section)
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestFiltering"
+            and not is_pure_inheritance(section)
+            and _is_false(section.attributes.get("removeServerHeader"))
+        ]
+    return [
+        _raw_remove_server_header_finding(section)
+        for section in doc.sections
+        if section.tag == "requestFiltering"
+        and _is_false(section.attributes.get("removeServerHeader"))
+    ]
 
 
 def _limit_findings(
@@ -288,5 +320,42 @@ def _raw_isapi_cgi_finding(
     )
 
 
+def _effective_remove_server_header_finding(
+    section: IISEffectiveSection,
+) -> Finding:
+    ctx = location_context(section)
+    return Finding(
+        rule_id=REMOVE_SERVER_HEADER_RULE_ID,
+        title="IIS Server header removal is disabled",
+        severity="low",
+        description=(
+            f"IIS request filtering explicitly disables native Server header "
+            f"removal{ctx}. The default IIS Server header can disclose server "
+            "technology and version information."
+        ),
+        recommendation='Set requestFiltering removeServerHeader="true" to suppress the native IIS Server header.',
+        location=effective_location(section),
+    )
+
+
+def _raw_remove_server_header_finding(section: IISSection) -> Finding:
+    return Finding(
+        rule_id=REMOVE_SERVER_HEADER_RULE_ID,
+        title="IIS Server header removal is disabled",
+        severity="low",
+        description=(
+            "IIS request filtering explicitly disables native Server header "
+            "removal. The default IIS Server header can disclose server "
+            "technology and version information."
+        ),
+        recommendation='Set requestFiltering removeServerHeader="true" to suppress the native IIS Server header.',
+        location=raw_location(section),
+    )
+
+
 def _is_true(value: object) -> bool:
     return str(value).strip().lower() == "true"
+
+
+def _is_false(value: object) -> bool:
+    return str(value).strip().lower() == "false"
