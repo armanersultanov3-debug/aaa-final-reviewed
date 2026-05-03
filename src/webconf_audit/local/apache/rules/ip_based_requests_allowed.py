@@ -87,50 +87,67 @@ def _top_level_server_name(
 def _has_ip_based_request_rewrite_policy(
     directives: list[ApacheDirectiveNode],
 ) -> bool:
+    for index, directive in enumerate(directives):
+        if not _is_forbidden_rewrite_rule(directive):
+            continue
+        if not _rewrite_engine_enabled_before(directives, index):
+            continue
+        conditions = _rewrite_conditions_for_rule(directives, index)
+        if len(conditions) < 2:
+            continue
+        if not _is_request_uri_exception_condition(conditions[-1]):
+            continue
+        if any(_is_http_host_condition(condition) for condition in conditions[:-1]):
+            return True
+    return False
+
+
+def _rewrite_engine_enabled_before(
+    directives: list[ApacheDirectiveNode],
+    rule_index: int,
+) -> bool:
+    enabled = False
+    for directive in directives[:rule_index]:
+        if directive.name.lower() != "rewriteengine" or not directive.args:
+            continue
+        enabled = directive.args[0].lower() == "on"
+    return enabled
+
+
+def _rewrite_conditions_for_rule(
+    directives: list[ApacheDirectiveNode],
+    rule_index: int,
+) -> list[ApacheDirectiveNode]:
+    conditions: list[ApacheDirectiveNode] = []
+    index = rule_index - 1
+    while index >= 0 and directives[index].name.lower() == "rewritecond":
+        conditions.append(directives[index])
+        index -= 1
+    conditions.reverse()
+    return conditions
+
+
+def _is_http_host_condition(directive: ApacheDirectiveNode) -> bool:
     return (
-        _has_rewrite_engine_on(directives)
-        and _has_http_host_condition(directives)
-        and _has_request_uri_exception_condition(directives)
-        and _has_forbidden_rewrite_rule(directives)
-    )
-
-
-def _has_rewrite_engine_on(directives: list[ApacheDirectiveNode]) -> bool:
-    return any(
-        directive.name.lower() == "rewriteengine"
-        and bool(directive.args)
-        and directive.args[0].lower() == "on"
-        for directive in directives
-    )
-
-
-def _has_http_host_condition(directives: list[ApacheDirectiveNode]) -> bool:
-    return any(
-        directive.name.lower() == "rewritecond"
-        and directive.args
+        directive.args
         and directive.args[0].lower() == "%{http_host}"
         and any(arg.startswith("!") for arg in directive.args[1:])
-        for directive in directives
     )
 
 
-def _has_request_uri_exception_condition(
-    directives: list[ApacheDirectiveNode],
-) -> bool:
-    return any(
-        directive.name.lower() == "rewritecond"
-        and directive.args
+def _is_request_uri_exception_condition(directive: ApacheDirectiveNode) -> bool:
+    return (
+        directive.args
         and directive.args[0].lower() == "%{request_uri}"
-        for directive in directives
+        and any(arg.startswith("!") for arg in directive.args[1:])
     )
 
 
-def _has_forbidden_rewrite_rule(directives: list[ApacheDirectiveNode]) -> bool:
-    return any(
+def _is_forbidden_rewrite_rule(directive: ApacheDirectiveNode) -> bool:
+    return (
         directive.name.lower() == "rewriterule"
         and len(directive.args) >= 3
         and _rewrite_rule_forbids(directive.args[2:])
-        for directive in directives
     )
 
 

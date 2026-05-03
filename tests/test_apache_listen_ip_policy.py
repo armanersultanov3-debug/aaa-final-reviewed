@@ -102,6 +102,23 @@ def test_analyze_apache_config_accepts_ip_rewrite_policy(
     assert "apache.ip_based_requests_allowed" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_reports_unrelated_rewrite_directives(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "ServerName www.example.test",
+            "RewriteEngine On",
+            r"RewriteCond %{HTTP_HOST} !^www\.example\.test$ [NC]",
+            r"RewriteCond %{REQUEST_URI} ^/health [NC]",
+            "RewriteRule ^/maintenance - [F,L]",
+        ),
+    )
+
+    assert "apache.ip_based_requests_allowed" in _rule_ids(findings)
+
+
 def _analyze_config(tmp_path: Path, config: str):
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(config, encoding="utf-8")
