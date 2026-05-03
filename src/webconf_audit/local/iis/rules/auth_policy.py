@@ -79,8 +79,9 @@ def find_basic_auth_without_ssl(
             coverage="partial",
             note=(
                 "Detects explicit non-empty anonymousAuthentication "
-                "userName or password values; inherited platform defaults "
-                "without source evidence remain unknown."
+                "userName values, and password values only when userName is "
+                "not explicitly blank; inherited platform defaults without "
+                "source evidence remain unknown."
             ),
         ),
     ),
@@ -303,6 +304,8 @@ def _specific_anonymous_user(attributes: dict[str, str]) -> str | None:
     user_name = attributes.get("userName")
     if user_name is not None and user_name.strip():
         return user_name.strip()
+    if user_name is not None:
+        return None
 
     password = attributes.get("password")
     if password is not None and password.strip():

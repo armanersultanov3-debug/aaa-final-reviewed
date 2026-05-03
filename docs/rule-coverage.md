@@ -657,7 +657,7 @@ archive PDFs remain historical context only.
 | `iis.binding_without_host_header` | low | ast | - | - | - | - | CIS Microsoft IIS 10 v1.2.1 §1.2 (partial: detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific) |
 | `iis.application_pool_identity_not_application_pool_identity` | medium | ast | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.4 (partial: explicit app-pool/default `identityType` values only) |
 | `iis.sites_share_application_pool` | medium | ast | - | [CWE-668](https://cwe.mitre.org/data/definitions/668.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.5 (partial: detects pools assigned under more than one site; shared-hosting exceptions remain operator-specific) |
-| `iis.anonymous_auth_uses_specific_user` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.6 (partial: explicit non-empty `userName` / `password` values only) |
+| `iis.anonymous_auth_uses_specific_user` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.6 (partial: explicit non-empty `userName` values, or password values when `userName` is not explicitly blank) |
 
 Mapping rationale (iis rules):
 
@@ -763,9 +763,9 @@ Mapping rationale (iis rules):
   mapped as resource exposure across the wrong isolation boundary: CWE-668,
   OWASP A05.
 - `anonymous_auth_uses_specific_user` -- a non-empty anonymous-auth
-  `userName` or password makes anonymous requests impersonate a separate
-  account instead of the app pool identity, weakening the intended privilege
-  boundary: CWE-250, OWASP A05.
+  `userName` makes anonymous requests impersonate a separate account instead
+  of the app pool identity; password-only evidence is flagged only when
+  `userName` is not explicitly blank. CWE-250, OWASP A05.
 
 IIS / SChannel mappings for universal rules:
 
