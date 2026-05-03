@@ -378,6 +378,31 @@ def test_analyze_nginx_config_inherits_ssl_prefer_server_ciphers_from_http(
     )
 
 
+def test_analyze_nginx_config_checks_inherited_ssl_ciphers_for_prefer_server_ciphers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.missing_ssl_prefer_server_ciphers"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_uses_last_ssl_prefer_server_ciphers_value(
     tmp_path: Path,
 ) -> None:

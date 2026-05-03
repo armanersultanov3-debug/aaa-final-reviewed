@@ -472,6 +472,7 @@ def _merge_options(
         elif arg.startswith("-"):
             current_set.discard(arg[1:].lower())
         else:
+            current_set.clear()
             current_set.add(lowered)
 
     chain = list(prev.override_chain) + [prev.origin] if prev else []

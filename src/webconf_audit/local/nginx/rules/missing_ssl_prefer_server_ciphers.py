@@ -3,7 +3,6 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
-    find_child_directives,
     DirectiveNode,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
@@ -36,7 +35,7 @@ def find_missing_ssl_prefer_server_ciphers(config_ast: ConfigAst) -> list[Findin
 
     for server_block, inherited_directives in iter_server_blocks_with_http_directives(
         config_ast,
-        {"ssl_prefer_server_ciphers"},
+        {"ssl_ciphers", "ssl_prefer_server_ciphers"},
     ):
         finding = _find_missing_ssl_prefer_server_ciphers_in_server(
             server_block,
@@ -52,7 +51,11 @@ def _find_missing_ssl_prefer_server_ciphers_in_server(
     server_block: BlockNode,
     inherited_directives: dict[str, list[DirectiveNode]],
 ) -> Finding | None:
-    ssl_ciphers_directives = find_child_directives(server_block, "ssl_ciphers")
+    ssl_ciphers_directives = effective_child_directives(
+        server_block,
+        "ssl_ciphers",
+        inherited_directives,
+    )
     ssl_prefer_server_ciphers_directives = effective_child_directives(
         server_block,
         "ssl_prefer_server_ciphers",
