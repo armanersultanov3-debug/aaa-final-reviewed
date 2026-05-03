@@ -378,11 +378,13 @@ class TestTlsProbeIntegration:
             lambda _successful_attempts, identification=None: [],
         )
 
-        original_probe = probe_tls_versions
-
-        def tracking_probe(host, port, **kw):
+        def tracking_probe(
+            host: str,
+            port: int,
+            **kw: object,
+        ) -> list[TLSVersionProbeResult]:
             probe_called.append(True)
-            return original_probe(host, port, **kw)
+            return [TLSVersionProbeResult(label="TLSv1.2", supported=True)]
 
         monkeypatch.setattr(
             "webconf_audit.external.recon.tls_probe.probe_tls_versions",

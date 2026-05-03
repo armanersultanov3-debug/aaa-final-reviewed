@@ -3,10 +3,14 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
-    find_child_directives,
-    iter_nodes,
+    DirectiveNode,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
+    last_directive_is_on,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -26,23 +30,39 @@ RULE_ID = "nginx.ssl_stapling_missing_resolver"
 def find_ssl_stapling_missing_resolver(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_ssl_stapling_missing_resolver_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"resolver", "ssl_stapling"},
+    ):
+        finding = _find_ssl_stapling_missing_resolver_in_server(
+            server_block,
+            inherited_directives,
+        )
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_ssl_stapling_missing_resolver_in_server(server_block: BlockNode) -> Finding | None:
-    ssl_stapling_directives = find_child_directives(server_block, "ssl_stapling")
-    resolver_directives = find_child_directives(server_block, "resolver")
+def _find_ssl_stapling_missing_resolver_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
+    ssl_stapling_directives = effective_child_directives(
+        server_block,
+        "ssl_stapling",
+        inherited_directives,
+    )
+    resolver_directives = effective_child_directives(
+        server_block,
+        "resolver",
+        inherited_directives,
+    )
 
     uses_tls = server_uses_tls(server_block)
-    stapling_on = any(directive.args == ["on"] for directive in ssl_stapling_directives)
+    stapling_on = last_directive_is_on(ssl_stapling_directives)
 
-    if not uses_tls or not stapling_on or resolver_directives:
+    if not uses_tls or not stapling_on or _resolver_is_present(resolver_directives):
         return None
 
     return Finding(
@@ -58,6 +78,13 @@ def _find_ssl_stapling_missing_resolver_in_server(server_block: BlockNode) -> Fi
             line=server_block.source.line,
         ),
     )
+
+
+def _resolver_is_present(directives: list[DirectiveNode]) -> bool:
+    if not directives:
+        return False
+    last = directives[-1]
+    return bool(last.args) and last.args[0].lower() != "off"
 
 
 __all__ = ["find_ssl_stapling_missing_resolver"]

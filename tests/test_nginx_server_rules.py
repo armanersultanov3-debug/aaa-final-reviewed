@@ -33,6 +33,17 @@ from tests.nginx_helpers import (
         ),
         pytest.param(
             "http {\n"
+            "    log_format combined \"$remote_addr\";\n"
+            "    server {\n"
+            "        listen 80;\n"
+            "        access_log /var/log/nginx/access.log;\n"
+            "    }\n"
+            "}\n",
+            "nginx.log_format_missing_fields",
+            id="path-only-access-log-uses-combined",
+        ),
+        pytest.param(
+            "http {\n"
             "    log_format main \"$time_iso8601 $remote_addr $remote_user $request_time $status $http_user_agent\";\n"
             "    server {\n"
             "        listen 80;\n"

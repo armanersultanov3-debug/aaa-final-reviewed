@@ -512,13 +512,14 @@ def _merge_server_signature_disclosure(
 
 
 def _options_has_indexes(args: list[str]) -> bool:
+    has_indexes = False
     for arg in args:
         lowered = arg.lower()
         if lowered in ("indexes", "+indexes"):
-            return True
-        if lowered == "-indexes":
-            return False
-    return False
+            has_indexes = True
+        elif lowered == "-indexes":
+            has_indexes = False
+    return has_indexes
 
 
 def _ref_from_origin(origin: DirectiveOrigin) -> SourceRef:

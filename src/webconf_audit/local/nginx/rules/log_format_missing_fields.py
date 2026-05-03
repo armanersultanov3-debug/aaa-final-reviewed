@@ -76,10 +76,14 @@ def _used_log_format_names(config_ast: ConfigAst) -> set[str]:
     for node in iter_nodes(config_ast.nodes):
         if not isinstance(node, DirectiveNode) or node.name != "access_log":
             continue
-        if len(node.args) < 2 or node.args[0].lower() == "off":
+        if not node.args or node.args[0].lower() == "off":
+            continue
+        if len(node.args) < 2:
+            used_format_names.add("combined")
             continue
         format_name = node.args[1]
         if _is_access_log_option(format_name):
+            used_format_names.add("combined")
             continue
         used_format_names.add(format_name)
     return used_format_names

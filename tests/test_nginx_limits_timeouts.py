@@ -1100,3 +1100,5 @@ def test_analyze_nginx_config_reports_missing_limit_req_when_only_http_has_it(
     result = analyze_nginx_config(str(config_path))
 
     assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(finding.rule_id == "nginx.missing_limit_req" for finding in result.findings)
