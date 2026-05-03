@@ -11,7 +11,7 @@ from webconf_audit.local.iis.rules.rule_utils import (
     raw_location,
 )
 from webconf_audit.models import Finding
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
 
 FORMS_PROTECTION_RULE_ID = "iis.forms_auth_protection_unsafe"
 CREDENTIALS_FORMAT_RULE_ID = "iis.credentials_password_format_clear"
@@ -20,12 +20,19 @@ HTTP_ONLY_RULE_ID = "iis.http_cookies_http_only_disabled"
 RETAIL_RULE_ID = "iis.deployment_retail_not_enabled"
 TRUST_RULE_ID = "iis.trust_level_full"
 MACHINE_KEY_RULE_ID = "iis.machine_key_validation_weak"
+LEGACY_MACHINE_KEY_RULE_ID = "iis.machine_key_legacy_validation_weak"
 
 _FORMS_PATH_SUFFIX = "/system.web/authentication/forms"
 _CREDENTIALS_PATH_SUFFIX = "/system.web/authentication/forms/credentials"
 _CREDENTIAL_USER_PATH_SUFFIX = "/system.web/authentication/forms/credentials/user"
 _SHA2_HMAC_MACHINE_KEY_VALIDATION = frozenset(
     {"hmacsha256", "hmacsha384", "hmacsha512"},
+)
+_LEGACY_MACHINE_KEY_VALIDATION = frozenset({"aes", "sha1"})
+_LEGACY_COMPATIBILITY_MODES = frozenset({"framework20sp1", "framework20sp2"})
+_LEGACY_FRAMEWORK_PATH_MARKERS = (
+    "/v2.0.50727/config/",
+    "/v3.5/config/",
 )
 
 
@@ -202,7 +209,49 @@ def find_machine_key_validation_weak(
             suffix="/machineKey",
             tag="machineKey",
         )
+        if not _is_legacy_machine_key_context(section)
         if _has_non_sha2_machine_key_validation(section.attributes.get("validation"))
+    ]
+
+
+@rule(
+    rule_id=LEGACY_MACHINE_KEY_RULE_ID,
+    title="Legacy MachineKey validation algorithm is unsafe",
+    severity="medium",
+    description="ASP.NET 2.0/3.5 machineKey uses a validation algorithm other than AES or SHA1.",
+    recommendation='Use AES or SHA1 for legacy ASP.NET 2.0/3.5 machineKey validation.',
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    standards=(
+        StandardReference(
+            standard="CIS",
+            reference="Microsoft IIS 10 v1.2.1 section 3.8",
+            url="https://www.cisecurity.org/benchmark/microsoft_iis",
+            coverage="partial",
+            note=(
+                "Applies when the config has an explicit legacy compatibility "
+                "mode or is sourced from a legacy .NET Framework config path."
+            ),
+        ),
+    ),
+    order=542,
+)
+def find_machine_key_legacy_validation_weak(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return [
+        _legacy_machine_key_finding(section)
+        for section in _sections(
+            doc,
+            effective_config,
+            suffix="/machineKey",
+            tag="machineKey",
+        )
+        if _is_legacy_machine_key_context(section)
+        if _has_non_legacy_machine_key_validation(
+            section.attributes.get("validation"),
+        )
     ]
 
 
@@ -272,6 +321,35 @@ def _has_non_sha2_machine_key_validation(value: object) -> bool:
         return False
     normalized = _lower_value(value)
     return normalized != "" and normalized not in _SHA2_HMAC_MACHINE_KEY_VALIDATION
+
+
+def _has_non_legacy_machine_key_validation(value: object) -> bool:
+    if value is None:
+        return False
+    normalized = _lower_value(value)
+    return normalized != "" and normalized not in _LEGACY_MACHINE_KEY_VALIDATION
+
+
+def _is_legacy_machine_key_context(
+    section: IISEffectiveSection | IISSection,
+) -> bool:
+    compatibility_mode = _lower_value(section.attributes.get("compatibilityMode", ""))
+    if compatibility_mode in _LEGACY_COMPATIBILITY_MODES:
+        return True
+    return any(_is_legacy_framework_config_path(path) for path in _source_paths(section))
+
+
+def _source_paths(section: IISEffectiveSection | IISSection) -> Iterable[str | None]:
+    if isinstance(section, IISEffectiveSection):
+        return (source.file_path for source in section.origin_chain)
+    return (section.source.file_path,)
+
+
+def _is_legacy_framework_config_path(path: str | None) -> bool:
+    if path is None:
+        return False
+    normalized = path.replace("\\", "/").lower()
+    return any(marker in normalized for marker in _LEGACY_FRAMEWORK_PATH_MARKERS)
 
 
 def _forms_protection_finding(section: IISEffectiveSection | IISSection) -> Finding:
@@ -388,6 +466,25 @@ def _machine_key_finding(section: IISEffectiveSection | IISSection) -> Finding:
             "MachineKey integrity protection."
         ),
         recommendation='Use HMACSHA256 or stronger for machineKey validation.',
+        location=_location(section),
+    )
+
+
+def _legacy_machine_key_finding(
+    section: IISEffectiveSection | IISSection,
+) -> Finding:
+    validation = section.attributes.get("validation", "")
+    ctx = _context(section)
+    return Finding(
+        rule_id=LEGACY_MACHINE_KEY_RULE_ID,
+        title="Legacy MachineKey validation algorithm is unsafe",
+        severity="medium",
+        description=(
+            f'ASP.NET 2.0/3.5 machineKey validation uses "{validation}"{ctx}. '
+            "CIS IIS hardening recommends AES or SHA1 for legacy "
+            "MachineKey validation."
+        ),
+        recommendation='Use AES or SHA1 for legacy ASP.NET 2.0/3.5 machineKey validation.',
         location=_location(section),
     )
 

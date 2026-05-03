@@ -333,6 +333,114 @@ def test_cgi_handler_enabled_fires_for_combined_modules(tmp_path: Path) -> None:
     assert "CGI-combined" in findings[0].description
 
 
+def test_handler_access_policy_write_script_fires(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers accessPolicy="Read, Write, Script">
+            <add name="StaticFile" path="*" verb="*" modules="StaticFileModule" />
+        </handlers>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+
+    findings = [
+        f
+        for f in result.findings
+        if f.rule_id == "iis.handler_write_script_execute_enabled"
+    ]
+    assert len(findings) == 1
+    assert "Read, Write, Script" in findings[0].description
+
+
+def test_handler_access_policy_write_execute_fires_for_location(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <location path="uploads">
+        <system.webServer>
+            <handlers accessPolicy="Read;Write;Execute" />
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+
+    findings = [
+        f
+        for f in result.findings
+        if f.rule_id == "iis.handler_write_script_execute_enabled"
+    ]
+    assert len(findings) == 1
+    assert "uploads" in findings[0].description
+
+
+def test_handler_access_policy_numeric_flags_fires(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers accessPolicy="518" />
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+
+    assert "iis.handler_write_script_execute_enabled" in {
+        f.rule_id for f in result.findings
+    }
+
+
+def test_handler_access_policy_write_without_execution_silent(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers accessPolicy="Read, Write" />
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+
+    assert "iis.handler_write_script_execute_enabled" not in {
+        f.rule_id for f in result.findings
+    }
+
+
+def test_handler_access_policy_execution_without_write_silent(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers accessPolicy="Read, Script, Execute" />
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+
+    assert "iis.handler_write_script_execute_enabled" not in {
+        f.rule_id for f in result.findings
+    }
+
+
 def test_x_powered_by_present_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>

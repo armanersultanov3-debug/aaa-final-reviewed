@@ -309,3 +309,81 @@ def test_machine_key_validation_absent_silent(tmp_path: Path) -> None:
     _assert_no_analysis_issues(result)
     assert "iis.machine_key_validation_weak" not in _rule_ids(result)
 
+
+def test_legacy_machine_key_validation_md5_fires_for_framework20_mode(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey compatibilityMode="Framework20SP2" validation="MD5" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_legacy_validation_weak" in rule_ids
+    assert "iis.machine_key_validation_weak" not in rule_ids
+
+
+@pytest.mark.parametrize("validation", ["AES", "SHA1"])
+def test_legacy_machine_key_validation_aes_sha1_silent(
+    tmp_path: Path,
+    validation: str,
+) -> None:
+    config = f"""\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey compatibilityMode="Framework20SP2" validation="{validation}" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_legacy_validation_weak" not in rule_ids
+    assert "iis.machine_key_validation_weak" not in rule_ids
+
+
+def test_legacy_machine_key_validation_fires_for_v2_machine_config_path(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <configSections />
+    <system.web>
+        <machineKey validation="TripleDES" />
+    </system.web>
+</configuration>
+"""
+    config_path = (
+        tmp_path
+        / "Windows"
+        / "Microsoft.NET"
+        / "Framework"
+        / "v2.0.50727"
+        / "Config"
+        / "machine.config"
+    )
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_legacy_validation_weak" in rule_ids
+    assert "iis.machine_key_validation_weak" not in rule_ids
+
