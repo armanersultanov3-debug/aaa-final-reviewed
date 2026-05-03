@@ -38,6 +38,7 @@ class IISChildElement:
     tag: str
     attributes: dict[str, str] = field(default_factory=dict)
     source: IISSourceRef = field(default_factory=IISSourceRef)
+    children: list[IISChildElement] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -174,13 +175,10 @@ def _append_section_tree(
     for child in element:
         if _is_child_directive(child):
             child_elements.append(
-                IISChildElement(
-                    tag=child.tag,
-                    attributes=dict(child.attrib),
-                    source=IISSourceRef(
-                        file_path=file_path,
-                        xml_path=f"{xml_path}/{child.tag}",
-                    ),
+                _build_child_element(
+                    child,
+                    file_path=file_path,
+                    xml_path=f"{xml_path}/{child.tag}",
                 )
             )
         else:
@@ -208,6 +206,30 @@ def _append_section_tree(
             file_path=file_path,
             location_path=location_path,
         )
+
+
+def _build_child_element(
+    element: _XmlElement,
+    *,
+    file_path: str | None,
+    xml_path: str,
+) -> IISChildElement:
+    return IISChildElement(
+        tag=element.tag,
+        attributes=dict(element.attrib),
+        source=IISSourceRef(
+            file_path=file_path,
+            xml_path=xml_path,
+        ),
+        children=[
+            _build_child_element(
+                child,
+                file_path=file_path,
+                xml_path=f"{xml_path}/{child.tag}",
+            )
+            for child in element
+        ],
+    )
 
 
 __all__ = [

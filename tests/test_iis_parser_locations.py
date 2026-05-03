@@ -114,6 +114,36 @@ def test_child_elements_have_source_refs() -> None:
     assert child.source.xml_path == "configuration/system.webServer/modules/add"
 
 
+def test_nested_child_elements_preserved_under_collection_items() -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <applicationPools>
+            <add name="LegacyPool">
+                <processModel identityType="NetworkService" />
+            </add>
+        </applicationPools>
+    </system.applicationHost>
+</configuration>
+"""
+    doc = parse_iis_config(config, file_path="applicationHost.config")
+    application_pools = [s for s in doc.sections if s.tag == "applicationPools"]
+
+    assert len(application_pools) == 1
+    pool = application_pools[0].children[0]
+    assert pool.tag == "add"
+    assert pool.attributes.get("name") == "LegacyPool"
+    assert len(pool.children) == 1
+    process_model = pool.children[0]
+    assert process_model.tag == "processModel"
+    assert process_model.attributes.get("identityType") == "NetworkService"
+    assert (
+        process_model.source.xml_path
+        == "configuration/system.applicationHost/applicationPools/add/processModel"
+    )
+
+
 def test_non_child_leaf_sections_remain_as_sections() -> None:
     """Leaf elements that are NOT in the child-directive tag set stay as IISSection."""
     config = """\
