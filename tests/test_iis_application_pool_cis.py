@@ -242,6 +242,32 @@ def test_anonymous_auth_specific_user_silent_for_blank_user_name_with_password(
     assert not _rule_findings(result, "iis.anonymous_auth_uses_specific_user")
 
 
+def test_anonymous_auth_specific_user_fires_for_password_only_without_user_name(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authentication>
+                <anonymousAuthentication enabled="true" password="secret" />
+            </authentication>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path), use_tls_registry=False)
+
+    _assert_no_analysis_issues(result)
+    findings = _rule_findings(result, "iis.anonymous_auth_uses_specific_user")
+    assert len(findings) == 1
+    assert findings[0].metadata["anonymous_user"] == "<password set with blank userName>"
+
+
 def test_anonymous_auth_specific_user_silent_when_disabled(
     tmp_path: Path,
 ) -> None:
