@@ -24,7 +24,9 @@ MACHINE_KEY_RULE_ID = "iis.machine_key_validation_weak"
 _FORMS_PATH_SUFFIX = "/system.web/authentication/forms"
 _CREDENTIALS_PATH_SUFFIX = "/system.web/authentication/forms/credentials"
 _CREDENTIAL_USER_PATH_SUFFIX = "/system.web/authentication/forms/credentials/user"
-_WEAK_MACHINE_KEY_VALIDATION = frozenset({"md5", "sha1", "3des"})
+_SHA2_HMAC_MACHINE_KEY_VALIDATION = frozenset(
+    {"hmacsha256", "hmacsha384", "hmacsha512"},
+)
 
 
 @rule(
@@ -180,9 +182,9 @@ def find_trust_level_full(
 
 @rule(
     rule_id=MACHINE_KEY_RULE_ID,
-    title="MachineKey validation algorithm is weak",
+    title="MachineKey validation algorithm is not SHA-2 HMAC",
     severity="medium",
-    description="ASP.NET machineKey uses a weak validation algorithm.",
+    description="ASP.NET machineKey uses a non-SHA-2 HMAC validation algorithm.",
     recommendation='Use HMACSHA256 or stronger for machineKey validation.',
     category="local",
     server_type="iis",
@@ -200,8 +202,7 @@ def find_machine_key_validation_weak(
             suffix="/machineKey",
             tag="machineKey",
         )
-        if _lower_value(section.attributes.get("validation"))
-        in _WEAK_MACHINE_KEY_VALIDATION
+        if _has_non_sha2_machine_key_validation(section.attributes.get("validation"))
     ]
 
 
@@ -264,6 +265,13 @@ def _is_stored_credential_user(section: IISEffectiveSection | IISSection) -> boo
         _path_endswith(section, _CREDENTIAL_USER_PATH_SUFFIX)
         and section.attributes.get("password", "") != ""
     )
+
+
+def _has_non_sha2_machine_key_validation(value: object) -> bool:
+    if value is None:
+        return False
+    normalized = _lower_value(value)
+    return normalized != "" and normalized not in _SHA2_HMAC_MACHINE_KEY_VALIDATION
 
 
 def _forms_protection_finding(section: IISEffectiveSection | IISSection) -> Finding:
@@ -372,12 +380,12 @@ def _machine_key_finding(section: IISEffectiveSection | IISSection) -> Finding:
     ctx = _context(section)
     return Finding(
         rule_id=MACHINE_KEY_RULE_ID,
-        title="MachineKey validation algorithm is weak",
+        title="MachineKey validation algorithm is not SHA-2 HMAC",
         severity="medium",
         description=(
             f'ASP.NET machineKey validation uses "{validation}"{ctx}. '
-            "Weak validation algorithms can undermine integrity protection "
-            "for authentication and view-state related data."
+            "CIS IIS hardening recommends SHA-2 HMAC validation for "
+            "MachineKey integrity protection."
         ),
         recommendation='Use HMACSHA256 or stronger for machineKey validation.',
         location=_location(section),

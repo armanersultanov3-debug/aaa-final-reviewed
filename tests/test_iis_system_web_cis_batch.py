@@ -229,12 +229,66 @@ def test_machine_key_validation_weak_fires(tmp_path: Path) -> None:
     assert "iis.machine_key_validation_weak" in _rule_ids(result)
 
 
+def test_machine_key_validation_aes_fires(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey validation="AES" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.machine_key_validation_weak" in _rule_ids(result)
+
+
+def test_machine_key_validation_sha256_without_hmac_fires(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey validation="SHA256" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.machine_key_validation_weak" in _rule_ids(result)
+
+
 def test_machine_key_validation_hmac_silent(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <system.web>
         <machineKey validation="HMACSHA256" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.machine_key_validation_weak" not in _rule_ids(result)
+
+
+def test_machine_key_validation_absent_silent(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey decryption="AES" />
     </system.web>
 </configuration>
 """

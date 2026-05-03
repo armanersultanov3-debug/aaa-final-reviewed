@@ -306,6 +306,54 @@ def test_file_extensions_allow_unlisted_false_silent(tmp_path: Path) -> None:
     assert "iis.file_extensions_allow_unlisted" not in _rule_ids(result)
 
 
+def test_request_filtering_remove_server_header_disabled_fires(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering removeServerHeader="false">
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.request_filtering_remove_server_header_disabled" in _rule_ids(result)
+
+
+def test_request_filtering_remove_server_header_true_silent(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering removeServerHeader="true">
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.request_filtering_remove_server_header_disabled" not in _rule_ids(result)
+
+
 def test_isapi_cgi_restrictions_allow_unlisted_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
