@@ -26,7 +26,7 @@ def test_analyze_apache_config_does_not_report_limit_request_body_when_positive_
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -50,7 +50,7 @@ def test_analyze_apache_config_reports_missing_limit_request_body(tmp_path: Path
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -77,7 +77,7 @@ def test_analyze_apache_config_reports_missing_limit_request_fields(tmp_path: Pa
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -107,7 +107,7 @@ def test_analyze_apache_config_does_not_report_limit_request_fields_when_positiv
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -132,7 +132,7 @@ def test_analyze_apache_config_reports_zero_limit_request_fields(tmp_path: Path)
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -162,7 +162,7 @@ def test_analyze_apache_config_reports_invalid_limit_request_fields_value(
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -192,7 +192,7 @@ def test_analyze_apache_config_reports_limit_request_fields_location_for_bad_val
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -222,7 +222,7 @@ def test_analyze_apache_config_reports_invalid_limit_request_body_value(tmp_path
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -250,7 +250,7 @@ def test_analyze_apache_config_reports_zero_limit_request_body(tmp_path: Path) -
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -420,7 +420,7 @@ def test_analyze_apache_config_reports_missing_http_protocol_options(
                     "CustomLog logs/access_log combined",
                     "ErrorDocument 404 /custom404.html",
                     "ErrorDocument 500 /custom500.html",
-                    "Listen 80",
+                    "Listen 127.0.0.1:80",
                 ]
             ),
             include_cis_http_protocol=False,
@@ -465,7 +465,7 @@ def test_analyze_apache_config_reports_unsafe_http_protocol_options(
                     "CustomLog logs/access_log combined",
                     "ErrorDocument 404 /custom404.html",
                     "ErrorDocument 500 /custom500.html",
-                    "Listen 80",
+                    "Listen 127.0.0.1:80",
                     directive,
                 ]
             ),
@@ -504,7 +504,7 @@ def test_analyze_apache_config_reports_virtualhost_http_protocol_override(
                     "CustomLog logs/access_log combined",
                     "ErrorDocument 404 /custom404.html",
                     "ErrorDocument 500 /custom500.html",
-                    "Listen 80",
+                    "Listen 127.0.0.1:80",
                     "HttpProtocolOptions Strict Require1.0",
                     "<VirtualHost *:80>",
                     "    ServerName example.test",
@@ -1069,7 +1069,7 @@ def test_analyze_apache_config_ignores_header_inside_standalone_else_for_auditab
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                "Listen 80",
+                "Listen 127.0.0.1:80",
                 "Header always set X-Frame-Options DENY",
                 "<Else>",
                 "    Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
@@ -1618,8 +1618,8 @@ def test_analyze_apache_config_recognizes_virtualhost_with_multiple_bind_address
                 "ServerSignature Off",
                 "ServerTokens Prod",
                 "TraceEnable Off",
-                "Listen 80",
-                "Listen 443",
+                "Listen 127.0.0.1:80",
+                "Listen 127.0.0.1:443",
                 "<VirtualHost *:80 *:443>",
                 "    ServerName covered.test",
                 *safe_vh_headers,
@@ -1664,9 +1664,9 @@ def test_analyze_apache_config_ignores_conditional_listen_when_checking_coverage
                 "ServerSignature Off",
                 "ServerTokens Prod",
                 "TraceEnable Off",
-                "Listen 80",
+                "Listen 127.0.0.1:80",
                 "<IfDefine ENABLE_TLS>",
-                "    Listen 443",
+                "    Listen 127.0.0.1:443",
                 "</IfDefine>",
                 "<VirtualHost *:80>",
                 "    ServerName covered.test",

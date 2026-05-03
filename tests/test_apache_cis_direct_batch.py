@@ -1,7 +1,7 @@
 from tests.apache_helpers import Path, _safe_apache_config, analyze_apache_config
 
 SAFE_TLS_VHOST_LINES = [
-    "Listen 443 https",
+    "Listen 127.0.0.1:443 https",
     "<VirtualHost *:443>",
     "    ServerName secure.test",
     "    SSLEngine On",
@@ -298,7 +298,7 @@ def _redirect_pair_config(*http_vhost_lines: str) -> str:
         "</VirtualHost>",
     ]
     tls_lines = [
-        "Listen 443 https",
+        "Listen 127.0.0.1:443 https",
         "<VirtualHost *:443>",
         "    ServerName app.example.test",
         "    SSLEngine On",

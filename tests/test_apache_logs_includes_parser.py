@@ -23,7 +23,7 @@ def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -47,7 +47,7 @@ def test_analyze_apache_config_reports_missing_top_level_error_log(tmp_path: Pat
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -74,7 +74,7 @@ def test_analyze_apache_config_reports_missing_top_level_custom_log(tmp_path: Pa
             "ErrorLog logs/error_log\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -104,7 +104,7 @@ def test_analyze_apache_config_does_not_report_missing_top_level_error_documents
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -128,7 +128,7 @@ def test_analyze_apache_config_reports_missing_top_level_error_document_404(tmp_
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -155,7 +155,7 @@ def test_analyze_apache_config_reports_missing_top_level_error_document_500(tmp_
             "ErrorLog logs/error_log\n"
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -185,7 +185,7 @@ def test_analyze_apache_config_reports_incomplete_top_level_error_document_404(
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -215,7 +215,7 @@ def test_analyze_apache_config_reports_incomplete_top_level_error_document_500(
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
