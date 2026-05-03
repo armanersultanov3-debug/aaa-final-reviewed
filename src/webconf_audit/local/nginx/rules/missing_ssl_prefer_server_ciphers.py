@@ -4,9 +4,14 @@ from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
     find_child_directives,
-    iter_nodes,
+    DirectiveNode,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
+    last_directive_is_on,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -29,26 +34,33 @@ RULE_ID = "nginx.missing_ssl_prefer_server_ciphers"
 def find_missing_ssl_prefer_server_ciphers(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_ssl_prefer_server_ciphers_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"ssl_prefer_server_ciphers"},
+    ):
+        finding = _find_missing_ssl_prefer_server_ciphers_in_server(
+            server_block,
+            inherited_directives,
+        )
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_ssl_prefer_server_ciphers_in_server(server_block: BlockNode) -> Finding | None:
+def _find_missing_ssl_prefer_server_ciphers_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
     ssl_ciphers_directives = find_child_directives(server_block, "ssl_ciphers")
-    ssl_prefer_server_ciphers_directives = find_child_directives(
+    ssl_prefer_server_ciphers_directives = effective_child_directives(
         server_block,
         "ssl_prefer_server_ciphers",
+        inherited_directives,
     )
 
     uses_tls = server_uses_tls(server_block)
-    prefers_server_ciphers = any(
-        directive.args == ["on"] for directive in ssl_prefer_server_ciphers_directives
-    )
+    prefers_server_ciphers = last_directive_is_on(ssl_prefer_server_ciphers_directives)
 
     if not uses_tls or not ssl_ciphers_directives or prefers_server_ciphers:
         return None

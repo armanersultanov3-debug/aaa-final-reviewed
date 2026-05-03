@@ -48,7 +48,7 @@ def test_iis_rule_modules_import_individually() -> None:
         importlib.import_module(f"{iis_rules_package.__name__}.{module_name}")
 
 
-@pytest.fixture()
+@pytest.fixture
 def full_reg() -> RuleRegistry:
     return _fresh_registry()
 
@@ -134,11 +134,10 @@ class TestNoDuplicates:
         # and also verify all IDs are unique across the meta lists.
         import webconf_audit.external.rules._runner
 
-        all_ids: list[str] = []
-        for entry in full_reg._executable.values():
-            all_ids.append(entry.meta.rule_id)
-        for meta in webconf_audit.external.rules._runner._EXTERNAL_RULE_METAS:
-            all_ids.append(meta.rule_id)
+        all_ids = [entry.meta.rule_id for entry in full_reg._executable.values()]
+        all_ids += [
+            meta.rule_id for meta in webconf_audit.external.rules._runner._EXTERNAL_RULE_METAS
+        ]
 
         assert len(all_ids) == len(set(all_ids)), (
             f"Duplicate rule IDs found: "

@@ -1043,7 +1043,7 @@ class TestRulesUseMergedDirectives:
             if f.rule_id == "lighttpd.server_tag_not_blank"
         ]
         # a.example has a non-blank tag -> finding
-        assert len(tag_findings_a) >= 1
+        assert len(tag_findings_a) == 1
         # b.example has blank tag -> no finding
         assert len(tag_findings_b) == 0
 
@@ -1084,7 +1084,7 @@ class TestRulesUseMergedDirectives:
             if f.rule_id == "lighttpd.dir_listing_enabled"
         ]
         # a.example enables dir listing -> finding
-        assert len(dir_findings_a) >= 1
+        assert len(dir_findings_a) == 1
         # b.example disables it -> no finding
         assert len(dir_findings_b) == 0
 

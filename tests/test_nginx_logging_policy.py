@@ -568,6 +568,65 @@ def test_analyze_nginx_config_does_not_report_missing_http2_when_server_http2_on
     )
 
 
+def test_analyze_nginx_config_inherits_http2_on_from_http_block(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _http_block(
+            "http2 on;\n"
+            + _safe_server_block(
+                "listen 443 ssl;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+                "ssl_certificate /etc/ssl/cert.pem;",
+                "ssl_certificate_key /etc/ssl/key.pem;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                "ssl_prefer_server_ciphers on;",
+                include_rate_limits=True,
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_http2_on_tls_listener"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_uses_last_http2_directive_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _http_block(
+            _safe_server_block(
+                "listen 443 ssl;",
+                "http2 on;",
+                "http2 off;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+                "ssl_certificate /etc/ssl/cert.pem;",
+                "ssl_certificate_key /etc/ssl/key.pem;",
+                "ssl_ciphers HIGH:!aNULL:!MD5;",
+                "ssl_prefer_server_ciphers on;",
+                include_rate_limits=True,
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.missing_http2_on_tls_listener"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_does_not_report_missing_http2_for_port_80_listener(
     tmp_path: Path,
 ) -> None:

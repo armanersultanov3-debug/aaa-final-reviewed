@@ -352,6 +352,57 @@ def test_analyze_nginx_config_reports_missing_ssl_prefer_server_ciphers_when_onl
     )
 
 
+def test_analyze_nginx_config_inherits_ssl_prefer_server_ciphers_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_ssl_prefer_server_ciphers"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_uses_last_ssl_prefer_server_ciphers_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_prefer_server_ciphers off;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.missing_ssl_prefer_server_ciphers"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_ssl_stapling_without_verify_when_missing(
     tmp_path: Path,
 ) -> None:
@@ -504,6 +555,92 @@ def test_analyze_nginx_config_reports_ssl_stapling_without_verify_when_only_loca
     )
 
 
+def test_analyze_nginx_config_inherits_ssl_stapling_for_verify_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling on;\n"
+        "    resolver 1.1.1.1;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_without_verify"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_ssl_stapling_verify_on(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling on;\n"
+        "    ssl_stapling_verify on;\n"
+        "    resolver 1.1.1.1;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_without_verify"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_server_stapling_inherits_ssl_stapling_verify_on(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling_verify on;\n"
+        "    resolver 1.1.1.1;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_stapling on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_without_verify"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_ssl_stapling_missing_resolver_when_missing(
     tmp_path: Path,
 ) -> None:
@@ -601,6 +738,90 @@ def test_analyze_nginx_config_reports_ssl_stapling_missing_resolver_when_only_lo
     assert result.issues == []
     assert any(
         finding.rule_id == "nginx.ssl_stapling_missing_resolver" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_ssl_stapling_for_resolver_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_stapling on;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_stapling_verify on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_stapling_missing_resolver"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_resolver_for_stapling_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    resolver 1.1.1.1;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_stapling on;\n"
+        "        ssl_stapling_verify on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_missing_resolver"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_uses_last_ssl_stapling_value_for_resolver_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_stapling on;\n"
+        "    ssl_stapling off;\n"
+        "    ssl_stapling_verify on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_stapling_missing_resolver"
+        for finding in result.findings
     )
 
 

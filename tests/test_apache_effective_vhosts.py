@@ -605,3 +605,24 @@ def test_options_indexes_negative_token_wins_when_mixed(tmp_path: Path) -> None:
     result = analyze_apache_config(str(config_path))
 
     assert not any(f.rule_id == "apache.options_indexes" for f in result.findings)
+
+
+def test_options_indexes_positive_token_wins_when_mixed(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    '<Directory "/var/www/html">',
+                    "    AllowOverride None",
+                    "    Options -Indexes Indexes",
+                    "</Directory>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert any(f.rule_id == "apache.options_indexes" for f in result.findings)

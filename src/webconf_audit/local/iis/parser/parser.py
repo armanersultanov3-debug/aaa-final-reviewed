@@ -7,6 +7,7 @@ from typing import Literal
 # types still have to come from the stdlib ``xml.etree.ElementTree``
 # module, so import them separately and keep ``ET`` for parser calls.
 from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
 from xml.etree.ElementTree import Element as _XmlElement
 
 
@@ -99,6 +100,11 @@ def parse_iis_config(
             f"XML parse error: {exc}",
             file_path=file_path,
             line=line,
+        ) from exc
+    except DefusedXmlException as exc:
+        raise IISParseError(
+            f"XML parse error: {exc}",
+            file_path=file_path,
         ) from exc
 
     config_kind = classify_config_kind(root.tag, file_path, root=root)

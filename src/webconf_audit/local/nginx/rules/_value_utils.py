@@ -2,7 +2,13 @@ from __future__ import annotations
 
 import re
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
+from webconf_audit.local.nginx.parser.ast import (
+    AstNode,
+    BlockNode,
+    ConfigAst,
+    DirectiveNode,
+    find_child_directives,
+)
 
 _DURATION_RE = re.compile(r"^(?P<value>\d+(?:\.\d+)?)(?P<unit>ms|s|m|h|d)?$", re.IGNORECASE)
 _SIZE_RE = re.compile(r"^(?P<value>\d+)(?P<unit>[kmg])?$", re.IGNORECASE)
@@ -68,8 +74,62 @@ def iter_direct_child_directives(
     return matches
 
 
+def iter_server_blocks_with_http_directives(
+    config_ast: ConfigAst,
+    directive_names: set[str],
+) -> list[tuple[BlockNode, dict[str, list[DirectiveNode]]]]:
+    servers: list[tuple[BlockNode, dict[str, list[DirectiveNode]]]] = []
+
+    def walk(
+        nodes: list[AstNode],
+        inherited_directives: dict[str, list[DirectiveNode]],
+    ) -> None:
+        for node in nodes:
+            if not isinstance(node, BlockNode):
+                continue
+
+            current_directives = inherited_directives
+            if node.name == "http":
+                current_directives = dict(inherited_directives)
+                for directive_name in directive_names:
+                    current_directives[directive_name] = find_child_directives(
+                        node,
+                        directive_name,
+                    )
+
+            if node.name == "server":
+                servers.append((node, current_directives))
+                continue
+
+            walk(node.children, current_directives)
+
+    walk(config_ast.nodes, {})
+    return servers
+
+
+def effective_child_directives(
+    block: BlockNode,
+    directive_name: str,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> list[DirectiveNode]:
+    server_directives = find_child_directives(block, directive_name)
+    if server_directives:
+        return server_directives
+    return inherited_directives.get(directive_name, [])
+
+
+def last_directive_is_on(directives: list[DirectiveNode]) -> bool:
+    if not directives:
+        return False
+    last = directives[-1]
+    return len(last.args) == 1 and last.args[0].lower() == "on"
+
+
 __all__ = [
+    "effective_child_directives",
+    "iter_server_blocks_with_http_directives",
     "iter_direct_child_directives",
+    "last_directive_is_on",
     "parse_duration_seconds",
     "parse_size_bytes",
 ]

@@ -471,6 +471,8 @@ def _merge_options(
             current_set.add(arg[1:].lower())
         elif arg.startswith("-"):
             current_set.discard(arg[1:].lower())
+        else:
+            current_set.add(lowered)
 
     chain = list(prev.override_chain) + [prev.origin] if prev else []
     directives["options"] = EffectiveDirective(

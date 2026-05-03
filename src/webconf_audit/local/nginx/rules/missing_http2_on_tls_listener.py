@@ -3,10 +3,15 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
+    DirectiveNode,
     find_child_directives,
-    iter_nodes,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import listen_uses_tls_on_port_443
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
+    last_directive_is_on,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -29,17 +34,27 @@ RULE_ID = "nginx.missing_http2_on_tls_listener"
 def find_missing_http2_on_tls_listener(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            findings.extend(_find_missing_http2_on_tls_listener_in_server(node))
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"http2"},
+    ):
+        findings.extend(
+            _find_missing_http2_on_tls_listener_in_server(
+                server_block,
+                inherited_directives,
+            )
+        )
 
     return findings
 
 
-def _find_missing_http2_on_tls_listener_in_server(server_block: BlockNode) -> list[Finding]:
+def _find_missing_http2_on_tls_listener_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> list[Finding]:
     findings: list[Finding] = []
 
-    if _server_has_http2_enabled(server_block):
+    if _server_has_http2_enabled(server_block, inherited_directives):
         return []
 
     for directive in find_child_directives(server_block, "listen"):
@@ -68,10 +83,12 @@ def _find_missing_http2_on_tls_listener_in_server(server_block: BlockNode) -> li
     return findings
 
 
-def _server_has_http2_enabled(server_block: BlockNode) -> bool:
-    return any(
-        directive.args and directive.args[0].lower() == "on"
-        for directive in find_child_directives(server_block, "http2")
+def _server_has_http2_enabled(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> bool:
+    return last_directive_is_on(
+        effective_child_directives(server_block, "http2", inherited_directives)
     )
 
 

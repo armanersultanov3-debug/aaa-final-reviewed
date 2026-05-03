@@ -249,6 +249,24 @@ def test_analyze_malformed_xml_returns_issue(tmp_path: Path) -> None:
     assert result.issues[0].location.file_path == str(config_path)
 
 
+def test_analyze_defusedxml_doctype_returns_parse_error(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        "<!DOCTYPE configuration [<!ENTITY xxe SYSTEM 'file:///etc/passwd'>]>\n"
+        "<configuration>&xxe;</configuration>",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert result.findings == []
+    assert len(result.issues) == 1
+    assert result.issues[0].code == "iis_parse_error"
+    assert result.issues[0].location is not None
+    assert result.issues[0].location.kind == "xml"
+    assert result.issues[0].location.file_path == str(config_path)
+
+
 # --- Directory discovery ---
 
 
