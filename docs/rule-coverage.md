@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **268**
+Total rules: **270**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (185), external (72), universal (11) |
-| Severity | high (13), medium (90), low (154), info (11) |
-| Input kind | ast (130), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
+| Category | local (187), external (72), universal (11) |
+| Severity | high (13), medium (90), low (156), info (11) |
+| Input kind | ast (132), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 61
+Count: 63
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -125,6 +125,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.duplicate_listen` | low | ast | - | - | - | - | - |
 | `nginx.error_log_too_restrictive` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: detects `/dev/null` and overly restrictive levels) |
 | `nginx.executable_scripts_allowed_in_uploads` | medium | ast | - | [CWE-434](https://cwe.mitre.org/data/definitions/434.html) | [A04:2021](https://owasp.org/Top10/A04_2021-Insecure_Design/) | - | - |
+| `nginx.http_method_policy_allows_unapproved` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: detects unsafe explicit `limit_except` allowlists) |
 | `nginx.if_in_location` | low | ast | - | - | - | - | - |
 | `nginx.missing_access_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.2 |
 | `nginx.missing_access_restrictions_on_sensitive_locations` | low | ast | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS NGINX v3.0.0 §5.1.1 (partial: detects any access control on sensitive paths, not specifically `allow`/`deny` IP filters) |
@@ -166,6 +167,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_x_xss_protection` | low | ast | headers | - | - | - | - |
 | `nginx.proxy_missing_source_ip_headers` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.4 (partial: `proxy_pass` source header forwarding) |
 | `nginx.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value and `always` checks) | CIS NGINX v3.0.0 §5.3.3 (partial: policy value and `always`) |
+| `nginx.sensitive_location_missing_ip_filter` | low | ast | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS NGINX v3.0.0 §5.1.1 (partial: validates restrictive `allow`/`deny` IP filters on sensitive paths that already have an access control, including `satisfy any` auth bypasses) |
 | `nginx.server_tokens_on` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS NGINX v3.0.0 §2.5.1 |
 | `nginx.ssl_stapling_missing_resolver` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: resolver presence requirement only) |
 | `nginx.ssl_stapling_without_verify` | low | ast | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: stapling verification requirement) |
@@ -299,8 +301,8 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
 | §4.1.9, §4.1.10 | `parser-depth` | Upstream TLS client-certificate and upstream trust checks need proxy SSL directive modeling. |
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
-| §5.1.1 | `direct-rule` | Existing sensitive-location access checks are partial; full coverage needs IP-focused `allow`/`deny` policy validation. |
-| §5.1.2 | `direct-rule` | Existing method checks are scoped to sensitive/upload-like locations; full coverage needs an approved-method policy model. |
+| §5.1.1 | `manual-context` | Current coverage checks missing sensitive-location access controls and flags non-IP controls, deny-only exclusions, and `satisfy any` auth bypasses that lack an effective restrictive `allow`/`deny all` policy. Full coverage still depends on the operator's sensitive-path catalogue and runtime location matching. |
+| §5.1.2 | `direct-rule` | Current coverage checks missing sensitive/upload-like `limit_except` blocks and unsafe explicit `limit_except` allowlists. Remaining work needs a site-wide approved-method policy model plus equivalent `if`/`map`/`return` patterns. |
 | §5.2.4-§5.2.5 | `manual-context` | Current connection/rate-limit rules now check presence, defined zones, per-IP keys, positive connection limits, and positive request rates; remaining CIS judgment is whether the chosen values and application scopes are reasonable for the deployment. |
 | §5.3.2, §5.3.3 | `manual-context` | Current coverage checks CSP/Referrer-Policy presence plus baseline CSP directives, unsafe script tokens, Referrer-Policy values, and `always`; full app-specific CSP semantics remain manual. |
 | §6 | `out-of-scope` | The benchmark reserves Mandatory Access Control and points to OS/IdP/application sources rather than an Nginx config check. |
@@ -1011,9 +1013,9 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (63) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (63) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (65) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
 - [x] IIS local rules (44) — CWE/OWASP/ASVS filled; CIS existing-rule reference

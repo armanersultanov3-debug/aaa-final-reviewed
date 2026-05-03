@@ -274,10 +274,10 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: Apache CIS direct-rule expansion. The active slice adds local
-checks for CIS §5.14 / §5.15: rewrite-based denial of IP-address requests for
-named top-level server contexts and explicit IP bindings for `Listen`
-directives.
+Current step: Nginx CIS direct-rule expansion. The active slice adds local
+checks for CIS §5.1.1 / §5.1.2: sensitive-location access controls that lack
+restrictive `allow`/`deny` IP filters, and explicit `limit_except` policies
+that still allow unapproved HTTP methods.
 
 The external safe-probe catalog is implemented. Future external probe growth
 should add only curated non-mutating probes on top of the catalog.

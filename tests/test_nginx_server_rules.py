@@ -866,6 +866,182 @@ def test_analyze_nginx_config_reports_missing_access_restrictions_when_auth_basi
     )
 
 
+def test_analyze_nginx_config_reports_sensitive_location_missing_ip_filter_with_auth_basic(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_text = _safe_server_block(
+        "listen 80;",
+        "location /admin {",
+        '    auth_basic "Restricted";',
+        "    auth_basic_user_file /etc/nginx/.htpasswd;",
+        "}",
+    )
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+    )
+    assert finding.title == "Sensitive location lacks an IP allow/deny filter"
+    assert finding.location is not None
+    assert finding.location.file_path == str(config_path)
+    assert finding.location.line == _line_number(config_text, "location /admin {")
+
+
+def test_analyze_nginx_config_reports_sensitive_location_missing_ip_filter_with_specific_deny(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /admin {",
+            "    deny 10.0.0.0/8;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sensitive_location_missing_ip_filter_without_access_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /admin {",
+            "    proxy_pass http://backend;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.missing_access_restrictions_on_sensitive_locations"
+        for finding in result.findings
+    )
+    assert not any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sensitive_location_missing_ip_filter_when_allowlist_denies_all(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /admin {",
+            "    allow 10.0.0.0/8;",
+            "    deny all;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sensitive_location_missing_ip_filter_when_deny_all(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /internal {",
+            "    deny all;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_sensitive_location_ip_filter_from_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "allow 10.0.0.0/8;",
+            "deny all;",
+            "location /admin {",
+            "    proxy_pass http://backend;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_sensitive_location_ip_filter_bypassed_by_satisfy_any(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "allow 10.0.0.0/8;",
+            "deny all;",
+            "location /admin {",
+            "    satisfy any;",
+            '    auth_basic "Restricted";',
+            "    auth_basic_user_file /etc/nginx/.htpasswd;",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.sensitive_location_missing_ip_filter"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_missing_auth_basic_user_file_in_location(
     tmp_path: Path,
 ) -> None:
@@ -1034,6 +1210,114 @@ def test_analyze_nginx_config_does_not_report_missing_allowed_methods_restrictio
     assert result.issues == []
     assert not any(
         finding.rule_id == "nginx.missing_allowed_methods_restriction_for_uploads"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_http_method_policy_allows_unapproved_method(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_text = _safe_server_block(
+        "listen 80;",
+        "location /api {",
+        "    proxy_pass http://backend;",
+        "    limit_except GET POST DELETE {",
+        "        deny all;",
+        "    }",
+        "}",
+    )
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.http_method_policy_allows_unapproved"
+    )
+    assert finding.title == "HTTP method policy allows unapproved methods"
+    assert "DELETE" in finding.description
+    assert finding.location is not None
+    assert finding.location.file_path == str(config_path)
+    assert finding.location.line == _line_number(config_text, "limit_except GET POST DELETE {")
+
+
+def test_analyze_nginx_config_does_not_report_http_method_policy_for_approved_methods(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /api {",
+            "    proxy_pass http://backend;",
+            "    limit_except GET POST OPTIONS {",
+            "        deny all;",
+            "    }",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.http_method_policy_allows_unapproved"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_normalizes_http_method_policy_case(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /api {",
+            "    proxy_pass http://backend;",
+            "    limit_except get post options {",
+            "        deny all;",
+            "    }",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.http_method_policy_allows_unapproved"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_normalizes_http_method_policy_with_quoted_methods(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /api {",
+            "    proxy_pass http://backend;",
+            "    limit_except \"get\" 'post' options {",
+            "        deny all;",
+            "    }",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.http_method_policy_allows_unapproved"
         for finding in result.findings
     )
 
