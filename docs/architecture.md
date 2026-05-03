@@ -211,7 +211,7 @@ Key elements:
   that do not have an executable implementation (used for
   meta-only external rules).
 
-Current catalog: 265 rules total.
+Current catalog: 266 rules total.
 
 | Category | Rules |
 |----------|------:|

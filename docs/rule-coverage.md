@@ -29,12 +29,12 @@ file.
 
 ## Summary
 
-Total rules: **265**
+Total rules: **266**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (182), external (72), universal (11) |
-| Severity | high (13), medium (90), low (151), info (11) |
+| Category | local (183), external (72), universal (11) |
+| Severity | high (13), medium (90), low (152), info (11) |
 | Input kind | ast (127), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
 
 ## Inventory tables
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 62
+Count: 63
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -359,6 +359,7 @@ rather than to ".htaccess" itself.
 | `apache.server_tokens_not_prod` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Apache HTTP Server 2.4 v2.3.0 §8.1 (partial: enforces `Prod`; benchmark also allows `ProductOnly`) |
 | `apache.sensitive_config_files_not_restricted` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: config/data/temp extension deny-list coverage) |
 | `apache.trace_enable_not_off` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | CIS Apache HTTP Server 2.4 v2.3.0 §5.8 |
+| `apache.http_protocol_options_unsafe` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.9 |
 | `apache.vcs_metadata_not_restricted` | medium | ast | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: `.git` / `.svn` deny-list coverage) |
 | `apache.file_etag_inodes` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.4 |
 | `apache.timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.1 (partial: explicit directive values only) |
@@ -465,6 +466,10 @@ Mapping rationale (apache rules):
   available, the classic vector for cross-site tracing (XST) which lets an
   attacker echo back `Authorization` / `Cookie` headers: CWE-200 (information
   exposure), OWASP A05.
+- `http_protocol_options_unsafe` -- absent, incomplete, or unsafe
+  `HttpProtocolOptions` leaves Apache without an explicit strict HTTP parser
+  and HTTP/1.0+ request baseline. This is a configuration hardening item, so
+  CWE stays empty and OWASP A05 carries the mapping.
 - `missing_http_method_restrictions`,
   `http_method_policy_allows_unapproved` -- sensitive scopes with no method
   restriction, or explicit method allowlists that still include unapproved
@@ -511,7 +516,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.1-§5.3 | `direct-rule` | Existing `Options` rules cover risky tokens individually; full coverage needs an allowed-options policy per directory class. |
 | §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
 | §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
-| §5.9 | `direct-rule` | Add old HTTP protocol-version checks after defining supported directive signals. |
+| §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
 | §5.14-§5.15 | `direct-rule` | Add checks for IP-based requests and explicit listen-address policy after defining environment-specific expectations. |
 | §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
@@ -998,7 +1003,7 @@ Progress:
 - [x] Universal rules (11)
 - [x] Nginx local rules (61) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (62) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (63) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
 - [x] IIS local rules (44) — CWE/OWASP/ASVS filled; CIS existing-rule reference

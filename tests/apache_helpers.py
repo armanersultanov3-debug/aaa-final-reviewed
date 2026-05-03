@@ -55,6 +55,9 @@ _SAFE_SECURITY_HEADER_BASELINE_LINES = [
 _SAFE_APACHE_CIS_LOG_LINES = [
     "LogLevel notice",
 ]
+_SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES = [
+    "HttpProtocolOptions Strict Require1.0",
+]
 _SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES = [
     "<Directory />",
     "    AllowOverride None",
@@ -73,6 +76,7 @@ _SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
 ]
 _SAFE_APACHE_CIS_BASELINE_LINES = [
     *_SAFE_APACHE_CIS_LOG_LINES,
+    *_SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES,
     *_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES,
     *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
 ]
@@ -83,6 +87,7 @@ def _with_backup_files_restriction(
     *,
     include_security_headers: bool = True,
     include_cis_allowoverride_root: bool = True,
+    include_cis_http_protocol: bool = True,
 ) -> str:
     security_headers = (
         "\n" + "\n".join(_SAFE_SECURITY_HEADER_BASELINE_LINES)
@@ -91,6 +96,11 @@ def _with_backup_files_restriction(
     )
     cis_lines = [
         *_SAFE_APACHE_CIS_LOG_LINES,
+        *(
+            _SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES
+            if include_cis_http_protocol
+            else []
+        ),
         *(
             _SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES
             if include_cis_allowoverride_root
@@ -268,6 +278,7 @@ __all__ = [
     "_SAFE_SECURITY_HEADER_LINES",
     "_SAFE_APACHE_CIS_BASELINE_LINES",
     "_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES",
+    "_SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES",
     "_SAFE_APACHE_CIS_LOG_LINES",
     "_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES",
     "_analyze_with_htaccess",
