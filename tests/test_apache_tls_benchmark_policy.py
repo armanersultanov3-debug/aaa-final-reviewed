@@ -12,7 +12,7 @@ _NEW_TLS_RULE_IDS = {
 }
 
 _SAFE_TLS_LINES = {
-    "listen": "Listen 443 https",
+    "listen": "Listen 127.0.0.1:443 https",
     "session_cache": "SSLSessionCache shmcb:logs/ssl_scache(512000)",
     "stapling_cache": "SSLStaplingCache shmcb:logs/ssl_stapling(32768)",
     "vhost_open": "<VirtualHost *:443>",
@@ -54,8 +54,8 @@ def test_analyze_apache_config_uses_any_global_listen_for_tls_intent(
             "LimitRequestFields 100",
             "ErrorLog logs/error_log",
             "CustomLog logs/access_log combined",
-            "Listen 443 https",
-            "Listen 80",
+            "Listen 127.0.0.1:443 https",
+            "Listen 127.0.0.1:80",
         ]
     )
 

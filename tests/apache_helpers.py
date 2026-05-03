@@ -127,7 +127,7 @@ def _safe_apache_config(*extra_lines: str) -> str:
         "CustomLog logs/access_log combined",
         "ErrorDocument 404 /custom404.html",
         "ErrorDocument 500 /custom500.html",
-        "Listen 80",
+        "Listen 127.0.0.1:80",
     ]
     lines.extend(extra_lines)
     return _with_backup_files_restriction("\n".join(lines))

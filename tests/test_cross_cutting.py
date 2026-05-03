@@ -375,7 +375,7 @@ class TestApacheEffectiveConfigRegressions:
         """Scenario C: a security header exists only inside one VirtualHost.
         Universal findings should differ accordingly per effective context."""
         config = _write(tmp_path, "httpd.conf", _safe_apache_base() + (
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
             "<VirtualHost *:80>\n"
             "    ServerName secure.test\n"
             '    Header set Strict-Transport-Security "max-age=31536000"\n'

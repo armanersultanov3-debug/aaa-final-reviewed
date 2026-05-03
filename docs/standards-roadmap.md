@@ -37,11 +37,11 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 266 rules:
+The current project inventory is 268 rules:
 
 - Universal: 11
 - Nginx local: 61
-- Apache local: 63
+- Apache local: 65
 - Lighttpd local: 15
 - IIS local: 44
 - External probes: 72
@@ -349,7 +349,7 @@ standard section before implementation.
 | STD-GAP-003 | Nginx CIS | direct-rule | P2 | Unknown-host default-server rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/OCSP, and core connection/rate-limit validation checks are now present. Remaining work focuses on cipher/TLS posture, access-method policy, and context-specific runtime/probe checks. |
 | STD-GAP-004 | Nginx CIS | host-depth | P3 | Keep Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations in host-depth unless an explicit host mode is added. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
-| STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, log-quality checks, Apache TLS directive checks, local HSTS policy, matching-vhost HTTP redirects, and weak cipher components are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, and deeper benchmark cipher posture / runtime TLS evidence. |
+| STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, IP-based request denial, explicit listen-address policy, log-quality checks, Apache TLS directive checks, local HSTS policy, matching-vhost HTTP redirects, and weak cipher components are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, virtualhost-specific allowed-host precision, and deeper benchmark cipher posture / runtime TLS evidence. |
 | STD-GAP-007 | Apache CIS | parser-depth | P2 | Improve module inventory, proxy/TLS directive modeling, and effective access-control semantics before adding rules that reason about loaded modules, upstream TLS trust, ModSecurity/CRS, or broad `Require` policy. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy remains `host-depth`. |
 | STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, and SChannel TLS 1.2 / AES / cipher-suite-order policy are now partially covered. Remaining IIS XML checks include full authorization defaults, deeper app-pool default materialization / shared-hosting exceptions, absence-complete/default policy for system.web settings, runtime native-header verification, and absence-complete request-filtering policy. |

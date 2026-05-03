@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **266**
+Total rules: **268**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (183), external (72), universal (11) |
-| Severity | high (13), medium (90), low (152), info (11) |
-| Input kind | ast (127), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
+| Category | local (185), external (72), universal (11) |
+| Severity | high (13), medium (90), low (154), info (11) |
+| Input kind | ast (130), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
 
 ## Inventory tables
 
@@ -307,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 63
+Count: 65
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -360,6 +360,8 @@ rather than to ".htaccess" itself.
 | `apache.sensitive_config_files_not_restricted` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: config/data/temp extension deny-list coverage) |
 | `apache.trace_enable_not_off` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | CIS Apache HTTP Server 2.4 v2.3.0 §5.8 |
 | `apache.http_protocol_options_unsafe` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.9 |
+| `apache.listen_requires_explicit_address` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.15 |
+| `apache.ip_based_requests_allowed` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14 (partial: top-level `ServerName` rewrite policy signal only) |
 | `apache.vcs_metadata_not_restricted` | medium | ast | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: `.git` / `.svn` deny-list coverage) |
 | `apache.file_etag_inodes` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.4 |
 | `apache.timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.1 (partial: explicit directive values only) |
@@ -470,6 +472,14 @@ Mapping rationale (apache rules):
   `HttpProtocolOptions` leaves Apache without an explicit strict HTTP parser
   and HTTP/1.0+ request baseline. This is a configuration hardening item, so
   CWE stays empty and OWASP A05 carries the mapping.
+- `listen_requires_explicit_address` -- port-only, hostname, wildcard, or
+  all-zero `Listen` bindings can expose Apache on unintended interfaces. This
+  is a deployment hardening issue rather than a weakness class, so CWE stays
+  empty and OWASP A05 carries the mapping.
+- `ip_based_requests_allowed` -- a named top-level Apache server context
+  without a defensive rewrite policy can still serve IP-based or unexpected
+  `Host` requests. The rule is a hardening signal, so CWE stays empty and
+  OWASP A05 carries the mapping.
 - `missing_http_method_restrictions`,
   `http_method_policy_allows_unapproved` -- sensitive scopes with no method
   restriction, or explicit method allowlists that still include unapproved
@@ -518,7 +528,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
-| §5.14-§5.15 | `direct-rule` | Add checks for IP-based requests and explicit listen-address policy after defining environment-specific expectations. |
+| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` now checks named top-level server contexts for the expected rewrite-based IP request denial signal, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is virtualhost-specific allowed-host policy, rewrite module inventory, and deployment-specific exceptions. |
 | §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy stays host-depth. |
 | §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |

@@ -44,7 +44,7 @@ def test_analyze_apache_config_success(tmp_path: Path) -> None:
                     "CustomLog logs/access_log combined",
                     "ErrorDocument 404 /custom404.html",
                     "ErrorDocument 500 /custom500.html",
-                    "Listen 80",
+                    "Listen 127.0.0.1:80",
                     "<VirtualHost *:80>",
                     "    ServerName example.test",
                     '    <Directory "/var/www/html">',
@@ -116,7 +116,7 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                "Listen 80",
+                "Listen 127.0.0.1:80",
                 *_SAFE_SECURITY_HEADER_BASELINE_LINES,
                 *_SAFE_APACHE_CIS_BASELINE_LINES,
                 "<VirtualHost *:80>",
@@ -375,7 +375,7 @@ def test_analyze_apache_config_reports_missing_server_signature(tmp_path: Path) 
                     "CustomLog logs/access_log combined",
                     "ErrorDocument 404 /custom404.html",
                     "ErrorDocument 500 /custom500.html",
-                    "Listen 80",
+                    "Listen 127.0.0.1:80",
                     "<VirtualHost *:80>",
                     "    ServerName example.test",
                     "</VirtualHost>",
@@ -408,7 +408,7 @@ def test_analyze_apache_config_reports_unsafe_server_signature(tmp_path: Path) -
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -435,7 +435,7 @@ def test_analyze_apache_config_reports_missing_server_tokens(tmp_path: Path) -> 
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
@@ -463,7 +463,7 @@ def test_analyze_apache_config_reports_unsafe_server_tokens(tmp_path: Path) -> N
             "CustomLog logs/access_log combined\n"
             "ErrorDocument 404 /custom404.html\n"
             "ErrorDocument 500 /custom500.html\n"
-            "Listen 80\n"
+            "Listen 127.0.0.1:80\n"
         ),
         encoding="utf-8",
     )
