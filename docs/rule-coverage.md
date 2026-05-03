@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **248**
+Total rules: **255**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (165), external (72), universal (11) |
-| Severity | high (13), medium (74), low (150), info (11) |
-| Input kind | ast (125), probe (72), effective (33), normalized (11), htaccess (6), mixed (1) |
+| Category | local (172), external (72), universal (11) |
+| Severity | high (13), medium (81), low (150), info (11) |
+| Input kind | ast (125), probe (72), effective (40), normalized (11), htaccess (6), mixed (1) |
 
 ## Inventory tables
 
@@ -604,7 +604,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 27
+Count: 34
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -642,6 +642,13 @@ archive PDFs remain historical context only.
 | `iis.request_filtering_max_query_string_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.3 (partial: explicit unsafe local `maxQueryString` values only) |
 | `iis.file_extensions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.7 (partial: explicit `allowUnlisted="true"` values only) |
 | `iis.isapi_cgi_restrictions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.9/§4.10 (partial: explicit unlisted ISAPI/CGI allowance only) |
+| `iis.forms_auth_protection_unsafe` | medium | effective | - | [CWE-311](https://cwe.mitre.org/data/definitions/311.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.5 (partial: explicit non-`All` forms protection only) |
+| `iis.credentials_password_format_clear` | medium | effective | - | [CWE-256](https://cwe.mitre.org/data/definitions/256.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.7 |
+| `iis.credentials_stored_in_config` | medium | effective | - | [CWE-798](https://cwe.mitre.org/data/definitions/798.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.8 |
+| `iis.http_cookies_http_only_disabled` | medium | effective | - | [CWE-1004](https://cwe.mitre.org/data/definitions/1004.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.7 (partial: explicit `httpOnlyCookies="false"` only) |
+| `iis.deployment_retail_not_enabled` | medium | effective | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.1 (partial: explicit `retail="false"` only) |
+| `iis.trust_level_full` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.10 (partial: explicit `trust level="Full"` only) |
+| `iis.machine_key_validation_weak` | medium | effective | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.8 (partial: explicit weak validation algorithms only) |
 | `iis.binding_without_host_header` | low | ast | - | - | - | - | CIS Microsoft IIS 10 v1.2.1 §1.2 (partial: detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific) |
 
 Mapping rationale (iis rules):
@@ -708,6 +715,21 @@ Mapping rationale (iis rules):
   `isapi_cgi_restrictions_allow_unlisted` -- both disable allow-list style
   request filtering / executable restrictions, which is best represented as
   protection mechanism failure: CWE-693, OWASP A05.
+- `forms_auth_protection_unsafe` -- forms authentication cookies without
+  both encryption and validation are sensitive data sent without the expected
+  cryptographic protection: CWE-311, OWASP A02.
+- `credentials_password_format_clear` -- cleartext forms-credential storage
+  is direct password storage without hashing: CWE-256, OWASP A02.
+- `credentials_stored_in_config` -- reusable credentials embedded in
+  configuration are hard-coded credentials: CWE-798, OWASP A07.
+- `http_cookies_http_only_disabled` -- direct cookie-hardening match for
+  CWE-1004; OWASP A05 because the finding is a security configuration issue.
+- `deployment_retail_not_enabled` -- disabling ASP.NET retail mode can expose
+  debug or detailed error behavior in production: CWE-209, OWASP A05.
+- `trust_level_full` -- full trust grants broader runtime privileges than the
+  application may need: CWE-250, OWASP A05.
+- `machine_key_validation_weak` -- MD5/SHA1/3DES validation algorithms are
+  weak cryptographic choices: CWE-327, OWASP A02.
 - `binding_without_host_header` -- hostless HTTP/HTTPS bindings can make a
   site answer unexpected Host headers on the same IP and port. This maps to
   CIS IIS host-header hardening, but CWE/OWASP stay empty because deliberate
@@ -731,9 +753,10 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §1.2 | `covered` | `iis.binding_without_host_header` detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific. |
 | §1.4/§1.5/§1.6 | `parser-depth` | Application-pool identity, unique pools, and anonymous-user identity need first-class application-pool modeling. |
 | §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled` and `iis.authorization_allows_anonymous_users` cover common anonymous/authenticated mixups and explicit wildcard/anonymous allow rules; full authorization default semantics remain parser-policy follow-up. |
-| §2.5/§2.7/§2.8 | `direct-rule` | Forms cookie protection, cleartext password formats, and credentials stored in config are XML-backed checks not yet implemented. |
+| §2.5/§2.7/§2.8 | `partial` | `iis.forms_auth_protection_unsafe`, `iis.credentials_password_format_clear`, and `iis.credentials_stored_in_config` cover explicit unsafe forms credential settings; broader inherited/default policy remains follow-up. |
 | §2.6 | `covered` | `iis.basic_auth_without_ssl` checks Basic Authentication together with the effective `access sslFlags` requirement; `iis.ssl_not_required` remains a broader access-section signal. |
-| §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `direct-rule` | Retail deployment mode, HttpOnly cookies, MachineKey validation, trust level, and native `Server` header removal remain XML-backed follow-ups. |
+| §3.1/§3.7/§3.8/§3.10 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.machine_key_validation_weak`, and `iis.trust_level_full` cover explicit unsafe values; absence-complete/default policy remains follow-up. |
+| §3.9/§3.12 | `direct-rule` | Additional MachineKey settings and native `Server` header removal remain XML-backed follow-ups. |
 | §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values; absence-complete policy remains a follow-up to avoid noisy defaults. |
 | §4.8 | `parser-depth` | Handler permission checks need richer handler access-policy semantics than the current CGI-module presence rule. |
 | §4.11/§5.1/§5.3 | `host-depth` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals. |
@@ -942,7 +965,7 @@ Progress:
 - [x] Apache local rules (62) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
-- [x] IIS local rules (27) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] IIS local rules (34) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (72) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates
