@@ -37,10 +37,10 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 268 rules:
+The current project inventory is 270 rules:
 
 - Universal: 11
-- Nginx local: 61
+- Nginx local: 63
 - Apache local: 65
 - Lighttpd local: 15
 - IIS local: 44
@@ -346,7 +346,7 @@ standard section before implementation.
 | --- | --- | --- | --- | --- |
 | STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
-| STD-GAP-003 | Nginx CIS | direct-rule | P2 | Unknown-host default-server rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/OCSP, and core connection/rate-limit validation checks are now present. Remaining work focuses on cipher/TLS posture, access-method policy, and context-specific runtime/probe checks. |
+| STD-GAP-003 | Nginx CIS | direct-rule | P2 | Unknown-host default-server rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, and unsafe explicit method allowlists are now present. Remaining work focuses on cipher/TLS posture, site-wide or equivalent access-method policy, and context-specific runtime/probe checks. |
 | STD-GAP-004 | Nginx CIS | host-depth | P3 | Keep Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations in host-depth unless an explicit host mode is added. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, IP-based request denial, explicit listen-address policy, log-quality checks, Apache TLS directive checks, local HSTS policy, matching-vhost HTTP redirects, and weak cipher components are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, virtualhost-specific allowed-host precision, and deeper benchmark cipher posture / runtime TLS evidence. |
