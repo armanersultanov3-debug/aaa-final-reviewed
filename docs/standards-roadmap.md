@@ -37,13 +37,13 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 260 rules:
+The current project inventory is 263 rules:
 
 - Universal: 11
 - Nginx local: 61
 - Apache local: 62
 - Lighttpd local: 15
-- IIS local: 39
+- IIS local: 42
 - External probes: 72
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
@@ -352,7 +352,7 @@ standard section before implementation.
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, log-quality checks, Apache TLS directive checks, local HSTS policy, matching-vhost HTTP redirects, and weak cipher components are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, and deeper benchmark cipher posture / runtime TLS evidence. |
 | STD-GAP-007 | Apache CIS | parser-depth | P2 | Improve module inventory, proxy/TLS directive modeling, and effective access-control semantics before adding rules that reason about loaded modules, upstream TLS trust, ModSecurity/CRS, or broad `Require` policy. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy remains `host-depth`. |
-| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, SHA-2 HMAC MachineKey validation, explicit native `Server` header removal disablement, and SChannel TLS 1.2 / AES / cipher-suite-order policy are now partially covered. Remaining IIS XML checks include application pools, full authorization defaults, absence-complete/default policy for system.web settings, .NET 3.5 MachineKey policy, handler permission semantics, runtime native-header verification, and absence-complete request-filtering policy. |
+| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, SHA-2 HMAC MachineKey validation, explicit native `Server` header removal disablement, and SChannel TLS 1.2 / AES / cipher-suite-order policy are now partially covered. Remaining IIS XML checks include full authorization defaults, deeper app-pool default materialization / shared-hosting exceptions, absence-complete/default policy for system.web settings, .NET 3.5 MachineKey policy, handler permission semantics, runtime native-header verification, and absence-complete request-filtering policy. |
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | direct-rule | P2 | Add typed standards metadata to rule registry entries, include standards references in JSON output, and add optional text report grouping by standard without changing rule behavior. |

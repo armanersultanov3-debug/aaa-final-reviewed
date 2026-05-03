@@ -10,10 +10,11 @@ from webconf_audit.local.iis.rules.rule_utils import (
     ssl_flag_tokens,
 )
 from webconf_audit.models import Finding
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
 
 AUTHORIZATION_RULE_ID = "iis.authorization_allows_anonymous_users"
 BASIC_SSL_RULE_ID = "iis.basic_auth_without_ssl"
+ANONYMOUS_USER_IDENTITY_RULE_ID = "iis.anonymous_auth_uses_specific_user"
 
 
 @rule(
@@ -53,6 +54,45 @@ def find_basic_auth_without_ssl(
     if effective_config is not None:
         return _effective_basic_ssl_findings(effective_config)
     return _raw_basic_ssl_findings(doc)
+
+
+@rule(
+    rule_id=ANONYMOUS_USER_IDENTITY_RULE_ID,
+    title="Anonymous authentication uses a specific user",
+    severity="medium",
+    description=(
+        "IIS anonymous authentication is configured with a specific user "
+        "instead of the application pool identity."
+    ),
+    recommendation=(
+        'Set anonymousAuthentication userName="" and clear the password so '
+        "anonymous requests run as the application pool identity."
+    ),
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    standards=(
+        StandardReference(
+            standard="CIS",
+            reference="Microsoft IIS 10 v1.2.1 section 1.6",
+            url="https://www.cisecurity.org/benchmark/microsoft_iis",
+            coverage="partial",
+            note=(
+                "Detects explicit non-empty anonymousAuthentication "
+                "userName values, and password values only when userName is "
+                "not explicitly blank; inherited platform defaults without "
+                "source evidence remain unknown."
+            ),
+        ),
+    ),
+    order=540,
+)
+def find_anonymous_auth_uses_specific_user(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    if effective_config is not None:
+        return _effective_anonymous_user_identity_findings(effective_config)
+    return _raw_anonymous_user_identity_findings(doc)
 
 
 def _effective_authorization_findings(
@@ -185,6 +225,35 @@ def _raw_basic_ssl_findings(doc: IISConfigDocument) -> list[Finding]:
     return findings
 
 
+def _effective_anonymous_user_identity_findings(
+    effective_config: IISEffectiveConfig,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for section in effective_config.all_sections:
+        if section.section_path_suffix != "/anonymousAuthentication":
+            continue
+        if is_pure_inheritance(section):
+            continue
+        account = _specific_anonymous_user(section.attributes)
+        if account is None:
+            continue
+        findings.append(_effective_anonymous_user_identity_finding(section, account))
+    return findings
+
+
+def _raw_anonymous_user_identity_findings(doc: IISConfigDocument) -> list[Finding]:
+    findings: list[Finding] = []
+    for group in _sections_by_location(doc.sections).values():
+        section = _raw_section(group, "anonymousAuthentication")
+        if section is None:
+            continue
+        account = _specific_anonymous_user(section.attributes)
+        if account is None:
+            continue
+        findings.append(_raw_anonymous_user_identity_finding(section, account))
+    return findings
+
+
 def _sections_by_location(
     sections: list[IISSection],
 ) -> dict[str | None, list[IISSection]]:
@@ -228,6 +297,23 @@ def _requires_ssl(section: IISEffectiveSection | IISSection | None) -> bool:
     return "ssl" in ssl_flag_tokens(section.attributes.get("sslFlags"))
 
 
+def _specific_anonymous_user(attributes: dict[str, str]) -> str | None:
+    if attributes.get("enabled", "").strip().lower() == "false":
+        return None
+
+    user_name = attributes.get("userName")
+    if user_name is not None and user_name.strip():
+        return user_name.strip()
+    if user_name is not None:
+        return None
+
+    password = attributes.get("password")
+    if password is not None and password.strip():
+        return "<password set with blank userName>"
+
+    return None
+
+
 def _is_pure_inherited_basic_with_no_local_access(
     section: IISEffectiveSection,
     access: IISEffectiveSection | None,
@@ -250,4 +336,50 @@ def _effective_basic_ssl_finding(section: IISEffectiveSection) -> Finding:
         ),
         recommendation='Set access sslFlags to include "Ssl" whenever Basic authentication is enabled.',
         location=effective_location(section),
+    )
+
+
+def _effective_anonymous_user_identity_finding(
+    section: IISEffectiveSection,
+    account: str,
+) -> Finding:
+    ctx = location_context(section)
+    return Finding(
+        rule_id=ANONYMOUS_USER_IDENTITY_RULE_ID,
+        title="Anonymous authentication uses a specific user",
+        severity="medium",
+        description=(
+            f'IIS anonymous authentication uses "{account}" as the anonymous '
+            f"user identity{ctx}. Anonymous requests should use the "
+            "application pool identity so site isolation follows the "
+            "application pool boundary."
+        ),
+        recommendation=(
+            'Set anonymousAuthentication userName="" and clear the password '
+            "for this scope, or document why a specific anonymous account is required."
+        ),
+        location=effective_location(section),
+        metadata={"anonymous_user": account},
+    )
+
+
+def _raw_anonymous_user_identity_finding(
+    section: IISSection,
+    account: str,
+) -> Finding:
+    return Finding(
+        rule_id=ANONYMOUS_USER_IDENTITY_RULE_ID,
+        title="Anonymous authentication uses a specific user",
+        severity="medium",
+        description=(
+            f'IIS anonymous authentication uses "{account}" as the anonymous '
+            "user identity. Anonymous requests should use the application "
+            "pool identity so site isolation follows the application pool boundary."
+        ),
+        recommendation=(
+            'Set anonymousAuthentication userName="" and clear the password '
+            "for this scope, or document why a specific anonymous account is required."
+        ),
+        location=raw_location(section),
+        metadata={"anonymous_user": account},
     )

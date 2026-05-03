@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **260**
+Total rules: **263**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (177), external (72), universal (11) |
-| Severity | high (13), medium (85), low (151), info (11) |
-| Input kind | ast (125), probe (72), effective (41), normalized (11), htaccess (6), mixed (5) |
+| Category | local (180), external (72), universal (11) |
+| Severity | high (13), medium (88), low (151), info (11) |
+| Input kind | ast (127), probe (72), effective (42), normalized (11), htaccess (6), mixed (5) |
 
 ## Inventory tables
 
@@ -604,7 +604,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 39
+Count: 42
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -655,6 +655,9 @@ archive PDFs remain historical context only.
 | `iis.trust_level_full` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.10 (partial: explicit `trust level="Full"` only) |
 | `iis.machine_key_validation_weak` | medium | effective | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.9 (partial: explicit validation algorithms other than SHA-2 HMAC only) |
 | `iis.binding_without_host_header` | low | ast | - | - | - | - | CIS Microsoft IIS 10 v1.2.1 §1.2 (partial: detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific) |
+| `iis.application_pool_identity_not_application_pool_identity` | medium | ast | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.4 (partial: explicit app-pool/default `identityType` values only) |
+| `iis.sites_share_application_pool` | medium | ast | - | [CWE-668](https://cwe.mitre.org/data/definitions/668.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.5 (partial: detects pools assigned under more than one site; shared-hosting exceptions remain operator-specific) |
+| `iis.anonymous_auth_uses_specific_user` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §1.6 (partial: explicit non-empty `userName` values, or password values when `userName` is not explicitly blank) |
 
 Mapping rationale (iis rules):
 
@@ -751,6 +754,18 @@ Mapping rationale (iis rules):
   site answer unexpected Host headers on the same IP and port. This maps to
   CIS IIS host-header hardening, but CWE/OWASP stay empty because deliberate
   catch-all binding policy is deployment-specific.
+- `application_pool_identity_not_application_pool_identity` -- app pools
+  running as NetworkService, LocalSystem, LocalService, or SpecificUser grant
+  broader process identity rights than the benchmark's ApplicationPoolIdentity
+  baseline: CWE-250, OWASP A05.
+- `sites_share_application_pool` -- assigning one app pool to applications
+  under multiple sites weakens isolation between those sites, so this is
+  mapped as resource exposure across the wrong isolation boundary: CWE-668,
+  OWASP A05.
+- `anonymous_auth_uses_specific_user` -- a non-empty anonymous-auth
+  `userName` makes anonymous requests impersonate a separate account instead
+  of the app pool identity; password-only evidence is flagged only when
+  `userName` is not explicitly blank. CWE-250, OWASP A05.
 
 IIS / SChannel mappings for universal rules:
 
@@ -768,7 +783,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | --- | --- | --- |
 | §1.1, Windows Server host hardening | `host-depth` | Web-root partitioning, OS service posture, filesystem ACLs, and broader Windows Server host baseline checks require an explicit host-inspection mode. |
 | §1.2 | `covered` | `iis.binding_without_host_header` detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific. |
-| §1.4/§1.5/§1.6 | `parser-depth` | Application-pool identity, unique pools, and anonymous-user identity need first-class application-pool modeling. |
+| §1.4/§1.5/§1.6 | `partial` | `iis.application_pool_identity_not_application_pool_identity`, `iis.sites_share_application_pool`, and `iis.anonymous_auth_uses_specific_user` cover explicit app-pool identities, cross-site shared pools, and explicit specific anonymous users. Follow-up remains for deeper default materialization and deployment-specific shared-hosting exceptions. |
 | §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled` and `iis.authorization_allows_anonymous_users` cover common anonymous/authenticated mixups and explicit wildcard/anonymous allow rules; full authorization default semantics remain parser-policy follow-up. |
 | §2.5/§2.7/§2.8 | `partial` | `iis.forms_auth_protection_unsafe`, `iis.credentials_password_format_clear`, and `iis.credentials_stored_in_config` cover explicit unsafe forms credential settings; broader inherited/default policy remains follow-up. |
 | §2.6 | `covered` | `iis.basic_auth_without_ssl` checks Basic Authentication together with the effective `access sslFlags` requirement; `iis.ssl_not_required` remains a broader access-section signal. |
@@ -982,7 +997,7 @@ Progress:
 - [x] Apache local rules (62) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (15)
-- [x] IIS local rules (39) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] IIS local rules (42) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (72) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates
