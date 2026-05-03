@@ -1296,6 +1296,32 @@ def test_analyze_nginx_config_normalizes_http_method_policy_case(
     )
 
 
+def test_analyze_nginx_config_normalizes_http_method_policy_with_quoted_methods(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "location /api {",
+            "    proxy_pass http://backend;",
+            "    limit_except \"get\" 'post' options {",
+            "        deny all;",
+            "    }",
+            "}",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.http_method_policy_allows_unapproved"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_does_not_report_missing_allowed_methods_restriction_for_root_location(
     tmp_path: Path,
 ) -> None:
