@@ -384,6 +384,151 @@ def test_analyze_apache_config_reports_final_unsafe_file_etag_value(
     assert findings[0].location.file_path == str(config_path)
 
 
+def test_analyze_apache_config_accepts_safe_http_protocol_options(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config("HttpProtocolOptions Strict Require1.0"),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.http_protocol_options_unsafe"
+    ]
+
+
+def test_analyze_apache_config_reports_missing_http_protocol_options(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    "Listen 80",
+                ]
+            ),
+            include_cis_http_protocol=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.http_protocol_options_unsafe"
+    ]
+    assert len(findings) == 1
+    assert "does not define" in findings[0].description
+
+
+@pytest.mark.parametrize(
+    "directive",
+    [
+        "HttpProtocolOptions Unsafe Require1.0",
+        "HttpProtocolOptions Strict Allow0.9",
+        "HttpProtocolOptions Strict",
+    ],
+)
+def test_analyze_apache_config_reports_unsafe_http_protocol_options(
+    tmp_path: Path,
+    directive: str,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    "Listen 80",
+                    directive,
+                ]
+            ),
+            include_cis_http_protocol=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.http_protocol_options_unsafe"
+    ]
+    assert len(findings) == 1
+    assert directive.removeprefix("HttpProtocolOptions ") in findings[0].description
+    assert findings[0].location is not None
+    assert findings[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_reports_virtualhost_http_protocol_override(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    "Listen 80",
+                    "HttpProtocolOptions Strict Require1.0",
+                    "<VirtualHost *:80>",
+                    "    ServerName example.test",
+                    "    HttpProtocolOptions Unsafe Allow0.9",
+                    "</VirtualHost>",
+                ]
+            ),
+            include_cis_http_protocol=False,
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "apache.http_protocol_options_unsafe"
+    ]
+    assert len(findings) == 1
+    assert "example.test" in findings[0].description
+    assert "unsafe" in findings[0].description.lower()
+
+
 @pytest.mark.parametrize(
     ("header_name", "rule_id"),
     [

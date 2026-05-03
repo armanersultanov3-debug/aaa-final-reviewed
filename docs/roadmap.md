@@ -274,9 +274,9 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: Apache CIS direct-rule expansion. The active slice adds a larger
-set of configuration-level benchmark checks for Apache TLS directives after the
-`AllowOverride None`, sensitive-file deny-list, and logging policy pass.
+Current step: Apache CIS direct-rule expansion. The active slice adds an
+effective `HttpProtocolOptions Strict Require1.0` check for the old HTTP
+protocol / strict parsing benchmark item after the Apache TLS directive pass.
 
 The external safe-probe catalog is implemented. Future external probe growth
 should add only curated non-mutating probes on top of the catalog.
