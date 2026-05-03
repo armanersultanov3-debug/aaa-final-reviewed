@@ -23,6 +23,9 @@ _LIVE_SOURCE_LABEL = "live SChannel registry"
 
 _SCHANNEL_BASE = r"SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL"
 _SCHANNEL_SOURCE_PATH = "HKLM/SYSTEM/CurrentControlSet/Control/SecurityProviders/SCHANNEL"
+_CIPHER_SUITE_ORDER_PATH = (
+    r"SOFTWARE\Policies\Microsoft\Cryptography\Configuration\SSL\00010002"
+)
 
 # SChannel registry protocol names -> universal-rule protocol identifiers.
 _PROTOCOL_NAMES: dict[str, str] = {
@@ -46,13 +49,18 @@ class IISRegistryTLS:
 
     protocols_enabled: list[str] | None = None
     ciphers_enabled: list[str] | None = None
+    cipher_suite_order: list[str] | None = None
     source_kind: Literal["live", "export"] = "live"
     source_label: str = _LIVE_SOURCE_LABEL
     host: str | None = None
 
     @property
     def has_data(self) -> bool:
-        return self.protocols_enabled is not None or self.ciphers_enabled is not None
+        return (
+            self.protocols_enabled is not None
+            or self.ciphers_enabled is not None
+            or self.cipher_suite_order is not None
+        )
 
     @property
     def source_file_path(self) -> str:
@@ -91,6 +99,7 @@ class IISRegistryTLS:
                 "host": self.host,
                 "protocols_known": self.protocols_enabled is not None,
                 "ciphers_known": self.ciphers_enabled is not None,
+                "cipher_suite_order_known": self.cipher_suite_order is not None,
             },
         )
 
@@ -109,7 +118,11 @@ def load_registry_export(
             },
             "ciphers": {
               "RC4 40/128": {"enabled": 4294967295}
-            }
+            },
+            "cipher_suite_order": [
+              "TLS_AES_256_GCM_SHA384",
+              "TLS_AES_128_GCM_SHA256"
+            ]
           }
         }
     """
@@ -139,6 +152,7 @@ def load_registry_export(
     snapshot = IISRegistryTLS(
         protocols_enabled=_parse_export_protocols(schannel.get("protocols")),
         ciphers_enabled=_parse_export_ciphers(schannel.get("ciphers")),
+        cipher_suite_order=_parse_export_cipher_suite_order(schannel),
         source_kind="export",
         source_label=str(path),
     )
@@ -199,6 +213,13 @@ def _parse_export_ciphers(value: object) -> list[str] | None:
     return enabled
 
 
+def _parse_export_cipher_suite_order(schannel: dict[str, object]) -> list[str] | None:
+    value = schannel.get("cipher_suite_order")
+    if value is None:
+        value = schannel.get("cipher_suites")
+    return _parse_cipher_suite_order_value(value)
+
+
 class _RegistryReader(Protocol):
     """Minimal registry reader interface used by :func:`read_live_registry`."""
 
@@ -206,6 +227,9 @@ class _RegistryReader(Protocol):
         ...
 
     def query_dword(self, parent: str, value_name: str) -> int | None:
+        ...
+
+    def query_value(self, parent: str, value_name: str) -> object | None:
         ...
 
 
@@ -245,9 +269,14 @@ def read_live_registry(
             if _is_truthy_dword(reader.query_dword(cipher_path, "Enabled")):
                 ciphers.append(cipher_name)
 
+    cipher_suite_order = _parse_cipher_suite_order_value(
+        reader.query_value(_CIPHER_SUITE_ORDER_PATH, "Functions"),
+    )
+
     snapshot = IISRegistryTLS(
         protocols_enabled=protocols if protocols_known else None,
         ciphers_enabled=ciphers,
+        cipher_suite_order=cipher_suite_order,
         source_kind="live",
         source_label=_LIVE_SOURCE_LABEL,
         host=socket.gethostname() or None,
@@ -285,6 +314,12 @@ class _WinregReader:
         return names
 
     def query_dword(self, parent: str, value_name: str) -> int | None:
+        value = self.query_value(parent, value_name)
+        if isinstance(value, int):
+            return value
+        return None
+
+    def query_value(self, parent: str, value_name: str) -> object | None:
         try:
             handle = self._winreg.OpenKey(self._root, parent)
         except OSError:
@@ -296,9 +331,7 @@ class _WinregReader:
                 return None
         finally:
             handle.Close()
-        if isinstance(value, int):
-            return value
-        return None
+        return value
 
 
 def _protocol_effectively_enabled(
@@ -315,6 +348,30 @@ def _protocol_effectively_enabled(
 
 def _is_truthy_dword(value: object) -> bool:
     return isinstance(value, int) and value != 0
+
+
+def _parse_cipher_suite_order_value(value: object) -> list[str] | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        value = value.get("Functions") or value.get("functions")
+    if isinstance(value, str):
+        return _split_cipher_suite_order(value)
+    if isinstance(value, list | tuple):
+        suites: list[str] = []
+        for item in value:
+            if isinstance(item, str):
+                suites.extend(_split_cipher_suite_order(item))
+        return suites
+    return None
+
+
+def _split_cipher_suite_order(value: str) -> list[str]:
+    return [
+        item.strip()
+        for item in value.replace("\r", "\n").replace("\n", ",").split(",")
+        if item.strip()
+    ]
 
 
 def _export_issue(export_path: str, message: str) -> AnalysisIssue:
