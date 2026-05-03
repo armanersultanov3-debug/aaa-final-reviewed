@@ -228,7 +228,7 @@ def find_machine_key_validation_weak(
             standard="CIS",
             reference="Microsoft IIS 10 v1.2.1 section 3.8",
             url="https://www.cisecurity.org/benchmark/microsoft_iis",
-            coverage="direct",
+            coverage="partial",
             note=(
                 "Applies when the config has an explicit legacy compatibility "
                 "mode or is sourced from a legacy .NET Framework config path."
