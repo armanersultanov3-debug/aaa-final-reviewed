@@ -649,7 +649,7 @@ archive PDFs remain historical context only.
 | `iis.http_cookies_http_only_disabled` | medium | effective | - | [CWE-1004](https://cwe.mitre.org/data/definitions/1004.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.7 (partial: explicit `httpOnlyCookies="false"` only) |
 | `iis.deployment_retail_not_enabled` | medium | effective | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.1 (partial: explicit `retail="false"` only) |
 | `iis.trust_level_full` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.10 (partial: explicit `trust level="Full"` only) |
-| `iis.machine_key_validation_weak` | medium | effective | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.9 (partial: explicit non-SHA-2 HMAC validation values only) |
+| `iis.machine_key_validation_weak` | medium | effective | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.9 (partial: explicit validation algorithms other than SHA-2 HMAC only) |
 | `iis.binding_without_host_header` | low | ast | - | - | - | - | CIS Microsoft IIS 10 v1.2.1 §1.2 (partial: detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific) |
 
 Mapping rationale (iis rules):
@@ -732,7 +732,7 @@ Mapping rationale (iis rules):
   debug or detailed error behavior in production: CWE-209, OWASP A05.
 - `trust_level_full` -- full trust grants broader runtime privileges than the
   application may need: CWE-250, OWASP A05.
-- `machine_key_validation_weak` -- explicit non-SHA-2 HMAC validation algorithms
+- `machine_key_validation_weak` -- explicit validation algorithms other than SHA-2 HMAC
   undermine MachineKey integrity protection: CWE-327, OWASP A02.
 - `binding_without_host_header` -- hostless HTTP/HTTPS bindings can make a
   site answer unexpected Host headers on the same IP and port. This maps to

@@ -1,3 +1,5 @@
+import pytest
+
 from tests.iis_helpers import AnalysisResult, Path, analyze_iis_config
 
 
@@ -265,12 +267,19 @@ def test_machine_key_validation_sha256_without_hmac_fires(tmp_path: Path) -> Non
     assert "iis.machine_key_validation_weak" in _rule_ids(result)
 
 
-def test_machine_key_validation_hmac_silent(tmp_path: Path) -> None:
-    config = """\
+@pytest.mark.parametrize(
+    "validation",
+    ["HMACSHA256", "HMACSHA384", "HMACSHA512"],
+)
+def test_machine_key_validation_hmac_silent(
+    tmp_path: Path,
+    validation: str,
+) -> None:
+    config = f"""\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
     <system.web>
-        <machineKey validation="HMACSHA256" />
+        <machineKey validation="{validation}" />
     </system.web>
 </configuration>
 """

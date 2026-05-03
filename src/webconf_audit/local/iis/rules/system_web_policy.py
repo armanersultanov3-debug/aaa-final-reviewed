@@ -182,9 +182,9 @@ def find_trust_level_full(
 
 @rule(
     rule_id=MACHINE_KEY_RULE_ID,
-    title="MachineKey validation algorithm is not SHA-2 HMAC",
+    title="MachineKey validation algorithm is not an HMAC using SHA-2",
     severity="medium",
-    description="ASP.NET machineKey uses a non-SHA-2 HMAC validation algorithm.",
+    description="ASP.NET machineKey uses a validation algorithm other than SHA-2 HMAC.",
     recommendation='Use HMACSHA256 or stronger for machineKey validation.',
     category="local",
     server_type="iis",
@@ -380,7 +380,7 @@ def _machine_key_finding(section: IISEffectiveSection | IISSection) -> Finding:
     ctx = _context(section)
     return Finding(
         rule_id=MACHINE_KEY_RULE_ID,
-        title="MachineKey validation algorithm is not SHA-2 HMAC",
+        title="MachineKey validation algorithm is not an HMAC using SHA-2",
         severity="medium",
         description=(
             f'ASP.NET machineKey validation uses "{validation}"{ctx}. '

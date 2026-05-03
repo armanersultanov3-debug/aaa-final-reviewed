@@ -354,6 +354,41 @@ def test_request_filtering_remove_server_header_true_silent(
     assert "iis.request_filtering_remove_server_header_disabled" not in _rule_ids(result)
 
 
+def test_request_filtering_remove_server_header_location_override_fires(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering removeServerHeader="true" />
+        </security>
+    </system.webServer>
+    <location path="private">
+        <system.webServer>
+            <security>
+                <requestFiltering removeServerHeader="false" />
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "iis.request_filtering_remove_server_header_disabled"
+    ]
+    assert len(findings) == 1
+    assert "private" in findings[0].description
+
+
 def test_isapi_cgi_restrictions_allow_unlisted_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
