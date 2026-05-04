@@ -1,249 +1,158 @@
 # Needfix
 
-Сводка на 2026-05-03 по ревью репозитория `aaa-final-reviewed` и PR #1
-`aaa-final-reviewed-security-audit`.
+Confirmed analyzer precision issues moved out of `docs/roadmap.md` on
+2026-05-04. These are not offensive findings; they are correctness and report
+quality bugs in static configuration analysis.
 
-Источники:
+## Nginx Effective Configuration
 
-- CodeRabbit: PR #1 `[codex] CodeRabbit tail review`
-  (`armanersultanov8-cmd/aaa-final-reviewed-security-audit#1`).
-- CodeRabbit: предыдущие actionable findings по основному diff.
-- Superpowers review: полный локальный review репозитория `aaa-final-reviewed`.
-- Codex Security: `report.md` Final Report for full repository snapshot at
-  `HEAD 6b4b571`, plus full-repo diff branch `security-audit-full-diff` against
-  an empty baseline.
+Root problem: several Nginx rules inspect only direct `server` children or use
+`any(on)` for repeated directives instead of resolving the effective
+`main -> http -> server -> location` value.
 
-## Приоритет исправления
+Fix direction:
 
-1. P2 runtime/security semantics: IIS `defusedxml` exception normalization.
-2. P2 nginx effective directive semantics: last-wins and inherited `http` scope for
-   TLS/stapling/http2 rules.
-3. P2 Apache `Options` modifier ordering.
-4. P3 nginx log format default handling.
-5. Test-only PR #1 CodeRabbit findings: registry isolation and offline/strict tests.
-6. Low-risk lint/refactor items from PR #1.
+- Add a shared effective-context helper for Nginx directive lookups.
+- Preserve last-wins behavior for scalar repeated directives.
+- Preserve parent inheritance where Nginx inherits the directive from `http`
+  into `server` or from `server` into `location`.
+- Add regression fixtures for inherited parent values and repeated
+  `on; off;` / `off; on;` cases.
 
-## Codex Security
+Confirmed issues:
 
-Result from `report.md`: no high-impact exploitable vulnerability found. The
-meaningful issues are rule-semantics correctness bugs that can cause false
-negatives/positives in this security audit tool.
+1. `nginx.missing_access_log`
+   - File: `src/webconf_audit/local/nginx/rules/missing_access_log.py`
+   - Problem: `http { access_log ...; server { ... } }` still emits one
+     missing-access-log finding per server.
 
-Reportable findings:
+2. `nginx.missing_error_log`
+   - File: `src/webconf_audit/local/nginx/rules/missing_error_log.py`
+   - Problem: inherited `http`-level `error_log` is ignored, producing noisy
+     duplicate server findings.
 
-1. `src/webconf_audit/local/nginx/rules/ssl_stapling_missing_resolver.py`
-   - Finding: nginx `ssl_stapling_missing_resolver` should use effective
-     last-directive semantics.
-   - Risk: repeated directives can be interpreted differently from nginx runtime
-     behavior, causing false positives or false negatives.
+3. `nginx.missing_limit_req` and `nginx.missing_limit_conn`
+   - Files:
+     `src/webconf_audit/local/nginx/rules/missing_limit_req.py`,
+     `src/webconf_audit/local/nginx/rules/missing_limit_conn.py`
+   - Problem: `limit_req` / `limit_conn` in `http` scope are not treated as
+     inherited effective policy.
 
-2. `src/webconf_audit/local/nginx/rules/missing_ssl_prefer_server_ciphers.py`
-   - Finding: nginx `missing_ssl_prefer_server_ciphers` should use effective
-     last-directive semantics.
-   - Risk: an earlier `on` or missing inherited value can mask the real effective
-     TLS hardening state.
+4. Nginx `add_header` based security-header rules
+   - File: `src/webconf_audit/local/nginx/rules/header_utils.py`
+   - Affected examples: CSP, HSTS, X-Frame-Options,
+     X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+   - Problem: headers inherited from `http` are missed when the `server` block
+     has no direct `add_header`.
 
-3. `src/webconf_audit/local/normalizers/apache_normalizer.py`
-   - Finding: Apache normalizer `Options` handling should apply ordered modifiers
-     left-to-right.
-   - Risk: `Indexes`, `+Indexes`, and `-Indexes` can be reported with the wrong
-     effective state.
+5. `nginx.missing_ssl_ciphers` and
+   `nginx.missing_ssl_prefer_server_ciphers`
+   - Files:
+     `src/webconf_audit/local/nginx/rules/missing_ssl_ciphers.py`,
+     `src/webconf_audit/local/nginx/rules/missing_ssl_prefer_server_ciphers.py`
+   - Problem: inherited TLS cipher settings are missed, and repeated
+     `ssl_prefer_server_ciphers on; off;` can be interpreted incorrectly.
 
-4. `src/webconf_audit/local/iis/parser/parser.py`
-   - Finding: IIS parser should convert `defusedxml` unsafe-feature exceptions into
-     structured `IISParseError` diagnostics.
-   - Risk: malicious or unsafe IIS XML can crash analysis instead of producing a
-     structured parse error.
+6. `nginx.ssl_stapling_missing_resolver` and
+   `nginx.ssl_stapling_without_verify`
+   - Files:
+     `src/webconf_audit/local/nginx/rules/ssl_stapling_missing_resolver.py`,
+     `src/webconf_audit/local/nginx/rules/ssl_stapling_without_verify.py`
+   - Problem: inherited `ssl_stapling`, `ssl_stapling_verify`, and `resolver`
+     state is not resolved consistently; repeated stapling values can create
+     false positives or false negatives.
 
-CodeRabbit status captured in `report.md`:
+7. `nginx.missing_http2_on_tls_listener`
+   - File:
+     `src/webconf_audit/local/nginx/rules/missing_http2_on_tls_listener.py`
+   - Problem: inherited `http2 on` is ignored, while direct
+     `http2 on; http2 off;` can suppress the finding even though the effective
+     value is off.
 
-- Full diff exceeded CodeRabbit 300-file limit.
-- Chunked review succeeded for the 250-file chunk, then 36-file subchunks `2-0`,
-  `2-1`, and `2-2`.
-- Remaining test-only tail chunks timed out repeatedly; PR #1 tail review later
-  produced the CodeRabbit findings listed below.
+8. Nginx report noise
+   - Problem: expanded/effective configs can repeat the same low-severity
+     missing-policy advice across multiple server blocks when the root cause
+     is one inherited/effective setting.
+   - Fix direction: preserve exact source locations, but group or suppress
+     duplicate advice where the effective cause is the same.
 
-Verification captured in `report.md`:
+## Lighttpd Conditional Scopes
 
-- `uv run ruff check .`: passed.
-- `uv run pytest -q`: `2095 skipped, 0 failures`.
+Root problem: some Lighttpd rules still treat "directive exists anywhere in the
+AST" or "directive exists in any possible conditional branch" as if it applies
+to every analyzed host context.
 
-## CodeRabbit
+Confirmed issues:
 
-### PR #1 tail review
+1. `lighttpd.access_log_missing`
+   - File: `src/webconf_audit/local/lighttpd/rules/access_log_missing.py`
+   - Problem: `accesslog.filename` inside one `$HTTP["host"]` block suppresses
+     the missing access-log finding globally, including for other `--host`
+     values.
 
-1. `tests/test_report.py:539-549` [Major]
-   - Finding: test clears the shared rule registry singleton and does not restore it.
-   - Risk: suite can become order-dependent because later tests observe the mutated
-     global registry.
-   - Fix: snapshot and restore registry state in `finally`/teardown, or use an
-     isolated fixture/monkeypatch so `JsonFormatter`/`ReportData` operate on a
-     temporary registry.
+2. `lighttpd.error_log_missing`
+   - File: `src/webconf_audit/local/lighttpd/rules/error_log_missing.py`
+   - Problem: `server.errorlog` inside one conditional host block suppresses
+     the missing error-log finding globally.
 
-2. `tests/test_lighttpd_conditions.py:1045-1048`, `1086-1089` [Minor]
-   - Finding: `assert len(tag_findings_a) >= 1` and analogous directory assertions
-     allow duplicate emissions of the same `rule_id`.
-   - Risk: regression that emits duplicated findings still passes.
-   - Fix: after filtering to the expected rule, assert exact counts such as `== 1`
-     while keeping zero assertions for the negative path.
+3. `lighttpd.missing_strict_transport_security` and
+   `lighttpd.missing_x_content_type_options`
+   - Files:
+     `src/webconf_audit/local/lighttpd/rules/missing_strict_transport_security.py`,
+     `src/webconf_audit/local/lighttpd/rules/missing_x_content_type_options.py`
+   - Problem: in default no-host analysis, headers present only in one
+     possible conditional branch can suppress missing-header findings for the
+     whole config.
 
-3. `tests/test_tls_probe.py:381-389` [Minor]
-   - Finding: negative test monkeypatches `probe_tls_versions` but delegates to the
-     real `probe_tls_versions()`.
-   - Risk: if the HTTP-only path regresses, the test may perform real network I/O.
-   - Fix: make the tracking stub fully deterministic/offline, for example by
-     returning a fixed `TLSVersionProbeResult` list or raising a sentinel if called.
+Fix direction:
 
-4. `tests/test_nginx_limits_timeouts.py:1091-1103` [Minor, outside diff]
-   - Finding: test for `missing_limit_req` only asserts the result type.
-   - Risk: a regression where `nginx.missing_limit_req` is not emitted would pass.
-   - Fix: assert `result.issues == []` and assert at least one finding has
-     `rule_id == "nginx.missing_limit_req"`.
+- Move missing logging rules to the effective/merged directive model.
+- For no-host analysis, distinguish "covered in all relevant branches" from
+  "present in one possible branch".
+- Keep targeted `--host` behavior strict and context-specific.
 
-5. `tests/test_local_nginx.py:217-245`, `247-275`, `277-307`, `309-340`,
-   `399-429` [Trivial]
-   - Finding: repeated background-thread-with-timeout pattern across five tests.
-   - Fix: extract a helper such as
-     `_run_with_timeout(fn: Callable[[], AnalysisResult], timeout=1.0,
-     hang_message="Analysis hung") -> AnalysisResult`.
+## IIS Cross-File Inheritance
 
-6. `tests/test_rule_registry_integrity.py:51-53` [Trivial]
-   - Finding: Ruff PT001 prefers `@pytest.fixture` over `@pytest.fixture()`.
-   - Fix: remove fixture decorator parentheses.
+Root problem: single-file IIS location inheritance applies collection semantics,
+but cross-file effective-config merging can replace inherited children instead
+of merging them.
 
-7. `tests/test_rule_registry_integrity.py:137-146` [Trivial]
-   - Finding: manual list construction can be replaced with list comprehensions.
-   - Risk: lint/performance style only.
-   - Fix: build `all_ids` with comprehensions for registered entries and external
-     metadata, then keep the duplicate assertion.
+Confirmed issue:
 
-### Earlier CodeRabbit core review
+1. Cross-file child collection merge
+   - File: `src/webconf_audit/local/iis/effective.py`
+   - Problem: when merging `machine.config`, `applicationHost.config`, and
+     `web.config`, attributes are layered but child elements can be replaced
+     by `override.children`.
+   - Example impact: a `web.config` that adds one `customHeaders` entry can
+     discard inherited HSTS from `machine.config`, causing false
+     `iis.missing_hsts_header`.
 
-1. `src/webconf_audit/local/nginx/rules/ssl_stapling_missing_resolver.py:43` [P2]
-   - Finding: rule uses `any()` for `ssl_stapling`.
-   - Risk: repeated directives are not resolved with nginx last-directive-wins
-     semantics, so an earlier `ssl_stapling on` followed by a later effective `off`
-     can be misreported.
-   - Fix: compute the effective stapling value from inherited scopes and the last
-     applicable directive.
+Fix direction:
 
-2. `src/webconf_audit/local/nginx/rules/missing_ssl_prefer_server_ciphers.py:49`
-   [P2]
-   - Finding: any earlier `ssl_prefer_server_ciphers on` is treated as sufficient.
-   - Risk: a later `off` can hide a TLS hardening regression.
-   - Fix: compute the effective value using inherited `http` scope and the last
-     server override.
+- Reuse IIS `clear` / `remove` / `add` child collection semantics in
+  cross-file merges.
+- Add regression tests for inherited custom headers, modules, handlers, and
+  request-filtering collections.
 
-3. `src/webconf_audit/local/normalizers/apache_normalizer.py:514` [P2]
-   - Finding: Apache `Options` modifiers are not applied in order.
-   - Risk: `Options Indexes -Indexes` and `Options -Indexes Indexes` have different
-     effective outcomes, but the helper returns on the first matching token.
-   - Fix: process every `Options` token in order and keep the final effective
-     `Indexes` state.
+## Apache Options Regression Coverage
 
-4. `src/webconf_audit/local/iis/parser/parser.py:96` [P3]
-   - Finding: `defusedxml` unsafe XML exceptions are not normalized.
-   - Risk: blocked XML features can raise `DefusedXmlException` and escape instead
-     of becoming structured `IISParseError`.
-   - Fix: catch `defusedxml.common.DefusedXmlException` and wrap it in
-     `IISParseError`.
+Root problem: Apache has stronger effective-config helpers than the other local
+analyzers, but parser-tolerant mixed `Options` modifier forms still need
+explicit regression coverage across rule and normalizer paths.
 
-## Superpowers review
+Confirmed follow-up:
 
-1. `src/webconf_audit/local/iis/parser/parser.py:94-102` [P2]
-   - Finding: IIS XXE-block exceptions crash analysis.
-   - Reproduction summary: malicious XML with `DOCTYPE` raises `EntitiesForbidden`,
-     not `ET.ParseError`; `analyze_iis_config()` crashes instead of returning
-     structured `iis_parse_error`.
-   - Fix: catch `defusedxml.common.DefusedXmlException` and wrap it in
-     `IISParseError`.
+1. `Options` modifier ordering
+   - File: `src/webconf_audit/local/normalizers/apache_normalizer.py`
+   - Cases to pin:
+     - `Options Indexes -Indexes`
+     - `Options -Indexes Indexes`
+   - Expected behavior: apply modifiers left-to-right consistently wherever
+     the project chooses to support mixed forms.
 
-2. `src/webconf_audit/local/nginx/rules/missing_ssl_prefer_server_ciphers.py:42-50`
-   [P2]
-   - Finding: rule checks only direct server directives and uses `any()`.
-   - Reproduction summary: inherited
-     `http { ssl_prefer_server_ciphers on; }` still reports missing, while
-     `ssl_prefer_server_ciphers on; ssl_prefer_server_ciphers off;` reports nothing.
-   - Fix: compute the effective value from inherited `http` scope plus the last
-     server override.
+Fix direction:
 
-3. `src/webconf_audit/local/nginx/rules/ssl_stapling_missing_resolver.py:39-45`
-   [P2]
-   - Finding: stapling and resolver are modeled as direct server children only.
-   - Reproduction summary: rule misses `http { ssl_stapling on; }` with no resolver
-     and falsely reports when `resolver` is inherited from `http`.
-   - Fix: resolve effective `ssl_stapling` and `resolver` across `http`/`server`
-     scopes using last-applicable value.
-
-4. `src/webconf_audit/local/nginx/rules/ssl_stapling_without_verify.py:39-46`
-   [P2]
-   - Finding: inherited `ssl_stapling on` skips verify check.
-   - Reproduction summary:
-     `http { ssl_stapling on; server { ... } }` with no
-     `ssl_stapling_verify on;` produces no
-     `nginx.ssl_stapling_without_verify` finding.
-   - Fix: reuse the effective http/server stapling resolution pattern from
-     `ssl_stapling_disabled.py` and apply the same effective-value logic to verify.
-
-5. `src/webconf_audit/local/nginx/rules/missing_http2_on_tls_listener.py:71-75`
-   [P3]
-   - Finding: HTTP/2 rule misses inherited and later-off states.
-   - Reproduction summary: false positive for
-     `http { http2 on; server { listen 443 ssl; ... } }` and false negative for
-     `http2 on; http2 off;`.
-   - Fix: resolve effective `http2` across `http`/`server` scopes and use the last
-     applicable value.
-
-6. `src/webconf_audit/local/nginx/rules/log_format_missing_fields.py:79-84` [P3]
-   - Finding: path-only `access_log` default format is ignored.
-   - Reproduction summary: nginx treats `access_log /path;` as using the default
-     `combined` format, but the helper skips `len(args) < 2`, so a weakened
-     `log_format combined ...` is never checked.
-   - Fix: treat path-only `access_log` as `combined` unless logging is `off`.
-
-## Deduplicated fix list
-
-1. IIS parser
-   - Fix `defusedxml` exception normalization once in
-     `src/webconf_audit/local/iis/parser/parser.py`.
-   - Add a regression test with unsafe XML/DOCTYPE that returns structured
-     `iis_parse_error` instead of crashing.
-
-2. Nginx effective directive handling
-   - Introduce or reuse a helper for inherited `http` scope plus server override
-     resolution with last-directive-wins semantics.
-   - Apply it to:
-     - `missing_ssl_prefer_server_ciphers.py`
-     - `ssl_stapling_missing_resolver.py`
-     - `ssl_stapling_without_verify.py`
-     - `missing_http2_on_tls_listener.py`
-   - Add tests for inherited `on`, inherited resolver/verify, and later `off`.
-
-3. Apache `Options`
-   - Update option normalization to process `Indexes`, `+Indexes`, and `-Indexes`
-     in order.
-   - Add regression cases for `Options Indexes -Indexes` and
-     `Options -Indexes Indexes`.
-
-4. Nginx log format
-   - Treat `access_log /path;` as default `combined` format.
-   - Add a regression test where weakened `combined` is detected through a
-     path-only access log.
-
-5. PR #1 test-only tail
-   - Restore registry state in `tests/test_report.py`.
-   - Tighten Lighttpd duplicate-count assertions.
-   - Make TLS probe negative test fully offline.
-   - Strengthen `missing_limit_req` assertion.
-   - Optionally extract repeated nginx timeout helper and apply Ruff cleanups.
-
-## Verification notes from Superpowers review
-
-- `uv run ruff check .`: passed.
-- `uv run python -m compileall -q src`: passed.
-- `uv run webconf-audit list-rules`: passed.
-- Main non-integration suite: `2075 passed`.
-- Targeted nginx/IIS suite: `233 passed`.
-- CodeRabbit CLI supplemental review could not run on the whole tail because the
-  change set exceeded the 300-file limit; PR #1 CodeRabbit tail review completed
-  successfully and produced the PR #1 findings above.
+- Add regression tests for rule output and normalized output.
+- Keep rule semantics and normalizer semantics aligned so local and universal
+  findings do not contradict each other.
