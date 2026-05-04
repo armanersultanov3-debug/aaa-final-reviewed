@@ -20,7 +20,7 @@ RULE_ID = "nginx.missing_hsts_header"
 @rule(
     rule_id=RULE_ID,
     title="Missing HSTS header",
-    severity="low",
+    severity="medium",
     description="TLS server block does not define a Strict-Transport-Security header.",
     recommendation="Add a Strict-Transport-Security header to this server block.",
     category="local",
@@ -60,6 +60,7 @@ def _find_missing_hsts_header_in_server(
         server_block,
         rule_id=RULE_ID,
         title="Missing HSTS header",
+        severity="medium",
         description="TLS server block does not define a Strict-Transport-Security header.",
         recommendation="Add a Strict-Transport-Security header to this server block.",
     )

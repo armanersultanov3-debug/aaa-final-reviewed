@@ -5,6 +5,18 @@ from tests.nginx_helpers import (
     analyze_nginx_config,
     pytest,
 )
+from webconf_audit.models import Finding
+
+
+def _finding_by_rule_id(result: AnalysisResult, rule_id: str) -> Finding:
+    matches = [finding for finding in result.findings if finding.rule_id == rule_id]
+    if not matches:
+        raise AssertionError(f"Missing expected finding {rule_id!r}")
+    if len(matches) > 1:
+        raise AssertionError(
+            f"Expected exactly one finding for {rule_id!r}, got {len(matches)}"
+        )
+    return matches[0]
 
 
 def test_analyze_nginx_config_reports_missing_client_max_body_size_when_missing(
@@ -674,6 +686,110 @@ def test_analyze_nginx_config_reports_missing_limit_req_when_missing(
     assert any(finding.rule_id == "nginx.missing_limit_req" for finding in result.findings)
 
 
+def test_analyze_nginx_config_keeps_missing_limit_req_low_without_public_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_conn addr 10;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
+    assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
+
+
+def test_analyze_nginx_config_raises_missing_limit_req_to_medium_for_public_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_conn addr 10;\n"
+        "        location /files/ {\n"
+        "            autoindex on;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
+def test_analyze_nginx_config_raises_missing_limit_req_to_medium_for_server_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        limit_conn addr 10;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
+def test_analyze_nginx_config_keeps_missing_limit_req_low_for_internal_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_conn addr 10;\n"
+        "        location /private-files/ {\n"
+        "            internal;\n"
+        "            autoindex on;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
+    assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
+
+
 def test_analyze_nginx_config_reports_missing_limit_conn_when_missing(
     tmp_path: Path,
 ) -> None:
@@ -688,6 +804,110 @@ def test_analyze_nginx_config_reports_missing_limit_conn_when_missing(
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
     assert any(finding.rule_id == "nginx.missing_limit_conn" for finding in result.findings)
+
+
+def test_analyze_nginx_config_keeps_missing_limit_conn_low_without_public_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=perip burst=10;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
+    assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
+
+
+def test_analyze_nginx_config_raises_missing_limit_conn_to_medium_for_public_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=perip burst=10;\n"
+        "        location /files/ {\n"
+        "            autoindex on;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
+def test_analyze_nginx_config_raises_missing_limit_conn_to_medium_for_server_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        limit_req zone=perip burst=10;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
+def test_analyze_nginx_config_keeps_missing_limit_conn_low_for_internal_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=perip burst=10;\n"
+        "        location /private-files/ {\n"
+        "            internal;\n"
+        "            autoindex on;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
+    assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
 
 
 def test_analyze_nginx_config_does_not_report_missing_limit_conn_when_present_in_server(

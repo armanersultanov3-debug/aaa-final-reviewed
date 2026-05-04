@@ -32,6 +32,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
 
     finding = result.findings[0]
     assert finding.rule_id == "nginx.missing_ssl_ciphers"
+    assert finding.severity == "medium"
     assert finding.title == "Missing ssl_ciphers directive"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
@@ -59,6 +60,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
     assert result.issues == []
     assert len(result.findings) == 1
     assert result.findings[0].rule_id == "nginx.missing_ssl_ciphers"
+    assert result.findings[0].severity == "medium"
 
 
 def test_analyze_nginx_config_does_not_treat_inherited_ssl_protocols_as_tls_intent(
@@ -1125,7 +1127,11 @@ def test_analyze_nginx_config_reports_missing_hsts_header_for_tls_server(tmp_pat
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_hsts_header" for finding in result.findings)
+    hsts_findings = [
+        finding for finding in result.findings if finding.rule_id == "nginx.missing_hsts_header"
+    ]
+    assert len(hsts_findings) == 1
+    assert hsts_findings[0].severity == "medium"
 
 
 def test_analyze_nginx_config_does_not_report_missing_hsts_header_when_present(
@@ -1185,7 +1191,11 @@ def test_analyze_nginx_config_reports_missing_hsts_header_when_only_location_has
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_hsts_header" for finding in result.findings)
+    hsts_findings = [
+        finding for finding in result.findings if finding.rule_id == "nginx.missing_hsts_header"
+    ]
+    assert len(hsts_findings) == 1
+    assert hsts_findings[0].severity == "medium"
 
 
 def test_analyze_nginx_config_reports_missing_x_content_type_options_when_missing(

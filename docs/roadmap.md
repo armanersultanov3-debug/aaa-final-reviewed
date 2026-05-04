@@ -242,8 +242,19 @@ locations in text and JSON output.
 
 Status: first implementation added opt-in text grouping via
 `--group-repeated` and JSON `finding_groups` that keep the original flat
-`findings` array intact. Next calibration work can decide when grouping should
-become default and which context-sensitive severities should be raised.
+`findings` array intact. The first Nginx severity calibration slice raises
+missing HSTS and missing `ssl_ciphers` to medium, and raises missing
+`limit_req`/`limit_conn` to medium only when public `autoindex on` is present.
+
+Current execution order after the report-grouping merge:
+
+1. Validate `--group-repeated` against the real noisy Nginx evidence captured
+   in `roadmap1.md`, comparing the current output with the saved prototype
+   report.
+2. Fill remaining TLS hardening gaps, including protocol policy, session
+   settings, OCSP stapling, and default TLS host handling.
+3. Resume CIS/standards coverage expansion after the report noise and severity
+   foundations are stable.
 
 ### External safe probe catalog
 
@@ -272,6 +283,11 @@ work can add curated safe probes from external sources without adding another
 hardcoded finder per path.
 
 ## Current Priority
+
+The immediate priority is report-noise validation against the real Nginx
+evidence in `roadmap1.md`, followed by severity calibration, TLS hardening
+gaps, and then CIS/standards coverage expansion. The older CIS expansion note
+below remains the next standards track after these report-quality foundations.
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
 standards source baseline, gap labels, work order, and initial backlog for
