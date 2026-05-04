@@ -346,7 +346,6 @@ metadata notes.
 
 ## Explicitly Out Of Scope For Roadmap 1
 
-- Severity recalibration.
 - New TLS hardening rules.
 - Report-level grouping of repeated findings.
 - Cross-server redirect-only logic for Apache, Lighttpd, or IIS.

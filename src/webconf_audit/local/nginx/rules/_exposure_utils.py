@@ -24,9 +24,14 @@ def server_has_public_autoindex(
     return any(
         isinstance(node, BlockNode)
         and node.name == "location"
+        and not _location_is_internal(node)
         and last_directive_is_on(find_child_directives(node, "autoindex"))
         for node in iter_nodes(server_block.children)
     )
+
+
+def _location_is_internal(location_block: BlockNode) -> bool:
+    return bool(find_child_directives(location_block, "internal"))
 
 
 def public_autoindex_missing_limit_metadata(
