@@ -242,20 +242,18 @@ locations in text and JSON output.
 
 Status: first implementation added opt-in text grouping via
 `--group-repeated` and JSON `finding_groups` that keep the original flat
-`findings` array intact. Next calibration work can decide when grouping should
-become default and which context-sensitive severities should be raised.
+`findings` array intact. The first Nginx severity calibration slice raises
+missing HSTS and missing `ssl_ciphers` to medium, and raises missing
+`limit_req`/`limit_conn` to medium only when public `autoindex on` is present.
 
 Current execution order after the report-grouping merge:
 
 1. Validate `--group-repeated` against the real noisy Nginx evidence captured
    in `roadmap1.md`, comparing the current output with the saved prototype
    report.
-2. Calibrate severity by context for high-signal cases such as missing HSTS on
-   active TLS servers, missing TLS policy, and missing request limits on public
-   file-listing scenarios.
-3. Fill remaining TLS hardening gaps, including protocol policy, session
+2. Fill remaining TLS hardening gaps, including protocol policy, session
    settings, OCSP stapling, and default TLS host handling.
-4. Resume CIS/standards coverage expansion after the report noise and severity
+3. Resume CIS/standards coverage expansion after the report noise and severity
    foundations are stable.
 
 ### External safe probe catalog

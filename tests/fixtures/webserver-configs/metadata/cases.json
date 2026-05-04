@@ -122,7 +122,7 @@
         },
         {
           "rule_id": "nginx.missing_hsts_header",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "devsec-cis-weak-tls.conf"
         }
       ]

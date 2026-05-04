@@ -20,7 +20,7 @@ RULE_ID = "nginx.missing_ssl_ciphers"
 @rule(
     rule_id=RULE_ID,
     title="Missing ssl_ciphers directive",
-    severity="low",
+    severity="medium",
     description="Server block uses TLS but does not define 'ssl_ciphers'.",
     recommendation="Add an 'ssl_ciphers' directive to this server block.",
     category="local",
@@ -63,7 +63,7 @@ def _find_missing_ssl_ciphers_in_server(
     return Finding(
         rule_id=RULE_ID,
         title="Missing ssl_ciphers directive",
-        severity="low",
+        severity="medium",
         description="Server block uses TLS but does not define 'ssl_ciphers'.",
         recommendation="Add an 'ssl_ciphers' directive to this server block.",
         location=SourceLocation(

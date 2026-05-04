@@ -7,12 +7,15 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._exposure_utils import (
+    public_autoindex_missing_limit_metadata,
+)
 from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.local.nginx.rules._value_utils import (
     effective_child_directives,
     iter_server_blocks_with_http_directives,
 )
-from webconf_audit.models import Finding, SourceLocation
+from webconf_audit.models import Finding, Severity, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.missing_limit_conn"
@@ -33,7 +36,7 @@ def find_missing_limit_conn(config_ast: ConfigAst) -> list[Finding]:
 
     for server_block, inherited_directives in iter_server_blocks_with_http_directives(
         config_ast,
-        {"limit_conn"},
+        {"autoindex", "limit_conn"},
     ):
         finding = _find_missing_limit_conn_in_server(server_block, inherited_directives)
         if finding is not None:
@@ -55,10 +58,13 @@ def _find_missing_limit_conn_in_server(
     if _server_has_location_limit_conn(server_block):
         return None
 
+    metadata = public_autoindex_missing_limit_metadata(server_block, inherited_directives)
+    severity: Severity = "medium" if metadata else "low"
+
     return Finding(
         rule_id=RULE_ID,
         title="Missing limit_conn directive",
-        severity="low",
+        severity=severity,
         description="Server block does not define 'limit_conn' in server or location scope.",
         recommendation="Add a 'limit_conn' directive to this server block or one of its location blocks.",
         location=SourceLocation(
@@ -67,6 +73,7 @@ def _find_missing_limit_conn_in_server(
             file_path=server_block.source.file_path,
             line=server_block.source.line,
         ),
+        metadata=metadata,
     )
 
 

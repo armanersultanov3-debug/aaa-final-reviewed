@@ -5,7 +5,7 @@ from webconf_audit.local.nginx.parser.ast import (
     DirectiveNode,
     find_child_directives,
 )
-from webconf_audit.models import Finding, SourceLocation
+from webconf_audit.models import Finding, Severity, SourceLocation
 
 
 def find_server_add_headers(
@@ -54,13 +54,14 @@ def build_missing_header_finding(
     *,
     rule_id: str,
     title: str,
+    severity: Severity = "low",
     description: str,
     recommendation: str,
 ) -> Finding:
     return Finding(
         rule_id=rule_id,
         title=title,
-        severity="low",
+        severity=severity,
         description=description,
         recommendation=recommendation,
         location=SourceLocation(

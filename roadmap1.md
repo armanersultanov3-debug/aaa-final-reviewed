@@ -92,13 +92,14 @@ Priority order:
 3. Validate the merged report-level grouping on this real noisy evidence and
    decide whether `--group-repeated` should remain opt-in or become the default
    for text reports.
-4. Calibrate severity for context-sensitive findings, especially missing HSTS
-   on active TLS servers, missing TLS policy, and missing request limits on
-   public file-listing scenarios.
-5. Fill TLS hardening gaps such as `ssl_protocols`, session settings, OCSP
+4. Fill TLS hardening gaps such as `ssl_protocols`, session settings, OCSP
    stapling, and default TLS host handling.
-6. Resume CIS/standards coverage expansion after report noise and severity
+5. Resume CIS/standards coverage expansion after report noise and severity
    foundations are stable.
+
+Completed follow-up: the first Nginx severity calibration slice now raises
+missing HSTS and missing `ssl_ciphers` to medium, and raises missing
+`limit_req`/`limit_conn` to medium only when public `autoindex on` is present.
 
 ## Post-Grouping Validation
 
