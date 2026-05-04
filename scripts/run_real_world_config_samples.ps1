@@ -120,6 +120,32 @@ function Save-Utf8NoBom {
     [System.IO.File]::WriteAllText($Path, $Content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
+function Resolve-DatasetFile {
+    param([string]$RelativePath)
+
+    $resolvedDatasetRoot = (Resolve-Path -LiteralPath $datasetRoot).ProviderPath
+    $combinedPath = Join-Path $datasetRoot $RelativePath
+
+    if (-not (Test-Path -LiteralPath $combinedPath -PathType Leaf)) {
+        throw "Dataset file does not exist: $RelativePath"
+    }
+
+    $resolvedPath = (Resolve-Path -LiteralPath $combinedPath).ProviderPath
+    $datasetPrefix = $resolvedDatasetRoot.TrimEnd(
+        [IO.Path]::DirectorySeparatorChar,
+        [IO.Path]::AltDirectorySeparatorChar
+    ) + [IO.Path]::DirectorySeparatorChar
+
+    if (
+        $resolvedPath -ne $resolvedDatasetRoot -and
+        -not $resolvedPath.StartsWith($datasetPrefix, [StringComparison]::OrdinalIgnoreCase)
+    ) {
+        throw "Dataset file escapes real-world fixture root: $RelativePath"
+    }
+
+    return $resolvedPath
+}
+
 function Build-AnalyzerArgs {
     param(
         [pscustomobject]$Sample,
@@ -127,7 +153,7 @@ function Build-AnalyzerArgs {
         [switch]$Json
     )
 
-    $args = @(
+    $analyzerArgs = @(
         "-m",
         "webconf_audit.cli",
         "analyze-$($Sample.server_type)",
@@ -135,25 +161,25 @@ function Build-AnalyzerArgs {
     )
 
     if ($Sample.server_type -eq "iis") {
-        $args += "--no-tls-registry"
+        $analyzerArgs += "--no-tls-registry"
     }
 
     if ($Sample.PSObject.Properties.Name -contains "analyzer_options") {
         $options = $Sample.analyzer_options
         if ($null -ne $options -and ($options.PSObject.Properties.Name -contains "host")) {
-            $args += @("--host", $options.host)
+            $analyzerArgs += @("--host", $options.host)
         }
         if ($null -ne $options -and ($options.PSObject.Properties.Name -contains "machine_config")) {
-            $machineConfig = Join-Path $datasetRoot $options.machine_config
-            $args += @("--machine-config", $machineConfig)
+            $machineConfig = Resolve-DatasetFile $options.machine_config
+            $analyzerArgs += @("--machine-config", $machineConfig)
         }
     }
 
     if ($Json) {
-        $args += @("--format", "json")
+        $analyzerArgs += @("--format", "json")
     }
 
-    return $args
+    return $analyzerArgs
 }
 
 $pythonExe = Resolve-PythonExecutable

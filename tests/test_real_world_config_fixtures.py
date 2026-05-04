@@ -15,7 +15,7 @@ from webconf_audit.models import AnalysisResult
 
 
 _ROOT = Path(__file__).resolve().parents[1]
-_DATASET_ROOT = _ROOT / "demo" / "real_world_configs"
+_DATASET_ROOT = (_ROOT / "demo" / "real_world_configs").resolve()
 _METADATA_PATH = _DATASET_ROOT / "metadata.json"
 
 
@@ -33,12 +33,21 @@ def _sample_id(sample: dict[str, Any]) -> str:
     return str(sample["id"])
 
 
+def _resolve_dataset_path(value: object) -> Path:
+    candidate = (_DATASET_ROOT / str(value)).resolve()
+    try:
+        candidate.relative_to(_DATASET_ROOT)
+    except ValueError as exc:
+        raise AssertionError(f"dataset path escapes real-world fixture root: {value!r}") from exc
+    return candidate
+
+
 def _entrypoint(sample: dict[str, Any]) -> Path:
-    return (_DATASET_ROOT / str(sample["entrypoint"])).resolve()
+    return _resolve_dataset_path(sample["entrypoint"])
 
 
 def _dataset_path(value: object) -> str:
-    return str((_DATASET_ROOT / str(value)).resolve())
+    return str(_resolve_dataset_path(value))
 
 
 def _analyze_sample(sample: dict[str, Any]) -> AnalysisResult:

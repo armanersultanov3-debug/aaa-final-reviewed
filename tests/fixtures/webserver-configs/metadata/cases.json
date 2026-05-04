@@ -14,7 +14,7 @@
       "synthetic_or_original": "synthetic-derived",
       "notes_about_modifications": "Domains, paths, and upstreams are placeholders. The fixture is minimized to exercise webconf-audit rule IDs rather than reproduce a full vulnerable app.",
       "references": [
-        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/",
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-open-to-attack/",
         "https://github.com/detectify/vulnerable-nginx",
         "https://github.com/tkmru/nginx-alias-traversal-sample"
       ],
@@ -59,7 +59,7 @@
       "notes_about_modifications": "The redirect is retained as a reference shape, but expected assertions target rules currently implemented by webconf-audit.",
       "references": [
         "https://github.com/vulhub/vulhub/tree/master/nginx/insecure-configuration",
-        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/"
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-open-to-attack/"
       ],
       "coverage_notes": [
         "HTTP response splitting through return ... $uri is documented as a reference class; this rule is not currently implemented by webconf-audit."
@@ -140,7 +140,7 @@
       "notes_about_modifications": "Uses placeholder upstreams and localhost-only internal names.",
       "references": [
         "https://github.com/yandex/gixy",
-        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/"
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-open-to-attack/"
       ],
       "coverage_notes": [
         "User-controlled proxy_pass SSRF and Host header spoofing are represented as reference classes; expected assertions focus on implemented proxy and sensitive-location rules."

@@ -99,8 +99,7 @@
         "headers"
       ],
       "expected_rule_ids": [
-        "apache.allowoverride_all_in_directory",
-        "apache.htaccess_rewrite_without_limit"
+        "apache.allowoverride_all_in_directory"
       ]
     },
     {

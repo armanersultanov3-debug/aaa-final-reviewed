@@ -13,7 +13,7 @@ from webconf_audit.models import AnalysisResult, Finding
 
 
 _ROOT = Path(__file__).resolve().parents[1]
-_FIXTURE_ROOT = _ROOT / "tests" / "fixtures" / "webserver-configs"
+_FIXTURE_ROOT = (_ROOT / "tests" / "fixtures" / "webserver-configs").resolve()
 _METADATA_PATH = _FIXTURE_ROOT / "metadata" / "cases.json"
 _SEVERITY_RANK = {
     "info": 0,
@@ -39,7 +39,14 @@ def _case_id(case: dict[str, Any]) -> str:
 
 
 def _entrypoint(case: dict[str, Any]) -> Path:
-    return (_FIXTURE_ROOT / str(case["entrypoint"])).resolve()
+    candidate = (_FIXTURE_ROOT / str(case["entrypoint"])).resolve()
+    try:
+        candidate.relative_to(_FIXTURE_ROOT)
+    except ValueError as exc:
+        raise AssertionError(
+            f"security corpus entrypoint escapes fixture root: {case['entrypoint']!r}"
+        ) from exc
+    return candidate
 
 
 def _analyze_case(case: dict[str, Any]) -> AnalysisResult:

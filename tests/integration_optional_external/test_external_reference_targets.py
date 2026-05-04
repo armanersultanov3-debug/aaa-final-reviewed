@@ -34,22 +34,20 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.parametrize("target", _load_targets(), ids=lambda target: target["id"])
-def test_badssl_reference_targets_match_expected_categories(
-    target: dict[str, Any],
-) -> None:
-    result = analyze_external_target(target["url"], scan_ports=False)
-    observed = {finding.rule_id: finding for finding in result.findings}
+def test_badssl_reference_targets_match_expected_categories() -> None:
+    for target in _load_targets():
+        result = analyze_external_target(target["url"], scan_ports=False)
+        observed = {finding.rule_id: finding for finding in result.findings}
 
-    assert result.mode == "external"
-    assert result.target == target["url"]
-    assert isinstance(result.findings, list)
-    assert isinstance(result.issues, list)
+        assert result.mode == "external"
+        assert result.target == target["url"]
+        assert isinstance(result.findings, list)
+        assert isinstance(result.issues, list)
 
-    for expected in target["expected_findings"]:
-        rule_id = expected["rule_id"]
-        assert rule_id in observed, (
-            f"{target['id']} did not produce expected {rule_id}; "
-            f"observed={sorted(observed)}"
-        )
-        assert observed[rule_id].severity == expected["severity"]
+        for expected in target["expected_findings"]:
+            rule_id = expected["rule_id"]
+            assert rule_id in observed, (
+                f"{target['id']} did not produce expected {rule_id}; "
+                f"observed={sorted(observed)}"
+            )
+            assert observed[rule_id].severity == expected["severity"]
