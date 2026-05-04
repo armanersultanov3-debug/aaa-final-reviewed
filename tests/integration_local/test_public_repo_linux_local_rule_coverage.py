@@ -25,16 +25,6 @@ def _resolve_public_repo_ref() -> str:
     configured_ref = os.environ.get("WEBCONF_AUDIT_PUBLIC_REPO_REF")
     if configured_ref:
         return configured_ref
-
-    result = subprocess.run(
-        ("git", "rev-parse", "HEAD"),
-        cwd=_ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if result.returncode == 0:
-        return result.stdout.strip()
     return "master"
 
 
