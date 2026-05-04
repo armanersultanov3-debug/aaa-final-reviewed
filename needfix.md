@@ -1,12 +1,8 @@
-# Resolved Precision Findings
+# Needfix
 
 Confirmed analyzer precision issues moved out of `docs/roadmap.md` on
-2026-05-04 and resolved in PR #27. These are not offensive findings; they are
-correctness and report quality bugs in static configuration analysis.
-
-Generic report-level grouping remains tracked in `docs/roadmap.md` under
-"Severity calibration and report grouping"; this archive only keeps resolved
-rule-semantics findings.
+2026-05-04. These are not offensive findings; they are correctness and report
+quality bugs in static configuration analysis.
 
 ## Resolution Status
 
@@ -24,6 +20,13 @@ Implemented in `codex/fix-effective-scope-semantics`:
   are merged with `add` / `remove` / `clear` semantics instead of being replaced.
 - Added Apache `Options Indexes -Indexes` and `Options -Indexes Indexes`
   regression coverage for both rule output and normalized output.
+
+Remaining backlog:
+
+- Generic report-level grouping of repeated same-rule advice across many scopes
+  is still a separate reporting feature. This branch reduces the known Nginx
+  noise at its root by honoring inherited/effective settings, but it does not add
+  a new formatter-level grouping model.
 
 ## Nginx Effective Configuration
 
