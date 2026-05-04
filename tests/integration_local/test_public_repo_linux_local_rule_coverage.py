@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import textwrap
 import time
@@ -18,6 +19,26 @@ _ROOT = Path(__file__).resolve().parents[2]
 _DEMO_ROOT = _ROOT / "demo" / "local_admin"
 _DOCKER_ROOT = Path(__file__).resolve().parent / "docker_public_repo"
 _PUBLIC_REPO_URL = "https://github.com/Armanyich/external-tests.git"
+
+
+def _resolve_public_repo_ref() -> str:
+    configured_ref = os.environ.get("WEBCONF_AUDIT_PUBLIC_REPO_REF")
+    if configured_ref:
+        return configured_ref
+
+    result = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        cwd=_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return result.stdout.strip()
+    return "master"
+
+
+PUBLIC_REPO_REF = _resolve_public_repo_ref()
 _PROJECT_NAME = "webconf_audit_public_repo_local_rules_it"
 _READINESS_URLS: tuple[str, ...] = (
     "http://127.0.0.1:19180/",
@@ -349,14 +370,14 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         name="log_format_missing_fields",
         config_filename="nginx.conf",
         config_text=_nginx_http_config(
-            'log_format combined "$remote_addr";',
+            'log_format weakfmt "$remote_addr";',
             _nginx_server_block(
                 "listen 80;",
-                "access_log /var/log/nginx/access.log;",
+                "access_log /var/log/nginx/access.log weakfmt;",
             ),
         ),
         expected_rule_ids=frozenset({"nginx.log_format_missing_fields"}),
-        native_validation_should_pass=False,
+        native_validation_should_pass=True,
     )
     policy_controls = Scenario(
         service="nginx",
@@ -716,6 +737,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   context: "{(_DOCKER_ROOT / 'nginx').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
+                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
                 image: webconf-audit-public-repo-nginx-it
                 container_name: webconf-audit-public-repo-nginx-it
                 ports:
@@ -729,6 +751,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   context: "{(_DOCKER_ROOT / 'apache').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
+                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
                 image: webconf-audit-public-repo-apache-it
                 container_name: webconf-audit-public-repo-apache-it
                 ports:
@@ -743,6 +766,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   context: "{(_DOCKER_ROOT / 'lighttpd').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
+                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
                 image: webconf-audit-public-repo-lighttpd-it
                 container_name: webconf-audit-public-repo-lighttpd-it
                 ports:
@@ -835,6 +859,19 @@ def test_public_repo_origin_is_configured_in_all_linux_services(
         )
         assert result.returncode == 0, result.stdout + result.stderr
         assert result.stdout.strip() == _PUBLIC_REPO_URL
+
+        ref_result = _compose_exec(
+            service,
+            "git",
+            "-C",
+            "/opt/webconf-audit-src",
+            "rev-parse",
+            "HEAD",
+            compose_file=compose_file,
+        )
+        assert ref_result.returncode == 0, ref_result.stdout + ref_result.stderr
+        if len(PUBLIC_REPO_REF) == 40:
+            assert ref_result.stdout.strip() == PUBLIC_REPO_REF
 
 
 @pytest.mark.parametrize(
