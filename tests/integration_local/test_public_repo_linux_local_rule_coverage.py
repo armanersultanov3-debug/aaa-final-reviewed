@@ -112,6 +112,31 @@ def _run_command(*args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def _is_full_git_sha(ref: str) -> bool:
+    return len(ref) == 40 and all(
+        char in "0123456789abcdefABCDEF" for char in ref
+    )
+
+
+def _expected_public_repo_commit() -> str:
+    if _is_full_git_sha(PUBLIC_REPO_REF):
+        return PUBLIC_REPO_REF.lower()
+
+    result = _run_command("git", "ls-remote", _PUBLIC_REPO_URL, PUBLIC_REPO_REF)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    matches = [line.split(maxsplit=1) for line in result.stdout.splitlines()]
+    assert matches, result.stdout + result.stderr
+
+    peeled_tag = next(
+        (commit for commit, ref_name in matches if ref_name.endswith("^{}")),
+        None,
+    )
+    if peeled_tag:
+        return peeled_tag
+    return matches[0][0]
+
+
 def _docker_available() -> bool:
     return _run_command("docker", "info").returncode == 0
 
@@ -717,7 +742,7 @@ def _write_scenarios(root: Path, scenarios: tuple[Scenario, ...]) -> None:
             target.write_text(content, encoding="utf-8")
 
 
-def _compose_file_text(scenarios_root: Path) -> str:
+def _compose_file_text(scenarios_root: Path, public_repo_commit: str) -> str:
     return (
         textwrap.dedent(
             f"""
@@ -728,6 +753,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
                     PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-nginx-it
                 container_name: webconf-audit-public-repo-nginx-it
                 ports:
@@ -742,6 +768,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
                     PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-apache-it
                 container_name: webconf-audit-public-repo-apache-it
                 ports:
@@ -757,6 +784,7 @@ def _compose_file_text(scenarios_root: Path) -> str:
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
                     PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-lighttpd-it
                 container_name: webconf-audit-public-repo-lighttpd-it
                 ports:
@@ -798,12 +826,16 @@ def public_repo_linux_local_rule_stack(
     _require_docker()
 
     scenarios = _all_scenarios()
+    public_repo_commit = _expected_public_repo_commit()
     fixture_root = tmp_path_factory.mktemp("public_repo_local_linux")
     scenarios_root = fixture_root / "scenarios"
     compose_file = fixture_root / "docker-compose.yml"
 
     _write_scenarios(scenarios_root, scenarios)
-    compose_file.write_text(_compose_file_text(scenarios_root), encoding="utf-8")
+    compose_file.write_text(
+        _compose_file_text(scenarios_root, public_repo_commit),
+        encoding="utf-8",
+    )
 
     _run_compose("down", "-v", "--remove-orphans", compose_file=compose_file)
     up = _run_compose("up", "-d", "--build", compose_file=compose_file)
@@ -819,6 +851,7 @@ def public_repo_linux_local_rule_stack(
             _wait_for_url(url)
         yield {
             "compose_file": compose_file,
+            "public_repo_commit": public_repo_commit,
             "scenarios": scenarios,
         }
     finally:
@@ -835,6 +868,7 @@ def test_public_repo_origin_is_configured_in_all_linux_services(
     public_repo_linux_local_rule_stack: dict[str, object],
 ) -> None:
     compose_file = public_repo_linux_local_rule_stack["compose_file"]
+    expected_commit = public_repo_linux_local_rule_stack["public_repo_commit"]
 
     for service in ("nginx", "apache", "lighttpd"):
         result = _compose_exec(
@@ -860,8 +894,7 @@ def test_public_repo_origin_is_configured_in_all_linux_services(
             compose_file=compose_file,
         )
         assert ref_result.returncode == 0, ref_result.stdout + ref_result.stderr
-        if len(PUBLIC_REPO_REF) == 40:
-            assert ref_result.stdout.strip() == PUBLIC_REPO_REF
+        assert ref_result.stdout.strip() == expected_commit
 
 
 @pytest.mark.parametrize(
