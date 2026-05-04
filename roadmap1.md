@@ -89,8 +89,64 @@ Priority order:
    not apply to redirect responses.
 2. Add fragment-awareness for inherited or defaulted directives when only a
    site fragment is analyzed.
-3. Only after those two are stable, continue with severity calibration, TLS
-   expansion, and report-level grouping.
+3. Validate the merged report-level grouping on this real noisy evidence and
+   decide whether `--group-repeated` should remain opt-in or become the default
+   for text reports.
+4. Calibrate severity for context-sensitive findings, especially missing HSTS
+   on active TLS servers, missing TLS policy, and missing request limits on
+   public file-listing scenarios.
+5. Fill TLS hardening gaps such as `ssl_protocols`, session settings, OCSP
+   stapling, and default TLS host handling.
+6. Resume CIS/standards coverage expansion after report noise and severity
+   foundations are stable.
+
+## Post-Grouping Validation
+
+Validated on the same local evidence after the report grouping merge.
+
+Commands:
+
+- `analyze-nginx F:\Projects\Новая папка\app.conf`
+- `analyze-nginx F:\Projects\Новая папка\app.conf --group-repeated`
+- `analyze-nginx F:\Projects\Новая папка\app.conf --format json`
+- `analyze-nginx F:\Projects\Новая папка\effective-nginx.conf --format json`
+
+Observed result for the site fragment:
+
+- Saved prototype report: 33 findings.
+- Current ungrouped report: 24 findings.
+- Current grouped text report: still 24 findings, but repeated text is reduced
+  for two inherited-context pairs:
+  - `nginx.missing_access_log` at the HTTP and TLS server blocks.
+  - `nginx.missing_error_log` at the HTTP and TLS server blocks.
+- Findings attached to the HTTP redirect-dominant block dropped from 17 in the
+  saved prototype report to 6 in the current report.
+- Remaining HTTP-block findings are context-sensitive/global-policy findings:
+  `missing_access_log`, `missing_error_log`, `missing_keepalive_timeout`,
+  `missing_client_body_timeout`, `missing_client_header_timeout`, and
+  `missing_send_timeout`.
+
+Interpretation:
+
+- `--group-repeated` is useful as an opt-in readability tool, but it is not the
+  primary fix for this real Nginx case. The larger win came from redirect-scope
+  suppression and fragment-aware inheritance notes.
+- The remaining fragment findings are acceptable only if they carry the
+  inherited-context note. They should not be silently treated as proven
+  misconfiguration when analyzing a standalone `conf.d` file.
+- Running the analyzer against `effective-nginx.conf` still leaves inherited
+  access-log and timeout noise attached to the included `app.conf` server
+  blocks. This is evidence for a future Nginx `-T` dump context reconstruction
+  task: the dumped included file appears outside its original `http {}` nesting
+  unless the analyzer reconstructs include context from `# configuration file`
+  markers and parent config structure.
+
+Decision:
+
+- Keep `--group-repeated` opt-in for now.
+- Before making grouping the default, first decide whether to implement Nginx
+  `-T` dump context reconstruction or add an explicit diagnostic that flattened
+  dumps may have incomplete inheritance context.
 
 ## Cross-Server Applicability
 
