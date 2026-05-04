@@ -732,6 +732,31 @@ def test_analyze_nginx_config_raises_missing_limit_req_to_medium_for_public_auto
     assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
 
 
+def test_analyze_nginx_config_raises_missing_limit_req_to_medium_for_server_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        limit_conn addr 10;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
 def test_analyze_nginx_config_keeps_missing_limit_req_low_for_internal_autoindex(
     tmp_path: Path,
 ) -> None:
@@ -812,6 +837,31 @@ def test_analyze_nginx_config_raises_missing_limit_conn_to_medium_for_public_aut
         "        location /files/ {\n"
         "            autoindex on;\n"
         "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
+    assert finding.severity == "medium"
+    assert finding.metadata["severity_reason"] == "public_autoindex_without_request_limits"
+
+
+def test_analyze_nginx_config_raises_missing_limit_conn_to_medium_for_server_autoindex(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        limit_req zone=perip burst=10;\n"
         "    }\n"
         "}\n",
         encoding="utf-8",

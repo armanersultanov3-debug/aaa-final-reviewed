@@ -89,9 +89,8 @@ Priority order:
    not apply to redirect responses.
 2. Add fragment-awareness for inherited or defaulted directives when only a
    site fragment is analyzed.
-3. Validate the merged report-level grouping on this real noisy evidence and
-   decide whether `--group-repeated` should remain opt-in or become the default
-   for text reports.
+3. Completed: validated merged report-level grouping on this real noisy
+   evidence and kept `--group-repeated` opt-in for now.
 4. Fill TLS hardening gaps such as `ssl_protocols`, session settings, OCSP
    stapling, and default TLS host handling.
 5. Resume CIS/standards coverage expansion after report noise and severity
