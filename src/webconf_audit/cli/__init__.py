@@ -85,6 +85,14 @@ def _group_by_option() -> GroupBy:
     )
 
 
+def _group_repeated_option() -> bool:
+    return typer.Option(
+        False,
+        "--group-repeated/--no-group-repeated",
+        help="Group repeated findings in text reports while preserving each location.",
+    )
+
+
 def _output_result(
     result: AnalysisResult,
     fmt: OutputFormat = OutputFormat.text,
@@ -94,6 +102,7 @@ def _output_result(
     write_baseline_path: str | None = None,
     fail_on_new: FailOnSeverity | None = None,
     group_by: GroupBy = GroupBy.severity,
+    group_repeated: bool = False,
 ) -> None:
     _ensure_all_rules_loaded()
     suppression_load_failed = _apply_suppressions(
@@ -109,7 +118,7 @@ def _output_result(
             result.issues.append(issue)
             baseline_operation_failed = True
     formatter = (
-        TextFormatter(group_by=group_by.value)
+        TextFormatter(group_by=group_by.value, group_repeated=group_repeated)
         if fmt == OutputFormat.text
         else JsonFormatter()
     )
@@ -237,6 +246,7 @@ def analyze_nginx(
     write_baseline: str | None = _write_baseline_option(),
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
 ) -> None:
     result = analyze_nginx_config(config_path)
     _output_result(
@@ -248,6 +258,7 @@ def analyze_nginx(
         write_baseline,
         fail_on_new,
         group_by,
+        group_repeated,
     )
 
 
@@ -267,6 +278,7 @@ def analyze_apache(
     write_baseline: str | None = _write_baseline_option(),
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
 ) -> None:
     result = analyze_apache_config(config_path)
     _output_result(
@@ -278,6 +290,7 @@ def analyze_apache(
         write_baseline,
         fail_on_new,
         group_by,
+        group_repeated,
     )
 
 
@@ -307,6 +320,7 @@ def analyze_lighttpd(
     write_baseline: str | None = _write_baseline_option(),
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
 ) -> None:
     result = analyze_lighttpd_config(
         config_path, execute_shell=execute_shell, host=host,
@@ -320,6 +334,7 @@ def analyze_lighttpd(
         write_baseline,
         fail_on_new,
         group_by,
+        group_repeated,
     )
 
 
@@ -357,6 +372,7 @@ def analyze_iis(
     write_baseline: str | None = _write_baseline_option(),
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
     if machine_config is not None:
@@ -376,6 +392,7 @@ def analyze_iis(
         write_baseline,
         fail_on_new,
         group_by,
+        group_repeated,
     )
 
 
@@ -435,6 +452,7 @@ def analyze_external(
     write_baseline: str | None = _write_baseline_option(),
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
 ) -> None:
     parsed_ports: tuple[int, ...] | None = None
     if ports is not None:
@@ -449,6 +467,7 @@ def analyze_external(
         write_baseline,
         fail_on_new,
         group_by,
+        group_repeated,
     )
 
 

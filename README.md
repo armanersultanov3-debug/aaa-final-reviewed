@@ -61,11 +61,16 @@ Every `analyze-*` command supports text (default) and JSON output:
 webconf-audit analyze-nginx config.conf --format json
 webconf-audit analyze-external example.com -f json
 webconf-audit analyze-nginx config.conf --group-by standard
+webconf-audit analyze-nginx config.conf --group-repeated
 ```
 
 The JSON envelope contains a generation timestamp, a summary, the
-per-target results, the deduplicated findings list, and the issues
-list.
+per-target results, the deduplicated findings list, repeated finding groups
+under `finding_groups`, and the issues list.
+
+Use `--group-repeated` with text output to collapse repeated findings that
+share the same rule, severity, recommendation, and report grouping cause while
+preserving each exact source location.
 
 ### CI gating
 
