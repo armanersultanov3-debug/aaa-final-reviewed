@@ -165,6 +165,212 @@ def test_ssl_honor_cipher_order_fires_when_honor_is_only_enabled_in_unrelated_sc
     assert _has_finding(result, "lighttpd.ssl_honor_cipher_order_missing")
 
 
+def test_ssl_protocol_policy_fires_when_ssl_enabled_without_protocol_policy(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_silent_when_min_protocol_is_modern(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_silent_when_protocol_lists_modern_versions(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "Protocol" => "TLSv1.2 TLSv1.3" )\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_weak_min_protocol(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.1" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_invalid_min_protocol_value(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.4" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_min_protocol_filters_protocol_all(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", "Protocol" => "ALL" )\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_protocol_all_without_min_protocol(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "Protocol" => "ALL" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_invalid_protocol_value(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "Protocol" => "BOGUS" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_protocol_minus_sslv3_without_min_protocol(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "Protocol" => "-SSLv3" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_min_protocol_filters_protocol_minus_sslv3(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", "Protocol" => "-SSLv3" )\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_reports_legacy_sslv3_enabled_without_min_protocol(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.use-sslv3 = "enable"\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_min_protocol_filters_legacy_sslv3_flag(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n'
+        + 'ssl.use-sslv3 = "enable"\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
+def test_ssl_protocol_policy_respects_host_filtered_conditional_scope(
+    tmp_path: Path,
+) -> None:
+    config = (
+        _BASE
+        + '$HTTP["host"] == "legacy.example.test" {\n'
+        + '    ssl.engine = "enable"\n'
+        + '    ssl.pemfile = "/c.pem"\n'
+        + '    ssl.honor-cipher-order = "enable"\n'
+        + '    ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.1" )\n'
+        + "}\n"
+        + '$HTTP["host"] == "modern.example.test" {\n'
+        + '    ssl.engine = "enable"\n'
+        + '    ssl.pemfile = "/c.pem"\n'
+        + '    ssl.honor-cipher-order = "enable"\n'
+        + '    ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n'
+        + "}\n"
+    )
+
+    legacy = _analyze_host(tmp_path, config, host="legacy.example.test")
+    modern = _analyze_host(tmp_path, config, host="modern.example.test")
+
+    assert _has_finding(legacy, "lighttpd.ssl_protocol_policy_missing_or_weak")
+    assert not _has_finding(modern, "lighttpd.ssl_protocol_policy_missing_or_weak")
+
+
 # ---------------------------------------------------------------------------
 # Security headers rules
 # ---------------------------------------------------------------------------

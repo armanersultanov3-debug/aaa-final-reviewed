@@ -233,6 +233,7 @@ def test_analyze_iis_config_export_fires_schannel_tls_policy_rules(
 
     rule_ids = {finding.rule_id for finding in result.findings}
     assert "iis.schannel_tls12_not_enabled" in rule_ids
+    assert "iis.schannel_weak_protocol_enabled" in rule_ids
     assert "iis.schannel_aes128_enabled" in rule_ids
     assert "iis.schannel_aes256_not_enabled" in rule_ids
     assert "iis.schannel_cipher_suite_order_not_preferred" in rule_ids
@@ -260,6 +261,7 @@ def test_analyze_iis_config_clean_export_has_no_schannel_tls_findings(
         "universal.weak_tls_protocol",
         "universal.weak_tls_ciphers",
         "iis.schannel_tls12_not_enabled",
+        "iis.schannel_weak_protocol_enabled",
         "iis.schannel_aes128_enabled",
         "iis.schannel_aes256_not_enabled",
         "iis.schannel_cipher_suite_order_not_preferred",

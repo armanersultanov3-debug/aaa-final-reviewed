@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **270**
+Total rules: **273**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (187), external (72), universal (11) |
-| Severity | high (13), medium (90), low (156), info (11) |
-| Input kind | ast (132), probe (72), effective (44), normalized (11), htaccess (6), mixed (5) |
+| Category | local (190), external (72), universal (11) |
+| Severity | high (13), medium (95), low (154), info (11) |
+| Input kind | ast (131), probe (72), effective (47), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 63
+Count: 64
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -138,7 +138,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_content_security_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: presence only) | CIS NGINX v3.0.0 §5.3.2 (partial: presence only) |
 | `nginx.missing_error_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: directive presence; does not validate `info` log level) |
 | `nginx.missing_hidden_files_deny` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.5.3 |
-| `nginx.missing_hsts_header` | low | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8 (partial: header presence only; does not validate HSTS policy value) |
+| `nginx.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8 (partial: header presence only; does not validate HSTS policy value) |
 | `nginx.missing_http2_on_tls_listener` | low | ast | - | - | - | - | - |
 | `nginx.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: scoped to sensitive locations and `limit_except`, not a full approved-method policy) |
 | `nginx.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: named HTTP server blocks only) | CIS NGINX v3.0.0 §4.1.1 (partial: local redirect directive check) |
@@ -160,7 +160,8 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_server_name` | low | ast | - | - | - | - | - |
 | `nginx.missing_ssl_certificate` | low | ast | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `nginx.missing_ssl_certificate_key` | low | ast | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
-| `nginx.missing_ssl_ciphers` | low | ast | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.5 (partial: directive presence; does not validate cipher list against the benchmark recommendation) |
+| `nginx.missing_ssl_ciphers` | medium | ast | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.5 (partial: directive presence; does not validate cipher list against the benchmark recommendation) |
+| `nginx.missing_ssl_protocols` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: protocol policy presence only) | CIS NGINX v3.0.0 §4.1.4 (partial: directive presence; weak values handled by `nginx.weak_ssl_protocols`) |
 | `nginx.missing_ssl_prefer_server_ciphers` | low | ast | - | [CWE-757](https://cwe.mitre.org/data/definitions/757.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `nginx.missing_x_content_type_options` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | CIS NGINX v3.0.0 §5.3.1 |
 | `nginx.missing_x_frame_options` | low | ast | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
@@ -250,8 +251,9 @@ Mapping rationale (nginx rules):
   establish TLS, so HTTPS to it fails: CWE-319, OWASP A02. As with the
   lighttpd `ssl_pemfile_missing` rule, the failure mode is connection
   refusal, not silent downgrade.
-- `missing_ssl_ciphers` -- relying on the OpenSSL default cipher list keeps
-  weak suites available on older builds: CWE-327, OWASP A02.
+- `missing_ssl_ciphers`, `missing_ssl_protocols` -- relying on the OpenSSL
+  default cipher list or implicit TLS protocol defaults can keep weak
+  cryptographic posture available on older builds: CWE-327, OWASP A02.
 - `missing_ssl_prefer_server_ciphers` -- letting the client drive cipher
   selection enables downgrade attacks: CWE-757 (less-secure algorithm during
   negotiation), OWASP A02.
@@ -270,7 +272,7 @@ Mapping rationale (nginx rules):
   rather than a vulnerability class; CWE empty, OWASP A05 (misconfig).
 - `ssl_stapling_without_verify` -- accepting OCSP responses without
   validation is CWE-295 (improper certificate validation), OWASP A02.
-- `weak_ssl_protocols` -- TLSv1.0 / TLSv1.1 / SSLv3 are textbook CWE-327,
+- `weak_ssl_protocols` -- SSLv2 / SSLv3 / TLSv1.0 / TLSv1.1 are textbook CWE-327,
   OWASP A02 (matches the universal `weak_tls_protocol` rule).
 - `large_client_header_buffers_too_restrictive` -- values below the
   Nginx default can reject legitimate request URIs or headers; this is an
@@ -547,7 +549,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 ### Lighttpd (Local)
 
-Count: 15
+Count: 16
 
 Stage 2 step 3 mapping: **complete** for this group. The CIS column is empty
 across the whole group: there is no official *CIS Lighttpd Benchmark*, so we
@@ -571,6 +573,7 @@ that would imply a benchmark mapping.
 | `lighttpd.ssl_engine_not_enabled` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.ssl_honor_cipher_order_missing` | medium | effective | tls | [CWE-757](https://cwe.mitre.org/data/definitions/757.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `lighttpd.ssl_pemfile_missing` | high | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
+| `lighttpd.ssl_protocol_policy_missing_or_weak` | medium | effective | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: local protocol policy only) | - |
 | `lighttpd.url_access_deny_missing` | medium | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.weak_ssl_cipher_list` | high | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | - |
 
@@ -612,6 +615,9 @@ Mapping rationale (lighttpd rules):
   fails outright. We keep CWE-319 / OWASP A02 because the rule still flags a
   broken cryptographic deployment, but the failure mode is connection refusal,
   not an automatic downgrade to plaintext.
+- `ssl_protocol_policy_missing_or_weak` -- TLS without an explicit modern
+  protocol policy, or with legacy SSL/TLS protocol versions enabled, leaves
+  cryptographic negotiation on weak defaults: CWE-327, OWASP A02.
 - `url_access_deny_missing` -- without `url.access-deny` for `.bak`, `.sql`,
   `.conf`, `.log`, the server can hand out backup/configuration files:
   CWE-538 (file and directory information exposure), OWASP A05.
@@ -621,7 +627,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 44
+Count: 45
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -649,6 +655,7 @@ archive PDFs remain historical context only.
 | `iis.missing_hsts_header` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: header presence only) |
 | `iis.forms_auth_require_ssl_missing` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS Microsoft IIS 10 v1.2.1 §2.3 |
 | `iis.schannel_tls12_not_enabled` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Microsoft IIS 10 v1.2.1 §7.6 (partial: SChannel registry/export evidence only) |
+| `iis.schannel_weak_protocol_enabled` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Microsoft IIS 10 v1.2.1 §7.1-§7.5 (partial: SChannel registry/export evidence only) |
 | `iis.schannel_aes128_enabled` | medium | mixed | tls | [CWE-326](https://cwe.mitre.org/data/definitions/326.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: registry cipher toggle only) | CIS Microsoft IIS 10 v1.2.1 §7.10 |
 | `iis.schannel_aes256_not_enabled` | medium | mixed | tls | [CWE-326](https://cwe.mitre.org/data/definitions/326.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: registry cipher toggle only) | CIS Microsoft IIS 10 v1.2.1 §7.11 |
 | `iis.schannel_cipher_suite_order_not_preferred` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: preferred-order prefix only) | CIS Microsoft IIS 10 v1.2.1 §7.12 (partial: validates CIS preferred prefix in `Functions`) |
@@ -719,6 +726,9 @@ Mapping rationale (iis rules):
 - `schannel_tls12_not_enabled` -- known SChannel protocol evidence without
   TLS 1.2 support leaves IIS below the benchmark transport baseline:
   CWE-327, OWASP A02.
+- `schannel_weak_protocol_enabled` -- known SChannel protocol evidence with
+  SSLv2, SSLv3, TLS 1.0, or TLS 1.1 enabled leaves IIS on legacy transport
+  negotiation: CWE-327, OWASP A02.
 - `schannel_aes128_enabled`, `schannel_aes256_not_enabled` -- known SChannel
   cipher toggle evidence that leaves AES 128/128 enabled or AES 256/256
   unavailable weakens the configured transport baseline: CWE-326, OWASP A02.
@@ -814,7 +824,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §4.8 | `covered` | `iis.handler_write_script_execute_enabled` detects handler `accessPolicy` values that grant Write together with Script or Execute; `iis.cgi_handler_enabled` remains an extra CGI handler signal. |
 | §4.11/§5.1/§5.3 | `host-depth` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |
-| §7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence; runtime negotiation evidence and complete source collection remain follow-up. |
+| §7.1-§7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_weak_protocol_enabled`, `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence; runtime negotiation evidence and complete source collection remain follow-up. |
 | CIS IIS 7/8 archive PDFs | `research` | Local archive PDFs are historical context only; they must not become primary references unless a future PR explicitly scopes legacy IIS. |
 
 ### External (Probe-based)
@@ -1013,12 +1023,12 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (63) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (64) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (65) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Lighttpd local rules (15)
-- [x] IIS local rules (44) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] Lighttpd local rules (16)
+- [x] IIS local rules (45) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (72) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates

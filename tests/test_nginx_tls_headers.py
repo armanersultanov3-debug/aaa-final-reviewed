@@ -17,6 +17,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
                 "listen 127.0.0.1:443 ssl http2;",
                 "ssl_certificate cert.pem;",
                 "ssl_certificate_key cert.key;",
+                "ssl_protocols TLSv1.2 TLSv1.3;",
                 'add_header Strict-Transport-Security "max-age=31536000";',
                 include_rate_limits=True,
             )
@@ -84,6 +85,204 @@ def test_analyze_nginx_config_does_not_treat_inherited_ssl_protocols_as_tls_inte
     assert not any(finding.rule_id == "nginx.missing_ssl_ciphers" for finding in result.findings)
 
 
+def test_analyze_nginx_config_reports_missing_ssl_protocols_for_tls_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    findings = [
+        finding for finding in result.findings if finding.rule_id == "nginx.missing_ssl_protocols"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity == "medium"
+    assert findings[0].location is not None
+    assert findings[0].location.line == 1
+
+
+def test_analyze_nginx_config_does_not_report_missing_ssl_protocols_when_present(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_ssl_protocols" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_missing_ssl_protocols_when_inherited(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_ssl_protocols" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_sslv2_and_sslv3_as_weak_protocols(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols SSLv2 SSLv3 TLSv1.2;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    findings = [
+        finding for finding in result.findings if finding.rule_id == "nginx.weak_ssl_protocols"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity == "medium"
+    description = findings[0].description
+    assert "SSLv2" in description
+    assert "SSLv3" in description
+    assert "TLSv1.2" in description
+
+
+def test_analyze_nginx_config_uses_server_ssl_protocols_override_for_weak_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_protocols TLSv1 TLSv1.2;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.weak_ssl_protocols" for finding in result.findings)
+
+
+def test_analyze_nginx_config_uses_last_ssl_protocols_value_for_weak_check(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1 TLSv1.2;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.weak_ssl_protocols" for finding in result.findings)
+
+
+def test_analyze_nginx_config_reports_inherited_weak_ssl_protocols_once(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_protocols TLSv1 TLSv1.2;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "    server {\n"
+        "        listen 8443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    findings = [
+        finding for finding in result.findings if finding.rule_id == "nginx.weak_ssl_protocols"
+    ]
+    assert len(findings) == 1
+    assert findings[0].location is not None
+    assert findings[0].location.line == 2
+
+
 def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
     tmp_path: Path,
 ) -> None:
@@ -94,6 +293,7 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
                 "listen 127.0.0.1:443 ssl http2;",
                 "ssl_certificate cert.pem;",
                 "ssl_certificate_key cert.key;",
+                "ssl_protocols TLSv1.2 TLSv1.3;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 "ssl_prefer_server_ciphers on;",
                 'add_header Strict-Transport-Security "max-age=31536000";',
