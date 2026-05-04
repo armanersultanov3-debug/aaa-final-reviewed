@@ -9,10 +9,14 @@ from webconf_audit.models import Finding
 
 
 def _finding_by_rule_id(result: AnalysisResult, rule_id: str) -> Finding:
-    for finding in result.findings:
-        if finding.rule_id == rule_id:
-            return finding
-    raise AssertionError(f"Missing expected finding {rule_id!r}")
+    matches = [finding for finding in result.findings if finding.rule_id == rule_id]
+    if not matches:
+        raise AssertionError(f"Missing expected finding {rule_id!r}")
+    if len(matches) > 1:
+        raise AssertionError(
+            f"Expected exactly one finding for {rule_id!r}, got {len(matches)}"
+        )
+    return matches[0]
 
 
 def test_analyze_nginx_config_reports_missing_client_max_body_size_when_missing(
@@ -703,6 +707,7 @@ def test_analyze_nginx_config_keeps_missing_limit_req_low_without_public_autoind
     assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.missing_limit_req")
     assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
 
 
 def test_analyze_nginx_config_raises_missing_limit_req_to_medium_for_public_autoindex(
@@ -822,6 +827,7 @@ def test_analyze_nginx_config_keeps_missing_limit_conn_low_without_public_autoin
     assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.missing_limit_conn")
     assert finding.severity == "low"
+    assert "severity_reason" not in finding.metadata
 
 
 def test_analyze_nginx_config_raises_missing_limit_conn_to_medium_for_public_autoindex(
