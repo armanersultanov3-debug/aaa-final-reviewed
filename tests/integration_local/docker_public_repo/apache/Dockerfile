@@ -1,6 +1,6 @@
 FROM httpd:2.4
 
-ARG PUBLIC_REPO_URL=https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git
+ARG PUBLIC_REPO_URL=https://github.com/Armanyich/external-tests.git
 ARG PUBLIC_REPO_REF=master
 ARG PUBLIC_REPO_CACHE_KEY=master
 
