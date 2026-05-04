@@ -402,6 +402,36 @@ class TestTextFormatter:
         assert "refs: CWE-327" in out
         assert "=== STANDARD OWASP TOP 10 (1) ===" in out
 
+    def test_standard_grouping_can_group_repeated_findings(self) -> None:
+        f1 = _finding(
+            rule_id="universal.weak_tls_protocol",
+            severity="medium",
+            title="Weak TLS/SSL protocols enabled",
+        )
+        f1.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=3)
+        f2 = _finding(
+            rule_id="universal.weak_tls_protocol",
+            severity="medium",
+            title="Weak TLS/SSL protocols enabled",
+        )
+        f2.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=27)
+        r = _result(findings=[f1, f2])
+
+        out = TextFormatter(group_by="standard", group_repeated=True).format(
+            ReportData(results=[r])
+        )
+
+        assert out.count("[universal.weak_tls_protocol] Weak TLS/SSL protocols enabled") == 3
+        assert out.count("findings: 2 repeated") == 3
+        assert "=== STANDARD CWE (2) ===" in out
+        assert "refs: CWE-327" in out
+        assert "=== STANDARD OWASP TOP 10 (2) ===" in out
+        assert "refs: A02:2021" in out
+        assert "=== STANDARD OWASP ASVS (2) ===" in out
+        assert "refs: v5.0.0-12.1.1" in out
+        assert "      - /sites/app.conf:3" in out
+        assert "      - /sites/app.conf:27" in out
+
 
 # ---------------------------------------------------------------------------
 # 7.1.2  JsonFormatter
@@ -467,7 +497,7 @@ class TestJsonFormatter:
         assert parsed["finding_groups"] == [
             {
                 "group_key": (
-                    "nginx.missing_hsts_header|medium|Missing HSTS header|desc|rec|"
+                    '["nginx.missing_hsts_header","medium","Missing HSTS header","desc","rec",""]'
                 ),
                 "rule_id": "nginx.missing_hsts_header",
                 "title": "Missing HSTS header",
@@ -492,6 +522,27 @@ class TestJsonFormatter:
                 ],
             }
         ]
+
+    def test_json_repeated_group_keys_do_not_collide_on_pipe_characters(self) -> None:
+        first_pair = [
+            _finding(rule_id="test.rule", severity="medium", title="a|b"),
+            _finding(rule_id="test.rule", severity="medium", title="a|b"),
+        ]
+        for finding in first_pair:
+            finding.description = "c"
+        second_pair = [
+            _finding(rule_id="test.rule", severity="medium", title="a"),
+            _finding(rule_id="test.rule", severity="medium", title="a"),
+        ]
+        for finding in second_pair:
+            finding.description = "b|c"
+        r = _result(findings=[*first_pair, *second_pair])
+
+        parsed = json.loads(JsonFormatter().format(ReportData(results=[r])))
+        group_keys = [group["group_key"] for group in parsed["finding_groups"]]
+
+        assert len(group_keys) == 2
+        assert len(set(group_keys)) == 2
 
     def test_json_empty_report(self) -> None:
         out = JsonFormatter().format(ReportData(results=[]))

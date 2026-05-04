@@ -483,7 +483,9 @@ def _result_section_lines(
         lines.extend(_multi_target_header_lines(result))
     lines.extend(_external_section_lines(result))
     if group_by == "standard":
-        lines.extend(_standard_section_lines(result_findings))
+        lines.extend(
+            _standard_section_lines(result_findings, group_repeated=group_repeated)
+        )
     else:
         lines.extend(
             _severity_section_lines(result_findings, group_repeated=group_repeated)
@@ -597,7 +599,7 @@ def _finding_group_key(finding: Finding) -> tuple[str, str, str, str, str, str]:
 
 
 def _finding_group_key_label(key: tuple[str, str, str, str, str, str]) -> str:
-    return "|".join(key)
+    return json.dumps(key, separators=(",", ":"), ensure_ascii=False)
 
 
 def _finding_group_cause(finding: Finding) -> str | None:
@@ -615,14 +617,21 @@ def _finding_note(finding: Finding) -> str | None:
     return None
 
 
-def _standard_section_lines(result_findings: list[Finding]) -> list[str]:
+def _standard_section_lines(
+    result_findings: list[Finding],
+    *,
+    group_repeated: bool = False,
+) -> list[str]:
     lines: list[str] = []
     groups = _findings_by_standard(result_findings)
     for standard in _ordered_standard_names(groups):
         entries = groups[standard]
         lines.append(f"=== STANDARD {standard.upper()} ({len(entries)}) ===")
-        for finding, refs in entries:
-            lines.extend(_standard_finding_lines(finding, refs))
+        if group_repeated:
+            lines.extend(_grouped_standard_finding_lines(entries))
+        else:
+            for finding, refs in entries:
+                lines.extend(_standard_finding_lines(finding, refs))
         lines.append("")
     return lines
 
@@ -650,6 +659,52 @@ def _ordered_standard_names(
     known = [name for name in _STANDARD_ORDER if name in groups]
     extra = sorted(name for name in groups if name not in _STANDARD_ORDER)
     return known + extra
+
+
+def _grouped_standard_finding_lines(
+    entries: list[tuple[Finding, tuple[StandardReference, ...]]],
+) -> list[str]:
+    lines: list[str] = []
+    for group in _standard_finding_groups(entries):
+        if len(group) == 1:
+            finding, refs = group[0]
+            lines.extend(_standard_finding_lines(finding, refs))
+        else:
+            lines.extend(_standard_repeated_finding_group_lines(group))
+    return lines
+
+
+def _standard_finding_groups(
+    entries: list[tuple[Finding, tuple[StandardReference, ...]]],
+) -> list[list[tuple[Finding, tuple[StandardReference, ...]]]]:
+    grouped: dict[
+        tuple[str, str, str, str, str, str],
+        list[tuple[Finding, tuple[StandardReference, ...]]],
+    ] = {}
+    for finding, refs in entries:
+        grouped.setdefault(_finding_group_key(finding), []).append((finding, refs))
+    return list(grouped.values())
+
+
+def _standard_repeated_finding_group_lines(
+    entries: list[tuple[Finding, tuple[StandardReference, ...]]],
+) -> list[str]:
+    first, refs = entries[0]
+    lines = [
+        f"  [{first.rule_id}] {first.title} ({first.severity})",
+    ]
+    if refs:
+        lines.append(f"    refs: {', '.join(_standard_ref_label(ref) for ref in refs)}")
+    lines.append(f"    findings: {len(entries)} repeated")
+    cause = _finding_group_cause(first)
+    if cause:
+        lines.append(f"    note: {cause}")
+    locations = [_finding_location_display(finding) for finding, _refs in entries]
+    lines.append(f"    locations ({len(locations)}):")
+    lines.extend(f"      - {location}" for location in locations)
+    lines.append(f"    description: {first.description}")
+    lines.append(f"    recommendation: {first.recommendation}")
+    return lines
 
 
 def _standard_finding_lines(
