@@ -240,6 +240,11 @@ Reports should also group repeated low-severity findings that share the same
 rule, recommendation, and effective cause, while preserving exact source
 locations in text and JSON output.
 
+Status: first implementation added opt-in text grouping via
+`--group-repeated` and JSON `finding_groups` that keep the original flat
+`findings` array intact. Next calibration work can decide when grouping should
+become default and which context-sensitive severities should be raised.
+
 ### External safe probe catalog
 
 The existing `analyze-external` mode already performs safe runtime probing,

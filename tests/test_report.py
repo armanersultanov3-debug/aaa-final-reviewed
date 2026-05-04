@@ -192,6 +192,43 @@ class TestTextFormatter:
         out = TextFormatter().format(ReportData(results=[r]))
         assert "/a.conf:10" in out
 
+    def test_repeated_findings_can_be_grouped_without_losing_locations(self) -> None:
+        f1 = _finding(
+            rule_id="nginx.missing_hsts_header",
+            severity="medium",
+            title="Missing HSTS header",
+        )
+        f1.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=3)
+        f2 = _finding(
+            rule_id="nginx.missing_hsts_header",
+            severity="medium",
+            title="Missing HSTS header",
+        )
+        f2.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=27)
+        r = _result(findings=[f1, f2])
+
+        out = TextFormatter(group_repeated=True).format(ReportData(results=[r]))
+
+        assert out.count("[nginx.missing_hsts_header] Missing HSTS header") == 1
+        assert "findings: 2 repeated" in out
+        assert "locations (2):" in out
+        assert "      - /sites/app.conf:3" in out
+        assert "      - /sites/app.conf:27" in out
+        assert out.count("description: desc") == 1
+        assert out.count("recommendation: rec") == 1
+
+    def test_repeated_grouping_keeps_different_recommendations_separate(self) -> None:
+        f1 = _finding(rule_id="nginx.missing_limit_req", severity="low")
+        f1.recommendation = "Configure limit_req."
+        f2 = _finding(rule_id="nginx.missing_limit_req", severity="low")
+        f2.recommendation = "Configure limit_conn."
+        r = _result(findings=[f1, f2])
+
+        out = TextFormatter(group_repeated=True).format(ReportData(results=[r]))
+
+        assert out.count("[nginx.missing_limit_req] Test finding") == 2
+        assert "findings: 2 repeated" not in out
+
     def test_issues_in_output(self) -> None:
         r = _result(issues=[_issue(code="E001", level="error", message="bad")])
         out = TextFormatter().format(ReportData(results=[r]))
@@ -408,6 +445,53 @@ class TestJsonFormatter:
         assert findings[0]["standards"] == []
         assert parsed["findings"][0]["fingerprint"] == findings[0]["fingerprint"]
         assert parsed["findings"][0]["standards"] == []
+
+    def test_json_includes_repeated_finding_groups_with_locations(self) -> None:
+        f1 = _finding(
+            rule_id="nginx.missing_hsts_header",
+            severity="medium",
+            title="Missing HSTS header",
+        )
+        f1.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=3)
+        f2 = _finding(
+            rule_id="nginx.missing_hsts_header",
+            severity="medium",
+            title="Missing HSTS header",
+        )
+        f2.location = SourceLocation(mode="local", kind="file", file_path="/sites/app.conf", line=27)
+        r = _result(findings=[f1, f2])
+
+        parsed = json.loads(JsonFormatter().format(ReportData(results=[r])))
+
+        assert len(parsed["findings"]) == 2
+        assert parsed["finding_groups"] == [
+            {
+                "group_key": (
+                    "nginx.missing_hsts_header|medium|Missing HSTS header|desc|rec|"
+                ),
+                "rule_id": "nginx.missing_hsts_header",
+                "title": "Missing HSTS header",
+                "severity": "medium",
+                "description": "desc",
+                "recommendation": "rec",
+                "count": 2,
+                "cause": None,
+                "locations": [
+                    {
+                        "target": "/etc/nginx/nginx.conf",
+                        "display": "/sites/app.conf:3",
+                        "location": f1.location.model_dump(),
+                        "fingerprint": parsed["findings"][0]["fingerprint"],
+                    },
+                    {
+                        "target": "/etc/nginx/nginx.conf",
+                        "display": "/sites/app.conf:27",
+                        "location": f2.location.model_dump(),
+                        "fingerprint": parsed["findings"][1]["fingerprint"],
+                    },
+                ],
+            }
+        ]
 
     def test_json_empty_report(self) -> None:
         out = JsonFormatter().format(ReportData(results=[]))

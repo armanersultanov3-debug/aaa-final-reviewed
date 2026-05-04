@@ -337,8 +337,14 @@ def format_location(location: SourceLocation | None) -> str | None:
 class TextFormatter:
     """Render ReportData as human-readable terminal output."""
 
-    def __init__(self, *, group_by: ReportGroupBy = "severity") -> None:
+    def __init__(
+        self,
+        *,
+        group_by: ReportGroupBy = "severity",
+        group_repeated: bool = False,
+    ) -> None:
         self.group_by = group_by
+        self.group_repeated = group_repeated
 
     def format(self, report: ReportData) -> str:
         summary = report.summary()
@@ -354,6 +360,7 @@ class TextFormatter:
                     result_findings,
                     multi=multi,
                     group_by=self.group_by,
+                    group_repeated=self.group_repeated,
                 )
             )
 
@@ -469,6 +476,7 @@ def _result_section_lines(
     *,
     multi: bool,
     group_by: ReportGroupBy = "severity",
+    group_repeated: bool = False,
 ) -> list[str]:
     lines: list[str] = []
     if multi:
@@ -477,7 +485,9 @@ def _result_section_lines(
     if group_by == "standard":
         lines.extend(_standard_section_lines(result_findings))
     else:
-        lines.extend(_severity_section_lines(result_findings))
+        lines.extend(
+            _severity_section_lines(result_findings, group_repeated=group_repeated)
+        )
     lines.extend(_issue_section_lines(result.issues))
     lines.extend(_diagnostic_section_lines(result.diagnostics))
     return lines
@@ -495,14 +505,21 @@ def _external_section_lines(result: AnalysisResult) -> list[str]:
     return ["External Summary:", *[f"- {line}" for line in ext_lines], ""]
 
 
-def _severity_section_lines(result_findings: list[Finding]) -> list[str]:
+def _severity_section_lines(
+    result_findings: list[Finding],
+    *,
+    group_repeated: bool = False,
+) -> list[str]:
     lines: list[str] = []
     by_severity = _findings_by_severity(result_findings)
     for severity in _ALL_SEVERITIES:
         group = by_severity[severity]
         lines.append(f"=== {severity.upper()} ({len(group)}) ===")
-        for finding in group:
-            lines.extend(_finding_lines(finding))
+        if group_repeated:
+            lines.extend(_grouped_finding_lines(group))
+        else:
+            for finding in group:
+                lines.extend(_finding_lines(finding))
         lines.append("")
     return lines
 
@@ -527,6 +544,68 @@ def _finding_lines(finding: Finding) -> list[str]:
     lines.append(f"    description: {finding.description}")
     lines.append(f"    recommendation: {finding.recommendation}")
     return lines
+
+
+def _grouped_finding_lines(findings: list[Finding]) -> list[str]:
+    lines: list[str] = []
+    for group in _finding_groups(findings):
+        if len(group) == 1:
+            lines.extend(_finding_lines(group[0]))
+        else:
+            lines.extend(_repeated_finding_group_lines(group))
+    return lines
+
+
+def _repeated_finding_group_lines(findings: list[Finding]) -> list[str]:
+    first = findings[0]
+    lines = [
+        f"  [{first.rule_id}] {first.title}",
+        f"    findings: {len(findings)} repeated",
+    ]
+    cause = _finding_group_cause(first)
+    if cause:
+        lines.append(f"    note: {cause}")
+    locations = [_finding_location_display(finding) for finding in findings]
+    lines.append(f"    locations ({len(locations)}):")
+    lines.extend(f"      - {location}" for location in locations)
+    lines.append(f"    description: {first.description}")
+    lines.append(f"    recommendation: {first.recommendation}")
+    return lines
+
+
+def _finding_location_display(finding: Finding) -> str:
+    return format_location(finding.location) or "no location"
+
+
+def _finding_groups(findings: list[Finding]) -> list[list[Finding]]:
+    grouped: dict[tuple[str, str, str, str, str, str], list[Finding]] = {}
+    for finding in findings:
+        grouped.setdefault(_finding_group_key(finding), []).append(finding)
+    return list(grouped.values())
+
+
+def _finding_group_key(finding: Finding) -> tuple[str, str, str, str, str, str]:
+    cause = _finding_group_cause(finding) or ""
+    return (
+        finding.rule_id,
+        finding.severity,
+        finding.title,
+        finding.description,
+        finding.recommendation,
+        cause,
+    )
+
+
+def _finding_group_key_label(key: tuple[str, str, str, str, str, str]) -> str:
+    return "|".join(key)
+
+
+def _finding_group_cause(finding: Finding) -> str | None:
+    for key in ("report_group", "noise_group", "effective_cause", "note"):
+        value = finding.metadata.get(key)
+        if isinstance(value, str) and value:
+            return value
+    return None
 
 
 def _finding_note(finding: Finding) -> str | None:
@@ -638,6 +717,7 @@ class JsonFormatter:
                 finding_payload(result, finding)
                 for result, finding in top_level_findings
             ],
+            "finding_groups": _repeated_finding_group_payloads(top_level_findings),
             "new_findings": _diff_entries(baseline_diff, "new_findings"),
             "resolved_findings": _diff_entries(baseline_diff, "resolved_findings"),
             "unchanged_findings": _diff_entries(baseline_diff, "unchanged_findings"),
@@ -673,6 +753,57 @@ def deduplicated_finding_pairs(results: list[AnalysisResult]) -> list[tuple[Anal
         )
     )
     return pairs
+
+
+def _repeated_finding_group_payloads(
+    finding_pairs: list[tuple[AnalysisResult, Finding]],
+) -> list[dict[str, object]]:
+    grouped: dict[
+        tuple[str, str, str, str, str, str],
+        list[tuple[AnalysisResult, Finding]],
+    ] = {}
+    for result, finding in finding_pairs:
+        grouped.setdefault(_finding_group_key(finding), []).append((result, finding))
+
+    return [
+        _repeated_finding_group_payload(key, entries)
+        for key, entries in grouped.items()
+        if len(entries) > 1
+    ]
+
+
+def _repeated_finding_group_payload(
+    key: tuple[str, str, str, str, str, str],
+    entries: list[tuple[AnalysisResult, Finding]],
+) -> dict[str, object]:
+    _result, first = entries[0]
+    cause = key[-1] or None
+    return {
+        "group_key": _finding_group_key_label(key),
+        "rule_id": first.rule_id,
+        "title": first.title,
+        "severity": first.severity,
+        "description": first.description,
+        "recommendation": first.recommendation,
+        "count": len(entries),
+        "cause": cause,
+        "locations": [
+            _finding_group_location_payload(result, finding)
+            for result, finding in entries
+        ],
+    }
+
+
+def _finding_group_location_payload(
+    result: AnalysisResult,
+    finding: Finding,
+) -> dict[str, object]:
+    return {
+        "target": result.target,
+        "display": _finding_location_display(finding),
+        "location": finding.location.model_dump() if finding.location else None,
+        "fingerprint": finding_fingerprint(result, finding),
+    }
 
 
 def _result_payload(result: AnalysisResult) -> dict[str, object]:

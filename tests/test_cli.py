@@ -247,6 +247,58 @@ def test_analyze_cli_can_group_text_by_standard(monkeypatch) -> None:
     assert "=== STANDARD OWASP TOP 10 (1) ===" in result.stdout
 
 
+def test_analyze_cli_can_group_repeated_text_findings(monkeypatch) -> None:
+    def fake_analyze_nginx_config(config_path: str) -> AnalysisResult:
+        return AnalysisResult(
+            mode="local",
+            target=config_path,
+            server_type="nginx",
+            findings=[
+                Finding(
+                    rule_id="nginx.missing_hsts_header",
+                    title="Missing HSTS header",
+                    severity="medium",
+                    description="desc",
+                    recommendation="rec",
+                    location=SourceLocation(
+                        mode="local",
+                        kind="file",
+                        file_path="/sites/app.conf",
+                        line=3,
+                    ),
+                ),
+                Finding(
+                    rule_id="nginx.missing_hsts_header",
+                    title="Missing HSTS header",
+                    severity="medium",
+                    description="desc",
+                    recommendation="rec",
+                    location=SourceLocation(
+                        mode="local",
+                        kind="file",
+                        file_path="/sites/app.conf",
+                        line=27,
+                    ),
+                ),
+            ],
+            issues=[],
+        )
+
+    monkeypatch.setattr("webconf_audit.cli.analyze_nginx_config", fake_analyze_nginx_config)
+
+    result = runner.invoke(
+        app,
+        ["analyze-nginx", "nginx.conf", "--group-repeated"],
+    )
+
+    assert result.exit_code == 0
+    assert result.stdout.count("[nginx.missing_hsts_header] Missing HSTS header") == 1
+    assert "findings: 2 repeated" in result.stdout
+    assert "locations (2):" in result.stdout
+    assert "      - /sites/app.conf:3" in result.stdout
+    assert "      - /sites/app.conf:27" in result.stdout
+
+
 def test_analyze_nginx_cli_prints_issues_section(monkeypatch) -> None:
     def fake_analyze_nginx_config(config_path: str) -> AnalysisResult:
         return AnalysisResult(
