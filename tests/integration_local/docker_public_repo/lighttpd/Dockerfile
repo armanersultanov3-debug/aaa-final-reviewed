@@ -30,7 +30,7 @@ RUN echo "${PUBLIC_REPO_CACHE_KEY}" \
     && git -C /opt/webconf-audit-src fetch --depth 1 origin "${PUBLIC_REPO_REF}" \
     && git -C /opt/webconf-audit-src checkout --detach FETCH_HEAD \
     && actual_commit="$(git -C /opt/webconf-audit-src rev-parse HEAD)" \
-    && test -z "${PUBLIC_REPO_CACHE_KEY}" || test "${actual_commit}" = "${PUBLIC_REPO_CACHE_KEY}" \
+    && { test -z "${PUBLIC_REPO_CACHE_KEY}" || test "${actual_commit}" = "${PUBLIC_REPO_CACHE_KEY}"; } \
     && /opt/webconf-audit-venv/bin/pip install --upgrade pip \
     && /opt/webconf-audit-venv/bin/pip install /opt/webconf-audit-src
 
