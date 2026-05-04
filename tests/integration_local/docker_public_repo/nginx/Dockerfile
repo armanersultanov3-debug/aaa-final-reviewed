@@ -1,8 +1,6 @@
 FROM nginx:1.27
 
 ARG PUBLIC_REPO_URL=https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git
-ARG PUBLIC_REPO_REF=master
-ARG PUBLIC_REPO_CACHE_KEY=master
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -16,10 +14,6 @@ RUN python3 -m venv /opt/webconf-audit-venv
 
 ENV PATH="/opt/webconf-audit-venv/bin:${PATH}"
 
-RUN echo "${PUBLIC_REPO_CACHE_KEY}" \
-    && git init /opt/webconf-audit-src \
-    && git -C /opt/webconf-audit-src remote add origin "${PUBLIC_REPO_URL}" \
-    && git -C /opt/webconf-audit-src fetch --depth 1 origin "${PUBLIC_REPO_REF}" \
-    && git -C /opt/webconf-audit-src checkout --detach FETCH_HEAD \
+RUN git clone --depth 1 --branch master "${PUBLIC_REPO_URL}" /opt/webconf-audit-src \
     && /opt/webconf-audit-venv/bin/pip install --upgrade pip \
     && /opt/webconf-audit-venv/bin/pip install /opt/webconf-audit-src
