@@ -161,7 +161,7 @@ function Resolve-SafeSampleId {
     return $sampleId
 }
 
-function Build-AnalyzerArgs {
+function Get-AnalyzerArgumentList {
     param(
         [pscustomobject]$Sample,
         [string]$ConfigPath,
@@ -221,9 +221,9 @@ $failedSamples = @()
 foreach ($sample in $metadata.samples) {
     $configPath = Resolve-DatasetFile $sample.entrypoint
     $sampleId = Resolve-SafeSampleId $sample.id
-    Write-Host "== $sampleId =="
+    Write-Output "== $sampleId =="
 
-    $textCommand = @($pythonExe) + (Build-AnalyzerArgs -Sample $sample -ConfigPath $configPath)
+    $textCommand = @($pythonExe) + (Get-AnalyzerArgumentList -Sample $sample -ConfigPath $configPath)
     $textResult = Invoke-SampleCommand -Command $textCommand
     $textReportPath = Join-Path $reportsDir "$sampleId.txt"
     Save-Utf8NoBom $textReportPath $textResult.Output
@@ -233,7 +233,7 @@ foreach ($sample in $metadata.samples) {
         $failedSamples += "${sampleId}:text"
     }
 
-    $jsonCommand = @($pythonExe) + (Build-AnalyzerArgs -Sample $sample -ConfigPath $configPath -Json)
+    $jsonCommand = @($pythonExe) + (Get-AnalyzerArgumentList -Sample $sample -ConfigPath $configPath -Json)
     $jsonResult = Invoke-SampleCommand -Command $jsonCommand
     $jsonReportPath = Join-Path $reportsDir "$sampleId.json"
     Save-Utf8NoBom $jsonReportPath $jsonResult.Output
@@ -244,12 +244,12 @@ foreach ($sample in $metadata.samples) {
     }
 }
 
-Write-Host ""
-Write-Host "Reports saved under: $reportsDir"
+Write-Output ""
+Write-Output "Reports saved under: $reportsDir"
 
 if ($failedSamples.Count -gt 0) {
     Write-Warning "Failed sample runs: $($failedSamples -join ', ')"
     exit 1
 }
 
-Write-Host "All real-world-like config samples were analyzed successfully."
+Write-Output "All real-world-like config samples were analyzed successfully."
