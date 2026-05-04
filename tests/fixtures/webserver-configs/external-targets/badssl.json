@@ -1,0 +1,42 @@
+{
+  "description": "Optional external reference smoke tests. These are skipped unless RUN_EXTERNAL_TESTS=1.",
+  "safety": "Targets are public TLS test endpoints intentionally operated for validation. Tests use single-target external analysis with scan_ports=False.",
+  "targets": [
+    {
+      "id": "badssl-expired-certificate",
+      "url": "https://expired.badssl.com/",
+      "source": "badssl.com",
+      "source_url": "https://badssl.com/",
+      "expected_findings": [
+        {
+          "rule_id": "external.certificate_expired",
+          "severity": "high"
+        }
+      ]
+    },
+    {
+      "id": "badssl-self-signed-certificate",
+      "url": "https://self-signed.badssl.com/",
+      "source": "badssl.com",
+      "source_url": "https://badssl.com/",
+      "expected_findings": [
+        {
+          "rule_id": "external.tls_certificate_self_signed",
+          "severity": "medium"
+        }
+      ]
+    },
+    {
+      "id": "badssl-tls-v1-0",
+      "url": "https://tls-v1-0.badssl.com:1010/",
+      "source": "badssl.com",
+      "source_url": "https://badssl.com/",
+      "expected_findings": [
+        {
+          "rule_id": "external.tls_1_0_supported",
+          "severity": "high"
+        }
+      ]
+    }
+  ]
+}

@@ -245,6 +245,11 @@ checks is provided in `demo/local_admin/`. See
 [demo/local_admin/README.md](demo/local_admin/README.md) for the
 full walkthrough.
 
+A separate defensive validation dataset with public-source-derived config
+fixtures lives in [demo/real_world_configs/](demo/real_world_configs/).
+Security-focused known-bad/known-good fixture testing is documented in
+[docs/testing-real-world-configs.md](docs/testing-real-world-configs.md).
+
 ## Roadmap
 
 The current development plan is tracked in

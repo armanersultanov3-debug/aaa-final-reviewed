@@ -1,0 +1,346 @@
+{
+  "description": "Security-focused web server configuration corpus for local static analyzer validation.",
+  "safety": "All configs are local fixtures. They do not contain secrets and do not target live third-party infrastructure.",
+  "cases": [
+    {
+      "id": "nginx-detectify-off-by-slash-alias",
+      "server_type": "nginx",
+      "profile": "vulnerable",
+      "source": "Detectify vulnerable-nginx and alias traversal research",
+      "source_url": "https://github.com/detectify/vulnerable-nginx",
+      "license": "No obvious repository license was used for copying; this is a small synthetic-derived fixture based on the public vulnerability pattern.",
+      "description": "Alias/proxy path shape inspired by common Nginx off-by-slash and alias traversal examples.",
+      "entrypoint": "nginx/vulnerable/detectify-off-by-slash-alias.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Domains, paths, and upstreams are placeholders. The fixture is minimized to exercise webconf-audit rule IDs rather than reproduce a full vulnerable app.",
+      "references": [
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/",
+        "https://github.com/detectify/vulnerable-nginx",
+        "https://github.com/tkmru/nginx-alias-traversal-sample"
+      ],
+      "coverage_notes": [
+        "webconf-audit currently detects the location-slash/alias-no-slash variant as nginx.alias_without_trailing_slash.",
+        "The classic Gixy alias_traversal shape is kept as a reference gap in the documentation."
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "nginx.alias_without_trailing_slash",
+          "severity": "low",
+          "title_contains": "Alias",
+          "location_contains": "detectify-off-by-slash-alias.conf"
+        },
+        {
+          "rule_id": "nginx.default_server_not_rejecting_unknown_hosts",
+          "severity": "low",
+          "location_contains": "detectify-off-by-slash-alias.conf"
+        },
+        {
+          "rule_id": "nginx.proxy_missing_source_ip_headers",
+          "severity": "low",
+          "location_contains": "detectify-off-by-slash-alias.conf"
+        },
+        {
+          "rule_id": "nginx.sensitive_location_missing_ip_filter",
+          "severity": "low",
+          "location_contains": "detectify-off-by-slash-alias.conf"
+        }
+      ]
+    },
+    {
+      "id": "nginx-vulhub-crlf-autoindex",
+      "server_type": "nginx",
+      "profile": "vulnerable",
+      "source": "Vulhub Nginx insecure-configuration examples",
+      "source_url": "https://github.com/vulhub/vulhub/tree/master/nginx/insecure-configuration",
+      "license": "Vulhub repository is MIT licensed; this is a synthetic-derived fixture, not a copied challenge file.",
+      "description": "CRLF-style redirect, autoindex, server token disclosure, and missing browser security headers.",
+      "entrypoint": "nginx/vulnerable/vulhub-crlf-autoindex.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The redirect is retained as a reference shape, but expected assertions target rules currently implemented by webconf-audit.",
+      "references": [
+        "https://github.com/vulhub/vulhub/tree/master/nginx/insecure-configuration",
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/"
+      ],
+      "coverage_notes": [
+        "HTTP response splitting through return ... $uri is documented as a reference class; this rule is not currently implemented by webconf-audit."
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "nginx.autoindex_on",
+          "severity": "medium",
+          "title_contains": "Autoindex",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        },
+        {
+          "rule_id": "nginx.server_tokens_on",
+          "severity": "low",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        },
+        {
+          "rule_id": "nginx.missing_x_content_type_options",
+          "severity": "low",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        },
+        {
+          "rule_id": "nginx.missing_content_security_policy",
+          "severity": "low",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        }
+      ]
+    },
+    {
+      "id": "nginx-devsec-cis-weak-tls",
+      "server_type": "nginx",
+      "profile": "vulnerable",
+      "source": "DevSec nginx-baseline and CIS/NIST hardening guidance",
+      "source_url": "https://github.com/dev-sec/nginx-baseline",
+      "license": "Apache-2.0 for DevSec baseline references; CIS/NIST used only as rule-category reference.",
+      "description": "TLS server with legacy protocols and incomplete TLS hardening controls.",
+      "entrypoint": "nginx/vulnerable/devsec-cis-weak-tls.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Certificate paths are placeholders and no private keys are included.",
+      "references": [
+        "https://github.com/dev-sec/nginx-baseline",
+        "https://nvd.nist.gov/ncp/checklist/774",
+        "https://ssl-config.mozilla.org/"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "nginx.weak_ssl_protocols",
+          "severity": "medium",
+          "location_contains": "devsec-cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "nginx.missing_http2_on_tls_listener",
+          "severity": "low",
+          "location_contains": "devsec-cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "nginx.missing_ssl_prefer_server_ciphers",
+          "severity": "low",
+          "location_contains": "devsec-cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "nginx.missing_hsts_header",
+          "severity": "low",
+          "location_contains": "devsec-cis-weak-tls.conf"
+        }
+      ]
+    },
+    {
+      "id": "nginx-gixy-proxy-sensitive-locations",
+      "server_type": "nginx",
+      "profile": "vulnerable",
+      "source": "Gixy rule concepts and Nginx proxy hardening references",
+      "source_url": "https://github.com/yandex/gixy",
+      "license": "MPL-2.0 source repository used as reference; this fixture is synthetic-derived.",
+      "description": "Reverse proxy and sensitive location example with missing access controls and rate limits.",
+      "entrypoint": "nginx/vulnerable/gixy-proxy-sensitive-locations.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Uses placeholder upstreams and localhost-only internal names.",
+      "references": [
+        "https://github.com/yandex/gixy",
+        "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-ope-to-attack/"
+      ],
+      "coverage_notes": [
+        "User-controlled proxy_pass SSRF and Host header spoofing are represented as reference classes; expected assertions focus on implemented proxy and sensitive-location rules."
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "nginx.proxy_missing_source_ip_headers",
+          "severity": "low",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        },
+        {
+          "rule_id": "nginx.missing_access_restrictions_on_sensitive_locations",
+          "severity": "low",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        },
+        {
+          "rule_id": "nginx.missing_limit_req",
+          "severity": "low",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        },
+        {
+          "rule_id": "nginx.missing_limit_conn",
+          "severity": "low",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        }
+      ]
+    },
+    {
+      "id": "nginx-mozilla-modern-secure-baseline",
+      "server_type": "nginx",
+      "profile": "secure",
+      "source": "Mozilla SSL Configuration Generator and OWASP Secure Headers Project",
+      "source_url": "https://ssl-config.mozilla.org/",
+      "license": "Mozilla generator output and OWASP references used as guidance; this fixture is synthetic-derived.",
+      "description": "Positive-control Nginx baseline with modern TLS, explicit headers, limits, and rejecting default server.",
+      "entrypoint": "nginx/secure/mozilla-modern-baseline.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Placeholder certificate paths are used. The test asserts no high or critical findings rather than zero findings.",
+      "references": [
+        "https://ssl-config.mozilla.org/",
+        "https://owasp.org/www-project-secure-headers/"
+      ],
+      "expected_findings": [],
+      "expected_absent_rule_ids": [
+        "nginx.weak_ssl_protocols",
+        "nginx.default_server_not_rejecting_unknown_hosts",
+        "nginx.server_tokens_on",
+        "nginx.autoindex_on"
+      ]
+    },
+    {
+      "id": "apache-devsec-indexes-status",
+      "server_type": "apache",
+      "profile": "vulnerable",
+      "source": "DevSec apache-baseline and Apache Security Tips",
+      "source_url": "https://github.com/dev-sec/apache-baseline",
+      "license": "Apache-2.0 for DevSec baseline references; Apache docs are Apache-2.0.",
+      "description": "Apache configuration with directory listing, broad overrides, exposed server-status, CGI/SSI, and version disclosure.",
+      "entrypoint": "apache/vulnerable/devsec-indexes-status.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Module paths are omitted because webconf-audit statically analyzes directives and does not run httpd.",
+      "references": [
+        "https://github.com/dev-sec/apache-baseline",
+        "https://httpd.apache.org/docs/2.4/misc/security_tips.html",
+        "https://www.cisecurity.org/benchmark/apache_http_server"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "apache.options_indexes",
+          "severity": "medium",
+          "location_contains": "devsec-indexes-status.conf"
+        },
+        {
+          "rule_id": "apache.server_tokens_not_prod",
+          "severity": "low",
+          "location_contains": "devsec-indexes-status.conf"
+        },
+        {
+          "rule_id": "apache.server_signature_not_off",
+          "severity": "low",
+          "location_contains": "devsec-indexes-status.conf"
+        },
+        {
+          "rule_id": "apache.server_status_exposed",
+          "severity": "low",
+          "location_contains": "devsec-indexes-status.conf"
+        },
+        {
+          "rule_id": "apache.options_execcgi_enabled",
+          "severity": "low",
+          "location_contains": "devsec-indexes-status.conf"
+        }
+      ]
+    },
+    {
+      "id": "apache-cis-weak-tls",
+      "server_type": "apache",
+      "profile": "vulnerable",
+      "source": "CIS Apache HTTP Server Benchmark and SSL Labs/testssl TLS categories",
+      "source_url": "https://www.cisecurity.org/benchmark/apache_http_server",
+      "license": "Benchmark and TLS references used only as rule-category guidance; this fixture is synthetic-derived.",
+      "description": "TLS virtual host with legacy protocols, weak ciphers, compression, and insecure renegotiation.",
+      "entrypoint": "apache/vulnerable/cis-weak-tls.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Certificate/key paths are placeholders and no cryptographic material is committed.",
+      "references": [
+        "https://www.cisecurity.org/benchmark/apache_http_server",
+        "https://github.com/testssl/testssl.sh",
+        "https://www.ssllabs.com/downloads/SSL_Server_Rating_Guide.pdf"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "apache.ssl_protocol_missing_or_weak",
+          "severity": "medium",
+          "location_contains": "cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "apache.ssl_cipher_suite_weak",
+          "severity": "medium",
+          "location_contains": "cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "apache.ssl_compression_enabled",
+          "severity": "medium",
+          "location_contains": "cis-weak-tls.conf"
+        },
+        {
+          "rule_id": "apache.ssl_insecure_renegotiation_enabled",
+          "severity": "high",
+          "location_contains": "cis-weak-tls.conf"
+        }
+      ]
+    },
+    {
+      "id": "apache-htaccess-cgi-rewrite",
+      "server_type": "apache",
+      "profile": "vulnerable",
+      "source": "Apache .htaccess documentation and Apache Security Tips",
+      "source_url": "https://httpd.apache.org/docs/2.4/howto/htaccess.html",
+      "license": "Apache HTTP Server documentation is Apache-2.0; this fixture is synthetic-derived.",
+      "description": ".htaccess override scenario with directory listing, CGI, broad rewrite, and disabled headers.",
+      "entrypoint": "apache/vulnerable/htaccess-cgi-rewrite/httpd.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The .htaccess file is intentionally small and contains no credentials.",
+      "references": [
+        "https://httpd.apache.org/docs/2.4/howto/htaccess.html",
+        "https://httpd.apache.org/docs/2.4/misc/security_tips.html"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "apache.allowoverride_all_in_directory",
+          "severity": "medium",
+          "location_contains": "htaccess-cgi-rewrite"
+        },
+        {
+          "rule_id": "apache.htaccess_enables_directory_listing",
+          "severity": "medium",
+          "location_contains": ".htaccess"
+        },
+        {
+          "rule_id": "apache.htaccess_enables_cgi",
+          "severity": "medium",
+          "location_contains": ".htaccess"
+        },
+        {
+          "rule_id": "apache.htaccess_rewrite_without_limit",
+          "severity": "low",
+          "location_contains": ".htaccess"
+        },
+        {
+          "rule_id": "apache.htaccess_disables_security_headers",
+          "severity": "medium",
+          "location_contains": ".htaccess"
+        }
+      ]
+    },
+    {
+      "id": "apache-mozilla-modern-secure-baseline",
+      "server_type": "apache",
+      "profile": "secure",
+      "source": "Mozilla SSL Configuration Generator, OWASP Secure Headers Project, and Apache Security Tips",
+      "source_url": "https://ssl-config.mozilla.org/",
+      "license": "Mozilla generator, OWASP, and Apache docs used as guidance; this fixture is synthetic-derived.",
+      "description": "Positive-control Apache baseline with modern TLS, security headers, restricted Directory options, and conservative server disclosure.",
+      "entrypoint": "apache/secure/mozilla-modern-baseline.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The test asserts no high or critical findings; some medium hardening heuristics may still evolve over time.",
+      "references": [
+        "https://ssl-config.mozilla.org/",
+        "https://owasp.org/www-project-secure-headers/",
+        "https://httpd.apache.org/docs/2.4/misc/security_tips.html"
+      ],
+      "expected_findings": [],
+      "expected_absent_rule_ids": [
+        "apache.ssl_insecure_renegotiation_enabled",
+        "apache.ssl_protocol_missing_or_weak",
+        "apache.ssl_cipher_suite_weak",
+        "apache.options_indexes",
+        "apache.server_status_exposed"
+      ]
+    }
+  ]
+}
