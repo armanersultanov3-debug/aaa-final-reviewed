@@ -190,6 +190,18 @@ def test_options_minus_indexes():
     assert cfg.scopes[0].access_policy.directory_listing is False
 
 
+def test_options_negative_token_wins_in_normalized_output():
+    ast = ApacheConfigAst(nodes=[_dir("Options", ["Indexes", "-Indexes"])])
+    cfg = normalize_apache(ast)
+    assert cfg.scopes[0].access_policy.directory_listing is False
+
+
+def test_options_positive_token_wins_in_normalized_output():
+    ast = ApacheConfigAst(nodes=[_dir("Options", ["-Indexes", "Indexes"])])
+    cfg = normalize_apache(ast)
+    assert cfg.scopes[0].access_policy.directory_listing is True
+
+
 def test_server_tokens_prod():
     ast = ApacheConfigAst(nodes=[_dir("ServerTokens", ["Prod"])])
     cfg = normalize_apache(ast)

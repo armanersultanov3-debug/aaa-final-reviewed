@@ -8,15 +8,27 @@ from webconf_audit.local.nginx.parser.ast import (
 from webconf_audit.models import Finding, SourceLocation
 
 
-def find_server_add_headers(server_block: BlockNode) -> list[DirectiveNode]:
-    return find_child_directives(server_block, "add_header")
+def find_server_add_headers(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]] | None = None,
+) -> list[DirectiveNode]:
+    server_headers = find_child_directives(server_block, "add_header")
+    if server_headers:
+        return server_headers
+    if inherited_directives is None:
+        return []
+    return inherited_directives.get("add_header", [])
 
 
-def server_has_header(server_block: BlockNode, header_name: str) -> bool:
+def server_has_header(
+    server_block: BlockNode,
+    header_name: str,
+    inherited_directives: dict[str, list[DirectiveNode]] | None = None,
+) -> bool:
     wanted = header_name.lower()
     return any(
         directive.args and directive.args[0].lower() == wanted
-        for directive in find_server_add_headers(server_block)
+        for directive in find_server_add_headers(server_block, inherited_directives)
     )
 
 
@@ -24,6 +36,7 @@ def server_header_contains_value(
     server_block: BlockNode,
     header_name: str,
     value: str,
+    inherited_directives: dict[str, list[DirectiveNode]] | None = None,
 ) -> bool:
     normalized_value = value.strip('"')
     wanted = header_name.lower()
@@ -32,7 +45,7 @@ def server_header_contains_value(
         len(directive.args) >= 2
         and directive.args[0].lower() == wanted
         and any(arg.strip('"') == normalized_value for arg in directive.args[1:])
-        for directive in find_server_add_headers(server_block)
+        for directive in find_server_add_headers(server_block, inherited_directives)
     )
 
 

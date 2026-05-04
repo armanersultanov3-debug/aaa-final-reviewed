@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes
+from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
     server_header_contains_value,
@@ -39,19 +40,34 @@ _RECOMMENDATION = (
 def find_missing_x_frame_options(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_x_frame_options_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"add_header"},
+    ):
+        finding = _find_missing_x_frame_options_in_server(server_block, inherited_directives)
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_x_frame_options_in_server(server_block: BlockNode) -> Finding | None:
+def _find_missing_x_frame_options_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
     has_valid_x_frame_options = (
-        server_header_contains_value(server_block, "X-Frame-Options", "DENY")
-        or server_header_contains_value(server_block, "X-Frame-Options", "SAMEORIGIN")
+        server_header_contains_value(
+            server_block,
+            "X-Frame-Options",
+            "DENY",
+            inherited_directives,
+        )
+        or server_header_contains_value(
+            server_block,
+            "X-Frame-Options",
+            "SAMEORIGIN",
+            inherited_directives,
+        )
     )
 
     if has_valid_x_frame_options:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes
+from webconf_audit.local.nginx.parser.ast import ConfigAst
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import find_server_add_headers
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
@@ -27,10 +28,11 @@ _UNSAFE_SCRIPT_TOKENS = {"'unsafe-inline'", "'unsafe-eval'", "unsafe-inline", "u
 def find_content_security_policy_unsafe(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if not isinstance(node, BlockNode) or node.name != "server":
-            continue
-        for directive in find_server_add_headers(node):
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"add_header"},
+    ):
+        for directive in find_server_add_headers(server_block, inherited_directives):
             if not directive.args or directive.args[0].lower() != "content-security-policy":
                 continue
             policy = _header_value(directive.args)

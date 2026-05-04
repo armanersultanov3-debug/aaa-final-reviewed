@@ -36,6 +36,7 @@ class IISEffectiveSection:
     children: list[IISChildElement]
     location_path: str | None
     origin_chain: list[IISSourceRef]
+    child_operations: list[IISChildElement] = field(default_factory=list)
 
     @property
     def source(self) -> IISSourceRef:
@@ -165,12 +166,14 @@ def _merge_location_section_overrides(
 ) -> IISEffectiveSection:
     base_attrs = dict(base.attributes) if base else {}
     base_children = list(base.children) if base else []
+    base_child_operations = list(base.child_operations) if base else []
     base_origin = list(base.origin_chain) if base else []
     return _merge_sections(
         overrides,
         location_path=location_path,
         base_attrs=base_attrs,
         base_children=base_children,
+        base_child_operations=base_child_operations,
         base_origin=base_origin,
     )
 
@@ -195,17 +198,20 @@ def _merge_sections(
     location_path: str | None,
     base_attrs: dict[str, str] | None = None,
     base_children: list[IISChildElement] | None = None,
+    base_child_operations: list[IISChildElement] | None = None,
     base_origin: list[IISSourceRef] | None = None,
 ) -> IISEffectiveSection:
     """Merge multiple raw sections into one effective section."""
     attrs = dict(base_attrs) if base_attrs else {}
     children = list(base_children) if base_children else []
+    child_operations = list(base_child_operations) if base_child_operations else []
     origin = list(base_origin) if base_origin else []
     tag = sections[-1].tag
 
     for section in sections:
         attrs.update(section.attributes)
         origin.append(section.source)
+        child_operations.extend(section.children)
         children = _merge_children(children, section.children)
 
     suffix = _section_suffix(sections[-1].xml_path)
@@ -216,6 +222,7 @@ def _merge_sections(
         children=children,
         location_path=location_path,
         origin_chain=origin,
+        child_operations=child_operations,
     )
 
 
@@ -356,7 +363,12 @@ def _merge_effective_section_pair(
     """Merge two effective sections where override children already won locally."""
     attrs = dict(base.attributes)
     attrs.update(override.attributes)
-    children = list(override.children)
+    child_operations = (
+        override.child_operations
+        if override.child_operations
+        else override.children
+    )
+    children = _merge_children(base.children, child_operations)
     origin = list(base.origin_chain) + list(override.origin_chain)
     return IISEffectiveSection(
         tag=override.tag,
@@ -365,6 +377,7 @@ def _merge_effective_section_pair(
         children=children,
         location_path=location_path if location_path is not None else override.location_path,
         origin_chain=origin,
+        child_operations=list(base.child_operations) + list(child_operations),
     )
 
 
@@ -393,6 +406,7 @@ def _clone_effective_section(
         children=list(section.children),
         location_path=location_path if location_path is not None else section.location_path,
         origin_chain=list(section.origin_chain),
+        child_operations=list(section.child_operations),
     )
 
 

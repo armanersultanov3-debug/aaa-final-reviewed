@@ -3,8 +3,13 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
+    DirectiveNode,
     find_child_directives,
     iter_nodes,
+)
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
@@ -25,17 +30,22 @@ RULE_ID = "nginx.missing_limit_conn"
 def find_missing_limit_conn(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_limit_conn_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"limit_conn"},
+    ):
+        finding = _find_missing_limit_conn_in_server(server_block, inherited_directives)
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_limit_conn_in_server(server_block: BlockNode) -> Finding | None:
-    if find_child_directives(server_block, "limit_conn"):
+def _find_missing_limit_conn_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
+    if effective_child_directives(server_block, "limit_conn", inherited_directives):
         return None
 
     if _server_has_location_limit_conn(server_block):

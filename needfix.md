@@ -4,6 +4,30 @@ Confirmed analyzer precision issues moved out of `docs/roadmap.md` on
 2026-05-04. These are not offensive findings; they are correctness and report
 quality bugs in static configuration analysis.
 
+## Resolution Status
+
+Implemented in `codex/fix-effective-scope-semantics`:
+
+- Fixed the confirmed Nginx inherited/effective directive bugs for access logs,
+  error logs, rate/connection limits, inherited security headers, and inherited
+  TLS ciphers.
+- Kept the already-fixed Nginx last-wins coverage for
+  `ssl_prefer_server_ciphers`, stapling resolver/verify, and HTTP/2, and added
+  the related inherited-policy regression coverage where it was missing.
+- Fixed Lighttpd missing logging/header rules so host-conditional directives no
+  longer suppress findings for unrelated hosts or the default no-host analysis.
+- Fixed IIS cross-file effective-config merging so inherited child collections
+  are merged with `add` / `remove` / `clear` semantics instead of being replaced.
+- Added Apache `Options Indexes -Indexes` and `Options -Indexes Indexes`
+  regression coverage for both rule output and normalized output.
+
+Remaining backlog:
+
+- Generic report-level grouping of repeated same-rule advice across many scopes
+  is still a separate reporting feature. This branch reduces the known Nginx
+  noise at its root by honoring inherited/effective settings, but it does not add
+  a new formatter-level grouping model.
+
 ## Nginx Effective Configuration
 
 Root problem: several Nginx rules inspect only direct `server` children or use

@@ -3,8 +3,9 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
-    iter_nodes,
+    DirectiveNode,
 )
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
     server_has_header,
@@ -30,18 +31,27 @@ RULE_ID = "nginx.missing_hsts_header"
 def find_missing_hsts_header(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_hsts_header_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"add_header"},
+    ):
+        finding = _find_missing_hsts_header_in_server(server_block, inherited_directives)
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_hsts_header_in_server(server_block: BlockNode) -> Finding | None:
+def _find_missing_hsts_header_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
     uses_tls = server_uses_tls(server_block)
-    has_hsts_header = server_has_header(server_block, "Strict-Transport-Security")
+    has_hsts_header = server_has_header(
+        server_block,
+        "Strict-Transport-Security",
+        inherited_directives,
+    )
 
     if not uses_tls or has_hsts_header:
         return None

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext
 from webconf_audit.local.lighttpd.effective import (
-    LighttpdConditionalScope,
     LighttpdEffectiveConfig,
     LighttpdEffectiveDirective,
 )
@@ -40,29 +40,21 @@ def find_missing_strict_transport_security(
     *,
     effective_config: LighttpdEffectiveConfig | None = None,
     merged_directives: dict[str, LighttpdEffectiveDirective] | None = None,
+    request_context: LighttpdRequestContext | None = None,
 ) -> list[Finding]:
-    if merged_directives is not None:
+    # request_context only gates per-request merged_directives semantics;
+    # _has_header_in_directives consumes merged/global effective_config views.
+    if merged_directives is not None and request_context is not None:
         return [] if _has_header_in_directives(merged_directives) else [_make_finding(config_ast)]
 
     if effective_config is not None:
-        return [] if _has_header_in_effective(effective_config) else [_make_finding(config_ast)]
+        return (
+            []
+            if _has_header_in_directives(effective_config.global_directives)
+            else [_make_finding(config_ast)]
+        )
 
     return _find_from_ast(config_ast)
-
-
-def _has_header_in_effective(effective_config: LighttpdEffectiveConfig) -> bool:
-    if _has_header_in_directives(effective_config.global_directives):
-        return True
-
-    for scope in effective_config.conditional_scopes:
-        if _scope_has_header(scope):
-            return True
-
-    return False
-
-
-def _scope_has_header(scope: LighttpdConditionalScope) -> bool:
-    return _has_header_in_directives(scope.directives)
 
 
 def _has_header_in_directives(

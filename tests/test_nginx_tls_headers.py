@@ -61,6 +61,27 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
     assert result.findings[0].rule_id == "nginx.missing_ssl_ciphers"
 
 
+def test_analyze_nginx_config_does_not_treat_inherited_ssl_protocols_as_tls_intent(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.missing_ssl_ciphers" for finding in result.findings)
+
+
 def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
     tmp_path: Path,
 ) -> None:
@@ -85,6 +106,31 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
     assert result.findings == []
+
+
+def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_inherited_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _http_block(
+            "ssl_ciphers HIGH:!aNULL:!MD5;\nssl_prefer_server_ciphers on;",
+            _safe_server_block(
+                "listen 127.0.0.1:443 ssl http2;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+                'add_header Strict-Transport-Security "max-age=31536000";',
+                include_rate_limits=True,
+            ),
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.missing_ssl_ciphers" for finding in result.findings)
 
 
 def test_analyze_nginx_config_does_not_report_missing_ssl_certificate_when_present(
@@ -1184,6 +1230,29 @@ def test_analyze_nginx_config_does_not_report_missing_x_content_type_options_whe
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
         "server {\n    listen 80;\n    add_header X-Content-Type-Options nosniff;\n}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.missing_x_content_type_options" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_missing_x_content_type_options_when_inherited_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    add_header X-Content-Type-Options nosniff;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "    }\n"
+        "}\n",
         encoding="utf-8",
     )
 

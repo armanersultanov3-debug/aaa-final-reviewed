@@ -493,6 +493,137 @@ def test_analyze_iis_config_application_host_with_machine_config_chain(
     assert findings[0].location.file_path == str(web_config_path)
 
 
+def test_merge_effective_configs_preserves_cross_file_custom_header_additions() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security" value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="X-Frame-Options" value="DENY" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(machine, web)
+
+    assert _custom_header_names(merged) == [
+        "Strict-Transport-Security",
+        "X-Frame-Options",
+    ]
+
+
+def test_merge_effective_configs_applies_cross_file_custom_header_remove() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security" value="max-age=31536000" />
+                <add name="X-Frame-Options" value="DENY" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <remove name="X-Frame-Options" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(machine, web)
+
+    assert _custom_header_names(merged) == ["Strict-Transport-Security"]
+
+
+def test_merge_effective_configs_applies_cross_file_custom_header_clear() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <add name="Strict-Transport-Security" value="max-age=31536000" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <httpProtocol>
+            <customHeaders>
+                <clear />
+                <add name="X-Frame-Options" value="DENY" />
+            </customHeaders>
+        </httpProtocol>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(machine, web)
+
+    assert _custom_header_names(merged) == ["X-Frame-Options"]
+
+
+def _custom_header_names(config: IISEffectiveConfig) -> list[str]:
+    section = config.global_sections["/customHeaders"]
+    return [
+        child.attributes["name"]
+        for child in section.children
+        if child.tag.lower() == "add"
+    ]
+
+
 def test_discover_iis_sites_multiple_sites_multiple_apps(tmp_path: Path) -> None:
     site1_root = tmp_path / "site1"
     site1_api_root = tmp_path / "site1-api"

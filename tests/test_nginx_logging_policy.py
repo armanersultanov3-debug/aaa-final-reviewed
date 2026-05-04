@@ -56,7 +56,47 @@ def test_analyze_nginx_config_reports_missing_access_log_when_off(
     assert any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
 
 
-def test_analyze_nginx_config_reports_missing_access_log_when_only_http_has_it(
+def test_analyze_nginx_config_reports_missing_access_log_when_off_overrides_previous(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log /var/log/nginx/access.log;\n"
+        "    access_log off;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
+
+
+def test_analyze_nginx_config_access_log_off_cancels_same_level_logs(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log off;\n"
+        "    access_log /var/log/nginx/access.log;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
+
+
+def test_analyze_nginx_config_does_not_report_missing_access_log_when_inherited_from_http(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
@@ -74,7 +114,7 @@ def test_analyze_nginx_config_reports_missing_access_log_when_only_http_has_it(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
+    assert not any(finding.rule_id == "nginx.missing_access_log" for finding in result.findings)
 
 
 def test_analyze_nginx_config_reports_missing_log_format_when_custom_format_is_used(
@@ -217,7 +257,7 @@ def test_analyze_nginx_config_does_not_report_missing_error_log_when_present(
     assert not any(finding.rule_id == "nginx.missing_error_log" for finding in result.findings)
 
 
-def test_analyze_nginx_config_reports_missing_error_log_when_only_http_has_it(
+def test_analyze_nginx_config_does_not_report_missing_error_log_when_inherited_from_http(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
@@ -235,7 +275,7 @@ def test_analyze_nginx_config_reports_missing_error_log_when_only_http_has_it(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_error_log" for finding in result.findings)
+    assert not any(finding.rule_id == "nginx.missing_error_log" for finding in result.findings)
 
 
 def test_analyze_nginx_config_reports_missing_hidden_files_deny_when_missing(

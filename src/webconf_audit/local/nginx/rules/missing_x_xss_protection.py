@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes
+from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
     server_has_header,
@@ -25,17 +26,29 @@ RULE_ID = "nginx.missing_x_xss_protection"
 def find_missing_x_xss_protection(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_x_xss_protection_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"add_header"},
+    ):
+        finding = _find_missing_x_xss_protection_in_server(
+            server_block,
+            inherited_directives,
+        )
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_x_xss_protection_in_server(server_block: BlockNode) -> Finding | None:
-    has_x_xss_protection = server_has_header(server_block, "X-XSS-Protection")
+def _find_missing_x_xss_protection_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
+    has_x_xss_protection = server_has_header(
+        server_block,
+        "X-XSS-Protection",
+        inherited_directives,
+    )
 
     if has_x_xss_protection:
         return None

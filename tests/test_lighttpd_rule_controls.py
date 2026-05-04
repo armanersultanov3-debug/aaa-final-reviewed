@@ -24,6 +24,17 @@ def _analyze(tmp_path: Path, config_text: str) -> AnalysisResult:
     return analyze_lighttpd_config(str(config_path))
 
 
+def _analyze_host(
+    tmp_path: Path,
+    config_text: str,
+    *,
+    host: str | None,
+) -> AnalysisResult:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(config_text, encoding="utf-8")
+    return analyze_lighttpd_config(str(config_path), host=host)
+
+
 def _has_finding(result: AnalysisResult, rule_id: str) -> bool:
     return any(f.rule_id == rule_id for f in result.findings)
 
@@ -172,6 +183,25 @@ def test_missing_strict_transport_security_silent_when_set(tmp_path: Path) -> No
     assert not _has_finding(result, "lighttpd.missing_strict_transport_security")
 
 
+def test_missing_strict_transport_security_fires_when_only_conditional_host_sets_it(
+    tmp_path: Path,
+) -> None:
+    config = (
+        _BASE
+        + '$HTTP["host"] == "secure.example.test" {\n'
+        + '    setenv.add-response-header = ( "Strict-Transport-Security" => "max-age=31536000" )\n'
+        + "}\n"
+    )
+
+    result = _analyze(tmp_path, config)
+    result_secure = _analyze_host(tmp_path, config, host="secure.example.test")
+    result_other = _analyze_host(tmp_path, config, host="other.example.test")
+
+    assert _has_finding(result, "lighttpd.missing_strict_transport_security")
+    assert not _has_finding(result_secure, "lighttpd.missing_strict_transport_security")
+    assert _has_finding(result_other, "lighttpd.missing_strict_transport_security")
+
+
 def test_missing_x_content_type_options_fires(tmp_path: Path) -> None:
     result = _analyze(tmp_path, _BASE)
     assert _has_finding(result, "lighttpd.missing_x_content_type_options")
@@ -183,6 +213,25 @@ def test_missing_x_content_type_options_silent_when_set(tmp_path: Path) -> None:
         _BASE + 'setenv.add-response-header = ( "X-Content-Type-Options" => "nosniff" )\n',
     )
     assert not _has_finding(result, "lighttpd.missing_x_content_type_options")
+
+
+def test_missing_x_content_type_options_fires_when_only_conditional_host_sets_it(
+    tmp_path: Path,
+) -> None:
+    config = (
+        _BASE
+        + '$HTTP["host"] == "secure.example.test" {\n'
+        + '    setenv.add-response-header = ( "X-Content-Type-Options" => "nosniff" )\n'
+        + "}\n"
+    )
+
+    result = _analyze(tmp_path, config)
+    result_secure = _analyze_host(tmp_path, config, host="secure.example.test")
+    result_other = _analyze_host(tmp_path, config, host="other.example.test")
+
+    assert _has_finding(result, "lighttpd.missing_x_content_type_options")
+    assert not _has_finding(result_secure, "lighttpd.missing_x_content_type_options")
+    assert _has_finding(result_other, "lighttpd.missing_x_content_type_options")
 
 
 # ---------------------------------------------------------------------------
@@ -270,6 +319,41 @@ def test_access_log_missing_silent_when_filename_set(tmp_path: Path) -> None:
 def test_access_log_missing_silent_when_module_not_loaded(tmp_path: Path) -> None:
     result = _analyze(tmp_path, _BASE)
     assert not _has_finding(result, "lighttpd.access_log_missing")
+
+
+def test_access_log_missing_respects_host_conditional_filename(tmp_path: Path) -> None:
+    config = (
+        _BASE
+        + 'server.modules = ( "mod_accesslog" )\n'
+        + '$HTTP["host"] == "logged.example.test" {\n'
+        + '    accesslog.filename = "/var/log/lighttpd/access.log"\n'
+        + "}\n"
+    )
+
+    result_logged = _analyze_host(tmp_path, config, host="logged.example.test")
+    result_other = _analyze_host(tmp_path, config, host="other.example.test")
+    result_default = _analyze_host(tmp_path, config, host=None)
+
+    assert not _has_finding(result_logged, "lighttpd.access_log_missing")
+    assert _has_finding(result_other, "lighttpd.access_log_missing")
+    assert _has_finding(result_default, "lighttpd.access_log_missing")
+
+
+def test_error_log_missing_respects_host_conditional_filename(tmp_path: Path) -> None:
+    config = (
+        'server.tag = ""\n'
+        '$HTTP["host"] == "logged.example.test" {\n'
+        '    server.errorlog = "/var/log/lighttpd/error.log"\n'
+        "}\n"
+    )
+
+    result_logged = _analyze_host(tmp_path, config, host="logged.example.test")
+    result_other = _analyze_host(tmp_path, config, host="other.example.test")
+    result_default = _analyze_host(tmp_path, config, host=None)
+
+    assert not _has_finding(result_logged, "lighttpd.error_log_missing")
+    assert _has_finding(result_other, "lighttpd.error_log_missing")
+    assert _has_finding(result_default, "lighttpd.error_log_missing")
 
 
 # ---------------------------------------------------------------------------

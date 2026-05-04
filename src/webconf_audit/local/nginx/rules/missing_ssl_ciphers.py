@@ -3,8 +3,12 @@ from __future__ import annotations
 from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
+    DirectiveNode,
     find_child_directives,
-    iter_nodes,
+)
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
 )
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
@@ -26,20 +30,32 @@ RULE_ID = "nginx.missing_ssl_ciphers"
 def find_missing_ssl_ciphers(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_ssl_ciphers_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"ssl_ciphers"},
+    ):
+        finding = _find_missing_ssl_ciphers_in_server(server_block, inherited_directives)
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_ssl_ciphers_in_server(server_block: BlockNode) -> Finding | None:
-    ssl_protocols_directives = find_child_directives(server_block, "ssl_protocols")
-    ssl_ciphers_directives = find_child_directives(server_block, "ssl_ciphers")
+def _find_missing_ssl_ciphers_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
+    server_ssl_protocols_directives = find_child_directives(
+        server_block,
+        "ssl_protocols",
+    )
+    ssl_ciphers_directives = effective_child_directives(
+        server_block,
+        "ssl_ciphers",
+        inherited_directives,
+    )
 
-    uses_tls = server_uses_tls(server_block) or bool(ssl_protocols_directives)
+    uses_tls = server_uses_tls(server_block) or bool(server_ssl_protocols_directives)
 
     if not uses_tls or ssl_ciphers_directives:
         return None

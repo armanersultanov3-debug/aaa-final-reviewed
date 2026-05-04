@@ -1088,7 +1088,7 @@ def test_analyze_nginx_config_does_not_report_missing_limit_req_when_location_ha
     assert not any(finding.rule_id == "nginx.missing_limit_req" for finding in result.findings)
 
 
-def test_analyze_nginx_config_reports_missing_limit_req_when_only_http_has_it(
+def test_analyze_nginx_config_does_not_report_missing_limit_req_when_inherited_from_http(
     tmp_path: Path,
 ) -> None:
     config_path = tmp_path / "nginx.conf"
@@ -1101,4 +1101,20 @@ def test_analyze_nginx_config_reports_missing_limit_req_when_only_http_has_it(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(finding.rule_id == "nginx.missing_limit_req" for finding in result.findings)
+    assert not any(finding.rule_id == "nginx.missing_limit_req" for finding in result.findings)
+
+
+def test_analyze_nginx_config_does_not_report_missing_limit_conn_when_inherited_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n    limit_conn addr 10;\n    server {\n        listen 80;\n    }\n}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(finding.rule_id == "nginx.missing_limit_conn" for finding in result.findings)

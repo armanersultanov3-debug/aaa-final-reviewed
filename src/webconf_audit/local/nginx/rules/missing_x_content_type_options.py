@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes
+from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
     server_header_contains_value,
 )
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -25,20 +26,29 @@ RULE_ID = "nginx.missing_x_content_type_options"
 def find_missing_x_content_type_options(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_x_content_type_options_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"add_header"},
+    ):
+        finding = _find_missing_x_content_type_options_in_server(
+            server_block,
+            inherited_directives,
+        )
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_x_content_type_options_in_server(server_block: BlockNode) -> Finding | None:
+def _find_missing_x_content_type_options_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
     has_nosniff_header = server_header_contains_value(
         server_block,
         "X-Content-Type-Options",
         "nosniff",
+        inherited_directives,
     )
 
     if has_nosniff_header:

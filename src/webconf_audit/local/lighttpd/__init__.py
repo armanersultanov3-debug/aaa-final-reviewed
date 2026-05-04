@@ -82,6 +82,7 @@ def analyze_lighttpd_config(
             ast,
             effective_config=effective,
             merged_directives=merged_directives,
+            request_context=context,
             issues=issues,
         )
         normalized = normalize_config(

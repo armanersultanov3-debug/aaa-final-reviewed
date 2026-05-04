@@ -4,8 +4,10 @@ from webconf_audit.local.nginx.parser.ast import (
     BlockNode,
     ConfigAst,
     DirectiveNode,
-    find_child_directives,
-    iter_nodes,
+)
+from webconf_audit.local.nginx.rules._value_utils import (
+    effective_child_directives,
+    iter_server_blocks_with_http_directives,
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
@@ -26,19 +28,35 @@ RULE_ID = "nginx.missing_access_log"
 def find_missing_access_log(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if isinstance(node, BlockNode) and node.name == "server":
-            finding = _find_missing_access_log_in_server(node)
-            if finding is not None:
-                findings.append(finding)
+    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
+        config_ast,
+        {"access_log"},
+    ):
+        finding = _find_missing_access_log_in_server(server_block, inherited_directives)
+        if finding is not None:
+            findings.append(finding)
 
     return findings
 
 
-def _find_missing_access_log_in_server(server_block: BlockNode) -> Finding | None:
-    access_log_directives = find_child_directives(server_block, "access_log")
+def _find_missing_access_log_in_server(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> Finding | None:
+    access_log_directives = effective_child_directives(
+        server_block,
+        "access_log",
+        inherited_directives,
+    )
 
-    if any(_directive_enables_access_log(directive) for directive in access_log_directives):
+    if any(_directive_disables_access_log(directive) for directive in access_log_directives):
+        effective_access_log_enabled = False
+    else:
+        effective_access_log_enabled = any(
+            _directive_enables_access_log(directive)
+            for directive in access_log_directives
+        )
+    if effective_access_log_enabled:
         return None
 
     return Finding(
@@ -57,7 +75,11 @@ def _find_missing_access_log_in_server(server_block: BlockNode) -> Finding | Non
 
 
 def _directive_enables_access_log(directive: DirectiveNode) -> bool:
-    return bool(directive.args) and directive.args[0] != "off"
+    return bool(directive.args) and directive.args[0].lower() != "off"
+
+
+def _directive_disables_access_log(directive: DirectiveNode) -> bool:
+    return len(directive.args) == 1 and directive.args[0].lower() == "off"
 
 
 __all__ = ["find_missing_access_log"]

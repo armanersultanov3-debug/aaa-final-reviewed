@@ -7,6 +7,11 @@ which registers it at import time.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from functools import lru_cache
+import inspect
+
+from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext
 from webconf_audit.local.lighttpd.effective import (
     LighttpdEffectiveConfig,
     LighttpdEffectiveDirective,
@@ -24,6 +29,7 @@ def run_lighttpd_rules(
     *,
     effective_config: LighttpdEffectiveConfig | None = None,
     merged_directives: dict[str, LighttpdEffectiveDirective] | None = None,
+    request_context: LighttpdRequestContext | None = None,
     issues: list[AnalysisIssue] | None = None,
 ) -> list[Finding]:
     registry.ensure_loaded(_LIGHTTPD_PKG)
@@ -35,10 +41,12 @@ def run_lighttpd_rules(
                 run_rule_entry(
                     entry,
                     issues=issues,
-                    invoke=lambda entry=entry: entry.fn(
+                    invoke=lambda entry=entry: _run_effective_rule(
+                        entry.fn,
                         config_ast,
                         effective_config=effective_config,
                         merged_directives=merged_directives,
+                        request_context=request_context,
                     ),
                 )
             )
@@ -52,6 +60,28 @@ def run_lighttpd_rules(
             )
 
     return findings
+
+
+def _run_effective_rule(
+    rule_fn: Callable[..., list[Finding]],
+    config_ast: LighttpdConfigAst,
+    *,
+    effective_config: LighttpdEffectiveConfig | None,
+    merged_directives: dict[str, LighttpdEffectiveDirective] | None,
+    request_context: LighttpdRequestContext | None,
+) -> list[Finding]:
+    kwargs = {
+        "effective_config": effective_config,
+        "merged_directives": merged_directives,
+    }
+    if _rule_accepts_request_context(rule_fn):
+        kwargs["request_context"] = request_context
+    return rule_fn(config_ast, **kwargs)
+
+
+@lru_cache(maxsize=None)
+def _rule_accepts_request_context(rule_fn: Callable[..., list[Finding]]) -> bool:
+    return "request_context" in inspect.signature(rule_fn).parameters
 
 
 __all__ = ["run_lighttpd_rules"]
