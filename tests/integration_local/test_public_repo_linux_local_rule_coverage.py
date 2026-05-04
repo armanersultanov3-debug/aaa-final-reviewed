@@ -444,7 +444,12 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
                 "listen 443 ssl;",
             )
         ),
-        expected_rule_ids=frozenset({"universal.tls_intent_without_config"}),
+        expected_rule_ids=frozenset(
+            {
+                "nginx.missing_ssl_protocols",
+                "universal.tls_intent_without_config",
+            }
+        ),
         native_validation_should_pass=False,
     )
     return (
@@ -717,6 +722,7 @@ def _lighttpd_scenarios() -> tuple[Scenario, ...]:
             {
                 "lighttpd.ssl_honor_cipher_order_missing",
                 "lighttpd.ssl_pemfile_missing",
+                "lighttpd.ssl_protocol_policy_missing_or_weak",
             }
         ),
         native_validation_should_pass=False,

@@ -7,10 +7,12 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 TLS12_RULE_ID = "iis.schannel_tls12_not_enabled"
+WEAK_PROTOCOL_RULE_ID = "iis.schannel_weak_protocol_enabled"
 AES128_RULE_ID = "iis.schannel_aes128_enabled"
 AES256_RULE_ID = "iis.schannel_aes256_not_enabled"
 CIPHER_ORDER_RULE_ID = "iis.schannel_cipher_suite_order_not_preferred"
 
+_WEAK_PROTOCOLS = frozenset({"SSLv2", "SSLv3", "TLSv1", "TLSv1.0", "TLSv1.1"})
 _AES128_CIPHER = "aes 128/128"
 _AES256_CIPHER = "aes 256/256"
 
@@ -66,6 +68,48 @@ def find_schannel_tls12_not_enabled(
 
 
 @rule(
+    rule_id=WEAK_PROTOCOL_RULE_ID,
+    title="IIS SChannel weak TLS/SSL protocol is enabled",
+    severity="medium",
+    description="Windows SChannel registry data shows weak server TLS/SSL protocols enabled.",
+    recommendation="Disable SSLv2, SSLv3, TLS 1.0, and TLS 1.1 for SChannel Server protocols.",
+    category="local",
+    server_type="iis",
+    tags=("tls",),
+    input_kind="mixed",
+    order=535,
+)
+def find_schannel_weak_protocol_enabled(
+    doc: IISConfigDocument,
+    *,
+    effective_config: IISEffectiveConfig | None = None,
+    registry_tls: IISRegistryTLS | None = None,
+) -> list[Finding]:
+    if registry_tls is None or registry_tls.protocols_enabled is None:
+        return []
+    weak_protocols = [
+        protocol for protocol in registry_tls.protocols_enabled if protocol in _WEAK_PROTOCOLS
+    ]
+    if not weak_protocols:
+        return []
+    return [
+        _finding(
+            registry_tls,
+            rule_id=WEAK_PROTOCOL_RULE_ID,
+            title="IIS SChannel weak TLS/SSL protocol is enabled",
+            description=(
+                "Windows SChannel registry data shows weak server protocols "
+                f"enabled for IIS: {', '.join(weak_protocols)}."
+            ),
+            recommendation=(
+                "Set the SChannel Server Enabled value to 0 for SSL 2.0, "
+                "SSL 3.0, TLS 1.0, and TLS 1.1."
+            ),
+        )
+    ]
+
+
+@rule(
     rule_id=AES128_RULE_ID,
     title="IIS SChannel AES 128/128 cipher is enabled",
     severity="medium",
@@ -75,7 +119,7 @@ def find_schannel_tls12_not_enabled(
     server_type="iis",
     tags=("tls",),
     input_kind="mixed",
-    order=535,
+    order=536,
 )
 def find_schannel_aes128_enabled(
     doc: IISConfigDocument,
@@ -111,7 +155,7 @@ def find_schannel_aes128_enabled(
     server_type="iis",
     tags=("tls",),
     input_kind="mixed",
-    order=536,
+    order=537,
 )
 def find_schannel_aes256_not_enabled(
     doc: IISConfigDocument,
@@ -148,7 +192,7 @@ def find_schannel_aes256_not_enabled(
     server_type="iis",
     tags=("tls",),
     input_kind="mixed",
-    order=537,
+    order=538,
 )
 def find_schannel_cipher_suite_order_not_preferred(
     doc: IISConfigDocument,
@@ -224,4 +268,5 @@ __all__ = [
     "find_schannel_aes256_not_enabled",
     "find_schannel_cipher_suite_order_not_preferred",
     "find_schannel_tls12_not_enabled",
+    "find_schannel_weak_protocol_enabled",
 ]

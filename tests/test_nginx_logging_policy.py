@@ -536,6 +536,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
             "ssl_certificate /etc/ssl/cert.pem;",
             "ssl_certificate_key /etc/ssl/key.pem;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            "ssl_protocols TLSv1.2 TLSv1.3;",
             "ssl_prefer_server_ciphers on;",
             include_rate_limits=True,
         )
@@ -712,8 +713,13 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
     config_path = tmp_path / "nginx.conf"
     config_text = _http_block(
         _safe_server_block(
+            "listen 127.0.0.1:443 ssl http2;",
+            'add_header Strict-Transport-Security "max-age=31536000";',
+            "ssl_certificate /etc/ssl/cert.pem;",
+            "ssl_certificate_key /etc/ssl/key.pem;",
             "ssl_protocols TLSv1 TLSv1.2;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            "ssl_prefer_server_ciphers on;",
             include_http_redirect=True,
             include_rate_limits=True,
         )
@@ -724,9 +730,11 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1(tmp_path: Path) -
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert len(result.findings) == 1
-
-    finding = result.findings[0]
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.weak_ssl_protocols"
+    )
     assert finding.rule_id == "nginx.weak_ssl_protocols"
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None
@@ -738,8 +746,13 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
     config_path = tmp_path / "nginx.conf"
     config_text = _http_block(
         _safe_server_block(
+            "listen 127.0.0.1:443 ssl http2;",
+            'add_header Strict-Transport-Security "max-age=31536000";',
+            "ssl_certificate /etc/ssl/cert.pem;",
+            "ssl_certificate_key /etc/ssl/key.pem;",
             "ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
+            "ssl_prefer_server_ciphers on;",
             include_http_redirect=True,
             include_rate_limits=True,
         )
@@ -750,9 +763,11 @@ def test_analyze_nginx_config_reports_ssl_protocols_with_tlsv1_1(tmp_path: Path)
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert len(result.findings) == 1
-
-    finding = result.findings[0]
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.weak_ssl_protocols"
+    )
     assert finding.rule_id == "nginx.weak_ssl_protocols"
     assert finding.title == "Weak SSL/TLS protocols enabled"
     assert finding.location is not None

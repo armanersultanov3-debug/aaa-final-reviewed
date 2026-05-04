@@ -98,6 +98,17 @@ def test_analyze_apache_config_reports_weak_ssl_protocol(
     assert "apache.ssl_protocol_missing_or_weak" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_reports_sslv2_as_weak_protocol(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(replacements={"protocol": "    SSLProtocol SSLv2 TLSv1.2"}),
+    )
+
+    assert "apache.ssl_protocol_missing_or_weak" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_accepts_protocol_subtracting_legacy_versions(
     tmp_path: Path,
 ) -> None:
@@ -111,6 +122,20 @@ def test_analyze_apache_config_accepts_protocol_subtracting_legacy_versions(
     )
 
     assert "apache.ssl_protocol_missing_or_weak" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_global_weak_ssl_protocol(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "SSLProtocol TLSv1 TLSv1.2",
+        ),
+    )
+
+    assert "apache.ssl_protocol_missing_or_weak" in _rule_ids(findings)
 
 
 def test_analyze_apache_config_reports_missing_ssl_cipher_suite(
