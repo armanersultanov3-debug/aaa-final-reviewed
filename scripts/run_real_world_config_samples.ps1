@@ -146,6 +146,21 @@ function Resolve-DatasetFile {
     return $resolvedPath
 }
 
+function Resolve-SafeSampleId {
+    param([object]$Value)
+
+    $sampleId = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($sampleId)) {
+        throw "Sample id must not be empty."
+    }
+
+    if ($sampleId.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0) {
+        throw "Sample id contains characters that are unsafe for report filenames: $sampleId"
+    }
+
+    return $sampleId
+}
+
 function Build-AnalyzerArgs {
     param(
         [pscustomobject]$Sample,
@@ -205,7 +220,7 @@ $failedSamples = @()
 
 foreach ($sample in $metadata.samples) {
     $configPath = Resolve-DatasetFile $sample.entrypoint
-    $sampleId = $sample.id
+    $sampleId = Resolve-SafeSampleId $sample.id
     Write-Host "== $sampleId =="
 
     $textCommand = @($pythonExe) + (Build-AnalyzerArgs -Sample $sample -ConfigPath $configPath)
