@@ -6,6 +6,7 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -35,6 +36,9 @@ def find_missing_hidden_files_deny(config_ast: ConfigAst) -> list[Finding]:
 
 
 def _find_missing_hidden_files_deny_in_server(server_block: BlockNode) -> Finding | None:
+    if skips_content_response_checks(server_block):
+        return None
+
     if _server_has_hidden_files_deny(server_block):
         return None
 

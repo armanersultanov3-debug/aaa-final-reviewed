@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, iter_nodes
+from webconf_audit.local.nginx.rules._scope_utils import fragment_only_context_metadata
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -48,6 +49,7 @@ def find_missing_client_header_timeout(config_ast: ConfigAst) -> list[Finding]:
                 file_path=first_server.source.file_path,
                 line=first_server.source.line,
             ),
+            metadata=fragment_only_context_metadata(config_ast),
         )
     ]
 

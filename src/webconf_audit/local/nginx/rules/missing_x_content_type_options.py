@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
+from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
+from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
     server_header_contains_value,
 )
-from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -44,6 +45,9 @@ def _find_missing_x_content_type_options_in_server(
     server_block: BlockNode,
     inherited_directives: dict[str, list[DirectiveNode]],
 ) -> Finding | None:
+    if skips_content_response_checks(server_block):
+        return None
+
     has_nosniff_header = server_header_contains_value(
         server_block,
         "X-Content-Type-Options",

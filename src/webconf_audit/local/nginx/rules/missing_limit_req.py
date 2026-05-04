@@ -7,6 +7,7 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.local.nginx.rules._value_utils import (
     effective_child_directives,
     iter_server_blocks_with_http_directives,
@@ -45,6 +46,9 @@ def _find_missing_limit_req_in_server(
     server_block: BlockNode,
     inherited_directives: dict[str, list[DirectiveNode]],
 ) -> Finding | None:
+    if skips_content_response_checks(server_block):
+        return None
+
     if effective_child_directives(server_block, "limit_req", inherited_directives):
         return None
 

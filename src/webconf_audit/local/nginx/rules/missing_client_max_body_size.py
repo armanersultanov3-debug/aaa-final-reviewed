@@ -5,6 +5,7 @@ from webconf_audit.local.nginx.parser.ast import (
     ConfigAst,
     find_child_directives,
 )
+from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -34,6 +35,9 @@ def find_missing_client_max_body_size(config_ast: ConfigAst) -> list[Finding]:
 
 
 def _find_missing_client_max_body_size_in_server(server_block: BlockNode) -> Finding | None:
+    if skips_content_response_checks(server_block):
+        return None
+
     client_max_body_size_directives = find_child_directives(
         server_block,
         "client_max_body_size",

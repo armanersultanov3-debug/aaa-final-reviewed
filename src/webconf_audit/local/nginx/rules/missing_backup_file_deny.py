@@ -6,6 +6,7 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -40,6 +41,8 @@ def find_missing_backup_file_deny(config_ast: ConfigAst) -> list[Finding]:
 
     findings: list[Finding] = []
     for server_block in server_blocks:
+        if skips_content_response_checks(server_block):
+            continue
         if _server_has_backup_file_deny(server_block):
             continue
 

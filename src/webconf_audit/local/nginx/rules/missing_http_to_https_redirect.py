@@ -9,6 +9,12 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._scope_utils import (
+    direct_child_locations,
+    is_catch_all_location,
+    is_safe_exception_location,
+    rewrite_redirects_all_requests,
+)
 from webconf_audit.local.nginx.rules.tls_listener_utils import listen_uses_tls
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
@@ -105,7 +111,24 @@ def _is_implicit_http_listen_arg(arg: str) -> bool:
 
 
 def _has_https_redirect(server_block: BlockNode) -> bool:
-    for directive in find_child_directives(server_block, "return"):
+    if _block_has_https_redirect(server_block):
+        return True
+
+    locations = direct_child_locations(server_block)
+    if not any(
+        is_catch_all_location(location) and _block_has_https_redirect(location)
+        for location in locations
+    ):
+        return False
+    return all(
+        is_safe_exception_location(location)
+        or _block_has_https_redirect(location)
+        for location in locations
+    )
+
+
+def _block_has_https_redirect(block: BlockNode) -> bool:
+    for directive in find_child_directives(block, "return"):
         if not directive.args:
             continue
         if len(directive.args) == 1 and _is_https_redirect_target(directive.args[0]):
@@ -114,7 +137,16 @@ def _has_https_redirect(server_block: BlockNode) -> bool:
             continue
         if len(directive.args) > 1 and _is_https_redirect_target(directive.args[1]):
             return True
-    return False
+    return any(
+        _rewrite_has_https_redirect(directive)
+        for directive in find_child_directives(block, "rewrite")
+    )
+
+
+def _rewrite_has_https_redirect(directive: DirectiveNode) -> bool:
+    if not rewrite_redirects_all_requests(directive):
+        return False
+    return _is_https_redirect_target(directive.args[1])
 
 
 def _is_https_redirect_target(target: str) -> bool:

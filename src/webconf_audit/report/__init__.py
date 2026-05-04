@@ -521,9 +521,19 @@ def _finding_lines(finding: Finding) -> list[str]:
     location = format_location(finding.location)
     if location:
         lines.append(f"    location: {location}")
+    note = _finding_note(finding)
+    if note:
+        lines.append(f"    note: {note}")
     lines.append(f"    description: {finding.description}")
     lines.append(f"    recommendation: {finding.recommendation}")
     return lines
+
+
+def _finding_note(finding: Finding) -> str | None:
+    note = finding.metadata.get("note")
+    if isinstance(note, str) and note:
+        return note
+    return None
 
 
 def _standard_section_lines(result_findings: list[Finding]) -> list[str]:
@@ -573,6 +583,9 @@ def _standard_finding_lines(
     location = format_location(finding.location)
     if location:
         lines.append(f"    location: {location}")
+    note = _finding_note(finding)
+    if note:
+        lines.append(f"    note: {note}")
     lines.append(f"    description: {finding.description}")
     lines.append(f"    recommendation: {finding.recommendation}")
     return lines
