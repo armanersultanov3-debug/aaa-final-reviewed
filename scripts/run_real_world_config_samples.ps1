@@ -98,7 +98,8 @@ function Invoke-SampleCommand {
 
         return @{
             ExitCode = $process.ExitCode
-            Output = ($stdout + $stderr).TrimEnd()
+            Stdout = $stdout
+            Stderr = $stderr
         }
     }
     finally {
@@ -181,10 +182,10 @@ function Get-AnalyzerArgumentList {
 
     if ($Sample.PSObject.Properties.Name -contains "analyzer_options") {
         $options = $Sample.analyzer_options
-        if ($null -ne $options -and ($options.PSObject.Properties.Name -contains "host")) {
+        if ($Sample.server_type -eq "lighttpd" -and $null -ne $options -and ($options.PSObject.Properties.Name -contains "host")) {
             $analyzerArgs += @("--host", $options.host)
         }
-        if ($null -ne $options -and ($options.PSObject.Properties.Name -contains "machine_config")) {
+        if ($Sample.server_type -eq "iis" -and $null -ne $options -and ($options.PSObject.Properties.Name -contains "machine_config")) {
             $machineConfig = Resolve-DatasetFile $options.machine_config
             $analyzerArgs += @("--machine-config", $machineConfig)
         }
@@ -226,7 +227,7 @@ foreach ($sample in $metadata.samples) {
     $textCommand = @($pythonExe) + (Get-AnalyzerArgumentList -Sample $sample -ConfigPath $configPath)
     $textResult = Invoke-SampleCommand -Command $textCommand
     $textReportPath = Join-Path $reportsDir "$sampleId.txt"
-    Save-Utf8NoBom $textReportPath $textResult.Output
+    Save-Utf8NoBom $textReportPath (($textResult.Stdout + $textResult.Stderr).TrimEnd())
 
     if ($textResult.ExitCode -ne 0) {
         Write-Warning "$sampleId text report failed with exit code $($textResult.ExitCode)"
@@ -236,7 +237,7 @@ foreach ($sample in $metadata.samples) {
     $jsonCommand = @($pythonExe) + (Get-AnalyzerArgumentList -Sample $sample -ConfigPath $configPath -Json)
     $jsonResult = Invoke-SampleCommand -Command $jsonCommand
     $jsonReportPath = Join-Path $reportsDir "$sampleId.json"
-    Save-Utf8NoBom $jsonReportPath $jsonResult.Output
+    Save-Utf8NoBom $jsonReportPath $jsonResult.Stdout
 
     if ($jsonResult.ExitCode -ne 0) {
         Write-Warning "$sampleId JSON report failed with exit code $($jsonResult.ExitCode)"
