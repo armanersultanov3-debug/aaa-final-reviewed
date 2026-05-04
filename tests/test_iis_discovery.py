@@ -615,12 +615,172 @@ def test_merge_effective_configs_applies_cross_file_custom_header_clear() -> Non
     assert _custom_header_names(merged) == ["X-Frame-Options"]
 
 
+def test_merge_effective_configs_merges_cross_file_handler_collections() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <handlers>
+            <add name="StaticFile" path="*" verb="GET" modules="StaticFileModule" />
+            <add name="CgiScript" path="*.cgi" verb="*" modules="CgiModule" />
+        </handlers>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <handlers>
+            <remove name="CgiScript" path="*.cgi" verb="*" />
+            <add name="AspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" />
+        </handlers>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(machine, web)
+
+    assert _handler_names(merged) == ["StaticFile", "AspNetCore"]
+
+
+def test_merge_effective_configs_preserves_cross_file_module_order() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <modules>
+            <add name="StaticFileModule" />
+        </modules>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    app_host = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <modules>
+            <add name="DefaultDocumentModule" />
+        </modules>
+    </system.webServer>
+</configuration>
+""",
+            file_path="applicationHost.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <modules>
+            <add name="UrlRewriteModule" />
+        </modules>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(
+        merge_effective_configs(machine, app_host),
+        web,
+    )
+
+    assert _module_names(merged) == [
+        "StaticFileModule",
+        "DefaultDocumentModule",
+        "UrlRewriteModule",
+    ]
+
+
+def test_merge_effective_configs_merges_cross_file_request_filtering_file_extensions() -> None:
+    machine = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <fileExtensions allowUnlisted="false">
+                    <add fileExtension=".aspx" allowed="true" />
+                    <add fileExtension=".config" allowed="false" />
+                </fileExtensions>
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+            file_path="machine.config",
+        )
+    )
+    web = build_effective_config(
+        parse_iis_config(
+            """\
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <fileExtensions>
+                    <remove fileExtension=".config" />
+                    <add fileExtension=".json" allowed="true" />
+                </fileExtensions>
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+            file_path="web.config",
+        )
+    )
+
+    merged = merge_effective_configs(machine, web)
+    file_extensions = merged.global_sections["/fileExtensions"]
+
+    assert file_extensions.attributes["allowUnlisted"] == "false"
+    assert _request_filtering_file_extensions(merged) == [".aspx", ".json"]
+
+
 def _custom_header_names(config: IISEffectiveConfig) -> list[str]:
-    section = config.global_sections["/customHeaders"]
+    return _section_child_attr_values(config, "/customHeaders", "name")
+
+
+def _handler_names(config: IISEffectiveConfig) -> list[str]:
+    return _section_child_attr_values(config, "/handlers", "name")
+
+
+def _module_names(config: IISEffectiveConfig) -> list[str]:
+    return _section_child_attr_values(config, "/modules", "name")
+
+
+def _request_filtering_file_extensions(config: IISEffectiveConfig) -> list[str]:
+    return _section_child_attr_values(config, "/fileExtensions", "fileExtension")
+
+
+def _section_child_attr_values(
+    config: IISEffectiveConfig,
+    suffix: str,
+    attr_name: str,
+) -> list[str]:
+    section = config.global_sections[suffix]
     return [
-        child.attributes["name"]
+        child.attributes[attr_name]
         for child in section.children
-        if child.tag.lower() == "add"
+        if child.tag.lower() == "add" and attr_name in child.attributes
     ]
 
 
