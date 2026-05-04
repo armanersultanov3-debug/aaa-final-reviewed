@@ -7,12 +7,24 @@ from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext
 from webconf_audit.local.lighttpd.effective import build_effective_config, merge_conditional_scopes
 from webconf_audit.local.lighttpd.include import resolve_includes
 from webconf_audit.local.lighttpd.parser import LighttpdParseError, LighttpdParser
+from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
+    is_redirect_only_config,
+)
 from webconf_audit.local.lighttpd.rules_runner import run_lighttpd_rules
 from webconf_audit.local.lighttpd.variables import expand_variables
 from webconf_audit.local.load_context import LoadContext
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, SourceLocation
+
+_REDIRECT_ONLY_UNIVERSAL_NOISE_RULE_IDS = frozenset(
+    {
+        "universal.missing_content_security_policy",
+        "universal.missing_referrer_policy",
+        "universal.missing_x_content_type_options",
+        "universal.missing_x_frame_options",
+    }
+)
 
 
 def analyze_lighttpd_config(
@@ -89,7 +101,14 @@ def analyze_lighttpd_config(
             "lighttpd", ast=ast, effective_config=effective,
             merged_directives=merged_directives,
         )
-        findings.extend(run_universal_rules(normalized, issues=issues))
+        universal_findings = run_universal_rules(normalized, issues=issues)
+        if is_redirect_only_config(ast):
+            universal_findings = [
+                finding
+                for finding in universal_findings
+                if finding.rule_id not in _REDIRECT_ONLY_UNIVERSAL_NOISE_RULE_IDS
+            ]
+        findings.extend(universal_findings)
     except LighttpdParseError as exc:
         return AnalysisResult(
             mode="local",

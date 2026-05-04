@@ -15,6 +15,20 @@ from tests.lighttpd_helpers import (
     pytest,
 )
 
+_LIGHTTPD_REDIRECT_ONLY_NOISE_RULE_IDS = frozenset(
+    {
+        "lighttpd.max_connections_missing",
+        "lighttpd.max_request_size_missing",
+        "lighttpd.missing_strict_transport_security",
+        "lighttpd.missing_x_content_type_options",
+        "lighttpd.url_access_deny_missing",
+        "universal.missing_content_security_policy",
+        "universal.missing_referrer_policy",
+        "universal.missing_x_content_type_options",
+        "universal.missing_x_frame_options",
+    }
+)
+
 
 def test_parse_lighttpd_simple_config_preserves_source_locations() -> None:
     ast = parse_lighttpd_config(
@@ -569,3 +583,61 @@ def test_analyze_lighttpd_config_accepts_utf8_bom(tmp_path: Path) -> None:
     assert not any(
         finding.rule_id == "lighttpd.server_tag_not_blank" for finding in result.findings
     )
+
+
+def test_analyze_lighttpd_config_suppresses_content_noise_for_redirect_only(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ( "mod_redirect" )\n'
+        'url.redirect = ( "^/(.*)" => "https://example.test/$1" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    rule_ids = _rule_ids(result)
+    assert rule_ids.isdisjoint(_LIGHTTPD_REDIRECT_ONLY_NOISE_RULE_IDS)
+    assert "lighttpd.error_log_missing" in rule_ids
+    assert "universal.listen_on_all_interfaces" in rule_ids
+
+
+def test_analyze_lighttpd_config_keeps_content_checks_for_partial_redirect(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ( "mod_redirect" )\n'
+        'server.document-root = "/srv/www/app"\n'
+        'url.redirect = ( "^/old/(.*)" => "https://example.test/new/$1" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    rule_ids = _rule_ids(result)
+    assert "lighttpd.max_request_size_missing" in rule_ids
+    assert "universal.missing_x_frame_options" in rule_ids
+
+
+def test_analyze_lighttpd_config_keeps_content_checks_for_mixed_redirect_pairs(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ( "mod_redirect" )\n'
+        'url.redirect = ( "^/(.*)" => "https://example.test/$1", '
+        '"^/api/(.*)" => "http://backend.example.test/$1" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    rule_ids = _rule_ids(result)
+    assert "lighttpd.max_request_size_missing" in rule_ids
+    assert "universal.missing_x_frame_options" in rule_ids
+
+
+def _rule_ids(result: AnalysisResult) -> set[str]:
+    return {finding.rule_id for finding in result.findings}

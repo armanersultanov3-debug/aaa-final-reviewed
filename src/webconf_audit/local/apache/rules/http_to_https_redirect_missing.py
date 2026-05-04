@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
     extract_virtualhost_contexts,
@@ -9,7 +7,9 @@ from webconf_audit.local.apache.effective import (
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
     ApacheConfigAst,
-    ApacheDirectiveNode,
+)
+from webconf_audit.local.apache.rules._redirect_scope_utils import (
+    has_whole_https_redirect,
 )
 from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
 from webconf_audit.models import Finding, SourceLocation
@@ -17,12 +17,6 @@ from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.missing_http_to_https_redirect"
 TITLE = "Apache HTTP virtual host does not redirect to HTTPS"
-REDIRECT_STATUSES = frozenset(
-    {"301", "302", "303", "307", "308", "permanent", "temp", "temporary", "seeother"}
-)
-TRANSPARENT_WRAPPER_BLOCKS = frozenset(
-    {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
-)
 
 
 @rule(
@@ -120,48 +114,7 @@ def _address_port(value: str) -> int | None:
 
 
 def _has_https_redirect(block: ApacheBlockNode) -> bool:
-    return any(_directive_redirects_to_https(directive) for directive in _iter_directives(block.children))
-
-
-def _iter_directives(
-    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
-) -> list[ApacheDirectiveNode]:
-    directives: list[ApacheDirectiveNode] = []
-    for node in nodes:
-        if isinstance(node, ApacheDirectiveNode):
-            directives.append(node)
-        elif node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
-            directives.extend(_iter_directives(node.children))
-    return directives
-
-
-def _directive_redirects_to_https(directive: ApacheDirectiveNode) -> bool:
-    name = directive.name.lower()
-    if name in {"redirect", "redirectmatch"}:
-        return _redirect_directive_targets_https(directive)
-    if name == "rewriterule":
-        return _rewrite_rule_targets_https(directive)
-    return False
-
-
-def _redirect_directive_targets_https(directive: ApacheDirectiveNode) -> bool:
-    args = directive.args[1:] if directive.args and directive.args[0].lower() in REDIRECT_STATUSES else directive.args
-    return any(_is_https_target(arg) for arg in args)
-
-
-def _rewrite_rule_targets_https(directive: ApacheDirectiveNode) -> bool:
-    if len(directive.args) < 2 or not _is_https_target(directive.args[1]):
-        return False
-    return any(_rewrite_flags_redirect(arg) for arg in directive.args[2:])
-
-
-def _rewrite_flags_redirect(value: str) -> bool:
-    normalized = value.strip().strip("[]").lower()
-    return any(flag in {"r", "redirect"} or flag.startswith(("r=", "redirect=")) for flag in normalized.split(","))
-
-
-def _is_https_target(value: str) -> bool:
-    return urlparse(value.strip().strip('"').strip("'")).scheme.lower() == "https"
+    return has_whole_https_redirect(block)
 
 
 __all__ = ["find_missing_http_to_https_redirect"]

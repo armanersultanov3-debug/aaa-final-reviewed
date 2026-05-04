@@ -6,6 +6,9 @@ from webconf_audit.local.apache.effective import (
     extract_virtualhost_contexts,
 )
 from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.rules._redirect_scope_utils import (
+    is_redirect_only_virtualhost,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -85,6 +88,9 @@ def _evaluate_virtualhost(
     config_ast: ApacheConfigAst,
     context: ApacheVirtualHostContext,
 ) -> list[Finding]:
+    if is_redirect_only_virtualhost(context):
+        return []
+
     directive = build_server_effective_config(
         config_ast,
         virtualhost_context=context,

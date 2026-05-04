@@ -16,6 +16,9 @@ from webconf_audit.local.apache.parser import (
     ApacheDirectiveNode,
     ApacheSourceSpan,
 )
+from webconf_audit.local.apache.rules._redirect_scope_utils import (
+    is_redirect_only_virtualhost,
+)
 from webconf_audit.models import Finding, SourceLocation
 
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
@@ -33,6 +36,7 @@ _LOGGER = logging.getLogger(__name__)
 
 HeaderCondition = Literal["always", "onsuccess"]
 HeaderState = dict[HeaderCondition, list["ApacheHeaderSetting"]]
+ScopeKey = tuple[str, str | None, int | None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +87,10 @@ def missing_header_findings(
     recommendation: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    redirect_only_scope_keys = _redirect_only_virtualhost_scope_keys(config_ast)
     for scope in iter_effective_header_scopes(config_ast, header_name):
+        if _scope_key(scope.label, scope.source) in redirect_only_scope_keys:
+            continue
         if not scope.auditable or not scope.missing_possible:
             continue
         findings.append(
@@ -254,6 +261,24 @@ def iter_effective_header_scopes(
             )
         )
     return scopes
+
+
+def _redirect_only_virtualhost_scope_keys(
+    config_ast: ApacheConfigAst,
+) -> set[ScopeKey]:
+    return {
+        _scope_key(_virtualhost_label(context), context.node.source)
+        for context in extract_virtualhost_contexts(config_ast)
+        if is_redirect_only_virtualhost(context)
+    }
+
+
+def _scope_key(label: str, source: ApacheSourceSpan | None) -> ScopeKey:
+    return (
+        label,
+        source.file_path if source is not None else None,
+        source.line if source is not None else None,
+    )
 
 
 def _build_scope(

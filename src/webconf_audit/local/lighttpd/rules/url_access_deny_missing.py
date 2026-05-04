@@ -8,6 +8,9 @@ from webconf_audit.local.lighttpd.rules.rule_utils import (
     default_location,
     iter_all_nodes,
 )
+from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
+    is_redirect_only_config,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -31,6 +34,9 @@ RULE_ID = "lighttpd.url_access_deny_missing"
     order=413,
 )
 def find_url_access_deny_missing(config_ast: LighttpdConfigAst) -> list[Finding]:
+    if is_redirect_only_config(config_ast):
+        return []
+
     for node in iter_all_nodes(config_ast):
         if not isinstance(node, LighttpdAssignmentNode):
             continue

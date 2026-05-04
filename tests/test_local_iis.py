@@ -170,6 +170,81 @@ def test_analyze_valid_web_config(tmp_path: Path) -> None:
     assert result.metadata["inheritance_chain"] == [str(config_path)]
 
 
+def test_analyze_iis_http_redirect_only_suppresses_content_absence_noise(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <httpRedirect enabled="true" destination="https://example.test/" />
+    </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path), use_tls_registry=False)
+
+    rule_ids = _rule_ids(result)
+    assert "iis.missing_hsts_header" not in rule_ids
+    assert "iis.max_allowed_content_length_missing" not in rule_ids
+    assert "iis.logging_not_configured" in rule_ids
+
+
+def test_analyze_iis_child_only_redirect_keeps_content_absence_checks(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <httpRedirect enabled="true" childOnly="true" destination="https://example.test/" />
+    </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path), use_tls_registry=False)
+
+    rule_ids = _rule_ids(result)
+    assert "iis.missing_hsts_header" in rule_ids
+    assert "iis.max_allowed_content_length_missing" in rule_ids
+
+
+def test_analyze_iis_global_redirect_with_location_override_keeps_content_absence_checks(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <httpRedirect enabled="true" destination="https://example.test/" />
+    </system.webServer>
+    <location path="api">
+        <system.webServer>
+            <httpRedirect enabled="false" />
+        </system.webServer>
+    </location>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path), use_tls_registry=False)
+
+    rule_ids = _rule_ids(result)
+    assert "iis.missing_hsts_header" in rule_ids
+    assert "iis.max_allowed_content_length_missing" in rule_ids
+
+
 def test_analyze_iis_config_accepts_utf8_bom(tmp_path: Path) -> None:
     config_path = tmp_path / "web.config"
     config_path.write_text(MINIMAL_WEB_CONFIG, encoding="utf-8-sig")
@@ -820,3 +895,7 @@ def test_malformed_xml_still_returns_parse_error_not_rule_findings(tmp_path: Pat
     assert result.findings == []
     assert len(result.issues) == 1
     assert result.issues[0].code == "iis_parse_error"
+
+
+def _rule_ids(result: AnalysisResult) -> set[str]:
+    return {finding.rule_id for finding in result.findings}

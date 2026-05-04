@@ -1,4 +1,9 @@
 from tests.apache_helpers import Path, _safe_apache_config, analyze_apache_config
+from webconf_audit.local.apache.effective import ApacheVirtualHostContext
+from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
+from webconf_audit.local.apache.rules._redirect_scope_utils import (
+    is_redirect_only_virtualhost,
+)
 
 SAFE_TLS_VHOST_LINES = [
     "Listen 127.0.0.1:443 https",
@@ -20,6 +25,15 @@ SAFE_TLS_VHOST_LINES = [
 SAFE_HSTS_LINE = (
     '    Header always set Strict-Transport-Security "max-age=31536000; '
     'includeSubDomains"'
+)
+_APACHE_REDIRECT_NOISE_RULE_IDS = frozenset(
+    {
+        "apache.limit_request_body_missing_or_invalid",
+        "apache.limit_request_fields_missing_or_invalid",
+        "apache.missing_permissions_policy_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_x_frame_options_header",
+    }
 )
 
 
@@ -256,6 +270,98 @@ def test_analyze_apache_config_accepts_rewrite_rule_to_https(
     assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_reports_partial_https_redirect_as_missing_full_redirect(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _redirect_pair_config(
+            "    Redirect permanent /old https://app.example.test/new"
+        ),
+    )
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_does_not_emit_content_noise_for_redirect_only_vhost(
+    tmp_path: Path,
+) -> None:
+    config = _redirect_noise_config(
+        "    Redirect permanent / https://app.example.test/"
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    http_vhost_rule_ids = _rule_ids_at_line(
+        findings, _line_number(config, "<VirtualHost *:80>")
+    )
+    tls_vhost_rule_ids = _rule_ids_at_line(
+        findings, _line_number(config, "<VirtualHost *:443>")
+    )
+    assert http_vhost_rule_ids.isdisjoint(_APACHE_REDIRECT_NOISE_RULE_IDS)
+    assert "apache.missing_http_to_https_redirect" not in http_vhost_rule_ids
+    assert "apache.missing_x_frame_options_header" in tls_vhost_rule_ids
+    assert "apache.limit_request_body_missing_or_invalid" in tls_vhost_rule_ids
+
+
+def test_analyze_apache_config_treats_metadata_only_wrapper_as_redirect_neutral(
+    tmp_path: Path,
+) -> None:
+    config = _redirect_noise_config(
+        "    Redirect permanent / https://app.example.test/",
+        "    <IfModule mod_rewrite.c>",
+        "        RewriteEngine On",
+        "    </IfModule>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    http_vhost_rule_ids = _rule_ids_at_line(
+        findings, _line_number(config, "<VirtualHost *:80>")
+    )
+    assert http_vhost_rule_ids.isdisjoint(_APACHE_REDIRECT_NOISE_RULE_IDS)
+    assert "apache.missing_http_to_https_redirect" not in http_vhost_rule_ids
+
+
+def test_analyze_apache_config_keeps_content_checks_for_partial_redirect_vhost(
+    tmp_path: Path,
+) -> None:
+    config = _redirect_noise_config(
+        "    DocumentRoot /var/www/app",
+        "    Redirect permanent /old https://app.example.test/new",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    http_vhost_rule_ids = _rule_ids_at_line(
+        findings, _line_number(config, "<VirtualHost *:80>")
+    )
+    assert "apache.missing_x_frame_options_header" in http_vhost_rule_ids
+    assert "apache.limit_request_body_missing_or_invalid" in http_vhost_rule_ids
+
+
+def test_apache_redirect_only_virtualhost_uses_listen_address_fallback() -> None:
+    node = ApacheBlockNode(
+        name="VirtualHost",
+        args=["*:80"],
+        children=[
+            ApacheDirectiveNode(
+                name="Redirect",
+                args=["permanent", "/", "https://app.example.test/"],
+            )
+        ],
+    )
+    context = ApacheVirtualHostContext(
+        server_name="app.example.test",
+        server_aliases=[],
+        listen_address="*:80",
+        node=node,
+        listen_addresses=(),
+    )
+
+    assert is_redirect_only_virtualhost(context)
+
+
 def test_analyze_apache_config_ignores_http_only_virtualhost(
     tmp_path: Path,
 ) -> None:
@@ -313,6 +419,49 @@ def _redirect_pair_config(*http_vhost_lines: str) -> str:
     return _safe_apache_config(*(http_lines + tls_lines))
 
 
+def _redirect_noise_config(*http_vhost_lines: str) -> str:
+    lines = [
+        "ServerSignature Off",
+        "TraceEnable Off",
+        "ServerTokens Prod",
+        "ErrorLog logs/error_log",
+        "CustomLog logs/access_log combined",
+        "ErrorDocument 404 /custom404.html",
+        "ErrorDocument 500 /custom500.html",
+        "LogLevel notice",
+        "HttpProtocolOptions Strict Require1.0",
+        "Listen 127.0.0.1:80",
+        "Listen 127.0.0.1:443 https",
+        "",
+        "<VirtualHost *:80>",
+        "    ServerName app.example.test",
+        *http_vhost_lines,
+        "</VirtualHost>",
+        "<VirtualHost *:443>",
+        "    ServerName app.example.test",
+        "    SSLEngine On",
+        "    SSLCertificateFile conf/server.crt",
+        "    SSLCertificateKeyFile conf/server.key",
+        "    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1",
+        "    SSLCipherSuite HIGH:!aNULL:!MD5:!RC4:!3DES",
+        "    SSLHonorCipherOrder On",
+        "</VirtualHost>",
+        '<FilesMatch "^\\.ht">',
+        "    Require all denied",
+        "</FilesMatch>",
+        '<FilesMatch "\\.(bak|conf|ini|log|old|orig|save|sql|swp|tmp)$">',
+        "    Require all denied",
+        "</FilesMatch>",
+        '<DirectoryMatch "/\\.(git|svn)(/|$)">',
+        "    Require all denied",
+        "</DirectoryMatch>",
+        "<Directory />",
+        "    AllowOverride None",
+        "</Directory>",
+    ]
+    return "\n".join(lines)
+
+
 def _analyze_config(tmp_path: Path, config: str):
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(config, encoding="utf-8")
@@ -323,3 +472,18 @@ def _analyze_config(tmp_path: Path, config: str):
 
 def _rule_ids(findings) -> set[str]:
     return {finding.rule_id for finding in findings}
+
+
+def _rule_ids_at_line(findings, line: int) -> set[str]:
+    return {
+        finding.rule_id
+        for finding in findings
+        if finding.location is not None and finding.location.line == line
+    }
+
+
+def _line_number(config: str, marker: str) -> int:
+    for idx, line in enumerate(config.splitlines(), start=1):
+        if line == marker:
+            return idx
+    raise AssertionError(f"Marker not found: {marker}")

@@ -10,6 +10,9 @@ from webconf_audit.local.iis.rules.rule_utils import (
     location_context,
     raw_location,
 )
+from webconf_audit.local.iis.rules.redirect_scope_utils import (
+    is_global_http_redirect_only,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -39,6 +42,9 @@ def _effective_findings(
     doc: IISConfigDocument,
     effective_config: IISEffectiveConfig,
 ) -> list[Finding]:
+    if is_global_http_redirect_only(effective_config):
+        return []
+
     findings = [
         _effective_request_limit_finding(section)
         for section in effective_config.all_sections

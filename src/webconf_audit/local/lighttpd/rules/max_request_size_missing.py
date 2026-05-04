@@ -5,6 +5,9 @@ from webconf_audit.local.lighttpd.rules.rule_utils import (
     default_location,
     has_assignment,
 )
+from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
+    is_redirect_only_config,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -22,6 +25,9 @@ RULE_ID = "lighttpd.max_request_size_missing"
     order=404,
 )
 def find_max_request_size_missing(config_ast: LighttpdConfigAst) -> list[Finding]:
+    if is_redirect_only_config(config_ast):
+        return []
+
     if has_assignment(config_ast, "server.max-request-size"):
         return []
 

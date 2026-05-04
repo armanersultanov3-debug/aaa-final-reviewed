@@ -15,6 +15,9 @@ from webconf_audit.local.lighttpd.rules.rule_utils import (
     iter_all_nodes,
     unquote,
 )
+from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
+    is_redirect_only_config,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -42,6 +45,9 @@ def find_missing_strict_transport_security(
     merged_directives: dict[str, LighttpdEffectiveDirective] | None = None,
     request_context: LighttpdRequestContext | None = None,
 ) -> list[Finding]:
+    if is_redirect_only_config(config_ast):
+        return []
+
     # request_context only gates per-request merged_directives semantics;
     # _has_header_in_directives consumes merged/global effective_config views.
     if merged_directives is not None and request_context is not None:

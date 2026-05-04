@@ -179,12 +179,12 @@ rules, body-size limits, and per-content rate limits.
 
 Applicability:
 
-| Server | Notes |
-|--------|-------|
-| Nginx | Common `server { return 301 ...; }` and rewrite-only redirect hosts. |
-| Apache | Common `Redirect`, `RedirectMatch`, and rewrite-only virtual hosts. |
-| Lighttpd | Redirect-only conditional scopes can be modeled conservatively. |
-| IIS | Applies to `httpRedirect` and rewrite-only sites, while respecting XML inheritance. |
+| Server | Status | Evidence / next proof | Notes |
+|--------|--------|-----------------------|-------|
+| Nginx | Confirmed / covered | Reproduced from the real `Новая папка` report and covered by `tests/test_nginx_roadmap1_noise.py`. | Common `server { return 301 ...; }` and rewrite-only redirect hosts. |
+| Apache | Confirmed / covered | Covered by Apache redirect-only VirtualHost regression tests. | Common `Redirect`, `RedirectMatch`, and rewrite-only virtual hosts. |
+| Lighttpd | Confirmed / partially covered | Covered for fully redirect-only configs; add `$SERVER["socket"] == ":80"` and host-conditional `url.redirect` fixtures before changing conditional scope behavior. | Redirect-only conditional scopes can be modeled conservatively. |
+| IIS | Confirmed / covered | Covered for global `httpRedirect enabled="true"` with `childOnly` guard. | Applies to `httpRedirect` and rewrite-only sites, while respecting XML inheritance. |
 
 ### Inheritance-aware missing checks
 
@@ -195,12 +195,12 @@ applies.
 
 Applicability:
 
-| Server | Notes |
-|--------|-------|
-| Nginx | Add effective `main -> http -> server -> location` handling for inherited directives. |
-| Apache | Extend existing effective helpers so more rules consume inherited `VirtualHost`, `Directory`, and `Location` state. |
-| Lighttpd | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
-| IIS | Prefer effective merged XML sections for rules that currently inspect only the local document. |
+| Server | Status | Evidence / next proof | Notes |
+|--------|--------|-----------------------|-------|
+| Nginx | Partially covered | Logging, timeout, header, TLS, stapling, HTTP/2, and fragment-only notes have regression coverage; `nginx -T` dump context reconstruction remains open. | Add effective `main -> http -> server -> location` handling for inherited directives. |
+| Apache | Partially covered | Effective helpers exist, but more rules still need to consume inherited `VirtualHost`, `Directory`, and `Location` state. | Extend existing effective helpers so more rules consume inherited state. |
+| Lighttpd | Confirmed gap | Conditional logging/header findings showed host/default scope noise; keep adding request-context fixtures. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
+| IIS | Partially covered | Cross-file collection merge was fixed for custom headers; extend regression coverage to handlers, modules, and requestFiltering. | Prefer effective merged XML sections for rules that currently inspect only the local document. |
 
 ### TLS hardening expansion
 
@@ -222,12 +222,12 @@ Planned checks:
 
 Server notes:
 
-| Server | Notes |
-|--------|-------|
-| Nginx | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS hosts. |
-| Apache | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS virtual hosts. |
-| Lighttpd | Coverage depends on the TLS backend and modeled OpenSSL directives. |
-| IIS | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown, while external probing should provide the reliable signal. |
+| Server | Status | Evidence / next proof | Notes |
+|--------|--------|-----------------------|-------|
+| Nginx | Active backlog | CIS/standards expansion should add targeted local rules with precision fixtures. | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS hosts. |
+| Apache | Active backlog | Existing Apache TLS tests cover several policies; remaining gaps should be mapped against CIS/ASVS. | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS virtual hosts. |
+| Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
+| IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown. |
 
 ### Severity calibration and report grouping
 
