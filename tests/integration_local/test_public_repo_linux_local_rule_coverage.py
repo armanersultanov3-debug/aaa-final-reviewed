@@ -17,7 +17,7 @@ from webconf_audit.rule_registry import registry
 _ROOT = Path(__file__).resolve().parents[2]
 _DEMO_ROOT = _ROOT / "demo" / "local_admin"
 _DOCKER_ROOT = Path(__file__).resolve().parent / "docker_public_repo"
-_PUBLIC_REPO_URL = "https://github.com/armanersultanov8-cmd/aaa-final-reviewed.git"
+_PUBLIC_REPO_URL = "https://github.com/Armanyich/external-tests.git"
 _PROJECT_NAME = "webconf_audit_public_repo_local_rules_it"
 _READINESS_URLS: tuple[str, ...] = (
     "http://127.0.0.1:19180/",
@@ -338,11 +338,66 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         config_text=_nginx_http_config(
             _nginx_server_block(
                 "listen 80;",
-                "access_log /var/log/nginx/access.log;",
+                "access_log /var/log/nginx/access.log main;",
             )
         ),
         expected_rule_ids=frozenset({"nginx.missing_log_format"}),
-        native_validation_should_pass=True,
+        native_validation_should_pass=False,
+    )
+    log_format_missing_fields = Scenario(
+        service="nginx",
+        name="log_format_missing_fields",
+        config_filename="nginx.conf",
+        config_text=_nginx_http_config(
+            'log_format combined "$remote_addr";',
+            _nginx_server_block(
+                "listen 80;",
+                "access_log /var/log/nginx/access.log;",
+            ),
+        ),
+        expected_rule_ids=frozenset({"nginx.log_format_missing_fields"}),
+        native_validation_should_pass=False,
+    )
+    policy_controls = Scenario(
+        service="nginx",
+        name="policy_controls",
+        config_filename="nginx.conf",
+        config_text=_nginx_http_config(
+            "limit_req_zone $server_name zone=slow:10m rate=0r/s;",
+            "limit_conn_zone $server_name zone=addr:10m;",
+            _nginx_server_block(
+                "listen 80 default_server;",
+                "server_name _;",
+                "error_log /dev/null crit;",
+                "add_header Content-Security-Policy \"script-src 'unsafe-inline'\";",
+                "add_header Referrer-Policy origin;",
+                "limit_req zone=missing burst=5;",
+                "limit_conn addr 0;",
+                "location /api {",
+                "    limit_except GET POST DELETE { deny all; }",
+                "}",
+            ),
+            _nginx_server_block(
+                "listen 80;",
+                "server_name app.example.test;",
+            ),
+        ),
+        expected_rule_ids=frozenset(
+            {
+                "nginx.content_security_policy_unsafe",
+                "nginx.default_server_not_rejecting_unknown_hosts",
+                "nginx.error_log_too_restrictive",
+                "nginx.http_method_policy_allows_unapproved",
+                "nginx.limit_conn_invalid_limit",
+                "nginx.limit_conn_zone_not_per_ip",
+                "nginx.limit_req_unknown_zone",
+                "nginx.limit_req_zone_invalid_rate",
+                "nginx.limit_req_zone_not_per_ip",
+                "nginx.missing_http_to_https_redirect",
+                "nginx.referrer_policy_unsafe",
+            }
+        ),
+        native_validation_should_pass=False,
     )
     tls_intent = Scenario(
         service="nginx",
@@ -356,7 +411,16 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         expected_rule_ids=frozenset({"universal.tls_intent_without_config"}),
         native_validation_should_pass=False,
     )
-    return broad, admin_proxy, zones_missing, cert_no_key, log_format_missing, tls_intent
+    return (
+        broad,
+        admin_proxy,
+        zones_missing,
+        cert_no_key,
+        log_format_missing,
+        log_format_missing_fields,
+        policy_controls,
+        tls_intent,
+    )
 
 
 def _apache_scenarios() -> tuple[Scenario, ...]:
@@ -482,7 +546,89 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
             ),
         ),
     )
-    return broad, server_info_and_directory, htaccess_bundle
+    policy_controls = Scenario(
+        service="apache",
+        name="policy_controls",
+        config_filename="httpd.conf",
+        config_text=_apache_live_config(
+            "ErrorLog /dev/null",
+            "LogLevel emerg",
+            "Timeout 600",
+            "KeepAlive Off",
+            "KeepAliveTimeout 120",
+            "MaxKeepAliveRequests 10",
+            "LimitRequestLine 16384",
+            "LimitRequestFieldSize 32768",
+            "FileETag INode MTime Size",
+            'LogFormat "%h" weak',
+            'CustomLog "/proc/self/fd/1" weak',
+            'CustomLog "/proc/self/fd/1" ghost',
+            'Header always set X-Frame-Options "ALLOW-FROM https://example.test"',
+            'Header always set Referrer-Policy "unsafe-url"',
+            'Header always set Permissions-Policy "geolocation=*"',
+            '<Location "/api">',
+            "    Require all granted",
+            "</Location>",
+            '<Location "/admin">',
+            "    <LimitExcept GET POST DELETE>",
+            "        Require all denied",
+            "    </LimitExcept>",
+            "</Location>",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCipherSuite RC4-SHA",
+            "    SSLProtocol all",
+            "    SSLCompression On",
+            "    SSLInsecureRenegotiation On",
+            "    SSLHonorCipherOrder Off",
+            "    SSLUseStapling On",
+            '    Header always set Strict-Transport-Security "max-age=300"',
+            "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    ServerName missing.example.test",
+            "    SSLEngine On",
+            "</VirtualHost>",
+            include_backup_restriction=True,
+        ),
+        expected_rule_ids=frozenset(
+            {
+                "apache.error_log_unsafe_destination",
+                "apache.file_etag_inodes",
+                "apache.hsts_header_unsafe",
+                "apache.http_method_policy_allows_unapproved",
+                "apache.keepalive_disabled",
+                "apache.keepalive_timeout_too_high",
+                "apache.limit_request_field_size_too_high",
+                "apache.limit_request_line_too_high",
+                "apache.log_format_missing_fields",
+                "apache.log_level_too_restrictive",
+                "apache.max_keepalive_requests_too_low",
+                "apache.missing_hsts_header",
+                "apache.missing_http_method_restrictions",
+                "apache.missing_http_to_https_redirect",
+                "apache.missing_log_format",
+                "apache.permissions_policy_unsafe",
+                "apache.referrer_policy_unsafe",
+                "apache.ssl_cipher_suite_missing",
+                "apache.ssl_cipher_suite_weak",
+                "apache.ssl_compression_enabled",
+                "apache.ssl_honor_cipher_order_not_on",
+                "apache.ssl_insecure_renegotiation_enabled",
+                "apache.ssl_protocol_missing_or_weak",
+                "apache.ssl_session_cache_missing",
+                "apache.ssl_stapling_cache_missing",
+                "apache.ssl_use_stapling_not_on",
+                "apache.timeout_too_high",
+                "apache.x_frame_options_unsafe",
+            }
+        ),
+        native_validation_should_pass=False,
+    )
+    return broad, server_info_and_directory, htaccess_bundle, policy_controls
 
 
 def _lighttpd_scenarios() -> tuple[Scenario, ...]:
