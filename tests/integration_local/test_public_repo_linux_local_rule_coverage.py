@@ -752,7 +752,7 @@ def _compose_file_text(scenarios_root: Path, public_repo_commit: str) -> str:
                   context: "{(_DOCKER_ROOT / 'nginx').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
-                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_REF: "{public_repo_commit}"
                     PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-nginx-it
                 container_name: webconf-audit-public-repo-nginx-it
@@ -767,7 +767,7 @@ def _compose_file_text(scenarios_root: Path, public_repo_commit: str) -> str:
                   context: "{(_DOCKER_ROOT / 'apache').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
-                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_REF: "{public_repo_commit}"
                     PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-apache-it
                 container_name: webconf-audit-public-repo-apache-it
@@ -783,7 +783,7 @@ def _compose_file_text(scenarios_root: Path, public_repo_commit: str) -> str:
                   context: "{(_DOCKER_ROOT / 'lighttpd').as_posix()}"
                   args:
                     PUBLIC_REPO_URL: "{_PUBLIC_REPO_URL}"
-                    PUBLIC_REPO_REF: "{PUBLIC_REPO_REF}"
+                    PUBLIC_REPO_REF: "{public_repo_commit}"
                     PUBLIC_REPO_CACHE_KEY: "{public_repo_commit}"
                 image: webconf-audit-public-repo-lighttpd-it
                 container_name: webconf-audit-public-repo-lighttpd-it
