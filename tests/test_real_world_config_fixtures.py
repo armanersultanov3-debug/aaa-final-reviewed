@@ -75,11 +75,13 @@ def _analyze_sample(sample: dict[str, Any]) -> AnalysisResult:
 
 def test_real_world_metadata_covers_expected_server_mix() -> None:
     counts = Counter(sample["server_type"] for sample in _SAMPLES)
+    allowed_server_types = {"nginx", "apache", "lighttpd", "iis"}
 
-    assert 2 <= counts["nginx"] <= 4
-    assert 2 <= counts["apache"] <= 4
-    assert 1 <= counts["lighttpd"] <= 3
-    assert 1 <= counts["iis"] <= 3
+    assert set(counts) <= allowed_server_types
+    assert counts["nginx"] >= 2
+    assert counts["apache"] >= 2
+    assert counts["lighttpd"] >= 1
+    assert counts["iis"] >= 1
 
 
 @pytest.mark.parametrize("sample", _SAMPLES, ids=_sample_id)

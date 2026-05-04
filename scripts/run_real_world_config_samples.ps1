@@ -196,10 +196,15 @@ if (Test-Path $repoSrc) {
 New-Item -ItemType Directory -Force -Path $reportsDir | Out-Null
 
 $metadata = Get-Content -Path $metadataPath -Raw | ConvertFrom-Json
+if ($null -eq $metadata.samples -or $metadata.samples.Count -eq 0) {
+    Write-Error "No samples found in metadata file: $metadataPath"
+    exit 1
+}
+
 $failedSamples = @()
 
 foreach ($sample in $metadata.samples) {
-    $configPath = Join-Path $datasetRoot $sample.entrypoint
+    $configPath = Resolve-DatasetFile $sample.entrypoint
     $sampleId = $sample.id
     Write-Host "== $sampleId =="
 
