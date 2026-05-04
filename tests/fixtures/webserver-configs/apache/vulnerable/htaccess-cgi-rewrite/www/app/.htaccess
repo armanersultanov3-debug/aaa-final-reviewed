@@ -1,0 +1,5 @@
+Options +Indexes +ExecCGI
+AddHandler cgi-script .cgi
+RewriteEngine On
+RewriteRule ^legacy/(.*)$ /index.cgi?path=$1 [L]
+Header unset Content-Security-Policy
