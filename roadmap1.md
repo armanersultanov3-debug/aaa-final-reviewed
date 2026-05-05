@@ -36,14 +36,16 @@ Status: in progress.
 
 ## PR Slice 2: Request, Body, and Header Limits
 
-Status: planned.
+Status: implemented.
 
-- Nginx: improve quality checks for `client_max_body_size`,
-  `client_header_buffer_size`, and `large_client_header_buffers`.
-- Apache: extend `LimitRequest*` coverage only where the current parser and
-  effective helpers can prove the policy.
-- IIS: extend requestFiltering default/absence checks where effective XML
-  sections already expose enough context.
+- Nginx: added conservative too-large checks for `client_max_body_size`,
+  `client_header_buffer_size`, and `large_client_header_buffers`; `0` body-size
+  detection now follows last-directive semantics inside each scope.
+- Apache: no new rule was needed; current `LimitRequest*` checks already use
+  effective scope, redirect-only suppression, and benchmark thresholds.
+- IIS: `fileExtensions` now treats missing/default `allowUnlisted` under an
+  explicit `requestFiltering` policy as unsafe while leaving safe
+  `maxUrl` / `maxQueryString` IIS defaults silent.
 - Lighttpd: keep `server.max-request-size` and `server.max-connections`
   coverage precise with conditional/effective scope tests.
 

@@ -8,23 +8,27 @@ from webconf_audit.local.nginx.rules._value_utils import (
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
-RULE_ID = "nginx.client_max_body_size_unlimited"
+RULE_ID = "nginx.client_max_body_size_too_large"
+MAX_CLIENT_MAX_BODY_SIZE_BYTES = 100 * 1024 * 1024
 
 
 @rule(
     rule_id=RULE_ID,
-    title="client_max_body_size disables request body limits",
+    title="client_max_body_size is unusually large",
     severity="low",
-    description="Nginx sets 'client_max_body_size' to 0, which disables request body size checks.",
+    description=(
+        "Nginx sets 'client_max_body_size' above the conservative local "
+        "hardening threshold."
+    ),
     recommendation=(
-        "Set 'client_max_body_size' to an explicit non-zero limit, and use scoped overrides "
-        "only for endpoints that require larger uploads."
+        "Set 'client_max_body_size' to the smallest application-specific upload "
+        "limit, and scope larger values only to upload endpoints."
     ),
     category="local",
     server_type="nginx",
     order=245,
 )
-def find_client_max_body_size_unlimited(config_ast: ConfigAst) -> list[Finding]:
+def find_client_max_body_size_too_large(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
     for directive, _parent in iter_last_direct_child_directives(
@@ -35,21 +39,22 @@ def find_client_max_body_size_unlimited(config_ast: ConfigAst) -> list[Finding]:
         if not directive.args:
             continue
         size = parse_size_bytes(directive.args[0])
-        if size != 0:
+        if size is None or size <= MAX_CLIENT_MAX_BODY_SIZE_BYTES:
             continue
 
         findings.append(
             Finding(
                 rule_id=RULE_ID,
-                title="client_max_body_size disables request body limits",
+                title="client_max_body_size is unusually large",
                 severity="low",
                 description=(
                     "Nginx sets 'client_max_body_size "
-                    f"{directive.args[0]};', which disables request body size checks."
+                    f"{directive.args[0]};', which is above 100 MB and may allow "
+                    "large request bodies to consume excessive resources."
                 ),
                 recommendation=(
-                    "Set 'client_max_body_size' to an explicit non-zero limit, and use scoped "
-                    "overrides only for endpoints that require larger uploads."
+                    "Set 'client_max_body_size' to the smallest application-specific "
+                    "upload limit, and scope larger values only to upload endpoints."
                 ),
                 location=SourceLocation(
                     mode="local",
@@ -63,4 +68,4 @@ def find_client_max_body_size_unlimited(config_ast: ConfigAst) -> list[Finding]:
     return findings
 
 
-__all__ = ["find_client_max_body_size_unlimited"]
+__all__ = ["find_client_max_body_size_too_large"]

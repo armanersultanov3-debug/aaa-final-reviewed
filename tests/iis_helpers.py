@@ -33,6 +33,7 @@ MINIMAL_APPLICATION_HOST_CONFIG = """\
         <security>
             <requestFiltering>
                 <requestLimits maxAllowedContentLength="30000000" />
+                <fileExtensions allowUnlisted="false" />
             </requestFiltering>
         </security>
     </system.webServer>
@@ -47,6 +48,7 @@ MINIMAL_WEB_CONFIG = """\
         <security>
             <requestFiltering>
                 <requestLimits maxAllowedContentLength="4194304" />
+                <fileExtensions allowUnlisted="false" />
             </requestFiltering>
         </security>
     </system.webServer>

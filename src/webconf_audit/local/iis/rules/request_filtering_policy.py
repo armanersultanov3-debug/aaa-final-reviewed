@@ -86,19 +86,35 @@ def find_file_extensions_allow_unlisted(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
     if effective_config is not None:
-        return [
+        findings = [
             _effective_file_extensions_finding(section)
             for section in effective_config.all_sections
             if section.section_path_suffix == "/fileExtensions"
             and not is_pure_inheritance(section)
-            and _is_true(section.attributes.get("allowUnlisted"))
+            and _allows_unlisted_by_default(section.attributes.get("allowUnlisted"))
         ]
-    return [
+        findings.extend(
+            _effective_file_extensions_missing_finding(section)
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestFiltering"
+            and not is_pure_inheritance(section)
+            and not _has_file_extensions_section(effective_config, section.location_path)
+        )
+        return findings
+
+    findings = [
         _raw_file_extensions_finding(section)
         for section in doc.sections
         if section.tag == "fileExtensions"
-        and _is_true(section.attributes.get("allowUnlisted"))
+        and _allows_unlisted_by_default(section.attributes.get("allowUnlisted"))
     ]
+    findings.extend(
+        _raw_file_extensions_missing_finding(section)
+        for section in doc.sections
+        if section.tag == "requestFiltering"
+        and not _has_raw_file_extensions_section(doc, section.location_path)
+    )
+    return findings
 
 
 @rule(
@@ -258,6 +274,22 @@ def _effective_file_extensions_finding(section: IISEffectiveSection) -> Finding:
     )
 
 
+def _effective_file_extensions_missing_finding(section: IISEffectiveSection) -> Finding:
+    ctx = location_context(section)
+    return Finding(
+        rule_id=FILE_EXTENSIONS_RULE_ID,
+        title="Request filtering allows unlisted file extensions",
+        severity="medium",
+        description=(
+            f"IIS request filtering does not define a fileExtensions allowlist{ctx}. "
+            "The default policy allows unlisted extensions, so unexpected file "
+            "types may reach the application."
+        ),
+        recommendation='Add fileExtensions allowUnlisted="false" and allow only required file extensions.',
+        location=effective_location(section),
+    )
+
+
 def _raw_file_extensions_finding(section: IISSection) -> Finding:
     return Finding(
         rule_id=FILE_EXTENSIONS_RULE_ID,
@@ -270,6 +302,42 @@ def _raw_file_extensions_finding(section: IISSection) -> Finding:
         ),
         recommendation='Set fileExtensions allowUnlisted="false" and add only required file extensions.',
         location=raw_location(section),
+    )
+
+
+def _raw_file_extensions_missing_finding(section: IISSection) -> Finding:
+    return Finding(
+        rule_id=FILE_EXTENSIONS_RULE_ID,
+        title="Request filtering allows unlisted file extensions",
+        severity="medium",
+        description=(
+            "IIS request filtering does not define a fileExtensions allowlist. "
+            "The default policy allows unlisted extensions, so unexpected file "
+            "types may reach the application."
+        ),
+        recommendation='Add fileExtensions allowUnlisted="false" and allow only required file extensions.',
+        location=raw_location(section),
+    )
+
+
+def _has_file_extensions_section(
+    effective_config: IISEffectiveConfig,
+    location_path: str | None,
+) -> bool:
+    return any(
+        section.section_path_suffix == "/fileExtensions"
+        and section.location_path == location_path
+        for section in effective_config.all_sections
+    )
+
+
+def _has_raw_file_extensions_section(
+    doc: IISConfigDocument,
+    location_path: str | None,
+) -> bool:
+    return any(
+        section.tag == "fileExtensions" and section.location_path == location_path
+        for section in doc.sections
     )
 
 
@@ -359,3 +427,7 @@ def _is_true(value: object) -> bool:
 
 def _is_false(value: object) -> bool:
     return str(value).strip().lower() == "false"
+
+
+def _allows_unlisted_by_default(value: object) -> bool:
+    return str(value).strip().lower() != "false"

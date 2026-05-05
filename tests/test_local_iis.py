@@ -866,6 +866,7 @@ def test_no_iis_rule_findings_on_safe_baseline(tmp_path: Path) -> None:
         <asp scriptErrorSentToBrowser="false" />
         <requestFiltering allowDoubleEscaping="false">
             <requestLimits maxAllowedContentLength="4194304" />
+            <fileExtensions allowUnlisted="false" />
         </requestFiltering>
         <httpProtocol>
             <customHeaders>
