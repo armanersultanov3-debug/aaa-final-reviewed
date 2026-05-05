@@ -2,6 +2,10 @@ from tests.iis_helpers import AnalysisResult as IISAnalysisResult
 from tests.iis_helpers import Path, analyze_iis_config
 from tests.nginx_helpers import AnalysisResult as NginxAnalysisResult
 from tests.nginx_helpers import analyze_nginx_config
+from webconf_audit.local.iis.parser import parse_iis_config
+from webconf_audit.local.iis.rules.request_filtering_policy import (
+    find_file_extensions_allow_unlisted,
+)
 
 
 def _rule_ids(result: IISAnalysisResult | NginxAnalysisResult) -> set[str]:
@@ -192,6 +196,35 @@ def test_iis_reports_inherited_file_extensions_default_at_location(
         if finding.rule_id == "iis.file_extensions_allow_unlisted"
     ]
     assert any("private" in finding.description for finding in findings)
+
+
+def test_iis_raw_file_extensions_missing_uses_location_inheritance() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <fileExtensions allowUnlisted="false" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+    <location path="private/child">
+        <system.webServer>
+            <security>
+                <requestFiltering removeServerHeader="true" />
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    findings = find_file_extensions_allow_unlisted(doc)
+
+    assert not findings
 
 
 def test_iis_accepts_complete_request_filtering_policy(tmp_path: Path) -> None:

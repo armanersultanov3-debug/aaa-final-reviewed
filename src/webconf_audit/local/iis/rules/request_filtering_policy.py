@@ -334,10 +334,32 @@ def _has_raw_file_extensions_section(
     doc: IISConfigDocument,
     location_path: str | None,
 ) -> bool:
+    candidate_locations = set(_location_inheritance_chain(location_path))
     return any(
-        section.tag == "fileExtensions" and section.location_path == location_path
+        section.tag == "fileExtensions"
+        and _normalize_location_path(section.location_path) in candidate_locations
         for section in doc.sections
     )
+
+
+def _location_inheritance_chain(location_path: str | None) -> list[str | None]:
+    normalized = _normalize_location_path(location_path)
+    if normalized is None:
+        return [None]
+
+    locations: list[str | None] = [normalized]
+    parts = normalized.split("/")
+    for depth in range(len(parts) - 1, 0, -1):
+        locations.append("/".join(parts[:depth]))
+    locations.append(None)
+    return locations
+
+
+def _normalize_location_path(location_path: str | None) -> str | None:
+    if location_path is None:
+        return None
+    normalized = location_path.replace("\\", "/").strip("/")
+    return normalized or None
 
 
 def _unsafe_isapi_cgi_attrs(attributes: dict[str, str]) -> list[str]:
