@@ -7,7 +7,7 @@ before we add more rules.
 The goal is not to maximize rule count. The goal is to decide, for each useful
 CWE, OWASP, CIS, ASVS, or vendor hardening item, whether the project can check
 it honestly with its current data model or whether deeper parsing, effective
-configuration analysis, external probing, or host inspection is needed first.
+configuration analysis, or external probing is needed first.
 
 ## Source Baseline
 
@@ -75,8 +75,7 @@ coverage or a stricter policy interpretation stay in the follow-up gap list.
 - Prefer existing local parser/effective-config data over raw string matching.
 - Prefer external probe rules only when the configured intent cannot prove the
   runtime behavior.
-- Mark host-level requirements as out of scope unless the tool adds an explicit
-  host-inspection mode.
+- Mark host-level requirements as out of scope for this product line.
 
 Future ASVS row shape:
 
@@ -103,7 +102,6 @@ Use these labels in follow-up PRs:
 | `direct-rule` | Current parser/probe data is enough. | Add a focused rule and tests. |
 | `parser-depth` | The rule needs better AST/effective-config semantics first. | Improve parser/effective analysis, then add the rule. |
 | `probe-depth` | The rule needs richer runtime probing first. | Improve external probe collection, then add the rule. |
-| `host-depth` | The item needs OS, package, permissions, registry, service, or process data. | Defer until a host-inspection mode exists. |
 | `out-of-scope` | The item is outside web server config/probing. | Document why it is excluded. |
 | `research` | The source or interpretation is not stable enough yet. | Verify source text before implementation. |
 
@@ -160,9 +158,9 @@ Planning output for CIS NGINX Benchmark v3.0.0:
   `nginx.server_tokens_on`, `nginx.autoindex_on`, logging, TLS protocol/cipher,
   request-size, and access-control rules;
 - split candidate work into `covered`, `direct-rule`, `parser-depth`,
-  `host-depth`, `out-of-scope`, and `research`;
-- keep host ownership, package, service user, and filesystem layout guidance in
-  `host-depth` until the project has an explicit host-inspection mode.
+  `out-of-scope`, and `research`;
+- keep host ownership, package, service user, and filesystem layout guidance
+  outside the product scope.
 
 Planning output for CIS Apache HTTP Server 2.4 Benchmark v2.3.0:
 
@@ -175,7 +173,7 @@ Planning output for CIS Apache HTTP Server 2.4 Benchmark v2.3.0:
   that need better module inventory, include handling, or effective-config
   semantics;
 - keep operating-system permissions, package ownership, service layout, and
-  filesystem hardening in `host-depth`.
+  filesystem hardening outside the product scope.
 
 Planning output for IIS / Windows Server:
 
@@ -239,8 +237,8 @@ Primary ASVS chapters for the current rule set:
 
 The confirmed direct and partial candidates below are copied into the `ASVS`
 column in `docs/rule-coverage.md`. Requirements that need new probe depth,
-parser depth, host inspection, or stricter policy interpretation remain in the
-follow-up gap list.
+parser depth, or stricter policy interpretation remain in the follow-up gap
+list; host OS posture is documented as out of scope.
 
 ### Direct Coverage Candidates (partial where noted)
 
@@ -352,11 +350,11 @@ standard section before implementation.
 | STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
 | STD-GAP-003 | Nginx CIS | direct-rule | P2 | Unknown-host default-server rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, and unsafe explicit method allowlists are now present. Remaining work focuses on deeper cipher/TLS posture, site-wide or equivalent access-method policy, and context-specific runtime/probe checks. |
-| STD-GAP-004 | Nginx CIS | host-depth | P3 | Keep Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations in host-depth unless an explicit host mode is added. |
+| STD-GAP-004 | Nginx CIS | out-of-scope | P3 | Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations require OS/package/filesystem inspection, which is outside this web-server config / safe external analysis tool. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, IP-based request denial, default TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, Apache TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and weak cipher components are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, broader non-TLS virtualhost allowed-host precision, and deeper benchmark cipher posture / runtime TLS evidence. |
 | STD-GAP-007 | Apache CIS | parser-depth | P2 | Improve module inventory, proxy/TLS directive modeling, and effective access-control semantics before adding rules that reason about loaded modules, upstream TLS trust, ModSecurity/CRS, or broad `Require` policy. |
-| STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy remains `host-depth`. |
+| STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy is out of scope. |
 | STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, and SChannel TLS 1.2 / AES / cipher-suite-order policy are now partially covered. Remaining IIS XML checks include full authorization defaults, deeper app-pool default materialization / shared-hosting exceptions, absence-complete/default policy for system.web settings, runtime native-header verification, and absence-complete request-filtering policy. |
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
@@ -393,7 +391,7 @@ A standards-driven rule is ready only when:
   runtime rules, the scoped equivalent can be different observable runtime
   conditions (such as HTTP path, redirect target, endpoint mode, or probe
   result) or a controlled config fixture that changes the observed probe signal
-  without relying on host inspection;
+  without relying on host OS inspection;
 - external template-style rules are limited to safe, non-mutating probes
   unless a future PR explicitly introduces a separately gated active-scan mode;
 - `docs/rule-coverage.md` is updated in the same PR;

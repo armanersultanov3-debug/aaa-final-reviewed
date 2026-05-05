@@ -292,10 +292,10 @@ Nginx CIS v3.0.0 gap table:
 
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
-| §1.1.1, §1.2.1, §1.2.2 | `host-depth` | Installation, repository, and package-version posture need host/package-manager inventory. |
+| §1.1.1, §1.2.1, §1.2.2 | `out-of-scope` | Installation, repository, and package-version posture need host/package-manager inventory, which is outside web-server config / safe external analysis. |
 | §2.1.1 | `research` | Dynamic module minimization needs an allowed-module policy before a rule can decide which `load_module` entries are unnecessary. |
-| §2.2.1-§2.2.3 | `host-depth` | Service-account user, lock state, and shell require OS account inspection. |
-| §2.3.1-§2.3.3 | `host-depth` | Ownership, permissions, and PID-file checks require filesystem metadata. |
+| §2.2.1-§2.2.3 | `out-of-scope` | Service-account user, lock state, and shell require OS account inspection, which is outside the tool scope. |
+| §2.3.1-§2.3.3 | `out-of-scope` | Ownership, permissions, and PID-file checks require filesystem metadata, which is outside the tool scope. |
 | §2.4.1 | `research` | Authorized listening ports require an environment-specific approved-port policy. |
 | §2.4.2 | `manual-context` | Current coverage validates configured `default_server` rejection behavior through `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on`; absent-default-server policy and runtime invalid-Host behavior remain environment-specific. |
 | §2.5.2 | `probe-depth` | Default error and index page content needs response-body probing or filesystem content inspection. |
@@ -305,7 +305,7 @@ Nginx CIS v3.0.0 gap table:
 | §3.4 | `parser-depth` | Current coverage checks common `proxy_pass` source-IP headers; FastCGI, gRPC, trust-chain, and privacy semantics remain follow-up parser/effective-config work. |
 | §4.1.1 | `probe-depth` | Current coverage checks named local HTTP server blocks that redirect with `return` to HTTPS; runtime redirect probes can corroborate later. |
 | §4.1.2 | `probe-depth` | Trusted certificate and chain validation is runtime/certificate data, not fully knowable from local `ssl_certificate` paths alone. |
-| §4.1.3 | `host-depth` | Private-key permission checks require filesystem metadata. |
+| §4.1.3 | `out-of-scope` | Private-key permission checks require filesystem metadata, which is outside web-server config / safe external analysis. |
 | §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
 | §4.1.9, §4.1.10 | `direct-rule` | Covered by `nginx.ssl_session_timeout_missing_or_invalid` and `nginx.ssl_session_cache_missing` for local `http` / `server` scopes; upstream proxy TLS trust checks need their own benchmark mapping if added later. |
@@ -538,9 +538,9 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
-| §1.1-§1.3 | `host-depth` | Planning, single-use host posture, and package-source verification need host and deployment inventory. |
+| §1.1-§1.3 | `out-of-scope` | Planning, single-use host posture, and package-source verification need host and deployment inventory, which is outside the tool scope. |
 | §2.1-§2.9 | `parser-depth` | Module minimization needs reliable module inventory from `LoadModule` / build data; current status/info rules only partially cover exposed endpoints. |
-| §3.1-§3.13 | `host-depth` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata. |
+| §3.1-§3.13 | `out-of-scope` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata, which is outside the tool scope. |
 | §4.1-§4.2 | `parser-depth` | General access-control posture needs richer effective `Require`/legacy access semantics before broad claims are safe. |
 | §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
 | §5.1-§5.3 | `direct-rule` | Existing `Options` rules cover risky tokens individually; full coverage needs an allowed-options policy per directory class. |
@@ -550,18 +550,18 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
 | §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, `apache.default_tls_vhost_not_rejecting_unknown_hosts` checks first/default TLS VirtualHosts for whole-scope rejection, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is rewrite module inventory, broader non-TLS VirtualHost allowed-host policy, and deployment-specific exceptions. |
 | §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
-| §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy stays host-depth. |
-| §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |
+| §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
+| §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
 | §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, weak cipher markers, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is full benchmark cipher-string validation, forward-secrecy runtime evidence, and certificate-chain probing. |
 | §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
-| §7.3 | `host-depth` | Private-key protection needs filesystem ownership and permission metadata. |
+| §7.3 | `out-of-scope` | Private-key protection needs filesystem ownership and permission metadata, which is outside web-server config / safe external analysis. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
 | §8.4 | `covered` | `apache.file_etag_inodes` detects explicit `FileETag` values that include inode data. |
 | §9.1-§9.4 | `direct-rule` | Apache timeout and keepalive value checks now cover explicit `Timeout`, `KeepAlive`, `MaxKeepAliveRequests`, and `KeepAliveTimeout` directives; missing/default policy remains a future precision decision. |
 | §9.5-§9.6 | `parser-depth` | `RequestReadTimeout` header/body validation depends on module/default semantics and needs richer module inventory before broad findings are safe. |
 | §10.1-§10.4 | `direct-rule` | Request-limit threshold checks now cover `LimitRequestLine`, `LimitRequestFields`, `LimitRequestFieldSize`, and `LimitRequestBody`, with explicit-value limitations documented in the rule rows. |
-| §11.1-§11.4, §12.1-§12.3 | `host-depth` | SELinux and AppArmor posture require host security-framework inspection. |
+| §11.1-§11.4, §12.1-§12.3 | `out-of-scope` | SELinux and AppArmor posture require host security-framework inspection, which is outside the tool scope. |
 
 ### Lighttpd (Local)
 
@@ -831,7 +831,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
-| §1.1, Windows Server host hardening | `host-depth` | Web-root partitioning, OS service posture, filesystem ACLs, and broader Windows Server host baseline checks require an explicit host-inspection mode. |
+| §1.1, Windows Server host hardening | `out-of-scope` | Web-root partitioning, OS service posture, filesystem ACLs, and broader Windows Server host baseline checks are outside web-server config / safe external analysis. |
 | §1.2 | `covered` | `iis.binding_without_host_header` detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific. |
 | §1.4/§1.5/§1.6 | `partial` | `iis.application_pool_identity_not_application_pool_identity`, `iis.sites_share_application_pool`, and `iis.anonymous_auth_uses_specific_user` cover explicit app-pool identities, cross-site shared pools, and explicit specific anonymous users. Follow-up remains for deeper default materialization and deployment-specific shared-hosting exceptions. |
 | §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled` and `iis.authorization_allows_anonymous_users` cover common anonymous/authenticated mixups and explicit wildcard/anonymous allow rules; full authorization default semantics remain parser-policy follow-up. |
@@ -840,7 +840,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, and `iis.request_filtering_remove_server_header_disabled` cover explicit unsafe values; absence-complete/default policy and runtime native-header verification remain follow-up. |
 | §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values; absence-complete policy remains a follow-up to avoid noisy defaults. |
 | §4.8 | `covered` | `iis.handler_write_script_execute_enabled` detects handler `accessPolicy` values that grant Write together with Script or Execute; `iis.cgi_handler_enabled` remains an extra CGI handler signal. |
-| §4.11/§5.1/§5.3 | `host-depth` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals. |
+| §4.11/§5.1/§5.3 | `out-of-scope` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals and are outside the tool scope. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |
 | §7.1-§7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_weak_protocol_enabled`, `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence; runtime negotiation evidence and complete source collection remain follow-up. |
 | CIS IIS 7/8 archive PDFs | `research` | Local archive PDFs are historical context only; they must not become primary references unless a future PR explicitly scopes legacy IIS. |
@@ -1102,8 +1102,8 @@ requirement directly do not need a partial annotation.
 | Req. 8.3.2 | Strong cryptography for transmission of all auth factors | iis: `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`, `forms_auth_protection_unsafe`; external: `cookie_missing_secure_on_https`, `cookie_samesite_none_without_secure` |
 | Req. 8.3.5 / 8.3.6 | Authentication credentials protected at rest | iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `machine_key_validation_weak`, `machine_key_legacy_validation_weak`; external: `htpasswd_exposed` |
 | Req. 10.2.1 | Audit logs enabled and active | nginx: `missing_access_log`, `missing_error_log`, `error_log_too_restrictive`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
-| Req. 10.2.2 | Audit logs record specific items (user, event type, date/time, success/failure, origin) | nginx: `missing_log_format`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields` (partial: presence and field-coverage validation; storage policy and protection are `host-depth`) |
-| Req. 10.5 | Audit log retention and protection | none — `host-depth` (filesystem permissions / log rotation outside web server config) |
+| Req. 10.2.2 | Audit logs record specific items (user, event type, date/time, success/failure, origin) | nginx: `missing_log_format`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields` (partial: presence and field-coverage validation; storage policy and protection are out of scope) |
+| Req. 10.5 | Audit log retention and protection | none — `out-of-scope` (filesystem permissions / log rotation outside web server config) |
 | Req. 12 (organizational) | Information security policy / process | `out-of-scope` for `webconf-audit` |
 
 Honesty notes:
@@ -1159,9 +1159,9 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 | ОПС.3 | Идентификация и аутентификация компонентов информационной системы | nginx: `proxy_missing_source_ip_headers` (partial: `parser-depth` для полной модели upstream-trust) |
 | РСБ.1 | Определение событий безопасности и их регистрация | nginx: `missing_access_log`, `missing_error_log`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
 | РСБ.3 | Сбор, запись и хранение информации о событиях безопасности | nginx: `missing_log_format`, `log_format_missing_fields`, `error_log_too_restrictive`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields`, `log_level_too_restrictive` |
-| РСБ.7 | Защита информации о событиях безопасности | none — `host-depth` (права на лог-файлы / ротация / целостность вне web-server config) |
+| РСБ.7 | Защита информации о событиях безопасности | none — `out-of-scope` (права на лог-файлы / ротация / целостность вне web-server config) |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
-| АНЗ.2 | Контроль установки обновлений ПО | none — `host-depth` |
+| АНЗ.2 | Контроль установки обновлений ПО | none — `out-of-scope` |
 | ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | ЗИС.20 | Защита каналов связи | same set as `УПД.13` (TLS / HSTS / redirect rules) |
 | ЗИС.32 | Защита веб-серверов / веб-приложений | catch-all для всех hardening rules (response headers, CSP, sensitive paths, request limits, timeout, request filtering) |
@@ -1172,8 +1172,9 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
   поэтому для большинства мер указано «aligned» при наличии хотя бы одного
   частичного сигнала. Полное соответствие требует комбинации этих сигналов
   с организационными мерами вне области сканера.
-- Меры с пометкой `host-depth` (РСБ.7, АНЗ.2) останутся непокрытыми, пока в
-  проекте не появится host-инспекционный режим.
+- Меры, требующие OS/package/filesystem inspection (РСБ.7, АНЗ.2), остаются
+  вне области инструмента: webconf-audit анализирует web-server config и
+  безопасные external-признаки, а не состояние хоста.
 - Приказы ФСТЭК № 17 и № 21 определяют, какой состав мер обязателен для
   конкретного класса ГИС / ИСПДн; этот блок только показывает, какие меры
   webconf-audit способен помочь подтвердить.
