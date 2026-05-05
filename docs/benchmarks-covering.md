@@ -383,14 +383,17 @@ Top 25 entries with current rule coverage:
 | CWE | 2024 rank | Rules carrying this CWE today |
 | --- | --- | --- |
 | CWE-22 | rank 5 | `nginx.alias_without_trailing_slash`. |
-| CWE-352 | rank 9 | none yet — partial via cookie SameSite. |
+| CWE-352 | rank 4 | none yet — partial via cookie SameSite. |
 | CWE-434 | rank 10 | `nginx.executable_scripts_allowed_in_uploads`. |
 | CWE-200 | rank 17 | `apache.server_info_exposed`, `apache.server_status_exposed`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `apache.trace_enable_not_off`, `apache.file_etag_inodes`, `nginx.server_tokens_on`, `lighttpd.mod_status_public`, `lighttpd.server_tag_not_blank`, `iis.http_runtime_version_header_enabled`, `iis.custom_headers_expose_server`, `iis.request_filtering_remove_server_header_disabled`, all external `*.version_disclosed_in_server_header` and `external.phpinfo_exposed` / `external.trace_method_*` / `external.nginx_status_exposed` / `external.server_status_exposed` / `external.server_info_exposed` / `external.x_powered_by_header_present` / `external.x_aspnet_version_header_present`. |
 | CWE-287 | rank 14 | `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.basic_auth_without_ssl` (CWE-319, but linked), `nginx.missing_auth_basic_user_file`. |
-| CWE-863 | rank 24 | `nginx.allow_all_with_deny_all`. |
-| CWE-798 | rank 14 (legacy) / present in CWE Top 25 history | `iis.credentials_stored_in_config`. |
-| CWE-400 | not in Top 25, but on KEV-relevant lists | every `*.missing_*_timeout` and `*.missing_limit_*`. |
+| CWE-863 | rank 18 | `nginx.allow_all_with_deny_all`. |
+| CWE-798 | rank 22 | `iis.credentials_stored_in_config`. |
+| CWE-400 | rank 24 | every `*.missing_*_timeout` and `*.missing_limit_*`. |
 | CWE-1004 / CWE-1275 | hardening | cookie rules. |
+
+Historical note: CWE-798 was rank 18 in the 2023 list and remains present in
+the 2024 Top 25 at rank 22.
 
 `STD-GAP` follow-up is purely calibration: candidate severity bump for rules
 with a Top 25 CWE that are still `low`. No new rules are required.
