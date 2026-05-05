@@ -1,38 +1,46 @@
 """universal.weak_tls_ciphers
 
-Fires when the cipher string contains known-weak patterns.
+Fires when the cipher string contains weak or legacy TLS cipher posture.
 Skips silently when ciphers are unknown (None).
 """
 
 from __future__ import annotations
 
-import re
-
 from webconf_audit.local.normalized import NormalizedConfig
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
+from webconf_audit.tls_cipher_policy import (
+    analyze_cipher_policy,
+    describe_cipher_policy_issues,
+)
 
 RULE_ID = "universal.weak_tls_ciphers"
-
-_WEAK_PATTERNS = re.compile(
-    r"(?i)\b(RC4|DES|3DES|NULL|EXPORT|eNULL|aNULL|MD5|DES-CBC3)\b"
-)
+TITLE = "Insufficient TLS cipher posture"
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Weak TLS ciphers detected",
+    title=TITLE,
     severity="medium",
-    description="The cipher string contains known-weak patterns (RC4, DES, 3DES, NULL, EXPORT, eNULL, aNULL, MD5).",
-    recommendation="Remove weak ciphers (RC4, DES, 3DES, NULL, EXPORT, MD5) from the cipher list.",
+    description=(
+        "The cipher string contains weak components or lacks explicit modern "
+        "cipher posture."
+    ),
+    recommendation=(
+        "Remove weak ciphers and use explicit forward-secret AEAD cipher suites."
+    ),
     category="universal",
     input_kind="normalized",
     tags=("tls",),
     standards=(
         cwe(327),
         owasp_top10_2021("A02:2021"),
-        asvs_5("12.1.2", coverage="partial", note="Weak-pattern detection only."),
+        asvs_5(
+            "12.1.2",
+            coverage="partial",
+            note="Conservative cipher-string posture checks.",
+        ),
     ),
     order=102,
 )
@@ -41,34 +49,30 @@ def check(config: NormalizedConfig) -> list[Finding]:
     for scope in config.scopes:
         if scope.tls is None or scope.tls.ciphers is None:
             continue
-        matches: list[str] = []
-        for token in _cipher_tokens(scope.tls.ciphers):
-            if token.startswith(("!", "-", "+!")):
-                continue
-            matches.extend(_WEAK_PATTERNS.findall(token))
-        if matches:
-            unique = sorted(set(m.upper() for m in matches))
-            findings.append(
-                Finding(
-                    rule_id=RULE_ID,
-                    title="Weak TLS ciphers detected",
-                    severity="medium",
-                    description=(
-                        f"Scope '{scope.scope_name or '(unnamed)'}' cipher string "
-                        f"contains weak ciphers: {', '.join(unique)}."
-                    ),
-                    recommendation="Remove weak ciphers (RC4, DES, 3DES, NULL, EXPORT, MD5) from the cipher list.",
-                    location=_location(scope, config),
-                )
+        assessment = analyze_cipher_policy(scope.tls.ciphers)
+        if not assessment.has_issue:
+            continue
+        issues = describe_cipher_policy_issues(assessment)
+        findings.append(
+            Finding(
+                rule_id=RULE_ID,
+                title=TITLE,
+                severity="medium",
+                description=(
+                    f"Scope '{scope.scope_name or '(unnamed)'}' cipher string "
+                    f"has weak posture: {'; '.join(issues)}."
+                ),
+                recommendation=(
+                    "Remove weak ciphers and use explicit forward-secret AEAD "
+                    "cipher suites."
+                ),
+                location=_location(scope, config),
             )
+        )
     return findings
 
 
-def _cipher_tokens(cipher_string: str) -> list[str]:
-    return [token.strip() for token in re.split(r"[:\s,]+", cipher_string) if token.strip()]
-
-
-def _location(scope, config):
+def _location(scope, config: NormalizedConfig) -> SourceLocation:
     src = scope.tls.source
     details = f"server_type={config.server_type}"
     if src.details:

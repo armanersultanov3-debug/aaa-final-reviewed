@@ -122,6 +122,16 @@ def test_weak_ssl_cipher_list_ignores_disabled_weak_tokens(tmp_path: Path) -> No
     assert not _has_finding(result, "lighttpd.weak_ssl_cipher_list")
 
 
+def test_weak_ssl_cipher_list_fires_without_forward_secrecy(tmp_path: Path) -> None:
+    result = _analyze(tmp_path, _BASE + 'ssl.cipher-list = "AES256-GCM-SHA384"\n')
+    assert _has_finding(result, "lighttpd.weak_ssl_cipher_list")
+
+
+def test_weak_ssl_cipher_list_fires_without_aead(tmp_path: Path) -> None:
+    result = _analyze(tmp_path, _BASE + 'ssl.cipher-list = "ECDHE-RSA-AES256-SHA384"\n')
+    assert _has_finding(result, "lighttpd.weak_ssl_cipher_list")
+
+
 def test_lighttpd_header_tuple_keeps_comma_inside_quoted_value() -> None:
     headers = _parse_header_tuple(
         '( "Content-Security-Policy" => "default-src self, report-uri /csp" )',

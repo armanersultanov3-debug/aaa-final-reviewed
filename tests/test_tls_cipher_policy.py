@@ -1,0 +1,87 @@
+from webconf_audit.tls_cipher_policy import analyze_cipher_policy
+
+
+def test_cipher_policy_reports_enabled_weak_markers() -> None:
+    assessment = analyze_cipher_policy("ECDHE-RSA-AES128-GCM-SHA256:RC4-SHA")
+
+    assert assessment.weak_markers == ("RC4",)
+    assert assessment.has_issue
+
+
+def test_cipher_policy_ignores_disabled_weak_markers() -> None:
+    assessment = analyze_cipher_policy("HIGH:!aNULL:!MD5:-DES")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue
+
+
+def test_cipher_policy_reports_missing_forward_secrecy_for_static_rsa_gcm() -> None:
+    assessment = analyze_cipher_policy("AES256-GCM-SHA384")
+
+    assert assessment.weak_markers == ()
+    assert assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert assessment.has_issue
+
+
+def test_cipher_policy_reports_missing_aead_for_cbc_forward_secret_suite() -> None:
+    assessment = analyze_cipher_policy("ECDHE-RSA-AES256-SHA384")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert assessment.missing_aead
+    assert assessment.has_issue
+
+
+def test_cipher_policy_accepts_tls13_aead_suite() -> None:
+    assessment = analyze_cipher_policy("TLS_AES_256_GCM_SHA384")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue
+
+
+def test_cipher_policy_accepts_modern_tls12_suite() -> None:
+    assessment = analyze_cipher_policy("ECDHE-ECDSA-CHACHA20-POLY1305")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue
+
+
+def test_cipher_policy_accepts_openssl_plus_and_selector_with_forward_secrecy() -> None:
+    assessment = analyze_cipher_policy("EECDH+AESGCM:EDH+AESGCM")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue
+
+
+def test_cipher_policy_reports_openssl_plus_selector_without_aead() -> None:
+    assessment = analyze_cipher_policy("AES256+EECDH")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert assessment.missing_aead
+    assert assessment.has_issue
+
+
+def test_cipher_policy_reports_standalone_des_in_openssl_plus_selector() -> None:
+    assessment = analyze_cipher_policy("DES+SHA")
+
+    assert assessment.weak_markers == ("DES",)
+    assert assessment.has_issue
+
+
+def test_cipher_policy_handles_empty_string() -> None:
+    assessment = analyze_cipher_policy("")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue

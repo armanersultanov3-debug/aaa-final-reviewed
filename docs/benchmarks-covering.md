@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 282-rule inventory plus the rule-level work needed to cover the
+existing 283-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -149,7 +149,7 @@ external / per-server TLS rules already in the registry.
 | 800-52 Rev. 2 section | Topic | Already-covered rules (candidate `covered`) | Partial / cross-source rules | Gap follow-up |
 | --- | --- | --- | --- | --- |
 | §3.1.1 / §3.1.2 | TLS 1.2 mandatory; TLS 1.3 recommended | `universal.weak_tls_protocol`, `nginx.weak_ssl_protocols`, `apache.ssl_protocol_missing_or_weak`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `iis.schannel_tls12_not_enabled`, `iis.schannel_weak_protocol_enabled`, `external.tls_1_0_supported`, `external.tls_1_1_supported` | `nginx.missing_ssl_protocols` (presence-only), `external.tls_1_3_not_supported` (info) | `direct-rule`: dedicated `tls_legacy_versions_explicitly_enabled` cross-server probe verifying that no SSL 3.0 / TLS 1.0 / TLS 1.1 is negotiable per RFC 8996. |
-| §3.3.1 | Recommended cipher suites | `universal.weak_tls_ciphers`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, `iis.ssl_weak_cipher_strength`, `external.weak_cipher_suite` | `nginx.missing_ssl_ciphers`, `apache.ssl_cipher_suite_missing` (presence-only) | `probe-depth`: proper recommended-suite policy validation (forward secrecy, AEAD, server preference). Tracked in `STD-GAP-014`. |
+| §3.3.1 | Recommended cipher suites | `universal.weak_tls_ciphers`, `nginx.ssl_ciphers_weak`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, `iis.ssl_weak_cipher_strength`, `external.weak_cipher_suite` | `nginx.missing_ssl_ciphers`, `apache.ssl_cipher_suite_missing` (presence-only companion rules) | `probe-depth`: runtime recommended-suite policy validation (negotiated forward secrecy, AEAD, server preference). Tracked in `STD-GAP-014`. |
 | §3.3.2 | Server preference order | `apache.ssl_honor_cipher_order_not_on`, `lighttpd.ssl_honor_cipher_order_missing`, `nginx.missing_ssl_prefer_server_ciphers`, `iis.schannel_cipher_suite_order_not_preferred` | — | `probe-depth`: external probe that compares negotiated cipher across multiple client offers to prove server preference. |
 | §3.4 | Server certificate validation | `external.certificate_expired`, `external.certificate_expires_soon`, `external.tls_certificate_self_signed`, `external.cert_chain_incomplete`, `external.cert_san_mismatch` | `external.cert_chain_length_unusual` (advisory) | `probe-depth`: CT-log presence and weak signature algorithm (e.g. SHA-1 root) checks. |
 | §3.5 | Insecure renegotiation disabled | `apache.ssl_insecure_renegotiation_enabled` | — | `direct-rule`: equivalent rule for Nginx (`ssl_session_cache shared:` posture) and Lighttpd; `probe-depth` external secure-renegotiation probe. |
@@ -566,7 +566,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | `external.http_not_redirected_to_https` | CIS NGINX v3.0.0 §4.1.1, CIS Apache 2.4 v2.3.0 §7.1 | `nginx.missing_http_to_https_redirect`, `apache.missing_http_to_https_redirect` |
 | `external.https_not_available` | CIS NGINX v3.0.0 §4.1.1, CIS Apache 2.4 v2.3.0 §7.1, CIS IIS 10 v1.2.1 §2.6 | те же + `iis.ssl_not_required`, `iis.basic_auth_without_ssl` |
 | `external.tls_1_0_supported`, `external.tls_1_1_supported` | CIS NGINX v3.0.0 §4.1.4, CIS Apache 2.4 v2.3.0 §7.1, CIS IIS 10 v1.2.1 §7.2-§7.5 | `nginx.weak_ssl_protocols`, `apache.ssl_protocol_missing_or_weak`, `iis.schannel_weak_protocol_enabled` |
-| `external.weak_cipher_suite` | CIS NGINX v3.0.0 §4.1.5, CIS Apache 2.4 v2.3.0 §7.4, CIS IIS 10 v1.2.1 §7.7-§7.9 | `universal.weak_tls_ciphers`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list` |
+| `external.weak_cipher_suite` | CIS NGINX v3.0.0 §4.1.5, CIS Apache 2.4 v2.3.0 §7.4, CIS IIS 10 v1.2.1 §7.7-§7.9 | `universal.weak_tls_ciphers`, `nginx.ssl_ciphers_weak`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list` |
 | `external.hsts_*` family | CIS NGINX v3.0.0 §4.1.8, CIS Apache 2.4 v2.3.0 §7.11, CIS IIS 10 v1.2.1 §7.1 | `nginx.missing_hsts_header`, `apache.missing_hsts_header`, `apache.hsts_header_unsafe`, `iis.missing_hsts_header` |
 | `external.trace_method_allowed`, `external.trace_method_exposed_via_options` | CIS Apache 2.4 v2.3.0 §5.8 | `apache.trace_enable_not_off` |
 | `external.server_status_exposed`, `external.server_info_exposed` | CIS Apache 2.4 v2.3.0 §2.4 / §2.8 | `apache.server_status_exposed`, `apache.server_info_exposed` |
@@ -598,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 282 правила (Nginx 67, Apache 68, Lighttpd 17, IIS 46,
+  обновлён до 283 правила (Nginx 68, Apache 68, Lighttpd 17, IIS 46,
   External 73, Universal 11), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -659,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (282 правила: Nginx 67, Apache 68, Lighttpd 17, IIS 46, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (283 правила: Nginx 68, Apache 68, Lighttpd 17, IIS 46, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 

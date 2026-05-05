@@ -73,6 +73,10 @@ def _rule_ids(config: NormalizedConfig) -> set[str]:
     return {f.rule_id for f in run_universal_rules(config)}
 
 
+def _finding(config: NormalizedConfig, rule_id: str):
+    return next(f for f in run_universal_rules(config) if f.rule_id == rule_id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. universal.tls_intent_without_config
 # ═══════════════════════════════════════════════════════════════════════════
@@ -200,6 +204,18 @@ def test_weak_ciphers_ignores_disabled_openssl_tokens():
     scope = _http_scope(tls=True, port=443, tls_ciphers="HIGH:!aNULL:!MD5:-DES")
     ids = _rule_ids(_config(scope))
     assert "universal.weak_tls_ciphers" not in ids
+
+
+def test_weak_ciphers_fires_without_forward_secrecy():
+    scope = _http_scope(tls=True, port=443, tls_ciphers="AES256-GCM-SHA384")
+    finding = _finding(_config(scope), "universal.weak_tls_ciphers")
+    assert "forward secrecy" in finding.description
+
+
+def test_weak_ciphers_fires_without_aead():
+    scope = _http_scope(tls=True, port=443, tls_ciphers="ECDHE-RSA-AES256-SHA384")
+    finding = _finding(_config(scope), "universal.weak_tls_ciphers")
+    assert "AEAD" in finding.description
 
 
 # ═══════════════════════════════════════════════════════════════════════════
