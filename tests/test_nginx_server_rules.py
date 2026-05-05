@@ -454,6 +454,7 @@ def test_analyze_nginx_config_reports_alias_without_trailing_slash(tmp_path: Pat
 
     finding = result.findings[0]
     assert finding.rule_id == "nginx.alias_without_trailing_slash"
+    assert finding.severity == "medium"
     assert finding.title == "Alias path missing trailing slash"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
@@ -1071,9 +1072,12 @@ def test_analyze_nginx_config_reports_missing_auth_basic_user_file_in_location(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(
-        finding.rule_id == "nginx.missing_auth_basic_user_file" for finding in result.findings
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.missing_auth_basic_user_file"
     )
+    assert finding.severity == "medium"
 
 
 def test_analyze_nginx_config_does_not_report_missing_auth_basic_user_file_in_location_when_present(
@@ -1116,9 +1120,12 @@ def test_analyze_nginx_config_reports_missing_auth_basic_user_file_in_server(
 
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
-    assert any(
-        finding.rule_id == "nginx.missing_auth_basic_user_file" for finding in result.findings
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.missing_auth_basic_user_file"
     )
+    assert finding.severity == "medium"
 
 
 def test_analyze_nginx_config_does_not_report_missing_auth_basic_user_file_when_auth_basic_is_absent(
@@ -1401,6 +1408,7 @@ def test_analyze_nginx_config_reports_allow_all_with_deny_all_in_same_location(
 
     finding = result.findings[0]
     assert finding.rule_id == "nginx.allow_all_with_deny_all"
+    assert finding.severity == "medium"
     assert finding.title == "Conflicting allow/deny all directives"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)

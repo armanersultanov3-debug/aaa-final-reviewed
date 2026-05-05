@@ -10,7 +10,7 @@ RULE_ID = "nginx.alias_without_trailing_slash"
 @rule(
     rule_id=RULE_ID,
     title="Alias path missing trailing slash",
-    severity="low",
+    severity="medium",
     description="Location path ends with '/' but alias path does not.",
     recommendation="Add a trailing '/' to the alias path or adjust the location path.",
     category="local",
@@ -41,7 +41,7 @@ def _find_alias_without_trailing_slash_in_location(location_block: BlockNode) ->
             Finding(
                 rule_id=RULE_ID,
                 title="Alias path missing trailing slash",
-                severity="low",
+                severity="medium",
                 description="Location path ends with '/' but alias path does not.",
                 recommendation="Add a trailing '/' to the alias path or adjust the location path.",
                 location=SourceLocation(

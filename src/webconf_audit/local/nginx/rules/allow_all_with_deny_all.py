@@ -10,7 +10,7 @@ RULE_ID = "nginx.allow_all_with_deny_all"
 @rule(
     rule_id=RULE_ID,
     title="Conflicting allow/deny all directives",
-    severity="low",
+    severity="medium",
     description="Location block contains both 'allow all;' and 'deny all;'.",
     recommendation="Remove one of the conflicting access directives from this location block.",
     category="local",
@@ -38,7 +38,7 @@ def _find_allow_all_with_deny_all_in_location(location_block: BlockNode) -> list
         Finding(
             rule_id=RULE_ID,
             title="Conflicting allow/deny all directives",
-            severity="low",
+            severity="medium",
             description="Location block contains both 'allow all;' and 'deny all;'.",
             recommendation="Remove one of the conflicting access directives from this location block.",
             location=SourceLocation(

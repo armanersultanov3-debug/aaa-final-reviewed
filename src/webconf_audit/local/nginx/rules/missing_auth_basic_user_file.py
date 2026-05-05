@@ -16,7 +16,7 @@ TARGET_BLOCK_NAMES = {"server", "location"}
 @rule(
     rule_id=RULE_ID,
     title="Missing auth_basic_user_file directive",
-    severity="low",
+    severity="medium",
     description=(
         "Server or location block enables 'auth_basic' but does not define "
         "'auth_basic_user_file' in the same block."
@@ -50,7 +50,7 @@ def _find_missing_auth_basic_user_file_in_block(block: BlockNode) -> Finding | N
     return Finding(
         rule_id=RULE_ID,
         title="Missing auth_basic_user_file directive",
-        severity="low",
+        severity="medium",
         description=(
             f"{block.name.capitalize()} block uses 'auth_basic' but does not define "
             "'auth_basic_user_file'."

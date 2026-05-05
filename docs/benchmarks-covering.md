@@ -395,8 +395,8 @@ Top 25 entries with current rule coverage:
 Historical note: CWE-798 was rank 18 in the 2023 list and remains present in
 the 2024 Top 25 at rank 22.
 
-`STD-GAP` follow-up is purely calibration: candidate severity bump for rules
-with a Top 25 CWE that are still `low`. No new rules are required.
+`STD-GAP` follow-up is purely calibration: severity bump for rules with a
+Top 25 CWE that were still `low`. No new rules are required.
 
 ### 5.15 Lighttpd vendor / DevSec lighttpd-baseline
 
@@ -650,7 +650,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-026 | MITRE ATT&CK Enterprise v15 | direct-rule | P2 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «MITRE ATT&CK Enterprise v15») в `docs/rule-coverage.md`. Архитектурное решение: secondary tags живут только в этом блоке, не как новая колонка и не как `StandardReference` записи на правилах. Если в `STD-GAP-012` появится `tier=secondary` — этот блок становится исходником миграции. Покрыты T1190, T1592.002, T1592.004, T1213.003, T1078, T1040, T1505.003, T1557, T1574. |
 | STD-GAP-027 | OWASP Cheat Sheet Series | covered | P1 | done (2026-05-05) | 3 | ✓ Добавлен консолидированный блок «OWASP Cheat Sheet Series companions» в `docs/rule-coverage.md` (перед `## Standards mapping plan`). Подход topic-grouped, не per-row column: 15 cheat sheets (HTTP Security Response Headers, HSTS, TLS, CSP, CSRF, Session Management, Logging, Authentication, Credential Stuffing Prevention, Clickjacking Defense, Server Headers, Web Service Security, File Upload, Access Control, Error Handling) с aligned rule IDs. Cheat Sheets — living docs, поэтому отдельная колонка не вводится. |
 | STD-GAP-028 | OWASP API Security Top 10 (2023) | covered | P3 | deferred | — | Большая часть out-of-scope для веб-сервера. |
-| STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | proposal-ready (2026-05-05) | 11 (last) | ✓ Calibration proposal зафиксирован в §11 этого документа: список правил-кандидатов с обоснованием bump / keep. Применение severity-изменений — **отдельный код-PR** с регрессионными тестами, запускается после ревью proposal. До этого момента registry severity не меняется. |
+| STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | done (2026-05-05) | 11 (last) | ✓ Calibration rationale из §11 применён в коде: `nginx.alias_without_trailing_slash`, `nginx.allow_all_with_deny_all` и `nginx.missing_auth_basic_user_file` подняты с `low` до `medium`; keep-low решения для disclosure-only правил сохранены. |
 | STD-GAP-030 | Lighttpd vendor / DevSec lighttpd-baseline | covered | P2 | done (2026-05-05) | 8 | ✓ Добавлен блок «Lighttpd vendor reference mapping» в `docs/rule-coverage.md`. Решение: НЕ переименовывать `CIS / Vendor` колонку и НЕ заполнять её для Lighttpd, а сделать topic-grouped block (как PCI / NIST / ФСТЭК / ISO / Cheat Sheets) — иначе нарушится policy «не выдумывать CIS-бенчмарк, которого нет». DevSec lighttpd-01/02/03/05 + lighttpd Security wiki + per-module docs. `lighttpd-05` (forbidden methods) — единственный DevSec-контрол без правила в реестре, отмечен как `direct-rule` follow-up. |
 | STD-GAP-031 | ФСТЭК «Меры защиты информации в ГИС» (Приказ № 17) | covered | P2 | done (2026-05-05) | 6 | ✓ Добавлен блок «ФСТЭК "Меры защиты информации в ГИС" mapping» в `docs/rule-coverage.md`. Покрыты ИАФ.1, ИАФ.6, УПД.5, УПД.13, ОПС.3, РСБ.1, РСБ.3, ЗИС.3, ЗИС.20, ЗИС.32; РСБ.7 / АНЗ.2 явно `host-depth`. Подход topic-grouped. Хелпер `fstec_mera()` отложен до `STD-GAP-012`. |
 | STD-GAP-032 | ФСТЭК БДУ | direct-rule | P3 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «ФСТЭК БДУ — Банк данных угроз») в `docs/rule-coverage.md`. Покрыты УБИ.044, УБИ.067, УБИ.072, УБИ.121, УБИ.184 со ссылками на `bdu.fstec.ru`. Правила те же, что для ATT&CK: secondary-only, не заменяет primary standard. |
@@ -672,30 +672,30 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - никаких новых правил в одном PR с маппингом — code-level rule additions
   идут отдельным rule-implementation PR из общего backlog.
 
-## 11. CWE Top 25 (2024) severity calibration proposal
+## 11. CWE Top 25 (2024) severity calibration
 
-Артефакт `STD-GAP-029`. Это **не выполненная** перекалибровка severity;
-это **предложение**, которое нужно отдельно одобрить перед выпуском
-кодового PR с регрессионными тестами. Никаких изменений в реестре правил
-этот документ не делает.
+Артефакт `STD-GAP-029`. Это выполненная перекалибровка severity для
+выбранных правил с CWE из Top 25 (2024). Таблица ниже сохранена как rationale:
+какие правила подняты до `medium`, а какие disclosure-only правила оставлены
+на прежней severity.
 
 Источник Top 25: [CWE Top 25 Most Dangerous Software Weaknesses (2024)](https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html).
 
-Принцип отбора: правило является кандидатом на повышение severity, если
+Принцип отбора: правило повышалось до `medium`, если
 
 1. его cited CWE входит в Top 25 (2024);
 2. signal действительно проявляет exploit primitive (не информационная
    утечка), либо приводит к authn/authz bypass;
-3. правило сегодня имеет severity `low`.
+3. правило до перекалибровки имело severity `low`.
 
 Правила с CWE из Top 25, но без exploit primitive (например, CWE-200
 information disclosure через `Server` header), остаются `low` —
 конфигурационная утечка версии не превращается в эксплуатацию сама по
 себе.
 
-### Кандидаты на bump
+### Applied bumps
 
-| Rule ID | CWE (Top 25 2024 rank) | Current | Proposed | Justification |
+| Rule ID | CWE (Top 25 2024 rank) | Previous | Implemented | Justification |
 | --- | --- | --- | --- | --- |
 | `nginx.alias_without_trailing_slash` | CWE-22 (rank 5) | low | **medium** | Path traversal — реальный exploit primitive; конфигурационная ошибка сразу даёт выход за корень. Rank 5 в Top 25 — выше большинства WebApp-специфичных классов. |
 | `nginx.allow_all_with_deny_all` | CWE-863 (rank 18) | low | **medium** | Несогласованный `allow all; deny all;` ломает порядок ACL и реально пускает анонимный трафик к закрытым ресурсам. Это authorization bypass, не misconfig hint. |
@@ -713,7 +713,7 @@ information disclosure через `Server` header), остаются `low` —
 | `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.basic_auth_without_ssl` | CWE-287 (rank 14) | keep `medium` | Уже medium. |
 | `iis.application_pool_identity_*`, `iis.trust_level_full`, `iis.anonymous_auth_uses_specific_user`, `iis.sites_share_application_pool` | CWE-250 / CWE-668 — **не** в Top 25 (CWE-269 близко, но cited класс другой) | keep `medium` | Top 25 не применим: проект использует CWE-250 / CWE-668, эти ID в Top 25 не входят. Предложение не трогает их. |
 
-### Что **не** делает этот proposal
+### Границы перекалибровки
 
 - Не меняет CWE-маппинг на «более удобный для Top 25» — это нарушило бы
   honesty-first methodology. Если CWE-250 в IIS application pool правилах
@@ -725,19 +725,13 @@ information disclosure через `Server` header), остаются `low` —
 - Не меняет severity у правил `low`, чьи CWE в Top 25, но не дают exploit
   primitive (см. таблицу «keep low»).
 
-### Code-PR plan (после approval этого proposal)
+### Implementation checklist
 
-1. Изменить `register_rule(..., severity=Severity.LOW)` на
-   `Severity.MEDIUM` в файлах:
+1. Изменены severity metadata и `Finding.severity` в файлах:
    - `src/webconf_audit/local/nginx/rules/alias_without_trailing_slash.py`,
    - `src/webconf_audit/local/nginx/rules/allow_all_with_deny_all.py`,
    - `src/webconf_audit/local/nginx/rules/missing_auth_basic_user_file.py`.
-2. Обновить регрессионные тесты, которые проверяют severity / `--fail-on`
-   поведение для этих правил.
-3. Перегенерировать инвентарь и обновить `docs/rule-coverage.md` summary
-   counts (severity totals в блоке Summary могут сместиться).
-4. Запустить `tests/test_rule_coverage_doc.py` для проверки drift.
-5. Добавить в `docs/benchmarks-covering.md` пометку о завершении кода-PR
-   с датой и SHA коммита.
-
-Ничего из этого без явного approval со стороны user'а не запускается.
+2. Обновлены регрессионные тесты, которые проверяют severity для этих правил.
+3. Обновлены `docs/rule-coverage.md` summary counts и строки инвентаря.
+4. `tests/test_rule_coverage_doc.py` остаётся drift-check для registry/docs
+   sync.
