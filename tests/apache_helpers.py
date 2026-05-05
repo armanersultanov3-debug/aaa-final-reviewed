@@ -67,10 +67,16 @@ _SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
     '<FilesMatch "^\\.ht">',
     "    Require all denied",
     "</FilesMatch>",
-    '<FilesMatch "\\.(conf|ini|log|orig|save|sql|tmp)$">',
+    '<FilesMatch "\\.(conf|env|ini|log|orig|save|sql|tmp)$">',
     "    Require all denied",
     "</FilesMatch>",
     '<DirectoryMatch "/\\.(git|svn)(/|$)">',
+    "    Require all denied",
+    "</DirectoryMatch>",
+    '<FilesMatch "(^|/)(Thumbs\\.db|composer\\.(json|lock)|package-lock\\.json|\\.DS_Store|\\.npmrc|\\.yarnrc)$">',
+    "    Require all denied",
+    "</FilesMatch>",
+    '<DirectoryMatch "/\\.(idea|vscode)(/|$)">',
     "    Require all denied",
     "</DirectoryMatch>",
 ]
@@ -109,7 +115,7 @@ def _with_backup_files_restriction(
         *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
     ]
     return config_text.rstrip("\n") + security_headers + (
-        '\n<FilesMatch "\\.(bak|old|swp)$">\n'
+        '\n<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">\n'
         "    Require all denied\n"
         "</FilesMatch>\n"
         + "\n".join(cis_lines)
@@ -164,7 +170,7 @@ def _safe_apache_config_without_security_headers(*extra_lines: str) -> str:
 
 def _safe_apache_config_with_late_lines(*extra_lines: str) -> str:
     config = _safe_apache_config()
-    marker = '\n<FilesMatch "\\.(bak|old|swp)$">'
+    marker = '\n<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">'
     if marker not in config:
         raise AssertionError(
             "_safe_apache_config_with_late_lines: expected backup-files marker "

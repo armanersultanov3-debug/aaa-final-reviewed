@@ -2,6 +2,7 @@ from tests.lighttpd_helpers import (
     AnalysisResult,
     LighttpdAssignmentNode,
     Path,
+    URL_ACCESS_DENY_CURATED,
     _collect_mod_cgi,
     _parse_header_tuple,
     analyze_lighttpd_config,
@@ -461,7 +462,7 @@ def test_url_access_deny_missing_fires(tmp_path: Path) -> None:
 
 
 def test_url_access_deny_missing_silent_when_set(tmp_path: Path) -> None:
-    result = _analyze(tmp_path, _BASE + 'url.access-deny = ( ".bak", ".inc" )\n')
+    result = _analyze(tmp_path, _BASE + URL_ACCESS_DENY_CURATED)
     assert not _has_finding(result, "lighttpd.url_access_deny_missing")
 
 

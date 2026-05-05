@@ -5,11 +5,12 @@ from webconf_audit.local.apache.rules._block_policy_utils import (
     default_location,
     denied_extensions,
 )
+from webconf_audit.local.sensitive_artifact_policy import CONFIG_DATA_EXTENSIONS
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.sensitive_config_files_not_restricted"
-TARGET_EXTENSIONS = ("conf", "ini", "log", "orig", "save", "sql", "tmp")
+TARGET_EXTENSIONS = CONFIG_DATA_EXTENSIONS + ("orig", "save", "tmp")
 _RESTRICTION_BLOCKS = frozenset({"files", "filesmatch"})
 
 
@@ -23,7 +24,7 @@ _RESTRICTION_BLOCKS = frozenset({"files", "filesmatch"})
     ),
     recommendation=(
         "Add a FilesMatch denial for sensitive extensions such as .conf, "
-        ".ini, .log, .sql, .tmp, .orig, and .save."
+        ".env, .ini, .log, .sql, .tmp, .orig, and .save."
     ),
     category="local",
     server_type="apache",

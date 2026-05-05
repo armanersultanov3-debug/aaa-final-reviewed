@@ -283,7 +283,7 @@ def _safe_apache_base() -> str:
         "CustomLog logs/access_log combined\n"
         "ErrorDocument 404 /custom404.html\n"
         "ErrorDocument 500 /custom500.html\n"
-        '<FilesMatch "\\.(bak|old|swp)$">\n'
+        '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">\n'
         "    Require all denied\n"
         "</FilesMatch>\n"
     )

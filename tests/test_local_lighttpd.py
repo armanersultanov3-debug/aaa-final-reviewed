@@ -6,6 +6,8 @@ from tests.lighttpd_helpers import (
     LighttpdDirectiveNode,
     LighttpdParseError,
     Path,
+    URL_ACCESS_DENY_CURATED,
+    URL_ACCESS_DENY_MARKERS,
     _quote,
     analyze_lighttpd_config,
     expand_variables,
@@ -13,6 +15,7 @@ from tests.lighttpd_helpers import (
     find_ssl_engine_not_enabled,
     parse_lighttpd_config,
     pytest,
+    url_access_deny_directive,
 )
 
 _LIGHTTPD_REDIRECT_ONLY_NOISE_RULE_IDS = frozenset(
@@ -619,6 +622,64 @@ def test_analyze_lighttpd_config_keeps_content_checks_for_partial_redirect(
     rule_ids = _rule_ids(result)
     assert "lighttpd.max_request_size_missing" in rule_ids
     assert "universal.missing_x_frame_options" in rule_ids
+
+
+def test_analyze_lighttpd_config_reports_incomplete_url_access_deny_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'url.access-deny = ( ".inc", ".bak", ".sql", ".conf", ".log" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.url_access_deny_missing" in _rule_ids(result)
+
+
+def test_analyze_lighttpd_config_accepts_curated_url_access_deny_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        + URL_ACCESS_DENY_CURATED,
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.url_access_deny_missing" not in _rule_ids(result)
+
+
+def test_analyze_lighttpd_config_reports_partial_url_access_deny_in_conditional_scope(
+    tmp_path: Path,
+) -> None:
+    midpoint = len(URL_ACCESS_DENY_MARKERS) // 2
+    global_markers = URL_ACCESS_DENY_MARKERS[:midpoint]
+    conditional_markers = URL_ACCESS_DENY_MARKERS[midpoint:]
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        + url_access_deny_directive(global_markers)
+        + '$HTTP["host"] == "static.example.test" {\n'
+        "    "
+        + url_access_deny_directive(conditional_markers)
+        + "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.url_access_deny_missing" in _rule_ids(result)
 
 
 def test_analyze_lighttpd_config_keeps_content_checks_for_mixed_redirect_pairs(

@@ -1233,6 +1233,76 @@ def test_analyze_nginx_config_does_not_report_missing_allowed_methods_restrictio
     )
 
 
+def test_analyze_nginx_config_reports_missing_generated_artifact_deny(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    server_name example.com;\n"
+        "    location ~ /\\. { deny all; }\n"
+        "    location ~ \\.(bak|old|backup|orig|save)$ { deny all; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert "nginx.missing_generated_artifact_deny" in {
+        finding.rule_id for finding in result.findings
+    }
+
+
+def test_analyze_nginx_config_accepts_generated_artifact_deny(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    server_name example.com;\n"
+        "    location ~ /\\. { deny all; }\n"
+        "    location ~ \\.(bak|old|backup|orig|save)$ { deny all; }\n"
+        "    location ~* (?:^|/)(?:Thumbs\\.db|composer\\.(?:json|lock)|package-lock\\.json)$ { deny all; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert "nginx.missing_generated_artifact_deny" not in {
+        finding.rule_id for finding in result.findings
+    }
+
+
+def test_analyze_nginx_config_reports_nested_generated_artifact_deny(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    server_name example.com;\n"
+        "    location ~ /\\. { deny all; }\n"
+        "    location ~ \\.(bak|old|backup|orig|save)$ { deny all; }\n"
+        "    location /downloads {\n"
+        "        location ~* (?:Thumbs\\.db|composer\\.(?:json|lock)|package-lock\\.json)$ { deny all; }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert "nginx.missing_generated_artifact_deny" in {
+        finding.rule_id for finding in result.findings
+    }
+
+
 def test_analyze_nginx_config_reports_http_method_policy_allows_unapproved_method(
     tmp_path: Path,
 ) -> None:

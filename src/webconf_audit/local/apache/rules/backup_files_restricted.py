@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheConfigAst, ApacheDirectiveNode
+from webconf_audit.local.apache.rules._block_policy_utils import denied_extensions
+from webconf_audit.local.sensitive_artifact_policy import BACKUP_TEMP_EXTENSIONS
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.backup_temp_files_not_restricted"
-TARGET_EXTENSIONS = ("bak", "old", "swp")
+TARGET_EXTENSIONS = BACKUP_TEMP_EXTENSIONS
+TARGET_EXTENSION_LIST = ", ".join(f"'.{extension}'" for extension in TARGET_EXTENSIONS)
 
 
 @rule(
@@ -31,9 +34,16 @@ def find_backup_files_restricted(config_ast: ApacheConfigAst) -> list[Finding]:
         if _files_match_targets_backup_temp_files(block)
     ]
 
-    for candidate_block in candidate_blocks:
-        if _files_match_denies_all(candidate_block):
-            return []
+    covered_extensions = denied_extensions(
+        config_ast,
+        extensions=TARGET_EXTENSIONS,
+        block_names=frozenset({"filesmatch"}),
+    )
+    missing_extensions = tuple(
+        extension for extension in TARGET_EXTENSIONS if extension not in covered_extensions
+    )
+    if not missing_extensions:
+        return []
 
     return [
         Finding(
@@ -42,12 +52,12 @@ def find_backup_files_restricted(config_ast: ApacheConfigAst) -> list[Finding]:
             severity="low",
             description=(
                 "Apache config does not contain a narrow baseline '<FilesMatch ...>' "
-                "restriction for common backup or temporary file extensions that includes "
-                "a direct 'Require all denied' directive."
+                "restriction for these backup or temporary file extensions: "
+                + ", ".join(f".{extension}" for extension in missing_extensions)
             ),
             recommendation=(
                 "Add a '<FilesMatch ...>' block for common backup or temporary file "
-                "extensions such as '.bak', '.old', or '.swp' with a direct "
+                f"extensions such as {TARGET_EXTENSION_LIST} with a direct "
                 "'Require all denied' directive."
             ),
             location=_finding_location(config_ast, candidate_blocks),
