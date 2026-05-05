@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **294**
+Total rules: **296**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (210), external (73), universal (11) |
-| Severity | high (13), medium (105), low (165), info (11) |
-| Input kind | ast (145), probe (73), effective (53), normalized (11), htaccess (6), mixed (6) |
+| Category | local (212), external (73), universal (11) |
+| Severity | high (13), medium (105), low (167), info (11) |
+| Input kind | ast (147), probe (73), effective (53), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -108,7 +108,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 73
+Count: 74
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -143,6 +143,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_client_max_body_size` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.2 (partial: directive presence only; does not validate benchmark size policy) |
 | `nginx.missing_content_security_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: presence only) | CIS NGINX v3.0.0 §5.3.2 (partial: presence only) |
 | `nginx.missing_error_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: directive presence; does not validate `info` log level) |
+| `nginx.missing_generated_artifact_deny` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.5.3 (partial: generated/dependency artifact deny-list coverage beyond VCS metadata) |
 | `nginx.missing_hidden_files_deny` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.5.3 |
 | `nginx.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8 (partial: header presence only; does not validate HSTS policy value) |
 | `nginx.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | CIS NGINX v3.0.0 section 4.1.8 (partial: local HSTS policy value check) |
@@ -228,8 +229,9 @@ Mapping rationale (nginx rules):
 - `missing_auth_basic_user_file` -- enabling `auth_basic` without
   `auth_basic_user_file` leaves the location effectively unauthenticated:
   CWE-287 (improper authentication), OWASP A07.
-- `missing_backup_file_deny`, `missing_hidden_files_deny` -- direct match for
-  CWE-538 (file/directory information exposure); OWASP A05.
+- `missing_backup_file_deny`, `missing_hidden_files_deny`,
+  `missing_generated_artifact_deny` -- direct match for CWE-538
+  (file/directory information exposure); OWASP A05.
 - `missing_client_body_timeout`, `missing_client_header_timeout`,
   `missing_keepalive_timeout`, `missing_send_timeout` -- absence of
   per-connection timeouts lets slow-loris-style clients hold sockets open
@@ -333,7 +335,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 69
+Count: 70
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -362,6 +364,7 @@ rather than to ".htaccess" itself.
 | `apache.error_document_500_missing` | low | ast | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `apache.error_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.1 (partial: `ErrorLog` presence only; does not validate filename or severity level) |
 | `apache.error_log_unsafe_destination` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.1 (partial: detects `/dev/null` or missing `ErrorLog` destination) |
+| `apache.generated_artifacts_not_restricted` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: generated/dependency artifact deny-list coverage) |
 | `apache.ht_files_not_restricted` | medium | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: `.ht*` deny-list coverage) |
 | `apache.htaccess_auth_without_require` | medium | htaccess | htaccess | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
 | `apache.htaccess_disables_security_headers` | medium | htaccess | htaccess, headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.16/§5.17/§5.18/§7.11 (partial: detects `.htaccess` unsetting selected security headers, not full header policy configuration) |
@@ -429,9 +432,11 @@ Mapping rationale (apache rules):
   options: CWE-732 (incorrect permission assignment for critical resource),
   OWASP A05.
 - `backup_temp_files_not_restricted`, `ht_files_not_restricted`,
+  `generated_artifacts_not_restricted`,
   `sensitive_config_files_not_restricted`, `vcs_metadata_not_restricted` --
-  no deny-list for backup/temp files, `.ht*` files, VCS metadata, or sensitive
-  config/data extensions can expose static files that should never be served:
+  no deny-list for backup/temp files, `.ht*` files, generated/dependency
+  artifacts, VCS metadata, or sensitive config/data extensions can expose
+  static files that should never be served:
   CWE-538 / CWE-540, OWASP A05.
 - `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`,
   `log_level_too_restrictive`, `missing_log_format`,

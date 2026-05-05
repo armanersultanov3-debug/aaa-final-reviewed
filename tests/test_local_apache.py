@@ -85,7 +85,7 @@ def test_analyze_apache_config_accepts_files_match_block(tmp_path: Path) -> None
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                '<FilesMatch "\\.(bak|old|swp)$">',
+                '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
                 *_SAFE_APACHE_CIS_BASELINE_LINES,
@@ -124,7 +124,7 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
                 '    <Directory "/var/www/html">',
                 "        AllowOverride None",
                 "        Options -Indexes",
-                '        <FilesMatch "\\.(bak|old|swp)$">',
+                '        <FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
                 "            Require all denied",
                 "        </FilesMatch>",
                 "    </Directory>",
@@ -159,7 +159,7 @@ def test_analyze_apache_config_does_not_report_backup_temp_files_when_denied(
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                '<FilesMatch "\\.(bak|old|swp)$">',
+                '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
                 *_SAFE_APACHE_CIS_BASELINE_LINES,
@@ -189,7 +189,7 @@ def test_apache_parser_mismatched_closing_tag() -> None:
 def test_apache_parser_mismatched_files_match_closing_tag() -> None:
     config_text = "\n".join(
         [
-            '<FilesMatch "\\.(bak|old|swp)$">',
+            '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
             "</Directory>",
         ]
     )
@@ -309,7 +309,7 @@ def test_analyze_apache_config_reports_backup_temp_files_match_without_deny(
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                '<FilesMatch "\\.(bak|old|swp)$">',
+                '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
                 "    Require all granted",
                 "</FilesMatch>",
                 *_SAFE_APACHE_CIS_BASELINE_LINES,
@@ -491,7 +491,7 @@ def test_analyze_apache_config_reports_missing_trace_enable(tmp_path: Path) -> N
                 "CustomLog logs/access_log combined",
                 "ErrorDocument 404 /custom404.html",
                 "ErrorDocument 500 /custom500.html",
-                '<FilesMatch "\\.(bak|old|swp)$">',
+                '<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">',
                 "    Require all denied",
                 "</FilesMatch>",
                 *_SAFE_APACHE_CIS_BASELINE_LINES,

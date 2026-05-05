@@ -7,11 +7,12 @@ from webconf_audit.local.nginx.parser.ast import (
     iter_nodes,
 )
 from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
+from webconf_audit.local.sensitive_artifact_policy import BACKUP_TEMP_EXTENSIONS
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.missing_backup_file_deny"
-BACKUP_EXTENSION_MARKERS = ("bak", "old", "backup", "orig", "save")
+BACKUP_EXTENSION_MARKERS = BACKUP_TEMP_EXTENSIONS
 
 
 @rule(
@@ -24,8 +25,8 @@ BACKUP_EXTENSION_MARKERS = ("bak", "old", "backup", "orig", "save")
     ),
     recommendation=(
         "Add a regex location for common backup file patterns such as '.bak', "
-        "'.old', '.backup', '.orig', '.save', or trailing '~' and block it "
-        "with 'deny all;' or 'return 403;'."
+        "'.old', '.backup', '.orig', '.save', '.swp', '.tmp', or trailing '~' "
+        "and block it with 'deny all;' or 'return 403;'."
     ),
     category="local",
     server_type="nginx",
@@ -57,8 +58,8 @@ def find_missing_backup_file_deny(config_ast: ConfigAst) -> list[Finding]:
                 ),
                 recommendation=(
                     "Add a regex location for common backup file patterns such as '.bak', "
-                    "'.old', '.backup', '.orig', '.save', or trailing '~' and block it "
-                    "with 'deny all;' or 'return 403;'."
+                    "'.old', '.backup', '.orig', '.save', '.swp', '.tmp', or "
+                    "trailing '~' and block it with 'deny all;' or 'return 403;'."
                 ),
                 location=SourceLocation(
                     mode="local",

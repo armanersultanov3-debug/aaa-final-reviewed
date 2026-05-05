@@ -47,6 +47,9 @@ def _safe_server_block(
         "location ~ ~$ {",
         "    deny all;",
         "}",
+        "location ~* (?:^|/)(?:Thumbs\\.db|composer\\.(?:json|lock)|package-lock\\.json)$ {",
+        "    deny all;",
+        "}",
     )
     rate_limit_directives = (
         ("limit_req zone=perip burst=10;", "limit_conn addr 10;")

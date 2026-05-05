@@ -256,7 +256,7 @@ ErrorDocument 404 "Not Found"
 ErrorDocument 500 "Server Error"
 LimitRequestBody 1048576
 LimitRequestFields 50
-<FilesMatch "\\.(bak|old|swp)$">
+<FilesMatch "\\.(bak|old|backup|orig|save|swp|tmp)$">
     Require all denied
 </FilesMatch>
 <Location "/server-status">

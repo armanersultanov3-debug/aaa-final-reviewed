@@ -7,6 +7,7 @@ from tests.apache_helpers import (
 _NEW_CIS_RULE_IDS = {
     "apache.allowoverride_not_none",
     "apache.error_log_unsafe_destination",
+    "apache.generated_artifacts_not_restricted",
     "apache.ht_files_not_restricted",
     "apache.log_format_missing_fields",
     "apache.log_level_too_restrictive",
@@ -114,7 +115,7 @@ def test_analyze_apache_config_reports_missing_sensitive_config_extension_restri
 ) -> None:
     config = _remove_simple_block(
         _safe_apache_config(),
-        '<FilesMatch "\\.(conf|ini|log|orig|save|sql|tmp)$">',
+        '<FilesMatch "\\.(conf|env|ini|log|orig|save|sql|tmp)$">',
     )
 
     findings = _analyze_config(tmp_path, config)
@@ -133,6 +134,27 @@ def test_analyze_apache_config_reports_missing_vcs_metadata_restriction(
     findings = _analyze_config(tmp_path, config)
 
     assert "apache.vcs_metadata_not_restricted" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_generated_artifact_restriction(
+    tmp_path: Path,
+) -> None:
+    config = _remove_simple_block(
+        _safe_apache_config(),
+        '<FilesMatch "(^|/)(Thumbs\\.db|composer\\.(json|lock)|package-lock\\.json|\\.DS_Store|\\.npmrc|\\.yarnrc)$">',
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.generated_artifacts_not_restricted" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_generated_artifact_restriction(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(tmp_path, _safe_apache_config())
+
+    assert "apache.generated_artifacts_not_restricted" not in _rule_ids(findings)
 
 
 def test_analyze_apache_config_does_not_count_gitignore_as_vcs_restriction(

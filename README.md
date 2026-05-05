@@ -223,12 +223,12 @@ Use `--format json` to get a machine-readable inventory with the full
 input_kind, tags, standards, order, etc.). The full inventory and the
 standards mapping plan live in [docs/rule-coverage.md](docs/rule-coverage.md).
 
-The catalog currently contains 294 rules:
+The catalog currently contains 296 rules:
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 73 |
-| Local — Apache | 69 |
+| Local — Nginx | 74 |
+| Local — Apache | 70 |
 | Local — Lighttpd | 21 |
 | Local — IIS | 47 |
 | Universal (local) | 11 |

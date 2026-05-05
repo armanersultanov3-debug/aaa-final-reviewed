@@ -621,6 +621,40 @@ def test_analyze_lighttpd_config_keeps_content_checks_for_partial_redirect(
     assert "universal.missing_x_frame_options" in rule_ids
 
 
+def test_analyze_lighttpd_config_reports_incomplete_url_access_deny_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'url.access-deny = ( ".inc", ".bak", ".sql", ".conf", ".log" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.url_access_deny_missing" in _rule_ids(result)
+
+
+def test_analyze_lighttpd_config_accepts_curated_url_access_deny_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'url.access-deny = ( ".inc", ".bak", ".old", ".backup", ".orig", ".save", ".swp", ".tmp", ".sql", ".conf", ".log", ".env", ".DS_Store", "Thumbs.db", "composer.json", "composer.lock", "package-lock.json", ".npmrc", ".yarnrc", ".idea", ".vscode" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.url_access_deny_missing" not in _rule_ids(result)
+
+
 def test_analyze_lighttpd_config_keeps_content_checks_for_mixed_redirect_pairs(
     tmp_path: Path,
 ) -> None:
