@@ -191,7 +191,7 @@ Network Infrastructure).
 
 | SP 800-44 v2 chapter | Topic | Already-covered rules (candidate `partial: legacy reference`) |
 | --- | --- | --- |
-| §5.2 | Disable unneeded modules / services | All `external.server_status_exposed`, `apache.server_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_cgi_enabled`, `iis.webdav_module_enabled`, etc. (same set as CM-7). |
+| §5.2 | Disable unneeded modules / services | Same set as CM-7, including status probes `external.server_status_exposed`, `apache.server_status_exposed`, `external.apache.mod_status_public`, plus module/service checks such as `lighttpd.mod_cgi_enabled` and `iis.webdav_module_enabled`. |
 | §5.3 | Server software identification removal | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `iis.request_filtering_remove_server_header_disabled`, `external.server_version_disclosed`, `external.x_powered_by_header_present`, `external.x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.nginx.version_disclosed_in_server_header`, `external.apache.version_disclosed_in_server_header`, `external.lighttpd.version_in_server_header`. |
 | §5.4 | Default content removal | `external.nginx.default_welcome_page` (partial). |
 | §6 | Logging | Same set as AU-2 / AU-3. |
@@ -328,7 +328,7 @@ on disclosure and probe rules.
 | --- | --- | --- |
 | T1190 — Exploit Public-Facing Application | Sensitive paths, debug, framework leaks | `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.env_file_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.wordpress_admin_panel_exposed`. |
 | T1592.002 — Gather Victim Host Information: Software | Server / framework version disclosure | `external.server_version_disclosed`, `external.x_powered_by_header_present`, `external.x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.nginx.version_disclosed_in_server_header`, `external.apache.version_disclosed_in_server_header`, `external.lighttpd.version_in_server_header`, `external.apache.etag_inode_disclosure`. |
-| T1592.004 — Client Configurations | Server-info / status endpoints | `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `external.lighttpd.mod_status_public`. |
+| T1592.004 — Client Configurations | Server-info / status endpoints | Generic status probes `external.server_status_exposed`, `external.server_info_exposed`, plus server-specific probes `external.nginx_status_exposed`, `external.apache.mod_status_public`, and `external.lighttpd.mod_status_public`. |
 | T1213.003 — Code Repositories | VCS metadata leaks | `external.git_metadata_exposed`, `external.svn_metadata_exposed`. |
 | T1078 — Valid Accounts | Credential / password file leak | `external.htpasswd_exposed`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`. |
 | T1040 — Network Sniffing | Plaintext channel | `external.https_not_available`, `external.http_not_redirected_to_https`, `iis.basic_auth_without_ssl`, `iis.forms_auth_require_ssl_missing`, all HSTS rules. |
