@@ -246,6 +246,8 @@ def _settings_have_safe_header_value(
     effective_value = _combine_effective_value(settings)
     if effective_value is not None:
         return is_safe_value(effective_value)
+    if any(setting.dynamic for setting in settings):
+        return False
     return any(
         not setting.dynamic and is_safe_value(setting.value)
         for setting in settings

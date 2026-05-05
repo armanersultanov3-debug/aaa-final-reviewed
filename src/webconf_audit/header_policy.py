@@ -53,11 +53,20 @@ def content_security_policy_has_frame_ancestors(value: str | None) -> bool:
     if value is None:
         return False
     directives = content_security_policy_directives(_clean_header_value(value))
-    return bool(directives.get("frame-ancestors", "").strip())
+    frame_ancestors = directives.get("frame-ancestors", "")
+    tokens = [token.strip() for token in frame_ancestors.split() if token.strip()]
+    if not tokens:
+        return False
+    if any("*" in token for token in tokens):
+        return False
+    return any(_is_restrictive_frame_ancestor_token(token) for token in tokens)
 
 
 def _clean_header_value(value: str) -> str:
-    return value.strip().strip('"').strip("'")
+    cleaned = value.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] and cleaned[0] in {"'", '"'}:
+        return cleaned[1:-1].strip()
+    return cleaned
 
 
 def _split_permissions_directives(value: str) -> list[str]:
@@ -66,6 +75,18 @@ def _split_permissions_directives(value: str) -> list[str]:
         for directive in value.replace(";", ",").split(",")
         if directive.strip()
     ]
+
+
+def _is_restrictive_frame_ancestor_token(token: str) -> bool:
+    normalized = token.lower()
+    return normalized in {"'none'", "'self'"} or _is_explicit_origin(normalized)
+
+
+def _is_explicit_origin(token: str) -> bool:
+    for scheme in ("https://", "http://"):
+        if token.startswith(scheme) and len(token) > len(scheme):
+            return True
+    return False
 
 
 __all__ = [

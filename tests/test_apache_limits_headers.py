@@ -10,6 +10,12 @@ from tests.apache_helpers import (
     _safe_apache_config_without_security_headers,
     _with_backup_files_restriction,
 )
+from webconf_audit.header_policy import content_security_policy_has_frame_ancestors
+from webconf_audit.local.apache.parser import ApacheSourceSpan
+from webconf_audit.local.apache.rules.security_header_utils import (
+    ApacheHeaderSetting,
+    _settings_have_safe_header_value,
+)
 
 def test_analyze_apache_config_does_not_report_limit_request_body_when_positive_integer(
     tmp_path: Path,
@@ -608,6 +614,51 @@ def test_analyze_apache_config_reports_missing_xfo_when_csp_equivalent_is_condit
     assert any(
         finding.rule_id == "apache.missing_x_frame_options_header"
         for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_missing_xfo_when_csp_equivalent_is_dynamic(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "Header always set Content-Security-Policy "
+            "\"default-src 'self'; frame-ancestors 'self'\"",
+            "Header always append Content-Security-Policy expr=%{REQUEST_STATUS}",
+            omit_headers={"x-frame-options", "content-security-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "apache.missing_x_frame_options_header"
+        for finding in result.findings
+    )
+
+
+def test_apache_equivalent_header_helper_rejects_mixed_dynamic_values() -> None:
+    source = ApacheSourceSpan(file_path="httpd.conf", line=1)
+    settings = [
+        ApacheHeaderSetting(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors 'self'",
+            source=source,
+        ),
+        ApacheHeaderSetting(
+            name="content-security-policy",
+            value=None,
+            source=source,
+            dynamic=True,
+        ),
+    ]
+
+    assert not _settings_have_safe_header_value(
+        settings,
+        content_security_policy_has_frame_ancestors,
     )
 
 

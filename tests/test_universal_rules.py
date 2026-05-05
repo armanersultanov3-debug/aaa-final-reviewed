@@ -323,6 +323,20 @@ def test_x_frame_options_equivalent_csp_frame_ancestors_present():
     assert "universal.missing_x_frame_options" not in ids
 
 
+def test_x_frame_options_not_equivalent_to_wildcard_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors *",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
 def test_missing_content_security_policy():
     scope = _http_scope(headers=[])
     ids = _rule_ids(_config(scope))
@@ -415,6 +429,23 @@ def test_permissions_policy_unsafe_accepts_restrictive_policy():
     ]
     ids = _rule_ids(_config(scope))
     assert "universal.permissions_policy_unsafe" not in ids
+
+
+def test_unsafe_header_finding_uses_header_source_location():
+    header_ref = _ref(line=17)
+    scope = _http_scope(headers=[], line=3)
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="referrer-policy",
+            value="unsafe-url",
+            source=header_ref,
+        )
+    ]
+
+    finding = _finding(_config(scope), "universal.referrer_policy_unsafe")
+
+    assert finding.location is not None
+    assert finding.location.line == 17
 
 
 def test_missing_header_findings_use_header_source_when_scope_has_no_listener():

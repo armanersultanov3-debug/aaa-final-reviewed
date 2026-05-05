@@ -16,7 +16,12 @@ from webconf_audit.header_policy import (
     permissions_policy_is_safe,
     referrer_policy_is_safe,
 )
-from webconf_audit.local.normalized import NormalizedConfig, NormalizedScope
+from webconf_audit.local.normalized import (
+    NormalizedConfig,
+    NormalizedScope,
+    NormalizedSecurityHeader,
+    SourceRef,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
@@ -277,7 +282,7 @@ def _check_unsafe_header(
                         f"configured value: {header.value or '<missing value>'}."
                     ),
                     recommendation=recommendation,
-                    location=_scope_location(scope, config),
+                    location=_header_location(header, scope, config),
                     metadata={
                         "scope_name": scope.scope_name,
                         "server_type": config.server_type,
@@ -323,6 +328,16 @@ def _has_safe_header(
     )
 
 
+def _header_location(
+    header: NormalizedSecurityHeader,
+    scope: NormalizedScope,
+    config: NormalizedConfig,
+) -> SourceLocation:
+    if header.source is None:
+        return _scope_location(scope, config)
+    return _source_location(header.source, config)
+
+
 def _scope_location(
     scope: NormalizedScope,
     config: NormalizedConfig,
@@ -342,6 +357,10 @@ def _scope_location(
             target=scope.scope_name or config.server_type,
             details=f"server_type={config.server_type}",
         )
+    return _source_location(src, config)
+
+
+def _source_location(src: SourceRef, config: NormalizedConfig) -> SourceLocation:
     return SourceLocation(
         mode="local",
         kind="xml" if src.xml_path else "file",
