@@ -1,351 +1,115 @@
-# Roadmap 1 - Nginx Noise From Real Config Prototype
-
-## Context
-
-This roadmap captures the first two issues found while running the
-`aaa-final-reviewed` prototype against the user's own live Nginx configuration.
-The evidence is in the local folder `F:\Projects\Новая папка`:
-
-- `app.conf` - the analyzed Nginx site fragment.
-- `effective-nginx.conf` - include-expanded Nginx configuration from the live
-  container / host.
-- `1.txt` - saved `webconf-audit` text report.
-- `nginx-test.log` - `nginx -t` output showing the configuration is syntactically
-  valid.
-
-Do not treat these files as public scanning targets. If any of this evidence is
-turned into fixtures, sanitize the real domain names and certificate paths first.
-
-## Validation Summary
-
-### Problem 1: HTTP redirect block noise
-
-Validated, with one important nuance.
-
-Evidence:
-
-- `app.conf:1` starts an HTTP `server` block listening on port 80.
-- `app.conf:8-10` serves only the ACME challenge path from
-  `/.well-known/acme-challenge/`.
-- `app.conf:12-14` redirects normal traffic with
-  `return 301 https://...$request_uri`.
-- `1.txt` reports 33 total findings.
-- 17 findings are attached to `app.conf:1`.
-
-Findings attached to the HTTP block include:
-
-- `nginx.missing_content_security_policy`
-- `nginx.missing_x_frame_options`
-- `nginx.missing_x_content_type_options`
-- `nginx.missing_referrer_policy`
-- `nginx.missing_permissions_policy`
-- `nginx.missing_x_xss_protection`
-- `nginx.missing_hidden_files_deny`
-- `nginx.missing_backup_file_deny`
-- `nginx.missing_limit_req`
-- `nginx.missing_limit_conn`
-- `nginx.missing_client_max_body_size`
-
-These are noisy for the normal port-80 application path because that path only
-returns a redirect and does not serve application content. The nuance is that
-the block is not strictly "redirect-only": it has an ACME exception. The
-implementation should therefore model this as a redirect-only or
-redirect-dominant server with safe local exceptions, not as a naive "any return
-301 means skip everything" rule.
-
-### Problem 2: Fragment-only analysis and inherited settings
-
-Validated for some directives, and partially validated as "unknown context" for
-others.
-
-Evidence:
-
-- `1.txt` targeted only the site fragment: `../2/nginx/conf/app.conf`.
-- `effective-nginx.conf:15-33` shows the parent `http {}` context.
-- `effective-nginx.conf:23` defines `access_log`.
-- `effective-nginx.conf:28` defines `keepalive_timeout`.
-- `effective-nginx.conf:6` defines `error_log` in the main context.
-
-Therefore, findings such as missing access log, missing error log, and missing
-keepalive timeout can be false positives when the tool is run against only a
-`conf.d` fragment instead of the root `nginx.conf`.
-
-For `client_body_timeout`, `client_header_timeout`, and `send_timeout`, the
-provided `effective-nginx.conf` does not show explicit directives. These should
-not be called proven inherited false positives from this evidence alone. The
-correct product behavior is still to mark fragment-only missing-policy findings
-as context-sensitive, for example "possibly inherited from the parent Nginx
-configuration or left at the Nginx default", unless the analyzer has the full
-include-expanded configuration.
-
-## Goal
-
-Reduce false positives and report noise for Nginx local analysis before adding
-more Nginx rule coverage.
-
-Priority order:
-
-1. Detect redirect-only / redirect-dominant HTTP scopes and skip checks that do
-   not apply to redirect responses.
-2. Add fragment-awareness for inherited or defaulted directives when only a
-   site fragment is analyzed.
-3. Completed: validated merged report-level grouping on this real noisy
-   evidence and kept `--group-repeated` opt-in for now.
-4. Fill TLS hardening gaps such as `ssl_protocols`, session settings, OCSP
-   stapling, and default TLS host handling.
-5. Resume CIS/standards coverage expansion after report noise and severity
-   foundations are stable.
-
-Completed follow-up: the first Nginx severity calibration slice now raises
-missing HSTS and missing `ssl_ciphers` to medium, and raises missing
-`limit_req`/`limit_conn` to medium only when public `autoindex on` is present.
-
-## Post-Grouping Validation
-
-Validated on the same local evidence after the report grouping merge.
-
-Commands:
-
-- `analyze-nginx F:\Projects\Новая папка\app.conf`
-- `analyze-nginx F:\Projects\Новая папка\app.conf --group-repeated`
-- `analyze-nginx F:\Projects\Новая папка\app.conf --format json`
-- `analyze-nginx F:\Projects\Новая папка\effective-nginx.conf --format json`
-
-Observed result for the site fragment:
-
-- Saved prototype report: 33 findings.
-- Current ungrouped report: 24 findings.
-- Current grouped text report: still 24 findings, but repeated text is reduced
-  for two inherited-context pairs:
-  - `nginx.missing_access_log` at the HTTP and TLS server blocks.
-  - `nginx.missing_error_log` at the HTTP and TLS server blocks.
-- Findings attached to the HTTP redirect-dominant block dropped from 17 in the
-  saved prototype report to 6 in the current report.
-- Remaining HTTP-block findings are context-sensitive/global-policy findings:
-  `missing_access_log`, `missing_error_log`, `missing_keepalive_timeout`,
-  `missing_client_body_timeout`, `missing_client_header_timeout`, and
-  `missing_send_timeout`.
-
-Interpretation:
-
-- `--group-repeated` is useful as an opt-in readability tool, but it is not the
-  primary fix for this real Nginx case. The larger win came from redirect-scope
-  suppression and fragment-aware inheritance notes.
-- The remaining fragment findings are acceptable only if they carry the
-  inherited-context note. They should not be silently treated as proven
-  misconfiguration when analyzing a standalone `conf.d` file.
-- Running the analyzer against `effective-nginx.conf` still leaves inherited
-  access-log and timeout noise attached to the included `app.conf` server
-  blocks. This is evidence for a future Nginx `-T` dump context reconstruction
-  task: the dumped included file appears outside its original `http {}` nesting
-  unless the analyzer reconstructs include context from `# configuration file`
-  markers and parent config structure.
-
-Decision:
-
-- Keep `--group-repeated` opt-in for now.
-- Before making grouping the default, first decide whether to implement Nginx
-  `-T` dump context reconstruction or add an explicit diagnostic that flattened
-  dumps may have incomplete inheritance context.
-
-## Cross-Server Applicability
-
-The concrete evidence in `F:\Projects\Новая папка` is Nginx-specific, so
-Roadmap 1 should still be implemented for Nginx first. However, the underlying
-bug class is not Nginx-only.
-
-The same two noise patterns can appear in other supported local analyzers:
-
-1. Redirect-only or redirect-dominant scopes.
-   - Apache: HTTP `VirtualHost` blocks that only use `Redirect`,
-     `RedirectMatch`, or rewrite rules to send traffic to HTTPS can receive
-     irrelevant missing-header, request-limit, or file-deny findings.
-   - Lighttpd: conditional host blocks that only set redirect rules can be
-     incorrectly treated as content-serving scopes.
-   - IIS: sites or locations using `httpRedirect` / rewrite-only behavior can
-     receive findings for controls that only matter when local content is
-     served.
-
-2. Fragment-only / incomplete-context analysis.
-   - Apache: analyzing a single vhost or included file can miss inherited
-     global `LogLevel`, `ErrorLog`, `CustomLog`, `LimitRequestBody`, `Header`,
-     or directory policy.
-   - Lighttpd: analyzing one included config can miss global directives and can
-     confuse conditional host scope with global scope.
-   - IIS: analyzing one `web.config` without `machine.config` or
-     `applicationHost.config` can miss inherited XML section policy.
-
-Roadmap 1 does not implement the cross-server fixes yet. It should create the
-Nginx pattern carefully enough that later Apache, Lighttpd, and IIS work can
-reuse the same concepts:
-
-- classify whether a scope serves content or only redirects;
-- distinguish complete root configuration analysis from partial fragment
-  analysis;
-- preserve exact findings, but annotate low-confidence missing-policy findings
-  when the analyzer does not have the parent context.
-
-## P0: Redirect-Only / Redirect-Dominant Scope Handling
-
-### Design
-
-Add a shared Nginx scope classifier, most likely in a small helper module such
-as `src/webconf_audit/local/nginx/rules/_scope_utils.py`.
-
-The classifier should distinguish:
-
-- `serves_content`: normal application content may be served.
-- `redirect_only`: all request paths in the scope terminate in `return 301`,
-  `return 302`, `return 307`, `return 308`, or an equivalent rewrite redirect.
-- `redirect_with_safe_exceptions`: normal traffic redirects, but narrowly scoped
-  operational paths such as `/.well-known/acme-challenge/` may serve minimal
-  local files.
-- `unknown`: the analyzer cannot prove redirect-only behavior.
-
-The classifier must be conservative. If a block has `proxy_pass`, `fastcgi_pass`,
-`try_files`, `root`, `alias`, or content-serving locations outside safe
-exceptions, treat it as `serves_content` or `unknown`.
-
-### Rules To Skip For Redirect-Only Normal Traffic
-
-For `redirect_only` and carefully validated `redirect_with_safe_exceptions`,
-skip these server-scope findings on the redirecting HTTP block:
-
-- Browser content headers:
-  - `nginx.missing_content_security_policy`
-  - `nginx.missing_x_frame_options`
-  - `nginx.missing_x_content_type_options`
-  - `nginx.missing_referrer_policy`
-  - `nginx.missing_permissions_policy`
-  - `nginx.missing_x_xss_protection`
-- Content-file exposure guards:
-  - `nginx.missing_hidden_files_deny`
-  - `nginx.missing_backup_file_deny`
-- Request body / abuse limits that do not apply to redirect responses:
-  - `nginx.missing_client_max_body_size`
-  - `nginx.missing_limit_req`
-  - `nginx.missing_limit_conn`
-
-Do not skip:
-
-- Logging checks.
-- `server_tokens` / disclosure checks.
-- HTTP-to-HTTPS redirect correctness checks.
-- TLS checks on TLS server blocks.
-- Checks for content-serving exceptions if the exception itself is broad or
-  unsafe.
-
-### Regression Tests
-
-Add focused tests using sanitized versions of the real shape:
-
-- HTTP server with ACME challenge plus `location / { return 301 ...; }`.
-- HTTPS server with real content and `autoindex on`.
-- Assert the listed redirect-noise rules are absent for the HTTP server line.
-- Assert important findings on the HTTPS server still appear, for example
-  `nginx.autoindex_on` and selected missing security headers.
-- Assert a server that has `return 301` in one location but serves content in
-  another broad location is not treated as redirect-only.
-
-Avoid exact total-count assertions. Assert specific rule IDs and source
-locations.
-
-## P1: Fragment-Aware Inheritance / Unknown Context Notes
-
-### Design
-
-When the target file looks like a site fragment, not a root Nginx config, the
-analyzer should avoid presenting inheritable missing directives as definitive.
-
-Fragment signals:
-
-- Top-level file contains `server` blocks but no `http` block.
-- Source path resembles `conf.d/*.conf` or `sites-enabled/*`.
-- Include metadata is absent, meaning the analyzer did not resolve the parent
-  `nginx.conf`.
-
-For missing checks whose directives can be inherited from `main` or `http`, add
-structured context metadata to the finding, for example:
-
-```json
-{
-  "analysis_context": "fragment_only",
-  "confidence": "contextual",
-  "note": "This directive may be inherited from the parent nginx.conf; analyze the root nginx.conf for a definitive result."
-}
-```
-
-The text formatter should render a short note under those findings. JSON should
-preserve the metadata for downstream consumers.
-
-### Directives In Scope First
-
-Start with the exact noisy family from the real run:
-
-- `access_log`
-- `error_log`
-- `keepalive_timeout`
-- `client_body_timeout`
-- `client_header_timeout`
-- `send_timeout`
-
-Then extend to other inherited Nginx directives only after the first slice is
-covered by tests.
-
-### Full-Config Behavior
-
-If the analyzer receives the root `nginx.conf` or an include-expanded config,
-it should use effective values instead of fragment notes:
-
-- `http { access_log ...; }` should satisfy server logging checks.
-- main-context `error_log` should satisfy server error-log checks if Nginx
-  inheritance semantics make it effective.
-- `http { keepalive_timeout ...; }` should satisfy the missing keepalive check.
-
-### Regression Tests
-
-Add two complementary fixture shapes:
-
-1. Fragment-only `app.conf`:
-   - Contains only `server {}` blocks.
-   - Missing inherited directives should either carry the fragment note or be
-     reported in a clearly contextual way.
-2. Root `nginx.conf` with `http { include conf.d/app.conf; ... }`:
-   - Parent `access_log`, `error_log`, and `keepalive_timeout` should be
-     respected.
-   - No fragment-only note should appear.
-
-Again, avoid exact total counts. Assert only stable rule IDs, locations, and
-metadata notes.
-
-## Implementation Order
-
-1. Add sanitized fixture(s) based on `F:\Projects\Новая папка\app.conf`.
-2. Write failing tests for redirect-noise suppression.
-3. Implement the Nginx redirect scope classifier.
-4. Wire the classifier into only the redirect-noise rules listed in P0.
-5. Run targeted Nginx tests.
-6. Write failing tests for fragment-only context metadata.
-7. Implement fragment detection and finding metadata notes.
-8. Teach text/JSON report output to preserve and display the notes.
-9. Run targeted tests, lint, then the broader local test set that does not need
-   Docker or external network access.
-
-## Acceptance Criteria
-
-- The sanitized reproduction no longer emits browser-header, hidden/backup deny,
-  body-size, or rate-limit findings on the HTTP redirect block.
-- The HTTPS content-serving block still emits relevant findings.
-- Fragment-only analysis clearly marks inherited/default-sensitive missing
-  checks as contextual instead of definitive.
-- Root or include-expanded analysis uses effective parent directives where they
-  exist.
-- No external scanning is added.
-- No real domains, certificates, keys, or credentials are committed in fixtures.
-
-## Explicitly Out Of Scope For Roadmap 1
-
-- New TLS hardening rules.
-- Report-level grouping of repeated findings.
-- Cross-server redirect-only logic for Apache, Lighttpd, or IIS.
-- Broad rule-engine refactors.
+# Roadmap 1 - Cross-Server Local Hardening Precision
+
+## Scope
+
+This is the current first-priority local-analysis roadmap. It covers rule
+coverage that can be added with the existing parsers, AST/effective-config
+models, and safe local fixtures. It intentionally avoids new external probing,
+host-inspection, package/service checks, and parser rewrites.
+
+## PR Slice 1: Cross-Server Request/Auth/Header Policy
+
+Status: in progress.
+
+1. HTTP method policy.
+   - Nginx: keep hardening method policy coverage around `limit_except` and
+     request-method policy patterns.
+   - Apache: keep hardening `Limit`, `LimitExcept`, and `Require method`
+     coverage.
+   - Lighttpd: add local detection for explicit unsafe request-method policies,
+     especially TRACE, PUT, DELETE, CONNECT, PATCH, PROPFIND, and WebDAV-like
+     methods.
+
+2. Authentication over plain HTTP.
+   - Nginx: flag active `auth_basic` on non-TLS, non-redirect content scopes.
+   - Apache: flag `AuthType Basic` on non-TLS scopes.
+   - Lighttpd: flag `auth.require` / Basic-auth style policy when SSL is not
+     enabled for the analyzed scope.
+
+3. HSTS policy quality.
+   - Nginx: flag weak `Strict-Transport-Security` values on TLS servers.
+   - Apache: keep the existing missing/unsafe HSTS checks and align quality
+     semantics with the shared policy.
+   - Lighttpd: flag weak `Strict-Transport-Security` values configured through
+     `setenv.add-response-header`.
+   - IIS: flag weak `Strict-Transport-Security` custom header values.
+
+## PR Slice 2: Request, Body, and Header Limits
+
+Status: planned.
+
+- Nginx: improve quality checks for `client_max_body_size`,
+  `client_header_buffer_size`, and `large_client_header_buffers`.
+- Apache: extend `LimitRequest*` coverage only where the current parser and
+  effective helpers can prove the policy.
+- IIS: extend requestFiltering default/absence checks where effective XML
+  sections already expose enough context.
+- Lighttpd: keep `server.max-request-size` and `server.max-connections`
+  coverage precise with conditional/effective scope tests.
+
+## PR Slice 3: Logging Quality
+
+Status: planned.
+
+- Nginx and Apache: deepen log-format quality checks for stable security fields
+  such as timestamp, client address, authenticated user, request line, status,
+  user-agent, request ID, forwarded chain, TLS protocol/cipher, and upstream
+  timing where applicable.
+- Lighttpd: add only if the existing model exposes log-format content safely.
+
+## PR Slice 4: Sensitive Paths and Extension Deny Policy
+
+Status: planned.
+
+- Add curated deny-policy checks for `.env`, VCS metadata, editor metadata,
+  backup/temp artifacts, package manager config files, and common lockfiles.
+- Keep these checks conservative and scope-aware so redirect-only or
+  non-content-serving blocks are not noisy.
+
+## PR Slice 5: Header Policy Quality
+
+Status: planned.
+
+- Referrer-Policy: unsafe values across all local analyzers.
+- Permissions-Policy: dangerous directives, wildcards, or empty ineffective
+  policy where parseable.
+- X-Frame-Options and CSP `frame-ancestors`: avoid duplicate noise when one
+  control safely covers the other.
+- CSP: keep strictness improvements separate from broad CSP parsing claims.
+
+## PR Slice 6: TLS Local Complements
+
+Status: planned.
+
+- Add only direct, parseable TLS configuration complements that do not require a
+  live handshake.
+- Keep runtime-only items such as certificate chain validation, negotiated
+  forward secrecy, OCSP runtime behavior, ECH, and redirect corroboration for a
+  separate external-safe roadmap.
+
+## PR Slice 7: Apache Precision Without Parser Changes
+
+Status: planned.
+
+- Improve `Options` policy precision per directory class.
+- Refine non-TLS VirtualHost allowed-host precision.
+- Tune `AllowOverride` and timeout noise only where current effective helpers
+  can prove the inherited/default outcome.
+
+## PR Slice 8: IIS XML Policy Completeness
+
+Status: planned.
+
+- Authorization defaults.
+- `system.web` absence/default policy.
+- requestFiltering absence/default policy.
+- App pool default materialization where available in the current effective
+  model.
+
+## Explicitly Out Of Scope
+
+- External scanning expansion.
+- Host package/service/user/file-permission inspection.
+- New parser architecture.
+- Live third-party target probing.
+- Secret collection or real credentials in fixtures.

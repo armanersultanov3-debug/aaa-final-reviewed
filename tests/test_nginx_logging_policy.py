@@ -532,7 +532,7 @@ def test_analyze_nginx_config_reports_missing_http2_on_tls_listener(tmp_path: Pa
     config_text = _http_block(
         _safe_server_block(
             "listen 127.0.0.1:443 ssl;",
-            'add_header Strict-Transport-Security "max-age=31536000";',
+            'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";',
             "ssl_certificate /etc/ssl/cert.pem;",
             "ssl_certificate_key /etc/ssl/key.pem;",
             "ssl_ciphers HIGH:!aNULL:!MD5;",
