@@ -254,6 +254,35 @@ def test_lighttpd_access_log_format_checks_conditional_scopes(
     )
 
 
+def test_lighttpd_access_log_format_deduplicates_inherited_global_format(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ("mod_accesslog")\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'accesslog.filename = "/var/log/lighttpd/access.log"\n'
+        'accesslog.format = "%h %t \\"%r\\" %>s"\n'
+        '$HTTP["host"] == "one.example" {\n'
+        '    accesslog.filename = "/var/log/lighttpd/one.log"\n'
+        "}\n"
+        '$HTTP["host"] == "two.example" {\n'
+        '    accesslog.filename = "/var/log/lighttpd/two.log"\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "lighttpd.access_log_format_missing_fields"
+    ]
+    assert len(findings) == 1
+
+
 def _rule_ids(findings) -> set[str]:
     return {finding.rule_id for finding in findings}
 
