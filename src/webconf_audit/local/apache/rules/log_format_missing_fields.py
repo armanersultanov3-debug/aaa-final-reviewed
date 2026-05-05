@@ -21,6 +21,12 @@ _REQUIRED_FIELD_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("response size", ("%b", "%O")),
     ("referer", ("%{referer}i",)),
     ("user-agent", ("%{user-agent}i", "%{user_agent}i")),
+    ("request ID", ("%{x-request-id}i", "%{x-correlation-id}i", "%L")),
+    ("forwarded chain", ("%{x-forwarded-for}i",)),
+    ("request timing", ("%d",)),
+)
+_TLS_FIELD_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("TLS protocol/cipher", ("%{ssl_protocol}x", "%{ssl_cipher}x")),
 )
 
 
@@ -31,7 +37,9 @@ _REQUIRED_FIELD_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     description="Apache LogFormat is present but misses recommended audit fields.",
     recommendation=(
         "Include client address, remote user, timestamp, request, status, "
-        "response size, referer, and user-agent fields in access logs."
+        "response size, referer, user-agent, request ID, forwarded chain, "
+        "request timing, and TLS protocol/cipher fields where applicable in "
+        "access logs."
     ),
     category="local",
     server_type="apache",
@@ -39,6 +47,7 @@ _REQUIRED_FIELD_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 def find_log_format_missing_fields(config_ast: ApacheConfigAst) -> list[Finding]:
     used_formats = _used_custom_log_format_names(config_ast)
+    tls_enabled = _config_uses_tls(config_ast)
     findings: list[Finding] = []
 
     for directive in iter_directives(config_ast.nodes, "logformat"):
@@ -47,7 +56,7 @@ def find_log_format_missing_fields(config_ast: ApacheConfigAst) -> list[Finding]
             continue
 
         format_text = defined_log_format_text(directive).lower()
-        missing_fields = _missing_fields(format_text)
+        missing_fields = _missing_fields(format_text, tls_enabled=tls_enabled)
         if not missing_fields:
             continue
 
@@ -82,9 +91,13 @@ def _used_custom_log_format_names(config_ast: ApacheConfigAst) -> set[str]:
     return used
 
 
-def _missing_fields(format_text: str) -> list[str]:
+def _missing_fields(format_text: str, *, tls_enabled: bool) -> list[str]:
     missing: list[str] = []
-    for label, markers in _REQUIRED_FIELD_GROUPS:
+    field_groups = list(_REQUIRED_FIELD_GROUPS)
+    if tls_enabled:
+        field_groups.extend(_TLS_FIELD_GROUPS)
+
+    for label, markers in field_groups:
         if label == "timestamp":
             if "%t" in format_text or ("%{" in format_text and "}t" in format_text):
                 continue
@@ -94,6 +107,16 @@ def _missing_fields(format_text: str) -> list[str]:
         if not any(marker in format_text for marker in markers):
             missing.append(label)
     return missing
+
+
+def _config_uses_tls(config_ast: ApacheConfigAst) -> bool:
+    for directive in iter_directives(config_ast.nodes, "sslengine"):
+        if directive.args and directive.args[0].lower() == "on":
+            return True
+    for name in ("sslprotocol", "sslciphersuite", "sslcertificatefile"):
+        if any(iter_directives(config_ast.nodes, name)):
+            return True
+    return False
 
 
 __all__ = ["find_log_format_missing_fields"]

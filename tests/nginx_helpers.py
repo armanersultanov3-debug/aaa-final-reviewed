@@ -72,7 +72,8 @@ def _http_block(*blocks: str) -> str:
 def _safe_http_log_format() -> str:
     return (
         'log_format main "$time_iso8601 $remote_addr $remote_user '
-        '$request $status $http_user_agent";'
+        "$request $status $http_user_agent $request_id "
+        '$http_x_forwarded_for $upstream_response_time $ssl_protocol $ssl_cipher";'
     )
 
 def _safe_http_limit_zones() -> str:
