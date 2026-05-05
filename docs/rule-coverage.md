@@ -1271,9 +1271,9 @@ released April 2024.
 | [УБИ.121](https://bdu.fstec.ru/threat/ubi.121) | Угроза искажения web-страниц | external: `content_security_policy_*` family, `x_frame_options_*` family, `x_content_type_options_*` family; universal: `missing_content_security_policy`, `missing_x_frame_options`, `missing_x_content_type_options` |
 | [УБИ.184](https://bdu.fstec.ru/threat/ubi.184) | Угроза разглашения сведений об учётной записи | external: `htpasswd_exposed`; iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `basic_auth_without_ssl` |
 
-Правила секondary-тегов:
+Правила secondary-тегов:
 
-- секondary tag **никогда** не заменяет primary standard. ATT&CK / БДУ
+- secondary tag **никогда** не заменяет primary standard. ATT&CK / БДУ
   ссылки могут существовать только в дополнение к CWE / OWASP / ASVS / CIS;
 - ATT&CK / БДУ не добавляются ни как новая колонка в inventory tables, ни
   как отдельные `StandardReference` записи на правилах в текущей итерации;
