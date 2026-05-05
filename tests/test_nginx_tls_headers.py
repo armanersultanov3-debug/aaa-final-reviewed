@@ -169,6 +169,118 @@ def test_analyze_nginx_config_accepts_modern_ssl_ciphers(tmp_path: Path) -> None
     )
 
 
+def test_analyze_nginx_config_reports_ssl_conf_command_tls_compression(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_conf_command Options Compression;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.ssl_conf_command_tls_compression_enabled"
+    ]
+    assert len(findings) == 1
+    assert findings[0].location is not None
+    assert findings[0].location.line == 2
+
+
+def test_analyze_nginx_config_accepts_disabled_ssl_conf_command_compression(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_conf_command Options -Compression;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.ssl_conf_command_tls_compression_enabled"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_flag_certificate_compression_as_tls_compression(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_certificate_compression on;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.ssl_conf_command_tls_compression_enabled"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_conf_command_unsafe_renegotiation(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_conf_command Options UnsafeLegacyRenegotiation;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id
+        == "nginx.ssl_conf_command_unsafe_renegotiation_enabled"
+    ]
+    assert len(findings) == 1
+    assert findings[0].severity == "high"
+    assert findings[0].location is not None
+    assert findings[0].location.line == 8
+
+
 def test_analyze_nginx_config_does_not_treat_inherited_ssl_protocols_as_tls_intent(
     tmp_path: Path,
 ) -> None:
