@@ -62,7 +62,7 @@ def find_url_access_deny_missing(
         config_ast,
         effective_config=effective_config,
         merged_directives=merged_directives,
-        request_context=request_context,
+        use_request_scoped_directives=request_context is not None,
     )
     if not missing_markers:
         return []
@@ -94,9 +94,9 @@ def _missing_markers(
     *,
     effective_config: LighttpdEffectiveConfig | None,
     merged_directives: dict[str, LighttpdEffectiveDirective] | None,
-    request_context: LighttpdRequestContext | None,
+    use_request_scoped_directives: bool,
 ) -> list[str]:
-    if request_context is not None and merged_directives is not None:
+    if use_request_scoped_directives and merged_directives is not None:
         directive = merged_directives.get(URL_ACCESS_DENY_NAME)
         return _missing_markers_from_text(directive.value if directive else None)
 
@@ -178,6 +178,9 @@ def _directive_text(directive: LighttpdEffectiveDirective | None) -> str | None:
 
 
 def _combined_assignment_text(config_ast: LighttpdConfigAst) -> str | None:
+    # Best-effort fallback for direct rule calls without effective_config:
+    # concatenation may under-report later "=" overrides, while operator-aware
+    # checks run through the normal effective_config path.
     assignments: list[LighttpdAssignmentNode] = []
     for node in iter_all_nodes(config_ast):
         if isinstance(node, LighttpdAssignmentNode) and node.name == URL_ACCESS_DENY_NAME:
