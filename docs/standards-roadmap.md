@@ -37,13 +37,16 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 270 rules:
+The current project inventory is 273 rules (synchronized with
+`docs/rule-coverage.md` Total rules header; the registry is the source of
+truth and `tests/test_rule_coverage_doc.py` enforces drift between the
+registry and `docs/rule-coverage.md`):
 
 - Universal: 11
-- Nginx local: 63
+- Nginx local: 64
 - Apache local: 65
-- Lighttpd local: 15
-- IIS local: 44
+- Lighttpd local: 16
+- IIS local: 45
 - External probes: 72
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct

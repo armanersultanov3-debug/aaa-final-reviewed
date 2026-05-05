@@ -831,9 +831,16 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 Count: 72
 
-Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. The CIS
-column is empty across the whole group on purpose: external probes are
-black-box runtime checks that do not align with config-level CIS Benchmarks.
+Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
+probes are black-box runtime checks that do not align with config-level CIS
+Benchmarks as a primary source, so the `CIS / Vendor` column is empty by
+default for this group. As a follow-up of `STD-GAP-035` from
+`docs/benchmarks-covering.md`, a small set of external rules whose runtime
+signal corroborates a specific CIS benchmark section now carries a
+**cross-source partial** annotation in the `CIS / Vendor` column. Each such
+entry is explicitly marked `(partial: runtime evidence; primary CIS
+reference at <local rule>)` so it never claims standalone CIS coverage and
+always points back to the config-level rule that owns the primary mapping.
 Their natural standards companions are the OWASP Cheat Sheet Series and
 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)
 verification requirements, which are now recorded in the `ASVS` column when the
@@ -849,8 +856,8 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.apache.version_disclosed_in_server_header` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
 | `external.apache.mod_status_public` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
 | `external.apache.etag_inode_disclosure` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.iis.aspnet_version_header_present` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
-| `external.iis.detailed_error_page` | medium | probe | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-16.5.1 (partial: detailed errors only) | - |
+| `external.iis.aspnet_version_header_present` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Microsoft IIS 10 v1.2.1 §3.11 (partial: runtime evidence; primary CIS reference at `iis.custom_headers_expose_server`) |
+| `external.iis.detailed_error_page` | medium | probe | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-16.5.1 (partial: detailed errors only) | CIS Microsoft IIS 10 v1.2.1 §3.4 (partial: runtime evidence; primary CIS reference at `iis.http_errors_detailed`) |
 | `external.lighttpd.version_in_server_header` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
 | `external.lighttpd.mod_status_public` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
 | `external.cookie_missing_secure_on_https` | low | probe | - | [CWE-614](https://cwe.mitre.org/data/definitions/614.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.1 (partial: attribute only) | - |
@@ -861,11 +868,11 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.cors_wildcard_with_credentials` | medium | probe | - | [CWE-942](https://cwe.mitre.org/data/definitions/942.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.2 (partial: runtime wildcard detection only) | - |
 | `external.server_version_disclosed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
 | `external.x_powered_by_header_present` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
-| `external.x_aspnet_version_header_present` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
+| `external.x_aspnet_version_header_present` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Microsoft IIS 10 v1.2.1 §3.11 (partial: runtime evidence; primary CIS reference at `iis.custom_headers_expose_server`) |
 | `external.x_frame_options_missing` | low | probe | - | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.x_frame_options_invalid` | low | probe | - | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.x_content_type_options_missing` | low | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | - |
-| `external.x_content_type_options_invalid` | low | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | - |
+| `external.x_content_type_options_missing` | low | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | CIS NGINX v3.0.0 §5.3.1 (partial: runtime evidence; primary CIS reference at `nginx.missing_x_content_type_options`) |
+| `external.x_content_type_options_invalid` | low | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | CIS NGINX v3.0.0 §5.3.1 (partial: runtime evidence; primary CIS reference at `nginx.missing_x_content_type_options`) |
 | `external.content_security_policy_missing` | medium | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: missing/unsafe checks only) | - |
 | `external.content_security_policy_unsafe_inline` | medium | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: missing/unsafe checks only) | - |
 | `external.content_security_policy_unsafe_eval` | medium | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: missing/unsafe checks only) | - |
@@ -878,23 +885,23 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.coep_missing` | info | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.coop_missing` | info | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.8 (partial: observed responses only) | - |
 | `external.corp_missing` | info | probe | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.https_not_available` | medium | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
-| `external.http_not_redirected_to_https` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
-| `external.hsts_header_missing` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
-| `external.hsts_header_invalid` | medium | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
-| `external.hsts_max_age_too_short` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
-| `external.hsts_missing_include_subdomains` | info | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
+| `external.https_not_available` | medium | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS NGINX v3.0.0 §4.1.1; CIS Apache HTTP Server 2.4 v2.3.0 §7.1; CIS Microsoft IIS 10 v1.2.1 §2.6 (partial: runtime evidence; primary CIS references at local TLS-required / SSL-engine rules) |
+| `external.http_not_redirected_to_https` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS NGINX v3.0.0 §4.1.1; CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: runtime evidence; primary CIS references at `nginx.missing_http_to_https_redirect` / `apache.missing_http_to_https_redirect`) |
+| `external.hsts_header_missing` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8; CIS Apache HTTP Server 2.4 v2.3.0 §7.11; CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: runtime evidence; primary CIS references at local HSTS rules) |
+| `external.hsts_header_invalid` | medium | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8; CIS Apache HTTP Server 2.4 v2.3.0 §7.11; CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: runtime evidence; primary CIS references at local HSTS rules) |
+| `external.hsts_max_age_too_short` | low | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8; CIS Apache HTTP Server 2.4 v2.3.0 §7.11; CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: runtime evidence; primary CIS references at local HSTS rules) |
+| `external.hsts_missing_include_subdomains` | info | probe | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8; CIS Apache HTTP Server 2.4 v2.3.0 §7.11; CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: runtime evidence; primary CIS references at local HSTS rules) |
 | `external.http_redirect_not_permanent` | info | probe | - | - | - | - | - |
-| `external.trace_method_allowed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | - |
-| `external.allow_header_dangerous_methods` | medium | probe | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `external.trace_method_allowed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | CIS Apache HTTP Server 2.4 v2.3.0 §5.8 (partial: runtime evidence; primary CIS reference at `apache.trace_enable_not_off`) |
+| `external.allow_header_dangerous_methods` | medium | probe | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2; CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: runtime evidence; primary CIS references at `nginx.missing_http_method_restrictions` / `apache.missing_http_method_restrictions`) |
 | `external.options_method_exposed` | info | probe | - | - | - | - | - |
-| `external.dangerous_http_methods_enabled` | medium | probe | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.trace_method_exposed_via_options` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | - |
+| `external.dangerous_http_methods_enabled` | medium | probe | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2; CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: runtime evidence; primary CIS references at `nginx.missing_http_method_restrictions` / `apache.missing_http_method_restrictions`) |
+| `external.trace_method_exposed_via_options` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.4 | CIS Apache HTTP Server 2.4 v2.3.0 §5.8 (partial: runtime evidence; primary CIS reference at `apache.trace_enable_not_off`) |
 | `external.webdav_methods_exposed` | medium | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.git_metadata_exposed` | high | probe | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | - |
-| `external.server_status_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
-| `external.server_info_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
-| `external.nginx_status_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
+| `external.git_metadata_exposed` | high | probe | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS NGINX v3.0.0 §2.5.3; CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: runtime evidence; primary CIS references at `nginx.missing_hidden_files_deny` / `apache.vcs_metadata_not_restricted`) |
+| `external.server_status_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §2.4 (partial: runtime evidence; primary CIS reference at `apache.server_status_exposed`) |
+| `external.server_info_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §2.8 (partial: runtime evidence; primary CIS reference at `apache.server_info_exposed`) |
+| `external.nginx_status_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS NGINX v3.0.0 §2.5.4 (partial: runtime evidence; reverse-proxy disclosure scope; CIS section is `parser-depth` at config level) |
 | `external.env_file_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.htaccess_exposed` | medium | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.htpasswd_exposed` | high | probe | - | [CWE-522](https://cwe.mitre.org/data/definitions/522.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
@@ -905,14 +912,14 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.web_config_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.robots_txt_exposed` | info | probe | - | - | - | - | - |
 | `external.sitemap_xml_exposed` | info | probe | - | - | - | - | - |
-| `external.svn_metadata_exposed` | medium | probe | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | - |
+| `external.svn_metadata_exposed` | medium | probe | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS NGINX v3.0.0 §2.5.3; CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: runtime evidence; primary CIS references at `nginx.missing_hidden_files_deny` / `apache.vcs_metadata_not_restricted`) |
 | `external.certificate_expired` | high | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |
 | `external.certificate_expires_soon` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `external.tls_certificate_self_signed` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |
-| `external.tls_1_0_supported` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | - |
-| `external.tls_1_1_supported` | medium | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | - |
+| `external.tls_1_0_supported` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS NGINX v3.0.0 §4.1.4; CIS Apache HTTP Server 2.4 v2.3.0 §7.1; CIS Microsoft IIS 10 v1.2.1 §7.4 (partial: runtime evidence; primary CIS references at `nginx.weak_ssl_protocols` / `apache.ssl_protocol_missing_or_weak` / `iis.schannel_weak_protocol_enabled`) |
+| `external.tls_1_1_supported` | medium | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS NGINX v3.0.0 §4.1.4; CIS Apache HTTP Server 2.4 v2.3.0 §7.1; CIS Microsoft IIS 10 v1.2.1 §7.5 (partial: runtime evidence; primary CIS references at `nginx.weak_ssl_protocols` / `apache.ssl_protocol_missing_or_weak` / `iis.schannel_weak_protocol_enabled`) |
 | `external.tls_1_3_not_supported` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.weak_cipher_suite` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | - |
+| `external.weak_cipher_suite` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | CIS NGINX v3.0.0 §4.1.5; CIS Apache HTTP Server 2.4 v2.3.0 §7.4; CIS Microsoft IIS 10 v1.2.1 §7.7-§7.9 (partial: runtime evidence; primary CIS references at `universal.weak_tls_ciphers` / `apache.ssl_cipher_suite_weak` / `lighttpd.weak_ssl_cipher_list`) |
 | `external.cert_chain_incomplete` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |
 | `external.cert_chain_length_unusual` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.cert_san_mismatch` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |
@@ -1009,6 +1016,272 @@ Mapping rationale (external probes), grouped by pattern:
   clients into either accepting an unsafe channel or refusing to connect:
   CWE-295 (improper certificate validation, used as the umbrella class for
   the server-side configuration error), OWASP A02.
+
+## OWASP Cheat Sheet Series companions
+
+The [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/) is a
+living reference: individual cheat sheets are versioned independently and are
+updated continuously, so they do not fit a per-row standards column the same
+way CWE / OWASP Top 10 / ASVS / CIS do. Per `STD-GAP-027` from
+`docs/benchmarks-covering.md`, cheat sheets are recorded here as
+**topic-grouped companions**: each cheat sheet appears once with the rule
+IDs whose existing signal honestly aligns with the cheat sheet's
+recommendations. A rule can appear under several cheat sheets when its
+signal supports more than one recommendation.
+
+| Cheat Sheet | Topic | Aligned rules |
+| --- | --- | --- |
+| [HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) | response-header hardening (catch-all) | universal: `missing_hsts`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`; nginx: `missing_*_header` family, `content_security_policy_unsafe`, `referrer_policy_unsafe`; apache: `missing_*_header` family, `*_unsafe` family, `htaccess_disables_security_headers`; lighttpd: `missing_strict_transport_security`, `missing_x_content_type_options`; iis: `missing_hsts_header`, `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`; external: all `external.*_missing` / `external.*_invalid` header rules, `external.content_security_policy_*`, `external.coep_missing`, `external.coop_missing`, `external.corp_missing`, `external.permissions_policy_*`, `external.referrer_policy_*` |
+| [HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html) | HSTS specifics | universal: `missing_hsts`; nginx: `missing_hsts_header`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`; iis: `missing_hsts_header`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
+| [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) | TLS configuration | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http_to_https_redirect`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `ssl_session_cache_missing`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported`, `weak_cipher_suite`, `https_not_available`, `http_not_redirected_to_https`, `certificate_expired`, `certificate_expires_soon`, `cert_chain_incomplete`, `cert_chain_length_unusual`, `cert_san_mismatch`, `tls_certificate_self_signed` |
+| [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
+| [Cross-Site Request Forgery Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | CSRF / SameSite cookie posture | external: `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
+| [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) | session cookies / forms auth | iis: `session_state_cookieless`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `http_cookies_http_only_disabled`; external: `cookie_missing_secure_on_https`, `cookie_missing_httponly`, `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
+| [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) | access / error logs and log content | nginx: `missing_access_log`, `missing_error_log`, `missing_log_format`, `error_log_too_restrictive`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`, `log_format_missing_fields`, `missing_log_format`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
+| [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) | HTTP authentication and credentials over TLS | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users`; external: `htpasswd_exposed` |
+| [Credential Stuffing Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html) | credential storage at rest | iis: `credentials_password_format_clear`, `credentials_stored_in_config` |
+| [Clickjacking Defense](https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html) | X-Frame-Options / CSP `frame-ancestors` | universal: `missing_x_frame_options`; nginx: `missing_x_frame_options`; apache: `missing_x_frame_options_header`, `x_frame_options_unsafe`; external: `x_frame_options_missing`, `x_frame_options_invalid`, `content_security_policy_missing_frame_ancestors` |
+| [Server-Side Headers (HTTP Headers cheat sheet, Server section)](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) | server / version disclosure removal | nginx: `server_tokens_on`; apache: `server_tokens_not_prod`, `server_signature_not_off`; lighttpd: `server_tag_not_blank`; iis: `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`, `http_runtime_version_header_enabled`; external: `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.nginx.version_disclosed_in_server_header`, `external.apache.version_disclosed_in_server_header`, `external.lighttpd.version_in_server_header`, `external.apache.etag_inode_disclosure` |
+| [Web Service Security](https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html) | HTTP methods / request size limits / dangerous handlers | nginx: `missing_http_method_restrictions`, `missing_allowed_methods_restriction_for_uploads`, `http_method_policy_allows_unapproved`, `missing_client_max_body_size`, `client_max_body_size_unlimited`, `executable_scripts_allowed_in_uploads`; apache: `missing_http_method_restrictions`, `http_method_policy_allows_unapproved`, `trace_enable_not_off`, `limit_request_*`; iis: `request_filtering_*` family, `max_allowed_content_length_missing`, `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled`, `file_extensions_allow_unlisted`, `isapi_cgi_restrictions_allow_unlisted`; external: `trace_method_allowed`, `trace_method_exposed_via_options`, `dangerous_http_methods_enabled`, `webdav_methods_exposed`, `allow_header_dangerous_methods` |
+| [File Upload](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html) | upload directories / executable handlers | nginx: `executable_scripts_allowed_in_uploads`, `missing_allowed_methods_restriction_for_uploads`; iis: `handler_write_script_execute_enabled`, `cgi_handler_enabled`, `isapi_cgi_restrictions_allow_unlisted` |
+| [Access Control](https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html) | sensitive paths / IP filters / wildcard auth | nginx: `allow_all_with_deny_all`, `missing_access_restrictions_on_sensitive_locations`, `sensitive_location_missing_ip_filter`; apache: `allowoverride_*`, `htaccess_*` family; lighttpd: `url_access_deny_missing`; iis: `authorization_allows_anonymous_users` |
+| [Error Handling](https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html) | detailed errors / debug content | apache: `error_document_404_missing`, `error_document_500_missing`; iis: `http_errors_detailed`, `custom_errors_off`, `asp_script_error_sent_to_browser`, `compilation_debug_enabled`, `trace_enabled`, `deployment_retail_not_enabled`; external: `external.iis.detailed_error_page`, `elmah_axd_exposed`, `trace_axd_exposed`, `phpinfo_exposed` |
+
+Cheat sheet rule semantics:
+
+- a rule listed under several cheat sheets is honest as long as each cheat
+  sheet recommends a behaviour the rule's signal partially proves;
+- cheat sheets are **not** treated as a primary standard; their references
+  do not migrate into a new column. They live only in this consolidated
+  block;
+- when a future PR adds a rule whose signal already maps to one of these
+  cheat sheets, the rule ID is appended to the existing entry rather than a
+  new entry being created.
+
+## PCI DSS v4.0.1 mapping
+
+Per `STD-GAP-021` from `docs/benchmarks-covering.md`. Source:
+[PCI DSS v4.0.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf),
+June 2024. PCI DSS requirements group large families of rules under one
+control identifier (e.g. all TLS rules under Req. 4.2.1), so they are
+recorded here as a consolidated mapping block instead of a per-row column.
+
+Aligned-rule cells use `(partial: <limit>)` when the rule's signal proves
+the requirement only in a narrow scope. Rules that already cover the
+requirement directly do not need a partial annotation.
+
+| PCI DSS v4.0.1 requirement | Topic | Aligned rules |
+| --- | --- | --- |
+| Req. 2.2.1 | Configuration standards developed | catch-all for all hardening rules across `universal.*`, `nginx.*`, `apache.*`, `lighttpd.*`, `iis.*`, and `external.*` |
+| Req. 2.2.5 | Insecure services / protocols / daemons disabled | nginx: rules covered under Req. 2.2.6 below; apache: `trace_enable_not_off`, `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`, `mod_status_public`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled`; external: `trace_method_allowed`, `trace_method_exposed_via_options`, `dangerous_http_methods_enabled`, `webdav_methods_exposed`, `allow_header_dangerous_methods`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`, `nginx_status_exposed`, `server_status_exposed`, `server_info_exposed` |
+| Req. 2.2.6 | System security parameters configured to prevent misuse | nginx: `server_tokens_on`; apache: `server_tokens_not_prod`, `server_signature_not_off`, `server_status_exposed`, `server_info_exposed`, `file_etag_inodes`; lighttpd: `server_tag_not_blank`; iis: `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`, `http_runtime_version_header_enabled`, `http_errors_detailed`, `custom_errors_off`, `asp_script_error_sent_to_browser`, `deployment_retail_not_enabled`, `compilation_debug_enabled`, `trace_enabled`; external: `phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `git_metadata_exposed`, `svn_metadata_exposed`, `web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `external.iis.detailed_error_page`, `wordpress_admin_panel_exposed`, all `*.version_disclosed_in_server_header`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`, `external.nginx.default_welcome_page` |
+| Req. 4.2.1 | Strong cryptography for transmissions over open public networks | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `missing_hsts_header`, `missing_http_to_https_redirect`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `missing_hsts_header`, `hsts_header_unsafe`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`, `missing_strict_transport_security`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `missing_hsts_header`, `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; external: `https_not_available`, `http_not_redirected_to_https`, `tls_1_0_supported`, `tls_1_1_supported`, `weak_cipher_suite`, `hsts_*` family, `cert_*` family, `certificate_*` family, `tls_certificate_self_signed` |
+| Req. 6.2.4 | Common attack vectors / hardening for bespoke and custom software | nginx: `executable_scripts_allowed_in_uploads`, `missing_allowed_methods_restriction_for_uploads`; apache: `htaccess_enables_cgi`, `htaccess_enables_directory_listing`, `htaccess_disables_security_headers`, `htaccess_weakens_security`, `htaccess_contains_security_directive`, `htaccess_rewrite_without_limit`, `htaccess_auth_without_require`; iis: `request_filtering_*` family, `file_extensions_allow_unlisted`, `isapi_cgi_restrictions_allow_unlisted`, `handler_write_script_execute_enabled`, `cgi_handler_enabled` |
+| Req. 6.4.3 | Public-facing web application — payment-page scripts integrity (CSP / SRI surface) | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` (partial: presence and unsafe-token coverage; SRI / nonce-hash policy is `probe-depth` — see `STD-GAP-013` / `STD-GAP-014`) |
+| Req. 8.3.1 | Strong authentication for users / administrators | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users`, `forms_auth_require_ssl_missing`; external: `htpasswd_exposed` |
+| Req. 8.3.2 | Strong cryptography for transmission of all auth factors | iis: `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`, `forms_auth_protection_unsafe`; external: `cookie_missing_secure_on_https`, `cookie_samesite_none_without_secure` |
+| Req. 8.3.5 / 8.3.6 | Authentication credentials protected at rest | iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `machine_key_validation_weak`, `machine_key_legacy_validation_weak`; external: `htpasswd_exposed` |
+| Req. 10.2.1 | Audit logs enabled and active | nginx: `missing_access_log`, `missing_error_log`, `error_log_too_restrictive`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
+| Req. 10.2.2 | Audit logs record specific items (user, event type, date/time, success/failure, origin) | nginx: `missing_log_format`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields` (partial: presence and field-coverage validation; storage policy and protection are `host-depth`) |
+| Req. 10.5 | Audit log retention and protection | none — `host-depth` (filesystem permissions / log rotation outside web server config) |
+| Req. 12 (organizational) | Information security policy / process | `out-of-scope` for `webconf-audit` |
+
+Honesty notes:
+
+- PCI DSS Req. 4.2.1 explicitly references "strong cryptography" with TLS
+  1.2 minimum and TLS 1.0 / 1.1 prohibited as of 31-Mar-2025; the listed
+  rules cover this directly. Forward-secrecy and recommended-suite
+  validation deeper than weak-pattern detection remain
+  `STD-GAP-014` `probe-depth` follow-up.
+- Req. 6.4.3 needs SRI / nonce-hash policy for full coverage; current rules
+  cover only presence and unsafe-token detection.
+- Req. 10.5 (log protection) is filesystem-level; no current rule has
+  visibility.
+- Cells without aligned rules stay omitted rather than `-`: the consolidated
+  block records only requirements where webconf-audit currently has at
+  least one honest signal.
+
+## NIST SP 800-52 Rev. 2 mapping
+
+Per `STD-GAP-016` from `docs/benchmarks-covering.md`. Source:
+[NIST SP 800-52 Rev. 2](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final),
+August 2019. Same consolidation rule as PCI DSS above: TLS-control
+families map to large rule groups, so a per-row column would be redundant
+with the existing TLS rules under CWE-327 / OWASP A02 / CIS protocol
+sections.
+
+| 800-52 Rev. 2 section | Topic | Aligned rules |
+| --- | --- | --- |
+| §3.1.1 / §3.1.2 | TLS 1.2 mandatory; TLS 1.3 recommended | universal: `weak_tls_protocol`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`; apache: `ssl_protocol_missing_or_weak`; lighttpd: `ssl_protocol_policy_missing_or_weak`; iis: `schannel_tls12_not_enabled`, `schannel_weak_protocol_enabled`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported` (info) |
+| §3.3.1 | Recommended cipher suites | universal: `weak_tls_ciphers`; nginx: `missing_ssl_ciphers`; apache: `ssl_cipher_suite_missing`, `ssl_cipher_suite_weak`; lighttpd: `weak_ssl_cipher_list`; iis: `schannel_aes128_enabled`, `schannel_aes256_not_enabled`, `ssl_weak_cipher_strength`; external: `weak_cipher_suite` (partial: weak-pattern detection only; full recommended-suite validation is `STD-GAP-014` `probe-depth`) |
+| §3.3.2 | Server preference order | nginx: `missing_ssl_prefer_server_ciphers`; apache: `ssl_honor_cipher_order_not_on`; lighttpd: `ssl_honor_cipher_order_missing`; iis: `schannel_cipher_suite_order_not_preferred` |
+| §3.4 | Server certificate validation | external: `certificate_expired`, `certificate_expires_soon`, `tls_certificate_self_signed`, `cert_chain_incomplete`, `cert_san_mismatch`, `cert_chain_length_unusual` (advisory) |
+| §3.5 | Insecure renegotiation disabled | apache: `ssl_insecure_renegotiation_enabled` (partial: Apache only; cross-server `direct-rule` follow-up open) |
+| §3.6 | TLS compression disabled | apache: `ssl_compression_enabled` (partial: Apache only) |
+| §4.2 / §4.3 (OCSP stapling) | Stapling enabled with valid resolver / verify | nginx: `ssl_stapling_disabled`, `ssl_stapling_missing_resolver`, `ssl_stapling_without_verify`; apache: `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing` |
+| §4.2.4 (HSTS) | HSTS strongly recommended | universal: `missing_hsts`; nginx: `missing_hsts_header`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`; iis: `missing_hsts_header`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
+| Top-level "no plaintext fallback" | HTTP→HTTPS / TLS-required posture | universal: `tls_intent_without_config`; nginx: `missing_ssl_certificate`, `missing_ssl_certificate_key`, `missing_http_to_https_redirect`; apache: `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`; iis: `ssl_not_required`, `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; external: `https_not_available`, `http_not_redirected_to_https` |
+
+## ФСТЭК «Меры защиты информации в ГИС» mapping
+
+Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭК
+России, методический документ «Меры защиты информации в государственных
+информационных системах» (11.02.2014, действует), классы мер **ИАФ /
+УПД / ОПС / РСБ / АНЗ / ЗИС**. Применяется в связке с Приказами ФСТЭК
+№ 17 (ГИС) и № 21 (ИСПДн).
+
+| Мера | Класс | Aligned rules |
+| --- | --- | --- |
+| ИАФ.1 | Идентификация и аутентификация субъектов доступа | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users` |
+| ИАФ.6 | Защита аутентификационной информации | iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `basic_auth_without_ssl`, `machine_key_validation_weak`, `machine_key_legacy_validation_weak`; external: `htpasswd_exposed` |
+| УПД.5 | Управление доступом субъектов доступа к объектам доступа | nginx: `allow_all_with_deny_all`, `missing_access_restrictions_on_sensitive_locations`, `sensitive_location_missing_ip_filter`, `alias_without_trailing_slash`; apache: `allowoverride_*` family, `htaccess_*` family, `missing_http_method_restrictions`, `http_method_policy_allows_unapproved`; lighttpd: `url_access_deny_missing`; iis: `authorization_allows_anonymous_users`, `anonymous_auth_enabled`; external: `wordpress_admin_panel_exposed` |
+| УПД.13 | Реализация защищённого удалённого доступа субъектов доступа | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx + apache + lighttpd + iis: same set as in PCI Req. 4.2.1 above; external: same set as in PCI Req. 4.2.1 above |
+| ОПС.3 | Идентификация и аутентификация компонентов информационной системы | nginx: `proxy_missing_source_ip_headers` (partial: `parser-depth` для полной модели upstream-trust) |
+| РСБ.1 | Определение событий безопасности и их регистрация | nginx: `missing_access_log`, `missing_error_log`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
+| РСБ.3 | Сбор, запись и хранение информации о событиях безопасности | nginx: `missing_log_format`, `log_format_missing_fields`, `error_log_too_restrictive`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields`, `log_level_too_restrictive` |
+| РСБ.7 | Защита информации о событиях безопасности | none — `host-depth` (права на лог-файлы / ротация / целостность вне web-server config) |
+| АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
+| АНЗ.2 | Контроль установки обновлений ПО | none — `host-depth` |
+| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`; iis: `binding_without_host_header` |
+| ЗИС.20 | Защита каналов связи | same set as `УПД.13` (TLS / HSTS / redirect rules) |
+| ЗИС.32 | Защита веб-серверов / веб-приложений | catch-all для всех hardening rules (response headers, CSP, sensitive paths, request limits, timeout, request filtering) |
+
+Замечания по честности:
+
+- Меры защиты ФСТЭК сформулированы шире, чем отдельные рулесет-сигналы;
+  поэтому для большинства мер указано «aligned» при наличии хотя бы одного
+  частичного сигнала. Полное соответствие требует комбинации этих сигналов
+  с организационными мерами вне области сканера.
+- Меры с пометкой `host-depth` (РСБ.7, АНЗ.2) останутся непокрытыми, пока в
+  проекте не появится host-инспекционный режим.
+- Приказы ФСТЭК № 17 и № 21 определяют, какой состав мер обязателен для
+  конкретного класса ГИС / ИСПДн; этот блок только показывает, какие меры
+  webconf-audit способен помочь подтвердить.
+
+## Lighttpd vendor reference mapping
+
+Per `STD-GAP-030` from `docs/benchmarks-covering.md`. There is no official
+*CIS Lighttpd Benchmark*, so the existing `CIS / Vendor` column for the
+Lighttpd table is intentionally left empty (see the intro under
+`### Lighttpd (Local)`). Vendor and community baseline references are
+recorded here as a topic-grouped block to avoid implying a CIS-style
+benchmark mapping in a per-row column.
+
+Sources:
+
+- [DevSec lighttpd-baseline](https://github.com/dev-sec/lighttpd-baseline)
+  — community InSpec profile, Apache-2.0 license. Identifiers `lighttpd-NN`
+  refer to controls in that profile.
+- [lighttpd Security wiki](https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security)
+  and the per-module documentation pages on
+  [redmine.lighttpd.net](https://redmine.lighttpd.net/projects/lighttpd/wiki).
+
+| Vendor reference | Topic | Aligned rules |
+| --- | --- | --- |
+| DevSec lighttpd-baseline `lighttpd-01` (server.tag) | server identification removal | `lighttpd.server_tag_not_blank` |
+| DevSec lighttpd-baseline `lighttpd-02` (dir-listing) | directory listing disabled | `lighttpd.dir_listing_enabled` |
+| DevSec lighttpd-baseline `lighttpd-03` (ssl modes) | TLS configuration baseline | `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `lighttpd.weak_ssl_cipher_list`, `lighttpd.ssl_honor_cipher_order_missing` |
+| DevSec lighttpd-baseline `lighttpd-05` (forbidden methods) | HTTP method allowlist | none yet — `direct-rule` follow-up: cross-server method allowlist for Lighttpd analogous to existing Nginx / Apache rules |
+| lighttpd Security wiki — `mod_status` | status endpoint exposure | `lighttpd.mod_status_public` |
+| lighttpd Security wiki — `mod_cgi` | least-functionality / CGI | `lighttpd.mod_cgi_enabled` |
+| lighttpd Security wiki — `url.access-deny` | sensitive-file deny lists | `lighttpd.url_access_deny_missing` |
+| lighttpd `mod_accesslog` documentation | access logging | `lighttpd.access_log_missing` |
+| lighttpd `server.errorlog` documentation | error logging | `lighttpd.error_log_missing` |
+| lighttpd `server.max-connections` documentation | resource limits | `lighttpd.max_connections_missing` |
+| lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing` |
+| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.missing_x_content_type_options` |
+
+Notes:
+
+- DevSec is community-maintained, not an authoritative benchmark. References
+  are tracked here as `Vendor:` companions, not as primary standards. The
+  `CIS / Vendor` column in the inventory table for Lighttpd remains empty.
+- The lighttpd wiki pages cited above are stable URLs; if the wiki is
+  reorganised, this block must be updated rather than the inventory rows.
+- The `lighttpd-05` row is the only DevSec control without a corresponding
+  rule in the registry today and is left as a `direct-rule` follow-up.
+
+## ISO/IEC 27002:2022 / ГОСТ Р ИСО/МЭК 27002-2021 mapping
+
+Per `STD-GAP-024` from `docs/benchmarks-covering.md`. ГОСТ Р ИСО/МЭК
+27002-2021 — точная локализация ISO/IEC 27002:2022, поэтому идентификаторы
+контролов совпадают и записываются в одной строке.
+
+| ISO 27002 control | Topic | Aligned rules |
+| --- | --- | --- |
+| 5.15 | Access control | same set as ФСТЭК `УПД.5` above |
+| 8.5 | Secure authentication | same set as ФСТЭК `ИАФ.1` / `ИАФ.6` above |
+| 8.15 | Logging | same set as ФСТЭК `РСБ.1` / `РСБ.3` above |
+| 8.16 | Monitoring activities | partial via the same logging rules; full monitoring is application/SOC concern |
+| 8.18 | Use of privileged utility programs | apache: `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled` |
+| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`; iis: `binding_without_host_header` |
+| 8.21 | Security of network services | same set as ФСТЭК `УПД.13` (TLS / HSTS / redirect family) |
+| 8.23 | Web filtering | `out-of-scope` |
+| 8.24 | Use of cryptography | same set as NIST SP 800-52 Rev. 2 §3.x sections above |
+| 8.25 | Secure development life cycle | `out-of-scope` (process) |
+| 8.26 | Application security requirements | partial via response-header rules and CSP / cookie rules |
+| 8.27 | Secure system architecture and engineering principles | catch-all hardening across all rule families |
+| 8.28 | Secure coding | `out-of-scope` |
+| 8.29 | Security testing in development and acceptance | `out-of-scope` (process) |
+
+## Secondary tags
+
+Per `STD-GAP-026` (MITRE ATT&CK Enterprise) and `STD-GAP-032` (ФСТЭК БДУ)
+from `docs/benchmarks-covering.md`. These are **threat catalogues**, not
+defensive standards: they describe attacker techniques and threat models,
+not security controls. They are useful as **secondary tags** for telemetry
+and SOC context, but they must never replace a primary standards reference.
+
+Architectural decision: secondary tags live in this consolidated block
+only. They are not added as a new column to the inventory tables, and they
+do not enter `StandardReference` records on rules at this stage. If a
+future PR introduces a `tier: primary|secondary` field on
+`StandardReference` (for example as part of `STD-GAP-012`), the entries
+below become the source of truth for the migration.
+
+### MITRE ATT&CK Enterprise v15
+
+Source: [MITRE ATT&CK Enterprise v15](https://attack.mitre.org/versions/v15/),
+released April 2024.
+
+| ATT&CK technique | Topic | Aligned rules (telemetry context) |
+| --- | --- | --- |
+| [T1190](https://attack.mitre.org/techniques/T1190/) — Exploit Public-Facing Application | exposed sensitive paths / debug / framework leaks | external: `git_metadata_exposed`, `svn_metadata_exposed`, `env_file_exposed`, `web_config_exposed`, `htaccess_exposed`, `phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `wordpress_admin_panel_exposed`, `external.iis.detailed_error_page` |
+| [T1592.002](https://attack.mitre.org/techniques/T1592/002/) — Gather Victim Host Information: Software | server / framework version disclosure | external: `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.nginx.version_disclosed_in_server_header`, `external.apache.version_disclosed_in_server_header`, `external.lighttpd.version_in_server_header`, `external.apache.etag_inode_disclosure`; local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `iis.http_runtime_version_header_enabled`, `iis.request_filtering_remove_server_header_disabled` |
+| [T1592.004](https://attack.mitre.org/techniques/T1592/004/) — Client Configurations | server status / info endpoints | external: `server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`; local: `apache.server_status_exposed`, `apache.server_info_exposed`, `lighttpd.mod_status_public` |
+| [T1213.003](https://attack.mitre.org/techniques/T1213/003/) — Data from Information Repositories: Code Repositories | VCS metadata leaks | external: `git_metadata_exposed`, `svn_metadata_exposed`; local: `nginx.missing_hidden_files_deny`, `apache.vcs_metadata_not_restricted` |
+| [T1078](https://attack.mitre.org/techniques/T1078/) — Valid Accounts | credential / password file leak | external: `htpasswd_exposed`; iis: `credentials_password_format_clear`, `credentials_stored_in_config` |
+| [T1040](https://attack.mitre.org/techniques/T1040/) — Network Sniffing | plaintext channel exposure | external: `https_not_available`, `http_not_redirected_to_https`; iis: `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; all HSTS rules across families |
+| [T1505.003](https://attack.mitre.org/techniques/T1505/003/) — Server Software Component: Web Shell | upload + execute combination | nginx: `executable_scripts_allowed_in_uploads`; iis: `handler_write_script_execute_enabled`, `cgi_handler_enabled` |
+| [T1557](https://attack.mitre.org/techniques/T1557/) — Adversary-in-the-Middle | weak / cleartext TLS | universal: `weak_tls_protocol`, `weak_tls_ciphers`; all per-server weak-protocol / weak-cipher rules; external: `tls_1_0_supported`, `tls_1_1_supported`, `weak_cipher_suite` |
+| [T1574](https://attack.mitre.org/techniques/T1574/) — Hijack Execution Flow | writable executable handler paths | iis: `handler_write_script_execute_enabled` |
+
+### ФСТЭК БДУ — Банк данных угроз
+
+Источник: [ФСТЭК России, Банк данных угроз](https://bdu.fstec.ru/),
+актуальный реестр угроз `УБИ.NNN`. Это каталог угроз, не мер защиты;
+пишется как secondary tag, основной стандарт — ФСТЭК «Меры защиты ГИС»
+(см. блок выше).
+
+| УБИ | Заголовок | Aligned rules (telemetry context) |
+| --- | --- | --- |
+| [УБИ.044](https://bdu.fstec.ru/threat/ubi.044) | Угроза несанкционированного доступа за счёт перехвата сетевого трафика | external: `https_not_available`, `http_not_redirected_to_https`; iis: `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; все HSTS rules |
+| [УБИ.067](https://bdu.fstec.ru/threat/ubi.067) | Угроза неправомерного ознакомления с защищаемой информацией | external: `git_metadata_exposed`, `svn_metadata_exposed`, `env_file_exposed`, `web_config_exposed`, `htaccess_exposed`, `phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page` |
+| [УБИ.072](https://bdu.fstec.ru/threat/ubi.072) | Угроза получения НСД через неподконтрольный канал | universal: `weak_tls_protocol`, `weak_tls_ciphers`; все weak-protocol / weak-cipher rules per server; external: `tls_1_0_supported`, `tls_1_1_supported`, `weak_cipher_suite` |
+| [УБИ.121](https://bdu.fstec.ru/threat/ubi.121) | Угроза искажения web-страниц | external: `content_security_policy_*` family, `x_frame_options_*` family, `x_content_type_options_*` family; universal: `missing_content_security_policy`, `missing_x_frame_options`, `missing_x_content_type_options` |
+| [УБИ.184](https://bdu.fstec.ru/threat/ubi.184) | Угроза разглашения сведений об учётной записи | external: `htpasswd_exposed`; iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `basic_auth_without_ssl` |
+
+Правила секondary-тегов:
+
+- секondary tag **никогда** не заменяет primary standard. ATT&CK / БДУ
+  ссылки могут существовать только в дополнение к CWE / OWASP / ASVS / CIS;
+- ATT&CK / БДУ не добавляются ни как новая колонка в inventory tables, ни
+  как отдельные `StandardReference` записи на правилах в текущей итерации;
+- если в `STD-GAP-012` появится поддержка `tier=secondary` — этот блок
+  становится исходником миграции;
+- threat-каталоги обновляются чаще, чем benchmark-документы: ATT&CK имеет
+  ежегодные релизы, БДУ обновляется регулярно. При изменении версии нужно
+  пересмотреть только этот блок, а не строки таблиц.
 
 ## Standards mapping plan
 
