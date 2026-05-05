@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 281-rule inventory plus the rule-level work needed to cover the
+existing 282-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -34,7 +34,8 @@ The same conservative rules apply as in `docs/standards-roadmap.md`:
 - Mark partial coverage with the limitation, e.g.
   `NIST SP 800-52 Rev. 2 §3.3.1 (partial: weak-pattern detection only)`.
 - Use the existing gap labels: `covered`, `direct-rule`, `parser-depth`,
-  `probe-depth`, `host-depth`, `out-of-scope`, `research`.
+  `probe-depth`, `out-of-scope`, `research`. Historical `host-depth` items are
+  treated as out of scope because this tool does not inspect host OS posture.
 - Treat every entry below as a **candidate** until a follow-up PR moves the
   reference into the canonical `docs/rule-coverage.md` columns.
 
@@ -172,7 +173,7 @@ Authentication), and SI (System and Information Integrity).
 | AC-3 / AC-3(7) | Access enforcement | `nginx.allow_all_with_deny_all`, `nginx.missing_access_restrictions_on_sensitive_locations`, `nginx.sensitive_location_missing_ip_filter`, `lighttpd.url_access_deny_missing`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_enabled`, `apache.allowoverride_all_in_directory`, `apache.allowoverride_not_none`, `apache.htaccess_*` family | `parser-depth`: full effective Apache `Require` resolution (already in `STD-GAP-007`). |
 | AC-4 | Information flow enforcement | `nginx.proxy_missing_source_ip_headers` | `parser-depth`: outbound proxy / upstream TLS trust modelling. |
 | AU-2 / AU-3 / AU-12 | Event logging, content of audit records, audit record generation | `nginx.missing_access_log`, `nginx.missing_error_log`, `nginx.missing_log_format`, `nginx.error_log_too_restrictive`, `nginx.log_format_missing_fields`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `apache.log_level_too_restrictive`, `apache.log_format_missing_fields`, `apache.missing_log_format`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured` | `direct-rule`: extend `log_format_missing_fields` to require `request-id`, `x-forwarded-for` chain, and TLS-version fields per AU-3(1). |
-| AU-9 | Protection of audit information | none direct — `host-depth` | `host-depth`: log-file ownership / mode. |
+| AU-9 | Protection of audit information | none direct — `out-of-scope` | Log-file ownership / mode requires filesystem inspection outside this tool. |
 | CM-6 | Configuration settings | catch-all for every misconfig rule (`server_tokens_*`, `*.options_*`, `*.directory_*`, `*.autoindex_*`, etc.). | — |
 | CM-7 / CM-7(1) | Least functionality | `lighttpd.mod_cgi_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `iis.handler_write_script_execute_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.allow_header_dangerous_methods`, `external.webdav_methods_exposed`, `apache.server_status_exposed`, `apache.server_info_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public` | `parser-depth`: Apache module inventory (already in `STD-GAP-007`). |
 | IA-2 / IA-5 / IA-5(1) | Identification and authentication | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.machine_key_validation_weak`, `iis.machine_key_legacy_validation_weak`, `external.htpasswd_exposed` | `direct-rule`: detect `auth_basic` over plain HTTP for Nginx (mirrors `iis.basic_auth_without_ssl`). |
@@ -224,7 +225,7 @@ Management, Authentication, Access Control), **PR.PS** (Platform Security),
 | PR.AA-05 | Access permissions / authorizations enforced | All AC-3 rules from §5.2. |
 | PR.PS-01 | Configurations of platforms managed | Catch-all for hardening rules. |
 | PR.PS-04 | Logs generated, made available | All AU-2 rules from §5.2. |
-| DE.CM-09 | Computing hardware/software configurations monitored | not directly — `host-depth`. |
+| DE.CM-09 | Computing hardware/software configurations monitored | not directly — `out-of-scope`. |
 
 CSF is a high-level framework, so rule rows should cite at most **one**
 `PR.*` outcome per rule.
@@ -246,7 +247,7 @@ already aligned with the relevant requirements.
 | 8.3.2 | Strong cryptography during transmission of all auth factors | `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`, all cookie `Secure` / `SameSite=None+Secure` rules. | — |
 | 10.2.1 | Audit logs enabled and active | `nginx.missing_access_log`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured`, `nginx.missing_error_log`, `nginx.error_log_too_restrictive`, `apache.log_level_too_restrictive` | — |
 | 10.2.2 | Audit logs record specific items | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`, `nginx.missing_log_format`, `apache.missing_log_format` | `direct-rule`: cross-server `log_format_missing_user_agent_or_request_id` rule (currently Nginx-only). |
-| 10.5 | Audit log retention / protection | none — `host-depth`. | — |
+| 10.5 | Audit log retention / protection | none — `out-of-scope`. | — |
 | 12.3 | Risks for security technologies / processes evaluated | out-of-scope (process). | — |
 
 ### 5.7 CIS Critical Security Controls v8.1
@@ -312,11 +313,11 @@ control numbers apply.
 | --- | --- | --- | --- |
 | APP.3.2.A1 | Authentisierung | `iis.basic_auth_without_ssl`, `nginx.missing_auth_basic_user_file`, `external.htpasswd_exposed`. | — |
 | APP.3.2.A2 | Sichere Konfiguration eines Web-Servers | catch-all hardening. | — |
-| APP.3.2.A3 | Sicheres Hochfahren | `host-depth`. | — |
+| APP.3.2.A3 | Sicheres Hochfahren | `out-of-scope`. | — |
 | APP.3.2.A4 | Protokollierung | All AU-2 rules. | — |
 | APP.3.2.A5 | Authentisierung über HTTP | `iis.basic_auth_without_ssl`, planned Nginx equivalent. | `direct-rule` on Nginx. |
 | APP.3.2.A11 | Verschlüsselung über TLS | All §5.1 rules. | — |
-| APP.3.2.A12 | Sichere Erhebung von Konfigurationsdaten | `host-depth`. | — |
+| APP.3.2.A12 | Sichere Erhebung von Konfigurationsdaten | `out-of-scope`. | — |
 | APP.3.2.A14 | Schutz von Web-Anwendungen und Web-Services über Reverse-Proxy | `nginx.proxy_missing_source_ip_headers` (partial). | `parser-depth`: full reverse-proxy upstream-TLS modelling (overlaps `STD-GAP-007`). |
 
 ### 5.11 MITRE ATT&CK Enterprise v15
@@ -447,9 +448,9 @@ authoritative in Russian.
 | ОПС.3 | Идентификация и аутентификация компонентов | `nginx.proxy_missing_source_ip_headers`. | `parser-depth`: моделирование upstream TLS trust. |
 | РСБ.1 | Определение событий безопасности | Все правила AU-2 из §5.2. | — |
 | РСБ.3 | Сбор, запись и хранение информации о событиях | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`. | `direct-rule`: расширить требуемые поля под `request-id`, `x-forwarded-for`, TLS-version. |
-| РСБ.7 | Защита информации о событиях | `host-depth` — права на лог-файлы. | — |
+| РСБ.7 | Защита информации о событиях | `out-of-scope` — права на лог-файлы вне web-server config. | — |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | Все external probes по version-disclosure / sensitive paths / debug endpoints. | — |
-| АНЗ.2 | Контроль установки обновлений ПО | `host-depth`. | — |
+| АНЗ.2 | Контроль установки обновлений ПО | `out-of-scope`. | — |
 | ЗИС.3 | Защита от внутренних и внешних угроз с использованием технологий межсетевого экранирования | `apache.listen_requires_explicit_address`, `iis.binding_without_host_header`, `universal.listen_on_all_interfaces`. | — |
 | ЗИС.20 | Защита каналов связи | Все правила §5.1. | — |
 | ЗИС.32 | Защита веб-серверов | Catch-all для всех hardening-правил. | — |
@@ -597,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 281 правила (Nginx 67, Apache 67, Lighttpd 17, IIS 46,
+  обновлён до 282 правила (Nginx 67, Apache 68, Lighttpd 17, IIS 46,
   External 73, Universal 11), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -643,7 +644,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-018 | NIST SP 800-44 Rev. 2 | research | P3 | deferred | — | Устарел (2007), полностью дублирует SP 800-52/800-53. |
 | STD-GAP-019 | NIST SP 800-63B | covered | P2 | deferred | — | Большая часть application-layer; видимая web-config часть дублирует SC-23 / IA-5. |
 | STD-GAP-020 | NIST CSF 2.0 | covered | P2 | deferred | — | Слишком высокий уровень: теги выйдут одинаковыми на длинных группах правил. |
-| STD-GAP-021 | PCI DSS v4.0.1 | covered | P1 | done (2026-05-05) | 4 | ✓ Добавлен консолидированный блок «PCI DSS v4.0.1 mapping» в `docs/rule-coverage.md`. Покрыты Req. 2.2.1, 2.2.5, 2.2.6, 4.2.1, 6.2.4, 6.4.3, 8.3.1, 8.3.2, 8.3.5/8.3.6, 10.2.1, 10.2.2; Req. 10.5 / 12 явно отмечены как `host-depth` / `out-of-scope`. Подход topic-grouped, не per-row column. Хелпер `pci_dss_4()` теперь относится к follow-up `STD-GAP-038`. |
+| STD-GAP-021 | PCI DSS v4.0.1 | covered | P1 | done (2026-05-05) | 4 | ✓ Добавлен консолидированный блок «PCI DSS v4.0.1 mapping» в `docs/rule-coverage.md`. Покрыты Req. 2.2.1, 2.2.5, 2.2.6, 4.2.1, 6.2.4, 6.4.3, 8.3.1, 8.3.2, 8.3.5/8.3.6, 10.2.1, 10.2.2; Req. 10.5 / 12 явно отмечены как `out-of-scope`. Подход topic-grouped, не per-row column. Хелпер `pci_dss_4()` теперь относится к follow-up `STD-GAP-038`. |
 | STD-GAP-022 | CIS Critical Security Controls v8.1 | covered | P2 | deferred | — | Дублирует CIS Benchmarks, которые уже в проекте. |
 | STD-GAP-023 | HIPAA Security Rule | covered | P2 | deferred | — | Узкая аудитория (US healthcare), косвенное покрытие. |
 | STD-GAP-024 | ISO/IEC 27002:2022 + ГОСТ Р ИСО/МЭК 27002-2021 | covered | P2 | done (2026-05-05) | 7 | ✓ Добавлен блок «ISO/IEC 27002:2022 / ГОСТ Р ИСО/МЭК 27002-2021 mapping» в `docs/rule-coverage.md`. Покрыты 5.15, 8.5, 8.15, 8.16, 8.18, 8.20, 8.21, 8.24, 8.26, 8.27; 8.23 / 8.25 / 8.28 / 8.29 явно `out-of-scope`. ISO и ГОСТ Р в одной строке (ГОСТ — точная локализация). Хелпер `iso_27002_2022()` теперь относится к follow-up `STD-GAP-038`. |
@@ -653,12 +654,12 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-028 | OWASP API Security Top 10 (2023) | covered | P3 | deferred | — | Большая часть out-of-scope для веб-сервера. |
 | STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | done (2026-05-05) | 11 (last) | ✓ Calibration rationale из §11 применён в коде: `nginx.alias_without_trailing_slash`, `nginx.allow_all_with_deny_all` и `nginx.missing_auth_basic_user_file` подняты с `low` до `medium`; keep-low решения для disclosure-only правил сохранены. |
 | STD-GAP-030 | Lighttpd vendor / DevSec lighttpd-baseline | covered | P2 | done (2026-05-05) | 8 | ✓ Добавлен блок «Lighttpd vendor reference mapping» в `docs/rule-coverage.md`. Решение: НЕ переименовывать `CIS / Vendor` колонку и НЕ заполнять её для Lighttpd, а сделать topic-grouped block (как PCI / NIST / ФСТЭК / ISO / Cheat Sheets) — иначе нарушится policy «не выдумывать CIS-бенчмарк, которого нет». DevSec lighttpd-01/02/03/05 + lighttpd Security wiki + per-module docs. `lighttpd-05` (forbidden methods) — единственный DevSec-контрол без правила в реестре, отмечен как `direct-rule` follow-up. |
-| STD-GAP-031 | ФСТЭК «Меры защиты информации в ГИС» (Приказ № 17) | covered | P2 | done (2026-05-05) | 6 | ✓ Добавлен блок «ФСТЭК "Меры защиты информации в ГИС" mapping» в `docs/rule-coverage.md`. Покрыты ИАФ.1, ИАФ.6, УПД.5, УПД.13, ОПС.3, РСБ.1, РСБ.3, ЗИС.3, ЗИС.20, ЗИС.32; РСБ.7 / АНЗ.2 явно `host-depth`. Подход topic-grouped. Хелпер `fstec_mera()` теперь относится к follow-up `STD-GAP-038`. |
+| STD-GAP-031 | ФСТЭК «Меры защиты информации в ГИС» (Приказ № 17) | covered | P2 | done (2026-05-05) | 6 | ✓ Добавлен блок «ФСТЭК "Меры защиты информации в ГИС" mapping» в `docs/rule-coverage.md`. Покрыты ИАФ.1, ИАФ.6, УПД.5, УПД.13, ОПС.3, РСБ.1, РСБ.3, ЗИС.3, ЗИС.20, ЗИС.32; РСБ.7 / АНЗ.2 явно `out-of-scope`. Подход topic-grouped. Хелпер `fstec_mera()` теперь относится к follow-up `STD-GAP-038`. |
 | STD-GAP-032 | ФСТЭК БДУ | direct-rule | P3 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «ФСТЭК БДУ — Банк данных угроз») в `docs/rule-coverage.md`. Покрыты УБИ.044, УБИ.067, УБИ.072, УБИ.121, УБИ.184 со ссылками на `bdu.fstec.ru`. Правила те же, что для ATT&CK: secondary-only, не заменяет primary standard. |
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (281 правило: Nginx 67, Apache 67, Lighttpd 17, IIS 46, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (282 правила: Nginx 67, Apache 68, Lighttpd 17, IIS 46, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 

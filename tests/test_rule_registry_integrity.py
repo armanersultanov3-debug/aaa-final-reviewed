@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 281
+        assert len(full_reg._catalog) == 282
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 208
+        assert len(full_reg._executable) == 209
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +80,7 @@ class TestCategoryCounts:
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
-        assert len(rules) == 67
+        assert len(rules) == 68
 
     def test_lighttpd(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="lighttpd")
@@ -121,6 +121,20 @@ class TestCategoryCounts:
 
         with pytest.raises(ValueError, match="Duplicate external rule_id"):
             register_external_rule_metas(RuleRegistry())
+
+
+# ---------------------------------------------------------------------------
+# Standards metadata
+# ---------------------------------------------------------------------------
+
+class TestStandardsMetadata:
+    def test_apache_default_tls_vhost_rule_has_standards(self, full_reg: RuleRegistry) -> None:
+        meta = full_reg.get_meta("apache.default_tls_vhost_not_rejecting_unknown_hosts")
+        assert meta is not None
+
+        references = {(ref.standard, ref.reference) for ref in meta.standards}
+        assert ("OWASP Top 10", "A05:2021") in references
+        assert ("CIS", "Apache HTTP Server 2.4 v2.3.0 §5.14") in references
 
 
 # ---------------------------------------------------------------------------
