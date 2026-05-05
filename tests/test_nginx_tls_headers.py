@@ -360,6 +360,32 @@ def test_analyze_nginx_config_reports_missing_ssl_session_cache_for_tls_server(
     )
 
 
+def test_analyze_nginx_config_reports_empty_ssl_session_cache(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache;\n"
+        "    ssl_session_timeout 10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_inherits_ssl_session_cache_from_http(
     tmp_path: Path,
 ) -> None:

@@ -308,7 +308,7 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.3 | `host-depth` | Private-key permission checks require filesystem metadata. |
 | §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
-| §4.1.9, §4.1.10 | `parser-depth` | Upstream TLS client-certificate and upstream trust checks need proxy SSL directive modeling. |
+| §4.1.9, §4.1.10 | `direct-rule` | Covered by `nginx.ssl_session_timeout_missing_or_invalid` and `nginx.ssl_session_cache_missing` for local `http` / `server` scopes; upstream proxy TLS trust checks need their own benchmark mapping if added later. |
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
 | §5.1.1 | `manual-context` | Current coverage checks missing sensitive-location access controls and flags non-IP controls, deny-only exclusions, and `satisfy any` auth bypasses that lack an effective restrictive `allow`/`deny all` policy. Full coverage still depends on the operator's sensitive-path catalogue and runtime location matching. |
 | §5.1.2 | `direct-rule` | Current coverage checks missing sensitive/upload-like `limit_except` blocks and unsafe explicit `limit_except` allowlists. Remaining work needs a site-wide approved-method policy model plus equivalent `if`/`map`/`return` patterns. |

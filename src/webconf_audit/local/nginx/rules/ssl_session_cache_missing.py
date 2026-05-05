@@ -56,10 +56,12 @@ def _find_ssl_session_cache_missing_in_server(
     )
     if directives:
         directive = directives[-1]
-        first_value = directive.args[0].lower() if directive.args else ""
-        if first_value not in DISABLED_VALUES:
-            return None
-        return _finding(server_block, directive=directive)
+        if not directive.args:
+            return _finding(server_block, directive=directive)
+        first_value = directive.args[0].lower()
+        if first_value in DISABLED_VALUES:
+            return _finding(server_block, directive=directive)
+        return None
 
     return _finding(server_block, directive=None)
 
