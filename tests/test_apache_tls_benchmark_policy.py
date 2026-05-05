@@ -306,6 +306,50 @@ def test_analyze_apache_config_applies_global_tls_policy_to_vhost(
     assert _rule_ids(findings).isdisjoint(_NEW_TLS_RULE_IDS)
 
 
+def test_analyze_apache_config_matches_tls_wildcard_alias_for_http_redirect(
+    tmp_path: Path,
+) -> None:
+    config = _safe_tls_config(
+        replacements={
+            "server_name": (
+                "    ServerName secure.example.test\n"
+                "    ServerAlias *.example.test"
+            )
+        },
+        extra_lines=[
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ],
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_ignores_unmatched_http_redirect_host(
+    tmp_path: Path,
+) -> None:
+    config = _safe_tls_config(
+        replacements={
+            "server_name": (
+                "    ServerName secure.example.test\n"
+                "    ServerAlias *.example.test"
+            )
+        },
+        extra_lines=[
+            "<VirtualHost *:80>",
+            "    ServerName unrelated.test",
+            "</VirtualHost>",
+        ],
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
+
+
 def _safe_tls_config(
     *,
     omit: set[str] | None = None,
