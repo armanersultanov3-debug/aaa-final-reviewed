@@ -53,7 +53,17 @@ def find_access_log_format_missing_fields(
         return _find_from_directives(config_ast, merged_directives)
 
     if effective_config is not None:
-        return _find_from_directives(config_ast, effective_config.global_directives)
+        findings = _find_from_directives(config_ast, effective_config.global_directives)
+        for scope in effective_config.conditional_scopes:
+            if not _scope_overrides_access_log(scope.directives):
+                continue
+            findings.extend(
+                _find_from_directives(
+                    config_ast,
+                    {**effective_config.global_directives, **scope.directives},
+                )
+            )
+        return findings
 
     if "mod_accesslog" not in collect_modules(config_ast):
         return []
@@ -109,6 +119,12 @@ def _find_from_directives(
             ),
         )
     ]
+
+
+def _scope_overrides_access_log(
+    directives: dict[str, LighttpdEffectiveDirective],
+) -> bool:
+    return "accesslog.filename" in directives or "accesslog.format" in directives
 
 
 def _modules_include(

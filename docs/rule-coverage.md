@@ -594,7 +594,7 @@ official CIS mapping.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `lighttpd.access_log_format_missing_fields` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | Vendor: lighttpd `mod_accesslog` documentation (partial: validates recommended accesslog.format fields) |
+| `lighttpd.access_log_format_missing_fields` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.access_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.basic_auth_over_http` | medium | effective | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.dir_listing_enabled` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |

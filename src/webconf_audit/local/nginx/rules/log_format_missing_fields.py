@@ -123,16 +123,10 @@ def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:
 
 def _used_log_format_names(config_ast: ConfigAst) -> dict[str, _FormatUsage]:
     used_format_names: dict[str, _FormatUsage] = {}
-    global_usage = _FormatUsage(
-        needs_request_context=_has_request_context(config_ast.nodes)
-        or _has_upstream_directive(config_ast.nodes),
-        needs_upstream_timing=_has_upstream_directive(config_ast.nodes),
-        needs_tls_fields=_has_tls_listener(config_ast.nodes),
-    )
     _collect_used_log_format_names(
         config_ast.nodes,
         used_format_names,
-        inherited_usage=global_usage,
+        inherited_usage=_FormatUsage(),
     )
     return used_format_names
 
@@ -143,25 +137,19 @@ def _collect_used_log_format_names(
     *,
     inherited_usage: _FormatUsage,
 ) -> None:
+    scope_usage = _combine_usage(inherited_usage, _recursive_usage(nodes))
+    child_inherited_usage = _combine_usage(inherited_usage, _direct_usage(nodes))
+
     for node in nodes:
         if isinstance(node, DirectiveNode):
             if node.name == "access_log":
-                _record_access_log_format(node, used_format_names, inherited_usage)
+                _record_access_log_format(node, used_format_names, scope_usage)
             continue
 
-        child_usage = inherited_usage
-        if node.name == "server":
-            child_usage = _FormatUsage(
-                needs_request_context=_has_request_context(node.children)
-                or _has_upstream_directive(node.children)
-                or inherited_usage.needs_request_context,
-                needs_upstream_timing=_has_upstream_directive(node.children),
-                needs_tls_fields=_server_has_tls_listener(node),
-            )
         _collect_used_log_format_names(
             node.children,
             used_format_names,
-            inherited_usage=child_usage,
+            inherited_usage=child_inherited_usage,
         )
 
 
@@ -190,6 +178,50 @@ def _merge_format_usage(
     if format_name not in used_format_names:
         used_format_names[format_name] = _FormatUsage()
     used_format_names[format_name].merge(usage)
+
+
+def _combine_usage(left: _FormatUsage, right: _FormatUsage) -> _FormatUsage:
+    return _FormatUsage(
+        needs_request_context=left.needs_request_context
+        or right.needs_request_context,
+        needs_upstream_timing=left.needs_upstream_timing
+        or right.needs_upstream_timing,
+        needs_tls_fields=left.needs_tls_fields or right.needs_tls_fields,
+    )
+
+
+def _recursive_usage(nodes: list[AstNode]) -> _FormatUsage:
+    has_upstream = _has_upstream_directive(nodes)
+    return _FormatUsage(
+        needs_request_context=_has_request_context(nodes) or has_upstream,
+        needs_upstream_timing=has_upstream,
+        needs_tls_fields=_has_tls_listener(nodes),
+    )
+
+
+def _direct_usage(nodes: list[AstNode]) -> _FormatUsage:
+    has_upstream = any(
+        isinstance(node, DirectiveNode) and node.name in _UPSTREAM_DIRECTIVES
+        for node in nodes
+    )
+    return _FormatUsage(
+        needs_request_context=any(
+            isinstance(node, DirectiveNode)
+            and node.name in {"proxy_set_header", "real_ip_header"}
+            for node in nodes
+        )
+        or has_upstream,
+        needs_upstream_timing=has_upstream,
+        needs_tls_fields=any(
+            isinstance(node, DirectiveNode)
+            and (
+                node.name in {"ssl_certificate", "ssl_certificate_key"}
+                or node.name == "listen"
+                and _listen_is_tls(node.args)
+            )
+            for node in nodes
+        ),
+    )
 
 
 def _is_access_log_option(arg: str) -> bool:
@@ -244,11 +276,21 @@ def _has_upstream_directive(nodes: list[AstNode]) -> bool:
 
 def _has_tls_listener(nodes: list[AstNode]) -> bool:
     return any(
-        isinstance(node, BlockNode)
-        and (
-            _server_has_tls_listener(node)
-            if node.name == "server"
-            else _has_tls_listener(node.children)
+        (
+            isinstance(node, DirectiveNode)
+            and (
+                node.name in {"ssl_certificate", "ssl_certificate_key"}
+                or node.name == "listen"
+                and _listen_is_tls(node.args)
+            )
+        )
+        or (
+            isinstance(node, BlockNode)
+            and (
+                _server_has_tls_listener(node)
+                if node.name == "server"
+                else _has_tls_listener(node.children)
+            )
         )
         for node in nodes
     )
@@ -267,7 +309,7 @@ def _server_has_tls_listener(server: BlockNode) -> bool:
 
 def _listen_is_tls(args: list[str]) -> bool:
     lowered = {arg.lower() for arg in args}
-    return "ssl" in lowered or any(arg.endswith(":443") or arg == "443" for arg in lowered)
+    return "ssl" in lowered
 
 
 __all__ = ["find_log_format_missing_fields"]
