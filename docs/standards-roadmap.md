@@ -37,17 +37,17 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 273 rules (synchronized with
+The current project inventory is 278 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 11
-- Nginx local: 64
-- Apache local: 65
-- Lighttpd local: 16
-- IIS local: 45
-- External probes: 72
+- Nginx local: 65
+- Apache local: 66
+- Lighttpd local: 17
+- IIS local: 46
+- External probes: 73
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -278,6 +278,10 @@ limit recorded with the reference or moved to the gap list:
   missing CSP, unsafe-inline / unsafe-eval, effective `object-src 'none'`, and
   restricted `base-uri`, but do not yet validate nonce/hash posture or
   per-response policy.
+- `v5.0.0-3.4.7` - CSP reporting endpoint. Partial coverage: local Nginx,
+  Apache, Lighttpd, IIS, and external probes now flag a configured CSP that
+  lacks `report-uri` / `report-to`; this does not verify endpoint delivery or
+  application-side report processing.
 - `v5.0.0-3.4.4` - `X-Content-Type-Options: nosniff`. Covered by universal,
   local, and external missing/invalid header checks.
 - `v5.0.0-3.4.5` - Referrer-Policy. Covered by missing/unsafe Referrer-Policy
@@ -318,8 +322,6 @@ until the listed follow-up exists:
 - `v5.0.0-3.4.6` - ASVS prefers CSP `frame-ancestors`; the external probe
   now checks observed CSP responses, while local config rules still need
   follow-up before claiming full coverage across server families.
-- `v5.0.0-3.4.7` - CSP reporting endpoint is not checked today. Add a direct
-  runtime rule for `report-uri` / `report-to` if we decide this is valuable.
 - `v5.0.0-3.5.1` through `v5.0.0-3.5.3` - CSRF and safe-method semantics are
   application behavior. Existing dangerous-method probes help, but they do not
   prove anti-forgery controls.
@@ -359,7 +361,7 @@ standard section before implementation.
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
-| STD-GAP-013 | ASVS 5.0.0 | direct-rule | P2 | Add remaining CSP quality probes for reporting directives, nonce/hash posture, and per-response policy after deciding the desired strictness. External `frame-ancestors`, `object-src`, and `base-uri` coverage is now present. |
+| STD-GAP-013 | ASVS 5.0.0 | direct-rule | P2 | CSP reporting endpoint coverage is now present across local Nginx, Apache, Lighttpd, IIS, and external probes. Remaining CSP quality work focuses on nonce/hash posture and per-response policy after deciding the desired strictness. External `frame-ancestors`, `object-src`, and `base-uri` coverage is already present. |
 | STD-GAP-014 | ASVS 5.0.0 | probe-depth | P3 | Extend TLS probing for forward secrecy, cipher preference, OCSP stapling, and ECH before claiming deeper V12 coverage. |
 | STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Next, expand the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 

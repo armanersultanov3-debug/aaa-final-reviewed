@@ -420,6 +420,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         ),
         expected_rule_ids=frozenset(
             {
+                "nginx.content_security_policy_missing_reporting_endpoint",
                 "nginx.content_security_policy_unsafe",
                 "nginx.default_server_not_rejecting_unknown_hosts",
                 "nginx.error_log_too_restrictive",
@@ -604,6 +605,7 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
             'LogFormat "%h" weak',
             'CustomLog "/proc/self/fd/1" weak',
             'CustomLog "/proc/self/fd/1" ghost',
+            'Header always set Content-Security-Policy "default-src \'self\'"',
             'Header always set X-Frame-Options "ALLOW-FROM https://example.test"',
             'Header always set Referrer-Policy "unsafe-url"',
             'Header always set Permissions-Policy "geolocation=*"',
@@ -637,6 +639,7 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
         ),
         expected_rule_ids=frozenset(
             {
+                "apache.content_security_policy_missing_reporting_endpoint",
                 "apache.error_log_unsafe_destination",
                 "apache.file_etag_inodes",
                 "apache.hsts_header_unsafe",
@@ -678,18 +681,20 @@ def _lighttpd_scenarios() -> tuple[Scenario, ...]:
         name="broad",
         config_filename="lighttpd.conf",
         config_text=_lighttpd_config(
-            'server.modules = ( "mod_dirlisting", "mod_status", "mod_cgi", "mod_accesslog", "mod_openssl" )',
+            'server.modules = ( "mod_dirlisting", "mod_status", "mod_cgi", "mod_accesslog", "mod_openssl", "mod_setenv" )',
             'server.document-root = "/var/www/localhost/htdocs"',
             "server.port = 443",
             'server.tag = "lighttpd"',
             'index-file.names = ( "index.html" )',
             'status.status-url = "/server-status"',
             'ssl.cipher-list = "RC4-SHA:AES128"',
+            'setenv.add-response-header = ( "Content-Security-Policy" => "default-src \'self\'" )',
             'dir-listing.activate = "enable"',
         ),
         expected_rule_ids=frozenset(
             {
                 "lighttpd.access_log_missing",
+                "lighttpd.content_security_policy_missing_reporting_endpoint",
                 "lighttpd.dir_listing_enabled",
                 "lighttpd.error_log_missing",
                 "lighttpd.max_connections_missing",

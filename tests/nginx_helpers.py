@@ -20,7 +20,7 @@ def _safe_server_block(
         "add_header X-Content-Type-Options nosniff;",
         "add_header X-Frame-Options DENY;",
         "add_header Referrer-Policy strict-origin-when-cross-origin always;",
-        "add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'; form-action 'self'\" always;",
+        "add_header Content-Security-Policy \"default-src 'self'; frame-ancestors 'self'; form-action 'self'; report-to csp-endpoint\" always;",
         "add_header Permissions-Policy geolocation=();",
         'add_header X-XSS-Protection "1; mode=block";',
         "client_max_body_size 10m;",

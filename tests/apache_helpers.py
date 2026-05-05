@@ -29,7 +29,7 @@ _SAFE_SECURITY_HEADER_LINES = {
     "x-frame-options": "Header set X-Frame-Options SAMEORIGIN",
     "content-security-policy": (
         "Header set Content-Security-Policy "
-        "\"default-src 'self'; frame-ancestors 'self'\""
+        "\"default-src 'self'; frame-ancestors 'self'; report-to csp-endpoint\""
     ),
     "referrer-policy": "Header set Referrer-Policy strict-origin-when-cross-origin",
     "permissions-policy": (
