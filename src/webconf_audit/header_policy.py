@@ -82,7 +82,7 @@ def _permissions_directive_has_bare_wildcard(directive: str) -> bool:
     if "=" not in directive:
         return False
     _, _, allowlist = directive.partition("=")
-    normalized = allowlist.strip().lower()
+    normalized = "".join(allowlist.strip().lower().split())
     return normalized in {"*", "'*'", '"*"', "(*)", "('*')", '("*")'}
 
 
@@ -98,6 +98,10 @@ def _is_bare_wildcard_frame_ancestor_token(token: str) -> bool:
 def _is_explicit_origin(token: str) -> bool:
     for scheme in ("https://", "http://"):
         if token.startswith(scheme) and len(token) > len(scheme):
+            origin_part = token[len(scheme):]
+            host = origin_part.split("/", 1)[0].split(":", 1)[0]
+            if not host or host == "*":
+                return False
             return True
     return False
 

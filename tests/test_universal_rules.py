@@ -337,6 +337,20 @@ def test_x_frame_options_not_equivalent_to_wildcard_csp_frame_ancestors():
     assert "universal.missing_x_frame_options" in ids
 
 
+def test_x_frame_options_not_equivalent_to_scheme_wildcard_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors https://*",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
 def test_x_frame_options_equivalent_to_wildcard_host_csp_frame_ancestors():
     ref = _ref()
     scope = _http_scope(headers=[])
@@ -410,6 +424,20 @@ def test_permissions_policy_unsafe_flags_wildcard_grant():
         NormalizedSecurityHeader(
             name="permissions-policy",
             value="geolocation=(*)",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" in ids
+
+
+def test_permissions_policy_unsafe_flags_spaced_wildcard_grant():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="geolocation=( * )",
             source=ref,
         )
     ]
