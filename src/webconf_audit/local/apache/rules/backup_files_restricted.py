@@ -8,6 +8,7 @@ from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.backup_temp_files_not_restricted"
 TARGET_EXTENSIONS = BACKUP_TEMP_EXTENSIONS
+TARGET_EXTENSION_LIST = ", ".join(f"'.{extension}'" for extension in TARGET_EXTENSIONS)
 
 
 @rule(
@@ -56,9 +57,8 @@ def find_backup_files_restricted(config_ast: ApacheConfigAst) -> list[Finding]:
             ),
             recommendation=(
                 "Add a '<FilesMatch ...>' block for common backup or temporary file "
-                "extensions such as '.bak', '.old', '.backup', '.orig', "
-                "'.save', '.swp', or '.tmp' with a direct 'Require all denied' "
-                "directive."
+                f"extensions such as {TARGET_EXTENSION_LIST} with a direct "
+                "'Require all denied' directive."
             ),
             location=_finding_location(config_ast, candidate_blocks),
         )

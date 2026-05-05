@@ -21,10 +21,28 @@ from webconf_audit.local.lighttpd.rules.server_tag_not_blank import find_server_
 from webconf_audit.local.lighttpd.rules.ssl_engine_not_enabled import (
     find_ssl_engine_not_enabled,
 )
+from webconf_audit.local.sensitive_artifact_policy import LIGHTTPD_URL_ACCESS_DENY_MARKERS
 from webconf_audit.local.normalizers.lighttpd_normalizer import _parse_header_tuple
 from webconf_audit.local.lighttpd.shell import execute_include_shell
 from webconf_audit.local.lighttpd.variables import _quote, expand_variables
 from webconf_audit.models import AnalysisResult
+
+URL_ACCESS_DENY_MARKERS = LIGHTTPD_URL_ACCESS_DENY_MARKERS
+
+
+def url_access_deny_directive(
+    markers: tuple[str, ...] = URL_ACCESS_DENY_MARKERS,
+    *,
+    operator: str = "=",
+) -> str:
+    return (
+        f"url.access-deny {operator} ( "
+        + ", ".join(f'"{marker}"' for marker in markers)
+        + " )\n"
+    )
+
+
+URL_ACCESS_DENY_CURATED = url_access_deny_directive()
 
 
 def _fake_shell_include_result(result: str | None) -> Callable[..., str | None]:
@@ -51,6 +69,8 @@ __all__ = [
     "LighttpdDirectiveNode",
     "LighttpdParseError",
     "Path",
+    "URL_ACCESS_DENY_CURATED",
+    "URL_ACCESS_DENY_MARKERS",
     "_collect_mod_cgi",
     "_fake_shell_include_result",
     "_parse_header_tuple",
@@ -67,5 +87,6 @@ __all__ = [
     "pytest",
     "re",
     "resolve_includes",
-    "sys"
+    "sys",
+    "url_access_deny_directive",
 ]

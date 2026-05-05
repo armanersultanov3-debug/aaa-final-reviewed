@@ -93,7 +93,7 @@ def _missing_generated_artifact_labels(server_block: BlockNode) -> list[str]:
 def _blocking_locations(server_block: BlockNode) -> list[BlockNode]:
     return [
         node
-        for node in iter_nodes(server_block.children)
+        for node in server_block.children
         if isinstance(node, BlockNode)
         and node.name == "location"
         and _is_regex_location(node)
@@ -109,7 +109,7 @@ def _server_has_hidden_files_deny(server_block: BlockNode) -> bool:
         and _is_regex_location(node)
         and _looks_like_hidden_files_location(node)
         and _location_blocks_artifacts(node)
-        for node in iter_nodes(server_block.children)
+        for node in server_block.children
     )
 
 
