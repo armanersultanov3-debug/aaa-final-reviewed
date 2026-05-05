@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **290**
+Total rules: **293**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (206), external (73), universal (11) |
-| Severity | high (13), medium (105), low (161), info (11) |
-| Input kind | ast (142), probe (73), effective (52), normalized (11), htaccess (6), mixed (6) |
+| Category | local (209), external (73), universal (11) |
+| Severity | high (13), medium (105), low (164), info (11) |
+| Input kind | ast (145), probe (73), effective (52), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -108,7 +108,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 70
+Count: 73
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -188,8 +188,11 @@ the benchmark covers but webconf-audit does not.
 | `nginx.keepalive_timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §2.4.3 |
 | `nginx.send_timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §2.4.4 |
 | `nginx.client_max_body_size_unlimited` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.2 (partial: detects disabled body-size enforcement, not application-specific maximums) |
+| `nginx.client_max_body_size_too_large` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 section 5.2.2 (partial: conservative over-100 MB signal; application-specific upload policy remains operator-owned) |
+| `nginx.client_header_buffer_size_too_large` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 section 5.2.3 (partial: conservative request-header buffer allocation signal) |
 | `nginx.ssl_session_tickets_disabled` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §4.1.11 |
 | `nginx.large_client_header_buffers_too_restrictive` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §5.2.3 (partial: detects values below the default 4 8k; documented lower limits remain operator policy) |
+| `nginx.large_client_header_buffers_too_large` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 section 5.2.3 (partial: conservative count / size / total allocation thresholds) |
 | `nginx.ssl_stapling_disabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (detects missing or off `ssl_stapling` in TLS server blocks) |
 
 Mapping rationale (nginx rules):
@@ -239,9 +242,11 @@ Mapping rationale (nginx rules):
   reason.
 - `missing_client_max_body_size`, `missing_limit_conn`, `missing_limit_conn_zone`,
   `missing_limit_req`, `missing_limit_req_zone`,
-  `client_max_body_size_unlimited`, `limit_conn_invalid_limit`,
-  `limit_conn_zone_not_per_ip`, `limit_req_unknown_zone`,
-  `limit_req_zone_invalid_rate`, `limit_req_zone_not_per_ip` -- no upper
+  `client_max_body_size_unlimited`, `client_max_body_size_too_large`,
+  `client_header_buffer_size_too_large`, `large_client_header_buffers_too_large`,
+  `limit_conn_invalid_limit`, `limit_conn_zone_not_per_ip`,
+  `limit_req_unknown_zone`, `limit_req_zone_invalid_rate`,
+  `limit_req_zone_not_per_ip` -- no upper
   bound / rate limit on bodies, connections, or requests: CWE-770 (allocation
   without limits or throttling). OWASP cells empty for the same reason.
 - `missing_content_security_policy`, `content_security_policy_unsafe`,
@@ -710,7 +715,7 @@ archive PDFs remain historical context only.
 | `iis.basic_auth_without_ssl` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS Microsoft IIS 10 v1.2.1 §2.6 |
 | `iis.request_filtering_max_url_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.2 (partial: explicit unsafe local `maxUrl` values only) |
 | `iis.request_filtering_max_query_string_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.3 (partial: explicit unsafe local `maxQueryString` values only) |
-| `iis.file_extensions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.7 (partial: explicit `allowUnlisted="true"` values only) |
+| `iis.file_extensions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.7 (partial: explicit true or missing/default `allowUnlisted` policy where requestFiltering is present) |
 | `iis.isapi_cgi_restrictions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.9/§4.10 (partial: explicit unlisted ISAPI/CGI allowance only) |
 | `iis.request_filtering_remove_server_header_disabled` | low | effective | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Microsoft IIS 10 v1.2.1 §3.12 (partial: explicit `removeServerHeader="false"` values only) |
 | `iis.forms_auth_protection_unsafe` | medium | effective | - | [CWE-311](https://cwe.mitre.org/data/definitions/311.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.5 (partial: explicit non-`All` forms protection only) |
@@ -862,7 +867,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §2.5/§2.7/§2.8 | `partial` | `iis.forms_auth_protection_unsafe`, `iis.credentials_password_format_clear`, and `iis.credentials_stored_in_config` cover explicit unsafe forms credential settings; broader inherited/default policy remains follow-up. |
 | §2.6 | `covered` | `iis.basic_auth_without_ssl` checks Basic Authentication together with the effective `access sslFlags` requirement; `iis.ssl_not_required` remains a broader access-section signal. |
 | §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, and `iis.request_filtering_remove_server_header_disabled` cover explicit unsafe values; absence-complete/default policy and runtime native-header verification remain follow-up. |
-| §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values; absence-complete policy remains a follow-up to avoid noisy defaults. |
+| §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values; `fileExtensions` also covers missing/default allow-unlisted policy when `requestFiltering` is present. `maxUrl` / `maxQueryString` missing attributes stay silent because IIS defaults match the benchmark ceilings. |
 | §4.8 | `covered` | `iis.handler_write_script_execute_enabled` detects handler `accessPolicy` values that grant Write together with Script or Execute; `iis.cgi_handler_enabled` remains an extra CGI handler signal. |
 | §4.11/§5.1/§5.3 | `out-of-scope` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals and are outside the tool scope. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |

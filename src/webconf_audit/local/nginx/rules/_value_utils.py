@@ -74,6 +74,32 @@ def iter_direct_child_directives(
     return matches
 
 
+def iter_last_direct_child_directives(
+    config_ast: ConfigAst,
+    directive_name: str,
+    *,
+    block_names: set[str],
+) -> list[tuple[DirectiveNode, BlockNode]]:
+    matches: list[tuple[DirectiveNode, BlockNode]] = []
+
+    def walk_blocks(nodes: list[object]) -> None:
+        for node in nodes:
+            if not isinstance(node, BlockNode):
+                continue
+            if node.name in block_names:
+                directives = [
+                    child
+                    for child in node.children
+                    if isinstance(child, DirectiveNode) and child.name == directive_name
+                ]
+                if directives:
+                    matches.append((directives[-1], node))
+            walk_blocks(node.children)
+
+    walk_blocks(config_ast.nodes)
+    return matches
+
+
 def iter_server_blocks_with_http_directives(
     config_ast: ConfigAst,
     directive_names: set[str],
@@ -129,6 +155,7 @@ __all__ = [
     "effective_child_directives",
     "iter_server_blocks_with_http_directives",
     "iter_direct_child_directives",
+    "iter_last_direct_child_directives",
     "last_directive_is_on",
     "parse_duration_seconds",
     "parse_size_bytes",

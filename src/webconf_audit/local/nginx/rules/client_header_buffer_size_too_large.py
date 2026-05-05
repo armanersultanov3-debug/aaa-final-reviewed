@@ -8,48 +8,53 @@ from webconf_audit.local.nginx.rules._value_utils import (
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
-RULE_ID = "nginx.client_max_body_size_unlimited"
+RULE_ID = "nginx.client_header_buffer_size_too_large"
+MAX_CLIENT_HEADER_BUFFER_SIZE_BYTES = 64 * 1024
 
 
 @rule(
     rule_id=RULE_ID,
-    title="client_max_body_size disables request body limits",
+    title="client_header_buffer_size is unusually large",
     severity="low",
-    description="Nginx sets 'client_max_body_size' to 0, which disables request body size checks.",
+    description=(
+        "Nginx sets 'client_header_buffer_size' above a conservative local "
+        "hardening threshold."
+    ),
     recommendation=(
-        "Set 'client_max_body_size' to an explicit non-zero limit, and use scoped overrides "
-        "only for endpoints that require larger uploads."
+        "Avoid large global request-header buffers unless an application endpoint "
+        "requires them and the allocation impact is documented."
     ),
     category="local",
     server_type="nginx",
-    order=245,
+    order=247,
 )
-def find_client_max_body_size_unlimited(config_ast: ConfigAst) -> list[Finding]:
+def find_client_header_buffer_size_too_large(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
     for directive, _parent in iter_last_direct_child_directives(
         config_ast,
-        "client_max_body_size",
-        block_names={"http", "server", "location"},
+        "client_header_buffer_size",
+        block_names={"http", "server"},
     ):
         if not directive.args:
             continue
         size = parse_size_bytes(directive.args[0])
-        if size != 0:
+        if size is None or size <= MAX_CLIENT_HEADER_BUFFER_SIZE_BYTES:
             continue
 
         findings.append(
             Finding(
                 rule_id=RULE_ID,
-                title="client_max_body_size disables request body limits",
+                title="client_header_buffer_size is unusually large",
                 severity="low",
                 description=(
-                    "Nginx sets 'client_max_body_size "
-                    f"{directive.args[0]};', which disables request body size checks."
+                    "Nginx sets 'client_header_buffer_size "
+                    f"{directive.args[0]};', which is above 64 KB and can increase "
+                    "per-connection memory pressure."
                 ),
                 recommendation=(
-                    "Set 'client_max_body_size' to an explicit non-zero limit, and use scoped "
-                    "overrides only for endpoints that require larger uploads."
+                    "Avoid large global request-header buffers unless an application "
+                    "endpoint requires them and the allocation impact is documented."
                 ),
                 location=SourceLocation(
                     mode="local",
@@ -63,4 +68,4 @@ def find_client_max_body_size_unlimited(config_ast: ConfigAst) -> list[Finding]:
     return findings
 
 
-__all__ = ["find_client_max_body_size_unlimited"]
+__all__ = ["find_client_header_buffer_size_too_large"]
