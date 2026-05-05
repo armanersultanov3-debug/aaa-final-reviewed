@@ -166,6 +166,8 @@ def _apply_effective_assignment(
     current_text: str | None,
     directive: LighttpdEffectiveDirective,
 ) -> str:
+    if directive.operator in {"=", ":="}:
+        return directive.value
     if directive.operator == "+=" and current_text:
         return current_text + " " + directive.value
     return directive.value
