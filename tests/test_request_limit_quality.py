@@ -198,7 +198,7 @@ def test_iis_reports_inherited_file_extensions_default_at_location(
     assert any("private" in finding.description for finding in findings)
 
 
-def test_iis_raw_file_extensions_missing_uses_location_inheritance() -> None:
+def test_iis_raw_inherits_safe_file_extensions_from_parent_location() -> None:
     doc = parse_iis_config(
         """\
 <?xml version="1.0" encoding="utf-8"?>
