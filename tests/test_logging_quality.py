@@ -254,6 +254,29 @@ def test_lighttpd_access_log_format_checks_conditional_scopes(
     )
 
 
+def test_lighttpd_access_log_format_checks_conditional_module_enable(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ()\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'accesslog.filename = "/var/log/lighttpd/access.log"\n'
+        'accesslog.format = "%h %t \\"%r\\" %>s"\n'
+        '$HTTP["host"] == "logged.example" {\n'
+        '    server.modules = ("mod_accesslog")\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(config_path)
+
+    assert result.issues == []
+    assert "lighttpd.access_log_format_missing_fields" in _rule_ids(
+        result.findings
+    )
+
+
 def test_lighttpd_access_log_format_deduplicates_inherited_global_format(
     tmp_path: Path,
 ) -> None:

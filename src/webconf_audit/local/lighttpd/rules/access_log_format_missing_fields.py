@@ -128,7 +128,11 @@ def _find_from_directives(
 def _scope_overrides_access_log(
     directives: dict[str, LighttpdEffectiveDirective],
 ) -> bool:
-    return "accesslog.filename" in directives or "accesslog.format" in directives
+    return (
+        "accesslog.filename" in directives
+        or "accesslog.format" in directives
+        or _modules_include(directives, "mod_accesslog")
+    )
 
 
 def _finding_key(finding: Finding) -> tuple[str, str | None, int | None, str]:
