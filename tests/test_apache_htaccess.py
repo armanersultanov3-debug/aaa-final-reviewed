@@ -1868,6 +1868,96 @@ class TestHtaccessRulePack:
         ]
         assert len(findings) == 1
 
+    def test_directory_without_allowoverride_ignores_other_vhost_parent(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        config_path = tmp_path / "httpd.conf"
+        parent_dir = _posix_path(tmp_path / "www")
+        child_dir = _posix_path(tmp_path / "www" / "app")
+        config_path.write_text(
+            _with_backup_files_restriction(
+                "\n".join(
+                    [
+                        "ServerSignature Off",
+                        "ServerTokens Prod",
+                        "TraceEnable Off",
+                        "LimitRequestBody 102400",
+                        "LimitRequestFields 100",
+                        "ErrorLog logs/error_log",
+                        "CustomLog logs/access_log combined",
+                        'ErrorDocument 404 "/error/404.html"',
+                        'ErrorDocument 500 "/error/500.html"',
+                        "<VirtualHost *:80>",
+                        "    ServerName isolated.test",
+                        f'    <Directory "{parent_dir}">',
+                        "        AllowOverride None",
+                        "    </Directory>",
+                        "</VirtualHost>",
+                        f'<Directory "{child_dir}">',
+                        "    Options -Indexes",
+                        "</Directory>",
+                    ]
+                ),
+                include_cis_allowoverride_root=False,
+            ),
+            encoding="utf-8",
+        )
+
+        result = analyze_apache_config(str(config_path))
+
+        findings = [
+            f
+            for f in result.findings
+            if f.rule_id == "apache.directory_without_allowoverride"
+        ]
+        assert len(findings) == 1
+
+    def test_directory_without_allowoverride_keeps_global_parent_for_vhost_child(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        config_path = tmp_path / "httpd.conf"
+        parent_dir = _posix_path(tmp_path / "www")
+        child_dir = _posix_path(tmp_path / "www" / "app")
+        config_path.write_text(
+            _with_backup_files_restriction(
+                "\n".join(
+                    [
+                        "ServerSignature Off",
+                        "ServerTokens Prod",
+                        "TraceEnable Off",
+                        "LimitRequestBody 102400",
+                        "LimitRequestFields 100",
+                        "ErrorLog logs/error_log",
+                        "CustomLog logs/access_log combined",
+                        'ErrorDocument 404 "/error/404.html"',
+                        'ErrorDocument 500 "/error/500.html"',
+                        f'<Directory "{parent_dir}">',
+                        "    AllowOverride None",
+                        "</Directory>",
+                        "<VirtualHost *:80>",
+                        "    ServerName app.test",
+                        f'    <Directory "{child_dir}">',
+                        "        Options -Indexes",
+                        "    </Directory>",
+                        "</VirtualHost>",
+                    ]
+                ),
+                include_cis_allowoverride_root=False,
+            ),
+            encoding="utf-8",
+        )
+
+        result = analyze_apache_config(str(config_path))
+
+        findings = [
+            f
+            for f in result.findings
+            if f.rule_id == "apache.directory_without_allowoverride"
+        ]
+        assert findings == []
+
     def test_directory_with_explicit_allowoverride_not_reported(
         self,
         tmp_path: Path,

@@ -328,6 +328,29 @@ def test_analyze_apache_config_matches_tls_wildcard_alias_for_http_redirect(
     assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_matches_overlapping_wildcard_aliases_for_redirect(
+    tmp_path: Path,
+) -> None:
+    config = _safe_tls_config(
+        replacements={
+            "server_name": (
+                "    ServerName secure.example.test\n"
+                "    ServerAlias *.example.test"
+            )
+        },
+        extra_lines=[
+            "<VirtualHost *:80>",
+            "    ServerName plain.test",
+            "    ServerAlias api.*.test",
+            "</VirtualHost>",
+        ],
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_ignores_unmatched_http_redirect_host(
     tmp_path: Path,
 ) -> None:

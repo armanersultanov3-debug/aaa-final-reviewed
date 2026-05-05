@@ -104,16 +104,115 @@ def _tls_hostnames(config_ast: ApacheConfigAst) -> set[str]:
 
 def _hostnames_overlap(left: set[str], right: set[str]) -> bool:
     return any(
-        _hostname_matches(lhs, rhs) or _hostname_matches(rhs, lhs)
+        _hostnames_pair_overlap(lhs, rhs)
         for lhs in left
         for rhs in right
     )
 
 
+def _hostnames_pair_overlap(left: str, right: str) -> bool:
+    if _hostname_matches(left, right) or _hostname_matches(right, left):
+        return True
+    if _has_hostname_glob(left) and _has_hostname_glob(right):
+        return _hostname_globs_overlap(left, right)
+    return False
+
+
 def _hostname_matches(hostname: str, pattern: str) -> bool:
-    if "*" not in pattern and "?" not in pattern:
+    if not _has_hostname_glob(pattern):
         return hostname == pattern
     return fnmatchcase(hostname, pattern)
+
+
+def _hostname_globs_overlap(left: str, right: str) -> bool:
+    candidates = [_materialize_hostname_glob(left), _materialize_hostname_glob(right)]
+    left_labels = left.split(".")
+    right_labels = right.split(".")
+
+    if len(left_labels) == len(right_labels):
+        label_candidates: list[str] = []
+        for left_label, right_label in zip(left_labels, right_labels, strict=True):
+            label = _overlap_label_candidate(left_label, right_label)
+            if label is None:
+                break
+            label_candidates.append(label)
+        else:
+            candidates.insert(0, ".".join(label_candidates))
+
+    return any(
+        _hostname_matches(candidate, left) and _hostname_matches(candidate, right)
+        for candidate in candidates
+    )
+
+
+def _overlap_label_candidate(left: str, right: str) -> str | None:
+    left_has_glob = _has_hostname_glob(left)
+    right_has_glob = _has_hostname_glob(right)
+
+    if not left_has_glob and not right_has_glob:
+        return left if left == right else None
+    if not left_has_glob:
+        return left if fnmatchcase(left, right) else None
+    if not right_has_glob:
+        return right if fnmatchcase(right, left) else None
+
+    for candidate in _label_overlap_candidates(left, right):
+        if fnmatchcase(candidate, left) and fnmatchcase(candidate, right):
+            return candidate
+    return None
+
+
+def _label_overlap_candidates(left: str, right: str) -> list[str]:
+    left_chunks = _literal_chunks(left)
+    right_chunks = _literal_chunks(right)
+    candidates = [
+        _materialize_label_glob(left),
+        _materialize_label_glob(right),
+        "x",
+        *left_chunks,
+        *right_chunks,
+    ]
+
+    for left_chunk in left_chunks or [""]:
+        for right_chunk in right_chunks or [""]:
+            candidates.extend(
+                [
+                    left_chunk + right_chunk,
+                    right_chunk + left_chunk,
+                    left_chunk + "x" + right_chunk,
+                    right_chunk + "x" + left_chunk,
+                ]
+            )
+
+    return [candidate for candidate in candidates if candidate]
+
+
+def _materialize_hostname_glob(pattern: str) -> str:
+    return ".".join(_materialize_label_glob(label) for label in pattern.split("."))
+
+
+def _materialize_label_glob(pattern: str) -> str:
+    materialized = "".join("x" if char in "*?" else char for char in pattern)
+    return materialized or "x"
+
+
+def _literal_chunks(pattern: str) -> list[str]:
+    chunks: list[str] = []
+    current: list[str] = []
+    for char in pattern:
+        if char in "*?":
+            if current:
+                chunks.append("".join(current))
+                current = []
+            continue
+        current.append(char)
+    if current:
+        chunks.append("".join(current))
+    return chunks
+
+
+def _has_hostname_glob(value: str) -> bool:
+    return "*" in value or "?" in value
 
 
 def _context_hostnames(context: ApacheVirtualHostContext) -> set[str]:

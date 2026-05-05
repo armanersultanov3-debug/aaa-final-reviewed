@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from webconf_audit.local.apache.htaccess import extract_allowoverride
@@ -12,6 +13,15 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.directory_without_allowoverride"
+_SCOPE_BLOCK_NAMES = frozenset(
+    {"virtualhost", "if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _DirectoryBlockContext:
+    block: ApacheBlockNode
+    scope: tuple[int, ...]
 
 
 @rule(
@@ -33,14 +43,15 @@ RULE_ID = "apache.directory_without_allowoverride"
 )
 def find_directory_without_allowoverride(config_ast: ApacheConfigAst) -> list[Finding]:
     findings: list[Finding] = []
-    directory_blocks = _iter_directory_blocks(config_ast.nodes)
+    directory_contexts = _iter_directory_contexts(config_ast.nodes)
 
-    for block in directory_blocks:
+    for context in directory_contexts:
+        block = context.block
         if not block.args:
             continue
         if _has_explicit_allowoverride(block):
             continue
-        if _effective_allowoverride(block, directory_blocks) == frozenset():
+        if _effective_allowoverride(context, directory_contexts) == frozenset():
             continue
 
         findings.append(
@@ -70,15 +81,23 @@ def find_directory_without_allowoverride(config_ast: ApacheConfigAst) -> list[Fi
 
 
 def _effective_allowoverride(
-    block: ApacheBlockNode,
-    all_blocks: list[ApacheBlockNode],
+    context: _DirectoryBlockContext,
+    all_contexts: list[_DirectoryBlockContext],
 ) -> frozenset[str] | None:
+    block = context.block
     block_path = _resolve_block_path(block)
     if block_path is None:
         return None
 
     best_match: tuple[int, int, frozenset[str]] | None = None
-    for source_order, candidate in enumerate(all_blocks):
+    for source_order, candidate_context in enumerate(all_contexts):
+        if not _scope_can_inherit(
+            target_scope=context.scope,
+            candidate_scope=candidate_context.scope,
+        ):
+            continue
+
+        candidate = candidate_context.block
         candidate_path = _resolve_block_path(candidate)
         if candidate_path is None:
             continue
@@ -123,15 +142,30 @@ def _has_explicit_allowoverride(block: ApacheBlockNode) -> bool:
     )
 
 
-def _iter_directory_blocks(
+def _scope_can_inherit(
+    *,
+    target_scope: tuple[int, ...],
+    candidate_scope: tuple[int, ...],
+) -> bool:
+    return candidate_scope == target_scope or not candidate_scope
+
+
+def _iter_directory_contexts(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
-) -> list[ApacheBlockNode]:
-    blocks: list[ApacheBlockNode] = []
+    scope: tuple[int, ...] = (),
+) -> list[_DirectoryBlockContext]:
+    blocks: list[_DirectoryBlockContext] = []
     for node in nodes:
         if isinstance(node, ApacheBlockNode):
-            if node.name.lower() == "directory":
-                blocks.append(node)
-            blocks.extend(_iter_directory_blocks(node.children))
+            name = node.name.lower()
+            if name == "directory":
+                blocks.append(_DirectoryBlockContext(block=node, scope=scope))
+                continue
+
+            next_scope = scope
+            if name in _SCOPE_BLOCK_NAMES:
+                next_scope = (*scope, id(node))
+            blocks.extend(_iter_directory_contexts(node.children, next_scope))
     return blocks
 
 
