@@ -41,7 +41,10 @@ def permissions_policy_is_safe(value: str | None) -> bool:
     directives = _split_permissions_directives(cleaned)
     if any(_permissions_directive_has_bare_wildcard(directive) for directive in directives):
         return False
-    return any("=" in directive for directive in directives)
+    return bool(directives) and all(
+        _permissions_directive_has_valid_structure(directive)
+        for directive in directives
+    )
 
 
 def x_frame_options_is_safe(value: str | None) -> bool:
@@ -58,9 +61,14 @@ def content_security_policy_has_frame_ancestors(value: str | None) -> bool:
     tokens = [token.strip() for token in frame_ancestors.split() if token.strip()]
     if not tokens:
         return False
+    lowered_tokens = {token.lower() for token in tokens}
+    if lowered_tokens == {"'none'"}:
+        return True
+    if "'none'" in lowered_tokens:
+        return False
     if any(_is_permissive_frame_ancestor_token(token) for token in tokens):
         return False
-    return any(_is_restrictive_frame_ancestor_token(token) for token in tokens)
+    return all(_is_restrictive_frame_ancestor_token(token) for token in tokens)
 
 
 def _clean_header_value(value: str) -> str:
@@ -71,11 +79,40 @@ def _clean_header_value(value: str) -> str:
 
 
 def _split_permissions_directives(value: str) -> list[str]:
-    return [
-        directive.strip()
-        for directive in value.replace(";", ",").split(",")
-        if directive.strip()
-    ]
+    directives: list[str] = []
+    current: list[str] = []
+    depth = 0
+    quote: str | None = None
+    for char in value:
+        if quote is not None:
+            current.append(char)
+            if char == quote:
+                quote = None
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            current.append(char)
+            continue
+        if char == "(":
+            depth += 1
+            current.append(char)
+            continue
+        if char == ")":
+            depth = max(depth - 1, 0)
+            current.append(char)
+            continue
+        if char in {",", ";"} and depth == 0:
+            directive = "".join(current).strip()
+            if directive:
+                directives.append(directive)
+            current = []
+            continue
+        current.append(char)
+
+    directive = "".join(current).strip()
+    if directive:
+        directives.append(directive)
+    return directives
 
 
 def _permissions_directive_has_bare_wildcard(directive: str) -> bool:
@@ -84,6 +121,19 @@ def _permissions_directive_has_bare_wildcard(directive: str) -> bool:
     _, _, allowlist = directive.partition("=")
     normalized = "".join(allowlist.strip().lower().split())
     return normalized in {"*", "'*'", '"*"', "(*)", "('*')", '("*")'}
+
+
+def _permissions_directive_has_valid_structure(directive: str) -> bool:
+    if "=" not in directive:
+        return False
+    name, _, allowlist = directive.partition("=")
+    name = name.strip()
+    allowlist = allowlist.strip()
+    if not name or not allowlist:
+        return False
+    if _permissions_directive_has_bare_wildcard(directive):
+        return True
+    return allowlist.startswith("(") and allowlist.endswith(")")
 
 
 def _is_restrictive_frame_ancestor_token(token: str) -> bool:
