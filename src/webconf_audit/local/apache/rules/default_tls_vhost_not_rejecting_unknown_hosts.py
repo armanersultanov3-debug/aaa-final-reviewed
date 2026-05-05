@@ -24,7 +24,7 @@ RECOMMENDATION = (
     "'Require all denied' on the whole URL space or a catch-all forbidden rewrite."
 )
 TRANSPARENT_WRAPPER_BLOCKS = frozenset(
-    {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
+    {"ifdefine", "ifmodule", "ifversion"}
 )
 WHOLE_PATHS = frozenset({"", "/"})
 WHOLE_PATTERNS = frozenset(
@@ -176,14 +176,25 @@ def _is_whole_request_scope(block: ApacheBlockNode) -> bool:
 def _has_forbidden_rewrite(
     block: ApacheBlockNode, *, rewrite_engine_enabled: bool = False
 ) -> bool:
+    found, _ = _scan_forbidden_rewrite(
+        block,
+        rewrite_engine_enabled=rewrite_engine_enabled,
+    )
+    return found
+
+
+def _scan_forbidden_rewrite(
+    block: ApacheBlockNode, *, rewrite_engine_enabled: bool
+) -> tuple[bool, bool]:
     for node in block.children:
         if isinstance(node, ApacheBlockNode):
             if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
-                if _has_forbidden_rewrite(
+                found, rewrite_engine_enabled = _scan_forbidden_rewrite(
                     node,
                     rewrite_engine_enabled=rewrite_engine_enabled,
-                ):
-                    return True
+                )
+                if found:
+                    return True, rewrite_engine_enabled
             continue
 
         if node.name.lower() == "rewriteengine" and node.args:
@@ -192,8 +203,8 @@ def _has_forbidden_rewrite(
             )
             continue
         if rewrite_engine_enabled and _is_forbidden_rewrite_rule(node):
-            return True
-    return False
+            return True, rewrite_engine_enabled
+    return False, rewrite_engine_enabled
 
 
 def _is_forbidden_rewrite_rule(directive: ApacheDirectiveNode) -> bool:

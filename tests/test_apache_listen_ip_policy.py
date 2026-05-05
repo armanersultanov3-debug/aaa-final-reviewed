@@ -219,6 +219,61 @@ def test_analyze_apache_config_accepts_nested_rewrite_rejecting_default_tls_vhos
     )
 
 
+def test_analyze_apache_config_accepts_ifmodule_rewriteengine_for_following_rule(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    <IfModule mod_rewrite.c>",
+            "        RewriteEngine On",
+            "    </IfModule>",
+            "    RewriteRule ^ - [F,L]",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_reports_conditional_default_tls_vhost_reject(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            '    <If "%{HTTP_HOST} == \'blocked.example\'">',
+            '        <Location "/">',
+            "            Require all denied",
+            "        </Location>",
+            "    </If>",
+            "</VirtualHost>",
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+    ]
+    assert len(matching) == 1
+
+
 def test_analyze_apache_config_skips_non_default_tls_vhosts(
     tmp_path: Path,
 ) -> None:
