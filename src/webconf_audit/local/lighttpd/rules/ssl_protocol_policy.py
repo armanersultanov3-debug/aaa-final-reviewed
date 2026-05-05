@@ -16,6 +16,9 @@ from webconf_audit.local.lighttpd.rules.rule_utils import (
     normalize_value,
     unquote,
 )
+from webconf_audit.local.lighttpd.rules.ssl_conf_cmd_utils import (
+    ssl_conf_cmd_entries,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -190,7 +193,7 @@ def _protocol_policy(
     ssl_conf_cmd = directives.get(_SSL_CONF_CMD)
     min_protocol_floor: str | None = None
     if ssl_conf_cmd is not None:
-        entries = _ssl_conf_cmd_entries(unquote(ssl_conf_cmd.value))
+        entries = ssl_conf_cmd_entries(unquote(ssl_conf_cmd.value))
         if "minprotocol" in entries:
             min_protocol_floor = _min_protocol_floor(entries["minprotocol"])
             if min_protocol_floor is not None:
@@ -225,56 +228,6 @@ def _protocol_policy(
         weak_protocols=sorted(weak_protocols),
         source=finding_source,
     )
-
-
-def _ssl_conf_cmd_entries(raw: str) -> dict[str, str]:
-    stripped = raw.strip()
-    if stripped.startswith("(") and stripped.endswith(")"):
-        stripped = stripped[1:-1]
-
-    entries: dict[str, str] = {}
-    for item in _split_tuple_items(stripped):
-        if "=>" not in item:
-            continue
-        key, _, value = item.partition("=>")
-        entries[unquote(key.strip()).lower()] = unquote(value.strip())
-    return entries
-
-
-def _split_tuple_items(raw: str) -> list[str]:
-    items: list[str] = []
-    current: list[str] = []
-    quote_char: str | None = None
-    escaped = False
-
-    for char in raw:
-        if escaped:
-            current.append(char)
-            escaped = False
-            continue
-        if quote_char is not None:
-            current.append(char)
-            if char == "\\":
-                escaped = True
-            elif char == quote_char:
-                quote_char = None
-            continue
-        if char in {'"', "'"}:
-            current.append(char)
-            quote_char = char
-            continue
-        if char == ",":
-            item = "".join(current).strip()
-            if item:
-                items.append(item)
-            current = []
-            continue
-        current.append(char)
-
-    item = "".join(current).strip()
-    if item:
-        items.append(item)
-    return items
 
 
 def _min_protocol_floor(value: str) -> str | None:

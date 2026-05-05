@@ -382,6 +382,95 @@ def test_ssl_protocol_policy_respects_host_filtered_conditional_scope(
     assert not _has_finding(modern, "lighttpd.ssl_protocol_policy_missing_or_weak")
 
 
+def test_ssl_compression_enabled_fires_for_ssl_conf_cmd_options(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", "Options" => "Compression" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_compression_enabled")
+
+
+def test_ssl_compression_enabled_silent_for_disabled_ssl_conf_cmd_options(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", "Options" => "-Compression" )\n',
+    )
+
+    assert not _has_finding(result, "lighttpd.ssl_compression_enabled")
+
+
+def test_ssl_insecure_renegotiation_enabled_fires_when_mitigation_disabled(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n'
+        + 'ssl.disable-client-renegotiation = "disable"\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_insecure_renegotiation_enabled")
+
+
+def test_ssl_insecure_renegotiation_enabled_fires_for_ssl_conf_cmd_options(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'ssl.engine = "enable"\n'
+        + 'ssl.pemfile = "/c.pem"\n'
+        + 'ssl.honor-cipher-order = "enable"\n'
+        + 'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", '
+        + '"Options" => "UnsafeLegacyRenegotiation" )\n',
+    )
+
+    assert _has_finding(result, "lighttpd.ssl_insecure_renegotiation_enabled")
+
+
+def test_ssl_insecure_renegotiation_enabled_respects_host_filter(
+    tmp_path: Path,
+) -> None:
+    config = (
+        _BASE
+        + '$HTTP["host"] == "legacy.example.test" {\n'
+        + '    ssl.engine = "enable"\n'
+        + '    ssl.pemfile = "/c.pem"\n'
+        + '    ssl.honor-cipher-order = "enable"\n'
+        + '    ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2", '
+        + '"Options" => "UnsafeLegacyRenegotiation" )\n'
+        + "}\n"
+        + '$HTTP["host"] == "modern.example.test" {\n'
+        + '    ssl.engine = "enable"\n'
+        + '    ssl.pemfile = "/c.pem"\n'
+        + '    ssl.honor-cipher-order = "enable"\n'
+        + '    ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n'
+        + "}\n"
+    )
+
+    legacy = _analyze_host(tmp_path, config, host="legacy.example.test")
+    modern = _analyze_host(tmp_path, config, host="modern.example.test")
+
+    assert _has_finding(legacy, "lighttpd.ssl_insecure_renegotiation_enabled")
+    assert not _has_finding(modern, "lighttpd.ssl_insecure_renegotiation_enabled")
+
+
 # ---------------------------------------------------------------------------
 # Security headers rules
 # ---------------------------------------------------------------------------

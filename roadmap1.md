@@ -84,10 +84,15 @@ Status: implemented in `codex/header-policy-quality`.
 
 ## PR Slice 6: TLS Local Complements
 
-Status: planned.
+Status: implemented in `codex/tls-local-complements`.
 
-- Add only direct, parseable TLS configuration complements that do not require a
-  live handshake.
+- Added only direct, parseable TLS configuration complements that do not require
+  a live handshake.
+- Nginx: flags explicit `ssl_conf_command Options Compression` and
+  `UnsafeLegacyRenegotiation`; intentionally does not treat
+  `ssl_certificate_compression` as TLS record compression.
+- Lighttpd: flags explicit `ssl.openssl.ssl-conf-cmd` TLS compression /
+  unsafe-renegotiation options and disabled client-renegotiation mitigation.
 - Keep runtime-only items such as certificate chain validation, negotiated
   forward secrecy, OCSP runtime behavior, ECH, and redirect corroboration for a
   separate external-safe roadmap.
