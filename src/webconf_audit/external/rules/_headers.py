@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from webconf_audit.csp import (
+    content_security_policy_directives,
+    content_security_policy_has_reporting_endpoint,
+)
 from webconf_audit.external.rules._helpers import _successful_attempts_for_scheme
 from webconf_audit.models import Finding, SourceLocation
 
@@ -154,16 +158,7 @@ def _find_content_security_policy_missing(probe_attempts: list["ProbeAttempt"]) 
 
 
 def _content_security_policy_directives(header_value: str) -> dict[str, str]:
-    directives: dict[str, str] = {}
-    for part in header_value.replace(",", ";").split(";"):
-        stripped = part.strip()
-        if not stripped:
-            continue
-        directive_parts = stripped.split(None, 1)
-        directive_name = directive_parts[0].lower()
-        directive_value = directive_parts[1].strip() if len(directive_parts) > 1 else ""
-        directives.setdefault(directive_name, directive_value)
-    return directives
+    return content_security_policy_directives(header_value)
 
 
 def _content_security_policy_source_tokens(source_list: str | None) -> set[str]:
@@ -295,6 +290,45 @@ def _find_content_security_policy_base_uri_not_restricted(
                 recommendation=(
                     "Set base-uri 'none' or base-uri 'self' in the "
                     "Content-Security-Policy."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="header",
+                    target=attempt.target.url,
+                    details=f"Content-Security-Policy: {attempt.content_security_policy_header}",
+                ),
+            )
+        )
+
+    return findings
+
+
+def _find_content_security_policy_missing_reporting_endpoint(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        if attempt.content_security_policy_header is None:
+            continue
+        if content_security_policy_has_reporting_endpoint(
+            attempt.content_security_policy_header
+        ):
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.content_security_policy_missing_reporting_endpoint",
+                title="Content-Security-Policy missing reporting endpoint",
+                severity="low",
+                description=(
+                    "HTTPS endpoint returned a Content-Security-Policy header "
+                    "without a report-uri or report-to directive, so policy "
+                    "violations are not reported."
+                ),
+                recommendation=(
+                    "Add a CSP report-to or report-uri directive pointing at a "
+                    "controlled reporting endpoint."
                 ),
                 location=SourceLocation(
                     mode="external",
@@ -581,6 +615,7 @@ def collect_header_findings(probe_attempts: list["ProbeAttempt"]) -> list[Findin
     findings.extend(_find_content_security_policy_missing_frame_ancestors(probe_attempts))
     findings.extend(_find_content_security_policy_object_src_not_none(probe_attempts))
     findings.extend(_find_content_security_policy_base_uri_not_restricted(probe_attempts))
+    findings.extend(_find_content_security_policy_missing_reporting_endpoint(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_inline(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_eval(probe_attempts))
     findings.extend(_find_referrer_policy_missing(probe_attempts))

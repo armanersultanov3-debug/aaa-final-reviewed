@@ -54,7 +54,8 @@ _ALL_SECURITY_HEADERS = {
     "x_frame_options_header": "DENY",
     "x_content_type_options_header": "nosniff",
     "content_security_policy_header": (
-        "default-src 'self'; frame-ancestors 'self'; object-src 'none'; base-uri 'none'"
+        "default-src 'self'; frame-ancestors 'self'; object-src 'none'; "
+        "base-uri 'none'; report-to csp-endpoint"
     ),
     "referrer_policy_header": "strict-origin-when-cross-origin",
     "permissions_policy_header": "geolocation=()",

@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 273
+        assert len(full_reg._catalog) == 278
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 201
+        assert len(full_reg._executable) == 205
 
 
 # ---------------------------------------------------------------------------
@@ -76,23 +76,23 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 64
+        assert len(rules) == 65
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
-        assert len(rules) == 65
+        assert len(rules) == 66
 
     def test_lighttpd(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="lighttpd")
-        assert len(rules) == 16
+        assert len(rules) == 17
 
     def test_iis(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="iis")
-        assert len(rules) == 45
+        assert len(rules) == 46
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 72
+        assert len(rules) == 73
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -100,12 +100,12 @@ class TestCategoryCounts:
         first_size = reg.catalog_size
 
         register_external_rule_metas(reg)
-        assert reg.catalog_size == first_size == 72
+        assert reg.catalog_size == first_size == 73
 
         reg.clear()
         register_external_rule_metas(reg)
 
-        assert reg.catalog_size == 72
+        assert reg.catalog_size == 73
         assert reg.get_meta("external.https_not_available") is not None
 
     def test_external_meta_registration_rejects_duplicate_seed_ids(
