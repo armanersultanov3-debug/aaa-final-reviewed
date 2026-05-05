@@ -10,7 +10,8 @@ from webconf_audit.local.apache.parser import (
 )
 from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import owasp_top10_2021
 
 RULE_ID = "apache.default_tls_vhost_not_rejecting_unknown_hosts"
 TITLE = "Apache default TLS virtual host does not reject unknown hosts"
@@ -48,6 +49,16 @@ WHOLE_PATTERNS = frozenset(
     recommendation=RECOMMENDATION,
     category="local",
     server_type="apache",
+    standards=(
+        owasp_top10_2021("A05:2021"),
+        StandardReference(
+            standard="CIS",
+            reference="Apache HTTP Server 2.4 v2.3.0 §5.14",
+            url="https://www.cisecurity.org/benchmark/apache_http_server",
+            coverage="partial",
+            note="First/default TLS VirtualHost catch-all rejection only.",
+        ),
+    ),
     order=366,
     tags=("tls",),
 )
@@ -162,18 +173,23 @@ def _is_whole_request_scope(block: ApacheBlockNode) -> bool:
     return False
 
 
-def _has_forbidden_rewrite(block: ApacheBlockNode) -> bool:
-    rewrite_engine_enabled = False
+def _has_forbidden_rewrite(
+    block: ApacheBlockNode, *, rewrite_engine_enabled: bool = False
+) -> bool:
     for node in block.children:
         if isinstance(node, ApacheBlockNode):
-            if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS and _has_forbidden_rewrite(
-                node
-            ):
-                return True
+            if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
+                if _has_forbidden_rewrite(
+                    node,
+                    rewrite_engine_enabled=rewrite_engine_enabled,
+                ):
+                    return True
             continue
 
         if node.name.lower() == "rewriteengine" and node.args:
-            rewrite_engine_enabled = node.args[0].lower() == "on"
+            rewrite_engine_enabled = (
+                node.args[0].strip().strip('"').strip("'").lower() == "on"
+            )
             continue
         if rewrite_engine_enabled and _is_forbidden_rewrite_rule(node):
             return True
