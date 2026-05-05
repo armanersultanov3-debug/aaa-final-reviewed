@@ -51,3 +51,12 @@ def test_cipher_policy_accepts_modern_tls12_suite() -> None:
     assert not assessment.missing_forward_secrecy
     assert not assessment.missing_aead
     assert not assessment.has_issue
+
+
+def test_cipher_policy_handles_empty_string() -> None:
+    assessment = analyze_cipher_policy("")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue

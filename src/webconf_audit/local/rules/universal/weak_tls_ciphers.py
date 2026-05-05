@@ -16,11 +16,12 @@ from webconf_audit.tls_cipher_policy import (
 )
 
 RULE_ID = "universal.weak_tls_ciphers"
+TITLE = "Insufficient TLS cipher posture"
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Weak TLS ciphers detected",
+    title=TITLE,
     severity="medium",
     description=(
         "The cipher string contains weak components or lacks explicit modern "
@@ -55,7 +56,7 @@ def check(config: NormalizedConfig) -> list[Finding]:
         findings.append(
             Finding(
                 rule_id=RULE_ID,
-                title="Weak TLS ciphers detected",
+                title=TITLE,
                 severity="medium",
                 description=(
                     f"Scope '{scope.scope_name or '(unnamed)'}' cipher string "

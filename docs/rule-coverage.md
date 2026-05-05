@@ -33,9 +33,9 @@ Total rules: **283**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (198), external (73), universal (11) |
-| Severity | high (13), medium (98), low (160), info (11) |
-| Input kind | ast (137), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
+| Category | local (199), external (73), universal (11) |
+| Severity | high (13), medium (99), low (160), info (11) |
+| Input kind | ast (138), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -939,7 +939,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.tls_1_0_supported` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS NGINX v3.0.0 §4.1.4; CIS Apache HTTP Server 2.4 v2.3.0 §7.1; CIS Microsoft IIS 10 v1.2.1 §7.4 (partial: runtime evidence; primary CIS references at `nginx.weak_ssl_protocols` / `apache.ssl_protocol_missing_or_weak` / `iis.schannel_weak_protocol_enabled`) |
 | `external.tls_1_1_supported` | medium | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS NGINX v3.0.0 §4.1.4; CIS Apache HTTP Server 2.4 v2.3.0 §7.1; CIS Microsoft IIS 10 v1.2.1 §7.5 (partial: runtime evidence; primary CIS references at `nginx.weak_ssl_protocols` / `apache.ssl_protocol_missing_or_weak` / `iis.schannel_weak_protocol_enabled`) |
 | `external.tls_1_3_not_supported` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `external.weak_cipher_suite` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | CIS NGINX v3.0.0 §4.1.5; CIS Apache HTTP Server 2.4 v2.3.0 §7.4; CIS Microsoft IIS 10 v1.2.1 §7.7-§7.9 (partial: runtime evidence; primary CIS references at `universal.weak_tls_ciphers` / `apache.ssl_cipher_suite_weak` / `lighttpd.weak_ssl_cipher_list`) |
+| `external.weak_cipher_suite` | high | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | CIS NGINX v3.0.0 §4.1.5; CIS Apache HTTP Server 2.4 v2.3.0 §7.4; CIS Microsoft IIS 10 v1.2.1 §7.7-§7.9 (partial: runtime evidence; primary CIS references at `universal.weak_tls_ciphers` / `nginx.ssl_ciphers_weak` / `apache.ssl_cipher_suite_weak` / `lighttpd.weak_ssl_cipher_list`) |
 | `external.cert_chain_incomplete` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |
 | `external.cert_chain_length_unusual` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.cert_san_mismatch` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.2 | - |

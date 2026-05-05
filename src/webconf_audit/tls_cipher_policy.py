@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 
 _TOKEN_SPLIT_RE = re.compile(r"[:\s,]+")
-_DISABLED_PREFIXES = ("!", "-", "+!")
+_DISABLED_PREFIXES = ("!", "-")
 _BROAD_SELECTOR_TOKENS = frozenset(
     {
         "DEFAULT",
