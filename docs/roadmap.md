@@ -226,7 +226,7 @@ Server notes:
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
 | Nginx | Partially covered | Protocol policy, session cache, and session timeout checks have targeted local regression coverage. | Remaining high-value local work is OCSP stapling completeness/default TLS hosts and deeper runtime TLS posture. |
-| Apache | Partially covered | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, and session cache timeout. | Remaining high-value local work is default TLS virtual hosts and deeper runtime TLS posture. |
+| Apache | Partially covered | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, session cache timeout, and default TLS VirtualHost unknown-host rejection. | Remaining high-value local work is broader non-TLS virtualhost allowed-host precision and deeper runtime TLS posture. |
 | Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
 | IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown. |
 
@@ -296,8 +296,8 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: finish the remaining TLS hardening gaps that require either
-default TLS virtual-host precision or safe external runtime evidence, then
+Current step: finish the remaining TLS hardening gaps that require safe
+external runtime evidence or broader virtual-host allowed-host precision, then
 resume the next CIS/standards coverage slice.
 
 The external safe-probe catalog is implemented. Future external probe growth

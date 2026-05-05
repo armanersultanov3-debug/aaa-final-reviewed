@@ -119,6 +119,110 @@ def test_analyze_apache_config_reports_unrelated_rewrite_directives(
     assert "apache.ip_based_requests_allowed" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_reports_default_tls_vhost_without_reject(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName www.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "</VirtualHost>",
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+    ]
+    assert len(matching) == 1
+    assert "www.example.test" in matching[0].description
+
+
+def test_analyze_apache_config_accepts_rejecting_default_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            '    <Location "/">',
+            "        Require all denied",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_rewrite_rejecting_default_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    RewriteEngine On",
+            "    RewriteRule ^ - [F,L]",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_skips_non_default_tls_vhosts(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    RewriteEngine On",
+            "    RewriteRule ^ - [F,L]",
+            "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    ServerName www.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_tls_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
 def _analyze_config(tmp_path: Path, config: str):
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(config, encoding="utf-8")

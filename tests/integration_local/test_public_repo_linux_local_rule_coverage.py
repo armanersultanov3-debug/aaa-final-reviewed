@@ -642,6 +642,7 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
         expected_rule_ids=frozenset(
             {
                 "apache.content_security_policy_missing_reporting_endpoint",
+                "apache.default_tls_vhost_not_rejecting_unknown_hosts",
                 "apache.error_log_unsafe_destination",
                 "apache.file_etag_inodes",
                 "apache.hsts_header_unsafe",

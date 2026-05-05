@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **281**
+Total rules: **282**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (197), external (73), universal (11) |
-| Severity | high (13), medium (98), low (159), info (11) |
-| Input kind | ast (136), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
+| Category | local (198), external (73), universal (11) |
+| Severity | high (13), medium (98), low (160), info (11) |
+| Input kind | ast (137), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -318,7 +318,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 67
+Count: 68
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -374,6 +374,7 @@ rather than to ".htaccess" itself.
 | `apache.http_protocol_options_unsafe` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.9 |
 | `apache.listen_requires_explicit_address` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.15 |
 | `apache.ip_based_requests_allowed` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14 (partial: top-level `ServerName` rewrite policy signal only) |
+| `apache.default_tls_vhost_not_rejecting_unknown_hosts` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14 (partial: first/default TLS VirtualHost catch-all rejection only) |
 | `apache.vcs_metadata_not_restricted` | medium | ast | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: `.git` / `.svn` deny-list coverage) |
 | `apache.file_etag_inodes` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.4 |
 | `apache.timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.1 (partial: explicit directive values only) |
@@ -493,6 +494,11 @@ Mapping rationale (apache rules):
   without a defensive rewrite policy can still serve IP-based or unexpected
   `Host` requests. The rule is a hardening signal, so CWE stays empty and
   OWASP A05 carries the mapping.
+- `default_tls_vhost_not_rejecting_unknown_hosts` -- the first TLS
+  `VirtualHost` for an address is Apache's default for unmatched host names;
+  serving real content there can expose the wrong site. This is a virtual-host
+  precision hardening signal, so CWE stays empty and OWASP A05 carries the
+  mapping.
 - `missing_http_method_restrictions`,
   `http_method_policy_allows_unapproved` -- sensitive scopes with no method
   restriction, or explicit method allowlists that still include unapproved
@@ -542,7 +548,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
-| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` now checks named top-level server contexts for the expected rewrite-based IP request denial signal, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is virtualhost-specific allowed-host policy, rewrite module inventory, and deployment-specific exceptions. |
+| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, `apache.default_tls_vhost_not_rejecting_unknown_hosts` checks first/default TLS VirtualHosts for whole-scope rejection, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is rewrite module inventory, broader non-TLS VirtualHost allowed-host policy, and deployment-specific exceptions. |
 | §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy stays host-depth. |
 | §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |
@@ -1156,7 +1162,7 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 | РСБ.7 | Защита информации о событиях безопасности | none — `host-depth` (права на лог-файлы / ротация / целостность вне web-server config) |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
 | АНЗ.2 | Контроль установки обновлений ПО | none — `host-depth` |
-| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`; iis: `binding_without_host_header` |
+| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | ЗИС.20 | Защита каналов связи | same set as `УПД.13` (TLS / HSTS / redirect rules) |
 | ЗИС.32 | Защита веб-серверов / веб-приложений | catch-all для всех hardening rules (response headers, CSP, sensitive paths, request limits, timeout, request filtering) |
 
@@ -1228,7 +1234,7 @@ Per `STD-GAP-024` from `docs/benchmarks-covering.md`. ГОСТ Р ИСО/МЭК
 | 8.15 | Logging | same set as ФСТЭК `РСБ.1` / `РСБ.3` above |
 | 8.16 | Monitoring activities | partial via the same logging rules; full monitoring is application/SOC concern |
 | 8.18 | Use of privileged utility programs | apache: `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled` |
-| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`; iis: `binding_without_host_header` |
+| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | 8.21 | Security of network services | same set as ФСТЭК `УПД.13` (TLS / HSTS / redirect family) |
 | 8.23 | Web filtering | `out-of-scope` |
 | 8.24 | Use of cryptography | same set as NIST SP 800-52 Rev. 2 §3.x sections above |
