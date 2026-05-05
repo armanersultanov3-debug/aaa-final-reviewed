@@ -107,13 +107,13 @@ def _resolve_block_path(block: ApacheBlockNode) -> Path | None:
 
     raw_path = Path(block.args[0])
     if raw_path.is_absolute():
-        return raw_path.resolve()
+        return raw_path
 
     source_file_path = block.source.file_path
     if source_file_path is None:
-        return raw_path.resolve()
+        return raw_path
 
-    return (Path(source_file_path).parent / raw_path).resolve()
+    return Path(source_file_path).parent / raw_path
 
 
 def _has_explicit_allowoverride(block: ApacheBlockNode) -> bool:

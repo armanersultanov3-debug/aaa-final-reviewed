@@ -94,6 +94,8 @@ def _tls_hostnames(config_ast: ApacheConfigAst) -> set[str]:
     global_tls_ports = _global_tls_listen_ports(config_ast)
     hostnames: set[str] = set()
     for context in extract_virtualhost_contexts(config_ast):
+        if context.optional_ancestor_names:
+            continue
         if not _virtualhost_has_tls_intent(context, global_tls_ports):
             continue
         hostnames.update(_context_hostnames(context))
@@ -134,9 +136,11 @@ def _virtualhost_has_tls_intent(
     context: ApacheVirtualHostContext,
     global_tls_ports: frozenset[int],
 ) -> bool:
+    directives = _iter_scoped_directives(context.node.children)
+    if any(_is_sslengine_off(directive) for directive in directives):
+        return False
     return _virtualhost_listens_on_tls(context, global_tls_ports) or any(
-        _directive_has_vhost_tls_intent(directive)
-        for directive in _iter_scoped_directives(context.node.children)
+        _directive_has_vhost_tls_intent(directive) for directive in directives
     )
 
 
@@ -155,9 +159,17 @@ def _directive_has_vhost_tls_intent(directive: ApacheDirectiveNode) -> bool:
     name = directive.name.lower()
     if name not in VHOST_TLS_DIRECTIVE_NAMES:
         return False
-    if name == "sslengine" and directive.args and directive.args[0].lower() == "off":
+    if _is_sslengine_off(directive):
         return False
     return True
+
+
+def _is_sslengine_off(directive: ApacheDirectiveNode) -> bool:
+    return (
+        directive.name.lower() == "sslengine"
+        and bool(directive.args)
+        and directive.args[0].lower() == "off"
+    )
 
 
 def _global_tls_listen_ports(config_ast: ApacheConfigAst) -> frozenset[int]:

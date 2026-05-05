@@ -350,6 +350,44 @@ def test_analyze_apache_config_ignores_unmatched_http_redirect_host(
     assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_ignores_conditional_tls_vhost_for_http_redirect(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        "<IfModule mod_ssl.c>",
+        "<VirtualHost *:443>",
+        "    ServerName conditional.example.test",
+        "    SSLEngine On",
+        "</VirtualHost>",
+        "</IfModule>",
+        "<VirtualHost *:80>",
+        "    ServerName conditional.example.test",
+        "</VirtualHost>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_ignores_sslengine_off_vhost_for_http_redirect(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        "<VirtualHost *:443>",
+        "    ServerName disabled.example.test",
+        "    SSLEngine Off",
+        "</VirtualHost>",
+        "<VirtualHost *:80>",
+        "    ServerName disabled.example.test",
+        "</VirtualHost>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
+
+
 def _safe_tls_config(
     *,
     omit: set[str] | None = None,
