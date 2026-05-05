@@ -211,15 +211,15 @@ Key elements:
   that do not have an executable implementation (used for
   meta-only external rules).
 
-Current catalog: 296 rules total.
+Current catalog: 299 rules total.
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 74 |
+| Local — Nginx | 75 |
 | Local — Apache | 70 |
 | Local — Lighttpd | 21 |
 | Local — IIS | 47 |
-| Universal (local) | 11 |
+| Universal (local) | 13 |
 | External | 73 |
 
 ## 9. Reporting model

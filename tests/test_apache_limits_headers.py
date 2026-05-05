@@ -542,9 +542,12 @@ def test_analyze_apache_config_reports_missing_security_header_policy(
     header_name: str,
     rule_id: str,
 ) -> None:
+    omit_headers = {header_name}
+    if header_name == "x-frame-options":
+        omit_headers.add("content-security-policy")
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _safe_apache_config_without_headers(omit_headers={header_name}),
+        _safe_apache_config_without_headers(omit_headers=omit_headers),
         encoding="utf-8",
     )
 
@@ -560,6 +563,52 @@ def test_analyze_apache_config_reports_missing_security_header_policy(
     assert apache_findings[0].rule_id == rule_id
     assert apache_findings[0].location is not None
     assert apache_findings[0].location.file_path == str(config_path)
+
+
+def test_analyze_apache_config_accepts_csp_frame_ancestors_as_xfo_equivalent(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(omit_headers={"x-frame-options"}),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "apache.missing_x_frame_options_header",
+            "universal.missing_x_frame_options",
+        }
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_missing_xfo_when_csp_equivalent_is_conditional(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config_without_headers(
+            "<If \"%{HTTP_HOST} == 'framed.test'\">",
+            "    Header always set Content-Security-Policy "
+            "\"default-src 'self'; frame-ancestors 'self'\"",
+            "</If>",
+            omit_headers={"x-frame-options", "content-security-policy"},
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "apache.missing_x_frame_options_header"
+        for finding in result.findings
+    )
 
 
 def test_safe_apache_config_without_headers_preserves_matching_override(
@@ -672,7 +721,7 @@ def test_analyze_apache_config_treats_trailing_expr_as_header_condition(
     config_path.write_text(
         _safe_apache_config_without_headers(
             "Header always set X-Frame-Options DENY expr=%{REQUEST_STATUS}",
-            omit_headers={"x-frame-options"},
+            omit_headers={"x-frame-options", "content-security-policy"},
         ),
         encoding="utf-8",
     )
@@ -702,7 +751,7 @@ def test_analyze_apache_config_treats_unset_expr_as_header_condition(
         _safe_apache_config_without_headers(
             "Header always set X-Frame-Options ALLOW-FROM https://legacy.example.test",
             "Header always unset X-Frame-Options expr=%{REQUEST_STATUS}",
-            omit_headers={"x-frame-options"},
+            omit_headers={"x-frame-options", "content-security-policy"},
         ),
         encoding="utf-8",
     )
@@ -733,7 +782,7 @@ def test_analyze_apache_config_flags_static_unsafe_header_with_runtime_condition
         _safe_apache_config_without_headers(
             "Header always set X-Frame-Options "
             "ALLOW-FROM https://legacy.example.test env=legacy",
-            omit_headers={"x-frame-options"},
+            omit_headers={"x-frame-options", "content-security-policy"},
         ),
         encoding="utf-8",
     )
@@ -885,7 +934,7 @@ def test_analyze_apache_config_reports_missing_for_onsuccess_only_security_heade
     config_path.write_text(
         _safe_apache_config_without_headers(
             "Header set X-Frame-Options DENY",
-            omit_headers={"x-frame-options"},
+            omit_headers={"x-frame-options", "content-security-policy"},
         ),
         encoding="utf-8",
     )
@@ -980,6 +1029,7 @@ def test_analyze_apache_config_reports_conditional_missing_security_header(
             "<Else>",
             "    Header always set X-Frame-Options SAMEORIGIN",
             "</Else>",
+            omit_headers={"x-frame-options", "content-security-policy"},
         ),
         encoding="utf-8",
     )

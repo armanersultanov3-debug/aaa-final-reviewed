@@ -9,6 +9,13 @@ Covers:
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
+from webconf_audit.header_policy import (
+    content_security_policy_has_frame_ancestors,
+    permissions_policy_is_safe,
+    referrer_policy_is_safe,
+)
 from webconf_audit.local.normalized import NormalizedConfig, NormalizedScope
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
@@ -82,7 +89,13 @@ def check_x_content_type_options(config: NormalizedConfig) -> list[Finding]:
 )
 def check_x_frame_options(config: NormalizedConfig) -> list[Finding]:
     rule_id = "universal.missing_x_frame_options"
-    return _check_header(config, rule_id, *_HEADER_RULES[rule_id])
+    return _check_header(
+        config,
+        rule_id,
+        *_HEADER_RULES[rule_id],
+        equivalent_header_name="content-security-policy",
+        is_equivalent_value=content_security_policy_has_frame_ancestors,
+    )
 
 
 @rule(
@@ -126,6 +139,72 @@ def check_referrer_policy(config: NormalizedConfig) -> list[Finding]:
     return _check_header(config, rule_id, *_HEADER_RULES[rule_id])
 
 
+@rule(
+    rule_id="universal.referrer_policy_unsafe",
+    title="Referrer-Policy header is weak",
+    severity="low",
+    description="Scope sets Referrer-Policy to a weak or unrecognized value.",
+    recommendation=(
+        "Use 'Referrer-Policy: strict-origin-when-cross-origin' or "
+        "'Referrer-Policy: no-referrer'."
+    ),
+    category="universal",
+    input_kind="normalized",
+    tags=("headers",),
+    standards=(
+        owasp_top10_2021("A05:2021"),
+        asvs_5("3.4.5"),
+    ),
+    order=111,
+)
+def check_referrer_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
+    return _check_unsafe_header(
+        config,
+        rule_id="universal.referrer_policy_unsafe",
+        header_name="referrer-policy",
+        title="Referrer-Policy header is weak",
+        description="Scope sets Referrer-Policy to a weak or unrecognized value.",
+        recommendation=(
+            "Use 'Referrer-Policy: strict-origin-when-cross-origin' or "
+            "'Referrer-Policy: no-referrer'."
+        ),
+        is_safe_value=referrer_policy_is_safe,
+    )
+
+
+@rule(
+    rule_id="universal.permissions_policy_unsafe",
+    title="Permissions-Policy header is overly broad",
+    severity="low",
+    description="Scope sets Permissions-Policy to an empty or overly broad value.",
+    recommendation=(
+        "Use a least-privilege Permissions-Policy allowlist and avoid wildcard "
+        "feature grants."
+    ),
+    category="universal",
+    input_kind="normalized",
+    tags=("headers",),
+    standards=(
+        owasp_top10_2021("A05:2021"),
+        asvs_5("3.4.6", coverage="related"),
+    ),
+    order=112,
+)
+def check_permissions_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
+    return _check_unsafe_header(
+        config,
+        rule_id="universal.permissions_policy_unsafe",
+        header_name="permissions-policy",
+        title="Permissions-Policy header is overly broad",
+        description="Scope sets Permissions-Policy to an empty or overly broad value.",
+        recommendation=(
+            "Use a least-privilege Permissions-Policy allowlist and avoid wildcard "
+            "feature grants."
+        ),
+        is_safe_value=permissions_policy_is_safe,
+    )
+
+
 def _check_header(
     config: NormalizedConfig,
     rule_id: str,
@@ -133,10 +212,19 @@ def _check_header(
     title: str,
     recommendation: str,
     required_value: str | None = None,
+    *,
+    equivalent_header_name: str | None = None,
+    is_equivalent_value: Callable[[str | None], bool] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     for scope in config.scopes:
         if not _scope_is_auditable(scope):
+            continue
+        if (
+            equivalent_header_name is not None
+            and is_equivalent_value is not None
+            and _has_safe_header(scope, equivalent_header_name, is_equivalent_value)
+        ):
             continue
         if _has_header(scope, header_name, required_value):
             continue
@@ -159,6 +247,43 @@ def _check_header(
                 },
             )
         )
+    return findings
+
+
+def _check_unsafe_header(
+    config: NormalizedConfig,
+    *,
+    rule_id: str,
+    header_name: str,
+    title: str,
+    description: str,
+    recommendation: str,
+    is_safe_value: Callable[[str | None], bool],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for scope in config.scopes:
+        if not _scope_is_auditable(scope):
+            continue
+        for header in scope.security_headers:
+            if header.name != header_name or is_safe_value(header.value):
+                continue
+            findings.append(
+                Finding(
+                    rule_id=rule_id,
+                    title=title,
+                    severity="low",
+                    description=(
+                        f"{description} Scope '{scope.scope_name or '(unnamed)'}' "
+                        f"configured value: {header.value or '<missing value>'}."
+                    ),
+                    recommendation=recommendation,
+                    location=_scope_location(scope, config),
+                    metadata={
+                        "scope_name": scope.scope_name,
+                        "server_type": config.server_type,
+                    },
+                )
+            )
     return findings
 
 
@@ -185,6 +310,17 @@ def _has_header(
         if h.value and h.value.strip().strip('"').strip("'").lower() == required_value.lower():
             return True
     return False
+
+
+def _has_safe_header(
+    scope: NormalizedScope,
+    name: str,
+    is_safe_value: Callable[[str | None], bool],
+) -> bool:
+    return any(
+        header.name == name and is_safe_value(header.value)
+        for header in scope.security_headers
+    )
 
 
 def _scope_location(

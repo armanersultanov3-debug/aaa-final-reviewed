@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from webconf_audit.header_policy import permissions_policy_is_safe
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules.security_header_utils import (
     unsafe_header_findings,
@@ -31,24 +32,12 @@ def find_permissions_policy_unsafe(config_ast: ApacheConfigAst) -> list[Finding]
     return unsafe_header_findings(
         config_ast,
         header_name="Permissions-Policy",
-        is_safe_value=_is_safe_permissions_policy,
+        is_safe_value=permissions_policy_is_safe,
         rule_id=RULE_ID,
         title=TITLE,
         description=DESCRIPTION,
         recommendation=RECOMMENDATION,
     )
-
-
-def _is_safe_permissions_policy(value: str | None) -> bool:
-    if value is None:
-        return False
-
-    cleaned = value.strip().strip('"').strip("'")
-    if not cleaned:
-        return False
-    if "*" in cleaned:
-        return False
-    return "=" in cleaned
 
 
 __all__ = ["find_permissions_policy_unsafe"]

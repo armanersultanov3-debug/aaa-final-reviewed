@@ -62,22 +62,24 @@ Status: implemented.
 
 ## PR Slice 4: Sensitive Paths and Extension Deny Policy
 
-Status: planned.
+Status: implemented.
 
-- Add curated deny-policy checks for `.env`, VCS metadata, editor metadata,
+- Curated deny-policy checks cover `.env`, VCS metadata, editor metadata,
   backup/temp artifacts, package manager config files, and common lockfiles.
-- Keep these checks conservative and scope-aware so redirect-only or
-  non-content-serving blocks are not noisy.
+- The checks stay conservative and scope-aware so redirect-only or
+  non-content-serving blocks do not create header/path policy noise.
 
 ## PR Slice 5: Header Policy Quality
 
-Status: planned.
+Status: implemented in `codex/header-policy-quality`.
 
-- Referrer-Policy: unsafe values across all local analyzers.
-- Permissions-Policy: dangerous directives, wildcards, or empty ineffective
-  policy where parseable.
-- X-Frame-Options and CSP `frame-ancestors`: avoid duplicate noise when one
-  control safely covers the other.
+- Referrer-Policy: shared unsafe-value semantics for Nginx, Apache, and the
+  normalized universal layer used by Lighttpd/IIS.
+- Permissions-Policy: conservative unsafe checks for wildcard grants and empty
+  ineffective policy values.
+- X-Frame-Options and CSP `frame-ancestors`: missing-XFO rules now treat an
+  unconditional CSP `frame-ancestors` policy as equivalent clickjacking
+  control and keep conditional Apache CSP from hiding missing coverage.
 - CSP: keep strictness improvements separate from broad CSP parsing claims.
 
 ## PR Slice 6: TLS Local Complements

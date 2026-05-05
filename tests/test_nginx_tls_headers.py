@@ -1903,6 +1903,32 @@ def test_analyze_nginx_config_does_not_report_missing_x_frame_options_when_sameo
     )
 
 
+def test_analyze_nginx_config_accepts_csp_frame_ancestors_as_xfo_equivalent(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    add_header Content-Security-Policy "
+        "\"default-src 'self'; frame-ancestors 'none'\" always;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id
+        in {
+            "nginx.missing_x_frame_options",
+            "universal.missing_x_frame_options",
+        }
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_missing_x_frame_options_when_only_location_has_it(
     tmp_path: Path,
 ) -> None:
@@ -2113,6 +2139,27 @@ def test_analyze_nginx_config_does_not_report_missing_permissions_policy_when_pr
     assert result.issues == []
     assert not any(
         finding.rule_id == "nginx.missing_permissions_policy" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_unsafe_permissions_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    add_header Permissions-Policy \"geolocation=(*)\" always;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.permissions_policy_unsafe"
+        for finding in result.findings
     )
 
 
