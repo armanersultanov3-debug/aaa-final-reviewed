@@ -160,6 +160,22 @@ class TestListRules:
         assert payload
         assert all(entry["category"] == "external" for entry in payload)
 
+    def test_list_rules_json_reports_cwe_top25_severity_bumps(self) -> None:
+        result = runner.invoke(
+            app,
+            ["list-rules", "--format", "json", "--server-type", "nginx"],
+        )
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        severity_by_rule = {entry["rule_id"]: entry["severity"] for entry in payload}
+
+        for rule_id in (
+            "nginx.alias_without_trailing_slash",
+            "nginx.allow_all_with_deny_all",
+            "nginx.missing_auth_basic_user_file",
+        ):
+            assert severity_by_rule[rule_id] == "medium"
+
     def test_list_rules_json_empty_match_emits_empty_array(self) -> None:
         result = runner.invoke(
             app,

@@ -34,7 +34,7 @@ Total rules: **273**
 | Dimension | Counts |
 | --- | --- |
 | Category | local (190), external (72), universal (11) |
-| Severity | high (13), medium (95), low (154), info (11) |
+| Severity | high (13), medium (98), low (151), info (11) |
 | Input kind | ast (131), probe (72), effective (47), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
@@ -117,8 +117,8 @@ the benchmark covers but webconf-audit does not.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `nginx.alias_without_trailing_slash` | low | ast | - | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
-| `nginx.allow_all_with_deny_all` | low | ast | - | [CWE-863](https://cwe.mitre.org/data/definitions/863.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
+| `nginx.alias_without_trailing_slash` | medium | ast | - | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
+| `nginx.allow_all_with_deny_all` | medium | ast | - | [CWE-863](https://cwe.mitre.org/data/definitions/863.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
 | `nginx.autoindex_on` | medium | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
 | `nginx.content_security_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: baseline directives and unsafe script tokens only) | CIS NGINX v3.0.0 §5.3.2 (partial: baseline policy quality checks) |
 | `nginx.default_server_not_rejecting_unknown_hosts` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.4.2 (partial: validates configured `default_server` rejection behavior) |
@@ -130,7 +130,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_access_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.2 |
 | `nginx.missing_access_restrictions_on_sensitive_locations` | low | ast | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS NGINX v3.0.0 §5.1.1 (partial: detects any access control on sensitive paths, not specifically `allow`/`deny` IP filters) |
 | `nginx.missing_allowed_methods_restriction_for_uploads` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: scoped to upload-like locations) |
-| `nginx.missing_auth_basic_user_file` | low | ast | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
+| `nginx.missing_auth_basic_user_file` | medium | ast | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
 | `nginx.missing_backup_file_deny` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.missing_client_body_timeout` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §5.2.1 (partial: directive presence only; does not validate benchmark timeout value) |
 | `nginx.missing_client_header_timeout` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §5.2.1 (partial: directive presence only; does not validate benchmark timeout value) |

@@ -25,7 +25,7 @@
       "expected_findings": [
         {
           "rule_id": "nginx.alias_without_trailing_slash",
-          "severity": "low",
+          "severity": "medium",
           "title_contains": "Alias",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
