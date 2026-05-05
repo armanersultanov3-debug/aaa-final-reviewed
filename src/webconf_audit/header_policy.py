@@ -58,7 +58,7 @@ def content_security_policy_has_frame_ancestors(value: str | None) -> bool:
     tokens = [token.strip() for token in frame_ancestors.split() if token.strip()]
     if not tokens:
         return False
-    if any(_is_bare_wildcard_frame_ancestor_token(token) for token in tokens):
+    if any(_is_permissive_frame_ancestor_token(token) for token in tokens):
         return False
     return any(_is_restrictive_frame_ancestor_token(token) for token in tokens)
 
@@ -93,6 +93,19 @@ def _is_restrictive_frame_ancestor_token(token: str) -> bool:
 
 def _is_bare_wildcard_frame_ancestor_token(token: str) -> bool:
     return token.lower() in {"*", "'*'", '"*"'}
+
+
+def _is_permissive_frame_ancestor_token(token: str) -> bool:
+    normalized = token.lower()
+    if _is_bare_wildcard_frame_ancestor_token(normalized):
+        return True
+    if normalized in {"http:", "https:"}:
+        return True
+    for scheme in ("https://", "http://"):
+        if normalized.startswith(scheme):
+            host = normalized[len(scheme):].split("/", 1)[0].split(":", 1)[0]
+            return not host or host == "*"
+    return False
 
 
 def _is_explicit_origin(token: str) -> bool:
