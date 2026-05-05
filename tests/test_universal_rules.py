@@ -309,6 +309,90 @@ def test_x_frame_options_present():
     assert "universal.missing_x_frame_options" not in ids
 
 
+def test_x_frame_options_equivalent_csp_frame_ancestors_present():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors 'none'",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" not in ids
+
+
+def test_x_frame_options_not_equivalent_to_wildcard_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors *",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
+def test_x_frame_options_not_equivalent_to_scheme_wildcard_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors https://*",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
+def test_x_frame_options_not_equivalent_to_mixed_permissive_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors 'self' https:",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
+def test_x_frame_options_not_equivalent_to_mixed_none_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors 'none' https://example.com",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" in ids
+
+
+def test_x_frame_options_equivalent_to_wildcard_host_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors https://*.example.com",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" not in ids
+
+
 def test_missing_content_security_policy():
     scope = _http_scope(headers=[])
     ids = _rule_ids(_config(scope))
@@ -331,6 +415,135 @@ def test_referrer_policy_present():
     scope = _http_scope(headers=["referrer-policy"])
     ids = _rule_ids(_config(scope))
     assert "universal.missing_referrer_policy" not in ids
+
+
+def test_referrer_policy_unsafe_flags_unsafe_url():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="referrer-policy",
+            value="unsafe-url",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.referrer_policy_unsafe" in ids
+
+
+def test_referrer_policy_unsafe_accepts_strict_origin_when_cross_origin():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="referrer-policy",
+            value="strict-origin-when-cross-origin",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.referrer_policy_unsafe" not in ids
+
+
+def test_permissions_policy_unsafe_flags_wildcard_grant():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="geolocation=(*)",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" in ids
+
+
+def test_permissions_policy_unsafe_flags_spaced_wildcard_grant():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="geolocation=( * )",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" in ids
+
+
+def test_permissions_policy_unsafe_flags_malformed_allowlist():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="geolocation=self",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" in ids
+
+
+def test_permissions_policy_unsafe_flags_empty_policy():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" in ids
+
+
+def test_permissions_policy_unsafe_accepts_restrictive_policy():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value="geolocation=(), microphone=(self)",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" not in ids
+
+
+def test_permissions_policy_unsafe_accepts_subdomain_wildcard():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value='geolocation=(self "https://*.example.com")',
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" not in ids
+
+
+def test_unsafe_header_finding_uses_header_source_location():
+    header_ref = _ref(line=17)
+    scope = _http_scope(headers=[], line=3)
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="referrer-policy",
+            value="unsafe-url",
+            source=header_ref,
+        )
+    ]
+
+    finding = _finding(_config(scope), "universal.referrer_policy_unsafe")
+
+    assert finding.location is not None
+    assert finding.location.line == 17
 
 
 def test_missing_header_findings_use_header_source_when_scope_has_no_listener():

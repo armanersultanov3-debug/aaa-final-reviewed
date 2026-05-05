@@ -86,10 +86,37 @@ def missing_header_findings(
     description: str,
     recommendation: str,
 ) -> list[Finding]:
+    return missing_header_or_equivalent_findings(
+        config_ast,
+        header_name=header_name,
+        rule_id=rule_id,
+        title=title,
+        description=description,
+        recommendation=recommendation,
+    )
+
+
+def missing_header_or_equivalent_findings(
+    config_ast: ApacheConfigAst,
+    *,
+    header_name: str,
+    rule_id: str,
+    title: str,
+    description: str,
+    recommendation: str,
+    equivalent_header_name: str | None = None,
+    is_equivalent_value: Callable[[str | None], bool] | None = None,
+) -> list[Finding]:
     findings: list[Finding] = []
     redirect_only_scope_keys = _redirect_only_virtualhost_scope_keys(config_ast)
+    equivalent_scope_keys = _equivalent_scope_keys(
+        config_ast,
+        equivalent_header_name,
+        is_equivalent_value,
+    )
     for scope in iter_effective_header_scopes(config_ast, header_name):
-        if _scope_key(scope.label, scope.source) in redirect_only_scope_keys:
+        scope_key = _scope_key(scope.label, scope.source)
+        if scope_key in redirect_only_scope_keys or scope_key in equivalent_scope_keys:
             continue
         if not scope.auditable or not scope.missing_possible:
             continue
@@ -184,6 +211,47 @@ def _select_unsafe_settings(
     if reported is None:
         reported = "<dynamic value>"
     return setting, reported
+
+
+def _equivalent_scope_keys(
+    config_ast: ApacheConfigAst,
+    header_name: str | None,
+    is_safe_value: Callable[[str | None], bool] | None,
+) -> set[ScopeKey]:
+    if header_name is None or is_safe_value is None:
+        return set()
+    return {
+        _scope_key(scope.label, scope.source)
+        for scope in iter_effective_header_scopes(config_ast, header_name)
+        if scope.auditable and _scope_has_exhaustive_safe_header_value(scope, is_safe_value)
+    }
+
+
+def _scope_has_exhaustive_safe_header_value(
+    scope: ApacheHeaderScope,
+    is_safe_value: Callable[[str | None], bool],
+) -> bool:
+    return bool(scope.outcomes) and all(
+        _settings_have_safe_header_value(outcome.always, is_safe_value)
+        for outcome in scope.outcomes
+    )
+
+
+def _settings_have_safe_header_value(
+    settings: list[ApacheHeaderSetting],
+    is_safe_value: Callable[[str | None], bool],
+) -> bool:
+    if not settings:
+        return False
+    effective_value = _combine_effective_value(settings)
+    if effective_value is not None:
+        return is_safe_value(effective_value)
+    if any(setting.dynamic for setting in settings):
+        return False
+    return any(
+        not setting.dynamic and is_safe_value(setting.value)
+        for setting in settings
+    )
 
 
 def _is_known_unsafe(
@@ -916,5 +984,6 @@ __all__ = [
     "ApacheHeaderSetting",
     "iter_effective_header_scopes",
     "missing_header_findings",
+    "missing_header_or_equivalent_findings",
     "unsafe_header_findings",
 ]

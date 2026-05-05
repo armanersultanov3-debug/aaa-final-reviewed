@@ -579,7 +579,7 @@ class TestEnsureLoaded:
 
 
 class TestEnsureLoadedUniversal:
-    """Integration tests: ensure_loaded discovers all 11 real universal rules."""
+    """Integration tests: ensure_loaded discovers all 13 real universal rules."""
 
     _UNIVERSAL_PKG = "webconf_audit.local.rules.universal"
     _EXPECTED_IDS = {
@@ -591,17 +591,19 @@ class TestEnsureLoadedUniversal:
         "universal.missing_x_frame_options",
         "universal.missing_content_security_policy",
         "universal.missing_referrer_policy",
+        "universal.referrer_policy_unsafe",
+        "universal.permissions_policy_unsafe",
         "universal.directory_listing_enabled",
         "universal.server_identification_disclosed",
         "universal.listen_on_all_interfaces",
     }
 
-    def test_fresh_registry_discovers_all_11(self):
+    def test_fresh_registry_discovers_all_13(self):
         fresh = RuleRegistry()
         fresh.ensure_loaded(self._UNIVERSAL_PKG)
         registered_ids = {m.rule_id for m in fresh.list_rules()}
         assert self._EXPECTED_IDS == registered_ids
-        assert fresh.executable_size == 11
+        assert fresh.executable_size == 13
 
     def test_all_are_category_universal(self):
         fresh = RuleRegistry()
@@ -616,16 +618,16 @@ class TestEnsureLoadedUniversal:
         entries = fresh.rules_for("universal")
         orders = [e.meta.order for e in entries]
         assert orders == sorted(orders), "Universal rules should be sorted by order"
-        # All orders in [100..110]
-        assert all(100 <= o <= 110 for o in orders)
+        # All orders in [100..199]
+        assert all(100 <= o <= 199 for o in orders)
 
     def test_clear_then_reload_universal(self):
         fresh = RuleRegistry()
         fresh.ensure_loaded(self._UNIVERSAL_PKG)
-        assert fresh.executable_size == 11
+        assert fresh.executable_size == 13
         fresh.clear()
         fresh.ensure_loaded(self._UNIVERSAL_PKG)
-        assert fresh.executable_size == 11
+        assert fresh.executable_size == 13
 
     def test_run_universal_rules_uses_registry(self):
         """run_universal_rules produces findings via registry-backed discovery."""

@@ -35,6 +35,9 @@ from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceL
 _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
     {
         "universal.missing_hsts",
+        "universal.missing_x_frame_options",
+        "universal.permissions_policy_unsafe",
+        "universal.referrer_policy_unsafe",
         "universal.weak_tls_ciphers",
     }
 )

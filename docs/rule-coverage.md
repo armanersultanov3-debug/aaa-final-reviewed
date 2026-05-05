@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **296**
+Total rules: **299**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (212), external (73), universal (11) |
-| Severity | high (13), medium (105), low (167), info (11) |
-| Input kind | ast (147), probe (73), effective (53), normalized (11), htaccess (6), mixed (6) |
+| Category | local (213), external (73), universal (13) |
+| Severity | high (13), medium (105), low (170), info (11) |
+| Input kind | ast (147), probe (73), effective (54), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -52,7 +52,7 @@ Columns:
 
 ### Universal Rules
 
-Count: 11
+Count: 13
 
 Stage 2 step 3 mapping: **complete** for this group. CIS / vendor cells say
 `_see vendor sections_` because each universal rule reduces to a
@@ -69,6 +69,8 @@ matching CIS benchmark item lives in the corresponding server-family table.
 | `universal.missing_x_frame_options` | low | normalized | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | _see vendor sections_ |
 | `universal.missing_content_security_policy` | low | normalized | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: presence only) | _see vendor sections_ |
 | `universal.missing_referrer_policy` | low | normalized | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | _see vendor sections_ |
+| `universal.referrer_policy_unsafe` | low | normalized | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | _see vendor sections_ |
+| `universal.permissions_policy_unsafe` | low | normalized | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (related: wildcard / ineffective policy quality) | _see vendor sections_ |
 | `universal.directory_listing_enabled` | medium | normalized | access | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | _see vendor sections_ |
 | `universal.server_identification_disclosed` | low | normalized | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | _see vendor sections_ |
 | `universal.listen_on_all_interfaces` | info | normalized | network | - | - | - | _see vendor sections_ |
@@ -98,6 +100,10 @@ Mapping rationale (universal rules):
 - `missing_referrer_policy` -- the referrer header has nuanced semantics and
   no single CWE maps cleanly to "policy not set"; we leave CWE empty and keep
   OWASP A05 because the rule is a hardening-config check.
+- `referrer_policy_unsafe`, `permissions_policy_unsafe` -- conservative
+  quality checks for already-configured hardening headers. They flag weak
+  Referrer-Policy values and ineffective / wildcard Permissions-Policy grants
+  without trying to become a full per-response browser policy validator.
 - `directory_listing_enabled` -- direct match for CWE-548 (exposure of
   information through directory listing). Categorised as A05 (misconfig)
   because the rule fires only when the operator explicitly enables listing.
@@ -108,7 +114,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 74
+Count: 75
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -163,6 +169,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.log_format_missing_fields` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: validates recommended field presence) |
 | `nginx.missing_log_format` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: named custom log_format references; does not validate detailed log fields) |
 | `nginx.missing_permissions_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `nginx.permissions_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (related: wildcard / ineffective policy quality) | - |
 | `nginx.missing_referrer_policy` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | CIS NGINX v3.0.0 §5.3.3 (partial: header presence only; does not validate policy value) |
 | `nginx.missing_send_timeout` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §2.4.4 (partial: directive presence; does not validate `<= 10` value) |
 | `nginx.missing_server_name` | low | ast | - | - | - | - | - |
@@ -1353,10 +1360,10 @@ only where the mapping is honest:
 
 Progress:
 
-- [x] Universal rules (11)
-- [x] Nginx local rules (73) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Universal rules (13)
+- [x] Nginx local rules (75) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (69) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (70) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (21)
 - [x] IIS local rules (47) — CWE/OWASP/ASVS filled; CIS existing-rule reference

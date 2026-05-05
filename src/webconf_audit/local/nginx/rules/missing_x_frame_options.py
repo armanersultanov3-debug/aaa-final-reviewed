@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from webconf_audit.header_policy import (
+    content_security_policy_has_frame_ancestors,
+    x_frame_options_is_safe,
+)
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode
 from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
 from webconf_audit.local.nginx.rules.header_utils import (
     build_missing_header_finding,
-    server_header_contains_value,
+    find_server_add_headers,
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
@@ -59,22 +63,7 @@ def _find_missing_x_frame_options_in_server(
     if skips_content_response_checks(server_block):
         return None
 
-    has_valid_x_frame_options = (
-        server_header_contains_value(
-            server_block,
-            "X-Frame-Options",
-            "DENY",
-            inherited_directives,
-        )
-        or server_header_contains_value(
-            server_block,
-            "X-Frame-Options",
-            "SAMEORIGIN",
-            inherited_directives,
-        )
-    )
-
-    if has_valid_x_frame_options:
+    if _server_has_clickjacking_control(server_block, inherited_directives):
         return None
 
     return build_missing_header_finding(
@@ -84,6 +73,25 @@ def _find_missing_x_frame_options_in_server(
         description=_DESCRIPTION,
         recommendation=_RECOMMENDATION,
     )
+
+
+def _server_has_clickjacking_control(
+    server_block: BlockNode,
+    inherited_directives: dict[str, list[DirectiveNode]],
+) -> bool:
+    for directive in find_server_add_headers(server_block, inherited_directives):
+        if len(directive.args) < 2:
+            continue
+        header_name = directive.args[0].lower()
+        header_value = directive.args[1]
+        if header_name == "x-frame-options" and x_frame_options_is_safe(header_value):
+            return True
+        if (
+            header_name == "content-security-policy"
+            and content_security_policy_has_frame_ancestors(header_value)
+        ):
+            return True
+    return False
 
 
 __all__ = ["find_missing_x_frame_options"]

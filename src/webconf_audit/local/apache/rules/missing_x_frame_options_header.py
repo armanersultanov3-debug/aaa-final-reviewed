@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from webconf_audit.header_policy import content_security_policy_has_frame_ancestors
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules.security_header_utils import (
-    missing_header_findings,
+    missing_header_or_equivalent_findings,
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
@@ -30,13 +31,15 @@ RECOMMENDATION = (
 def find_missing_x_frame_options_header(
     config_ast: ApacheConfigAst,
 ) -> list[Finding]:
-    return missing_header_findings(
+    return missing_header_or_equivalent_findings(
         config_ast,
         header_name="X-Frame-Options",
         rule_id=RULE_ID,
         title=TITLE,
         description=DESCRIPTION,
         recommendation=RECOMMENDATION,
+        equivalent_header_name="Content-Security-Policy",
+        is_equivalent_value=content_security_policy_has_frame_ancestors,
     )
 
 
