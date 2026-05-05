@@ -337,6 +337,20 @@ def test_x_frame_options_not_equivalent_to_wildcard_csp_frame_ancestors():
     assert "universal.missing_x_frame_options" in ids
 
 
+def test_x_frame_options_equivalent_to_wildcard_host_csp_frame_ancestors():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="content-security-policy",
+            value="default-src 'self'; frame-ancestors https://*.example.com",
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.missing_x_frame_options" not in ids
+
+
 def test_missing_content_security_policy():
     scope = _http_scope(headers=[])
     ids = _rule_ids(_config(scope))
