@@ -207,7 +207,8 @@ def test_analyze_apache_config_accepts_custom_log_format_with_required_fields(
     tmp_path: Path,
 ) -> None:
     config = _safe_apache_config(
-        'LogFormat "%h %l %u %t \\"%r\\" %>s %b \\"%{Referer}i\\" \\"%{User-Agent}i\\"" audit',
+        'LogFormat "%h %l %u %t \\"%r\\" %>s %b \\"%{Referer}i\\" '
+        '\\"%{User-Agent}i\\" \\"%{X-Request-ID}i\\" \\"%{X-Forwarded-For}i\\" %D" audit',
     ).replace(
         "CustomLog logs/access_log combined",
         "CustomLog logs/access_log audit",

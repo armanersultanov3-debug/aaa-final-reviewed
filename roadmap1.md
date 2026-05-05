@@ -51,13 +51,14 @@ Status: implemented.
 
 ## PR Slice 3: Logging Quality
 
-Status: planned.
+Status: implemented.
 
-- Nginx and Apache: deepen log-format quality checks for stable security fields
-  such as timestamp, client address, authenticated user, request line, status,
-  user-agent, request ID, forwarded chain, TLS protocol/cipher, and upstream
-  timing where applicable.
-- Lighttpd: add only if the existing model exposes log-format content safely.
+- Nginx and Apache: deepened log-format quality checks for stable security
+  fields such as timestamp, client address, authenticated user, request line,
+  status, user-agent, request ID, forwarded chain, TLS protocol/cipher, and
+  upstream/request timing where applicable.
+- Lighttpd: added minimal `accesslog.format` field-quality checks when the
+  existing effective model exposes the format safely.
 
 ## PR Slice 4: Sensitive Paths and Extension Deny Policy
 

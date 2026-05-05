@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **293**
+Total rules: **294**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (209), external (73), universal (11) |
-| Severity | high (13), medium (105), low (164), info (11) |
-| Input kind | ast (145), probe (73), effective (52), normalized (11), htaccess (6), mixed (6) |
+| Category | local (210), external (73), universal (11) |
+| Severity | high (13), medium (105), low (165), info (11) |
+| Input kind | ast (145), probe (73), effective (53), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -583,7 +583,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 ### Lighttpd (Local)
 
-Count: 20
+Count: 21
 
 Stage 2 step 3 mapping: **complete** for this group. There is no official
 *CIS Lighttpd Benchmark*, so CIS-specific claims stay empty. Where vendor or
@@ -594,6 +594,7 @@ official CIS mapping.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
+| `lighttpd.access_log_format_missing_fields` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.access_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.basic_auth_over_http` | medium | effective | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.dir_listing_enabled` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
@@ -617,7 +618,9 @@ official CIS mapping.
 
 Mapping rationale (lighttpd rules):
 
-- `access_log_missing`, `error_log_missing` -- without access/error logs an
+- `access_log_missing`, `access_log_format_missing_fields`,
+  `error_log_missing` -- without access/error logs, or with low-detail
+  access log formats, an
   operator cannot detect or investigate attacks: textbook CWE-778
   (insufficient logging), grouped under OWASP A09 (security logging and
   monitoring failures).
@@ -1086,7 +1089,7 @@ signal supports more than one recommendation.
 | [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
 | [Cross-Site Request Forgery Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | CSRF / SameSite cookie posture | external: `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
 | [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) | session cookies / forms auth | iis: `session_state_cookieless`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `http_cookies_http_only_disabled`; external: `cookie_missing_secure_on_https`, `cookie_missing_httponly`, `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
-| [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) | access / error logs and log content | nginx: `missing_access_log`, `missing_error_log`, `missing_log_format`, `error_log_too_restrictive`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`, `log_format_missing_fields`, `missing_log_format`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
+| [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) | access / error logs and log content | nginx: `missing_access_log`, `missing_error_log`, `missing_log_format`, `error_log_too_restrictive`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`, `log_format_missing_fields`, `missing_log_format`; lighttpd: `access_log_missing`, `access_log_format_missing_fields`, `error_log_missing`; iis: `logging_not_configured` |
 | [Authentication](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html) | HTTP authentication and credentials over TLS | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users`; external: `htpasswd_exposed` |
 | [Credential Stuffing Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html) | credential storage at rest | iis: `credentials_password_format_clear`, `credentials_stored_in_config` |
 | [Clickjacking Defense](https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html) | X-Frame-Options / CSP `frame-ancestors` | universal: `missing_x_frame_options`; nginx: `missing_x_frame_options`; apache: `missing_x_frame_options_header`, `x_frame_options_unsafe`; external: `x_frame_options_missing`, `x_frame_options_invalid`, `content_security_policy_missing_frame_ancestors` |
@@ -1131,7 +1134,7 @@ requirement directly do not need a partial annotation.
 | Req. 8.3.2 | Strong cryptography for transmission of all auth factors | iis: `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`, `forms_auth_protection_unsafe`; external: `cookie_missing_secure_on_https`, `cookie_samesite_none_without_secure` |
 | Req. 8.3.5 / 8.3.6 | Authentication credentials protected at rest | iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `machine_key_validation_weak`, `machine_key_legacy_validation_weak`; external: `htpasswd_exposed` |
 | Req. 10.2.1 | Audit logs enabled and active | nginx: `missing_access_log`, `missing_error_log`, `error_log_too_restrictive`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
-| Req. 10.2.2 | Audit logs record specific items (user, event type, date/time, success/failure, origin) | nginx: `missing_log_format`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields` (partial: presence and field-coverage validation; storage policy and protection are out of scope) |
+| Req. 10.2.2 | Audit logs record specific items (user, event type, date/time, success/failure, origin) | nginx: `missing_log_format`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields`; lighttpd: `access_log_format_missing_fields` (partial: presence and field-coverage validation; storage policy and protection are out of scope) |
 | Req. 10.5 | Audit log retention and protection | none — `out-of-scope` (filesystem permissions / log rotation outside web server config) |
 | Req. 12 (organizational) | Information security policy / process | `out-of-scope` for `webconf-audit` |
 
@@ -1187,7 +1190,7 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 | УПД.13 | Реализация защищённого удалённого доступа субъектов доступа | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx + apache + lighttpd + iis: same set as in PCI Req. 4.2.1 above; external: same set as in PCI Req. 4.2.1 above |
 | ОПС.3 | Идентификация и аутентификация компонентов информационной системы | nginx: `proxy_missing_source_ip_headers` (partial: `parser-depth` для полной модели upstream-trust) |
 | РСБ.1 | Определение событий безопасности и их регистрация | nginx: `missing_access_log`, `missing_error_log`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`; lighttpd: `access_log_missing`, `error_log_missing`; iis: `logging_not_configured` |
-| РСБ.3 | Сбор, запись и хранение информации о событиях безопасности | nginx: `missing_log_format`, `log_format_missing_fields`, `error_log_too_restrictive`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields`, `log_level_too_restrictive` |
+| РСБ.3 | Сбор, запись и хранение информации о событиях безопасности | nginx: `missing_log_format`, `log_format_missing_fields`, `error_log_too_restrictive`, `proxy_missing_source_ip_headers`; apache: `missing_log_format`, `log_format_missing_fields`, `log_level_too_restrictive`; lighttpd: `access_log_format_missing_fields` |
 | РСБ.7 | Защита информации о событиях безопасности | none — `out-of-scope` (права на лог-файлы / ротация / целостность вне web-server config) |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
 | АНЗ.2 | Контроль установки обновлений ПО | none — `out-of-scope` |
@@ -1235,7 +1238,7 @@ Sources:
 | lighttpd Security wiki — `mod_status` | status endpoint exposure | `lighttpd.mod_status_public` |
 | lighttpd Security wiki — `mod_cgi` | least-functionality / CGI | `lighttpd.mod_cgi_enabled` |
 | lighttpd Security wiki — `url.access-deny` | sensitive-file deny lists | `lighttpd.url_access_deny_missing` |
-| lighttpd `mod_accesslog` documentation | access logging | `lighttpd.access_log_missing` |
+| lighttpd `mod_accesslog` documentation | access logging | `lighttpd.access_log_missing`, `lighttpd.access_log_format_missing_fields` |
 | lighttpd `server.errorlog` documentation | error logging | `lighttpd.error_log_missing` |
 | lighttpd `server.max-connections` documentation | resource limits | `lighttpd.max_connections_missing` |
 | lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing` |
@@ -1346,12 +1349,12 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (68) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (73) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (68) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (69) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Lighttpd local rules (17)
-- [x] IIS local rules (46) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] Lighttpd local rules (21)
+- [x] IIS local rules (47) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates

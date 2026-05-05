@@ -148,7 +148,8 @@ def test_analyze_nginx_config_accepts_cis_policy_control_baseline(
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(
         "http {\n"
-        "    log_format main \"$time_iso8601 $remote_addr $remote_user $request $status $http_user_agent\";\n"
+        "    log_format main \"$time_iso8601 $remote_addr $remote_user $request $status "
+        "$http_user_agent $request_id $http_x_forwarded_for $upstream_response_time\";\n"
         "    server {\n"
         "        listen 80 default_server;\n"
         "        server_name _;\n"
