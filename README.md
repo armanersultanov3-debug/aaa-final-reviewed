@@ -66,11 +66,16 @@ webconf-audit analyze-nginx config.conf --group-repeated
 
 The JSON envelope contains a generation timestamp, a summary, the
 per-target results, the deduplicated findings list, repeated finding groups
-under `finding_groups`, and the issues list.
+under `finding_groups`, standards references under each finding and the
+top-level `standards` summary, and the issues list.
 
 Use `--group-repeated` with text output to collapse repeated findings that
 share the same rule, severity, recommendation, and report grouping cause while
 preserving each exact source location.
+
+Use `--group-by standard` with text output to review findings by mapped
+standards such as CWE, OWASP Top 10, and OWASP ASVS. Findings with no mapped
+standard are grouped under `Unmapped`.
 
 ### CI gating
 
@@ -232,8 +237,8 @@ The catalog currently contains 220 rules:
 ## Reporting
 
 Results are aggregated into a `ReportData` structure with a summary by
-severity, analysis mode, and server type. Two output formatters are
-available:
+severity, analysis mode, server type, and mapped standards. Two output
+formatters are available:
 
 - `TextFormatter` — human-readable command-line output.
 - `JsonFormatter` — machine-readable output suitable for downstream
