@@ -445,6 +445,20 @@ def test_permissions_policy_unsafe_accepts_restrictive_policy():
     assert "universal.permissions_policy_unsafe" not in ids
 
 
+def test_permissions_policy_unsafe_accepts_subdomain_wildcard():
+    ref = _ref()
+    scope = _http_scope(headers=[])
+    scope.security_headers = [
+        NormalizedSecurityHeader(
+            name="permissions-policy",
+            value='geolocation=(self "https://*.example.com")',
+            source=ref,
+        )
+    ]
+    ids = _rule_ids(_config(scope))
+    assert "universal.permissions_policy_unsafe" not in ids
+
+
 def test_unsafe_header_finding_uses_header_source_location():
     header_ref = _ref(line=17)
     scope = _http_scope(headers=[], line=3)

@@ -38,9 +38,10 @@ def permissions_policy_is_safe(value: str | None) -> bool:
     cleaned = _clean_header_value(value)
     if not cleaned:
         return False
-    if "*" in cleaned:
+    directives = _split_permissions_directives(cleaned)
+    if any(_permissions_directive_has_bare_wildcard(directive) for directive in directives):
         return False
-    return any("=" in directive for directive in _split_permissions_directives(cleaned))
+    return any("=" in directive for directive in directives)
 
 
 def x_frame_options_is_safe(value: str | None) -> bool:
@@ -75,6 +76,14 @@ def _split_permissions_directives(value: str) -> list[str]:
         for directive in value.replace(";", ",").split(",")
         if directive.strip()
     ]
+
+
+def _permissions_directive_has_bare_wildcard(directive: str) -> bool:
+    if "=" not in directive:
+        return False
+    _, _, allowlist = directive.partition("=")
+    normalized = allowlist.strip().lower()
+    return normalized in {"*", "'*'", '"*"', "(*)", "('*')", '("*")'}
 
 
 def _is_restrictive_frame_ancestor_token(token: str) -> bool:
