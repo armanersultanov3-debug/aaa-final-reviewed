@@ -202,6 +202,18 @@ def test_weak_ciphers_ignores_disabled_openssl_tokens():
     assert "universal.weak_tls_ciphers" not in ids
 
 
+def test_weak_ciphers_fires_without_forward_secrecy():
+    scope = _http_scope(tls=True, port=443, tls_ciphers="AES256-GCM-SHA384")
+    ids = _rule_ids(_config(scope))
+    assert "universal.weak_tls_ciphers" in ids
+
+
+def test_weak_ciphers_fires_without_aead():
+    scope = _http_scope(tls=True, port=443, tls_ciphers="ECDHE-RSA-AES256-SHA384")
+    ids = _rule_ids(_config(scope))
+    assert "universal.weak_tls_ciphers" in ids
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 4. universal.missing_hsts
 # ═══════════════════════════════════════════════════════════════════════════

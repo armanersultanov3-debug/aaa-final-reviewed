@@ -29,7 +29,7 @@ file.
 
 ## Summary
 
-Total rules: **282**
+Total rules: **283**
 
 | Dimension | Counts |
 | --- | --- |
@@ -63,7 +63,7 @@ matching CIS benchmark item lives in the corresponding server-family table.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `universal.tls_intent_without_config` | high | normalized | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | _see vendor sections_ |
 | `universal.weak_tls_protocol` | medium | normalized | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | _see vendor sections_ |
-| `universal.weak_tls_ciphers` | medium | normalized | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | _see vendor sections_ |
+| `universal.weak_tls_ciphers` | medium | normalized | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: conservative cipher-string posture checks) | _see vendor sections_ |
 | `universal.missing_hsts` | medium | normalized | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | _see vendor sections_ |
 | `universal.missing_x_content_type_options` | low | normalized | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | _see vendor sections_ |
 | `universal.missing_x_frame_options` | low | normalized | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | _see vendor sections_ |
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 67
+Count: 68
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -161,6 +161,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_server_name` | low | ast | - | - | - | - | - |
 | `nginx.missing_ssl_certificate` | low | ast | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `nginx.missing_ssl_certificate_key` | low | ast | - | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
+| `nginx.ssl_ciphers_weak` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: conservative local cipher-string posture checks) | CIS NGINX v3.0.0 §4.1.5 (partial: weak components plus explicit FS / AEAD posture; not full SSL Labs validation) |
 | `nginx.missing_ssl_ciphers` | medium | ast | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.5 (partial: directive presence; does not validate cipher list against the benchmark recommendation) |
 | `nginx.missing_ssl_protocols` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: protocol policy presence only) | CIS NGINX v3.0.0 §4.1.4 (partial: directive presence; weak values handled by `nginx.weak_ssl_protocols`) |
 | `nginx.missing_ssl_prefer_server_ciphers` | low | ast | - | [CWE-757](https://cwe.mitre.org/data/definitions/757.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
@@ -306,7 +307,7 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.1 | `probe-depth` | Current coverage checks named local HTTP server blocks that redirect with `return` to HTTPS; runtime redirect probes can corroborate later. |
 | §4.1.2 | `probe-depth` | Trusted certificate and chain validation is runtime/certificate data, not fully knowable from local `ssl_certificate` paths alone. |
 | §4.1.3 | `out-of-scope` | Private-key permission checks require filesystem metadata, which is outside web-server config / safe external analysis. |
-| §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
+| §4.1.5 | `direct-rule` | Covered by `nginx.missing_ssl_ciphers` plus `nginx.ssl_ciphers_weak` for conservative weak-component / FS / AEAD cipher-string posture; runtime negotiation and full SSL Labs-style validation remain out of scope for local-only analysis. |
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
 | §4.1.9, §4.1.10 | `direct-rule` | Covered by `nginx.ssl_session_timeout_missing_or_invalid` and `nginx.ssl_session_cache_missing` for local `http` / `server` scopes; upstream proxy TLS trust checks need their own benchmark mapping if added later. |
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
@@ -553,7 +554,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
 | §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
-| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, weak cipher markers, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is full benchmark cipher-string validation, forward-secrecy runtime evidence, and certificate-chain probing. |
+| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, conservative weak cipher / FS / AEAD posture, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is runtime negotiation evidence and certificate-chain probing. |
 | §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
 | §7.3 | `out-of-scope` | Private-key protection needs filesystem ownership and permission metadata, which is outside web-server config / safe external analysis. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
@@ -1133,7 +1134,7 @@ sections.
 | 800-52 Rev. 2 section | Topic | Aligned rules |
 | --- | --- | --- |
 | §3.1.1 / §3.1.2 | TLS 1.2 mandatory; TLS 1.3 recommended | universal: `weak_tls_protocol`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`; apache: `ssl_protocol_missing_or_weak`; lighttpd: `ssl_protocol_policy_missing_or_weak`; iis: `schannel_tls12_not_enabled`, `schannel_weak_protocol_enabled`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported` (info) |
-| §3.3.1 | Recommended cipher suites | universal: `weak_tls_ciphers`; nginx: `missing_ssl_ciphers`; apache: `ssl_cipher_suite_missing`, `ssl_cipher_suite_weak`; lighttpd: `weak_ssl_cipher_list`; iis: `schannel_aes128_enabled`, `schannel_aes256_not_enabled`, `ssl_weak_cipher_strength`; external: `weak_cipher_suite` (partial: weak-pattern detection only; full recommended-suite validation is `STD-GAP-014` `probe-depth`) |
+| §3.3.1 | Recommended cipher suites | universal: `weak_tls_ciphers`; nginx: `missing_ssl_ciphers`, `ssl_ciphers_weak`; apache: `ssl_cipher_suite_missing`, `ssl_cipher_suite_weak`; lighttpd: `weak_ssl_cipher_list`; iis: `schannel_aes128_enabled`, `schannel_aes256_not_enabled`, `ssl_weak_cipher_strength`; external: `weak_cipher_suite` (partial: local rules use conservative weak-component / FS / AEAD checks; full runtime recommended-suite validation is `STD-GAP-014` `probe-depth`) |
 | §3.3.2 | Server preference order | nginx: `missing_ssl_prefer_server_ciphers`; apache: `ssl_honor_cipher_order_not_on`; lighttpd: `ssl_honor_cipher_order_missing`; iis: `schannel_cipher_suite_order_not_preferred` |
 | §3.4 | Server certificate validation | external: `certificate_expired`, `certificate_expires_soon`, `tls_certificate_self_signed`, `cert_chain_incomplete`, `cert_san_mismatch`, `cert_chain_length_unusual` (advisory) |
 | §3.5 | Insecure renegotiation disabled | apache: `ssl_insecure_renegotiation_enabled` (partial: Apache only; cross-server `direct-rule` follow-up open) |
@@ -1317,7 +1318,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (67) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (68) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (68) — CWE/OWASP filled; CIS existing-rule reference
   pass complete

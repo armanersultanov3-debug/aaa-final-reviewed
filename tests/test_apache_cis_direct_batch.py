@@ -151,6 +151,46 @@ def test_analyze_apache_config_reports_broad_all_ssl_cipher_suite(
     assert "apache.ssl_cipher_suite_weak" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_reports_cipher_suite_without_forward_secrecy(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(
+            replacements={"cipher_suite": "    SSLCipherSuite AES256-GCM-SHA384"}
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.ssl_cipher_suite_weak"
+    ]
+    assert len(matching) == 1
+    assert "forward secrecy" in matching[0].description
+
+
+def test_analyze_apache_config_reports_cipher_suite_without_aead(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(
+            replacements={
+                "cipher_suite": "    SSLCipherSuite ECDHE-RSA-AES256-SHA384"
+            }
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.ssl_cipher_suite_weak"
+    ]
+    assert len(matching) == 1
+    assert "AEAD" in matching[0].description
+
+
 def test_analyze_apache_config_accepts_strong_ssl_cipher_suite(
     tmp_path: Path,
 ) -> None:

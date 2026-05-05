@@ -64,6 +64,111 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_ssl_protocols_pre
     assert result.findings[0].severity == "medium"
 
 
+def test_analyze_nginx_config_reports_weak_ssl_ciphers(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers RC4-SHA;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    rule_ids = {finding.rule_id for finding in result.findings}
+    assert "nginx.ssl_ciphers_weak" in rule_ids
+    assert "universal.weak_tls_ciphers" not in rule_ids
+
+
+def test_analyze_nginx_config_reports_ssl_ciphers_without_forward_secrecy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_ciphers AES256-GCM-SHA384;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.ssl_ciphers_weak"
+    ]
+    assert len(matching) == 1
+    assert "forward secrecy" in matching[0].description
+    assert matching[0].location is not None
+    assert matching[0].location.line == 2
+
+
+def test_analyze_nginx_config_reports_ssl_ciphers_without_aead(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers ECDHE-RSA-AES256-SHA384;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.ssl_ciphers_weak"
+    ]
+    assert len(matching) == 1
+    assert "AEAD" in matching[0].description
+
+
+def test_analyze_nginx_config_accepts_modern_ssl_ciphers(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.ssl_ciphers_weak"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_does_not_treat_inherited_ssl_protocols_as_tls_intent(
     tmp_path: Path,
 ) -> None:
