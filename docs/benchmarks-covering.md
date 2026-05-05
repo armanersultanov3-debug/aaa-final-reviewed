@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 283-rule inventory plus the rule-level work needed to cover the
+existing 290-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -413,7 +413,7 @@ content.
 | DevSec lighttpd-01 server.tag | `lighttpd.server_tag_not_blank`. |
 | DevSec lighttpd-02 dir-listing | `lighttpd.dir_listing_enabled`. |
 | DevSec lighttpd-03 ssl modes | `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `lighttpd.weak_ssl_cipher_list`, `lighttpd.ssl_honor_cipher_order_missing`. |
-| DevSec lighttpd-05 forbidden methods | none yet — `direct-rule` follow-up. |
+| DevSec lighttpd-05 forbidden methods | `lighttpd.missing_http_method_restrictions`. |
 | lighttpd Security wiki — `mod_status` | `lighttpd.mod_status_public`. |
 | lighttpd Security wiki — `mod_cgi` | `lighttpd.mod_cgi_enabled`. |
 | lighttpd Security wiki — `url.access-deny` | `lighttpd.url_access_deny_missing`. |
@@ -598,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 283 правила (Nginx 68, Apache 68, Lighttpd 17, IIS 46,
+  обновлён до 290 правил (Nginx 70, Apache 69, Lighttpd 20, IIS 47,
   External 73, Universal 11), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -653,13 +653,13 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-027 | OWASP Cheat Sheet Series | covered | P1 | done (2026-05-05) | 3 | ✓ Добавлен консолидированный блок «OWASP Cheat Sheet Series companions» в `docs/rule-coverage.md` (перед `## Standards mapping plan`). Подход topic-grouped, не per-row column: 15 cheat sheets (HTTP Security Response Headers, HSTS, TLS, CSP, CSRF, Session Management, Logging, Authentication, Credential Stuffing Prevention, Clickjacking Defense, Server Headers, Web Service Security, File Upload, Access Control, Error Handling) с aligned rule IDs. Cheat Sheets — living docs, поэтому отдельная колонка не вводится. |
 | STD-GAP-028 | OWASP API Security Top 10 (2023) | covered | P3 | deferred | — | Большая часть out-of-scope для веб-сервера. |
 | STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | done (2026-05-05) | 11 (last) | ✓ Calibration rationale из §11 применён в коде: `nginx.alias_without_trailing_slash`, `nginx.allow_all_with_deny_all` и `nginx.missing_auth_basic_user_file` подняты с `low` до `medium`; keep-low решения для disclosure-only правил сохранены. |
-| STD-GAP-030 | Lighttpd vendor / DevSec lighttpd-baseline | covered | P2 | done (2026-05-05) | 8 | ✓ Добавлен блок «Lighttpd vendor reference mapping» в `docs/rule-coverage.md`. Решение: НЕ переименовывать `CIS / Vendor` колонку и НЕ заполнять её для Lighttpd, а сделать topic-grouped block (как PCI / NIST / ФСТЭК / ISO / Cheat Sheets) — иначе нарушится policy «не выдумывать CIS-бенчмарк, которого нет». DevSec lighttpd-01/02/03/05 + lighttpd Security wiki + per-module docs. `lighttpd-05` (forbidden methods) — единственный DevSec-контрол без правила в реестре, отмечен как `direct-rule` follow-up. |
+| STD-GAP-030 | Lighttpd vendor / DevSec lighttpd-baseline | covered | P2 | done (2026-05-05) | 8 | ✓ Добавлен блок «Lighttpd vendor reference mapping» в `docs/rule-coverage.md`. Решение: НЕ переименовывать `CIS / Vendor` колонку и НЕ заполнять её для Lighttpd, а сделать topic-grouped block (как PCI / NIST / ФСТЭК / ISO / Cheat Sheets) — иначе нарушится policy «не выдумывать CIS-бенчмарк, которого нет». DevSec lighttpd-01/02/03/05 + lighttpd Security wiki + per-module docs; `lighttpd-05` теперь покрыт `lighttpd.missing_http_method_restrictions`. |
 | STD-GAP-031 | ФСТЭК «Меры защиты информации в ГИС» (Приказ № 17) | covered | P2 | done (2026-05-05) | 6 | ✓ Добавлен блок «ФСТЭК "Меры защиты информации в ГИС" mapping» в `docs/rule-coverage.md`. Покрыты ИАФ.1, ИАФ.6, УПД.5, УПД.13, ОПС.3, РСБ.1, РСБ.3, ЗИС.3, ЗИС.20, ЗИС.32; РСБ.7 / АНЗ.2 явно `out-of-scope`. Подход topic-grouped. Хелпер `fstec_mera()` теперь относится к follow-up `STD-GAP-038`. |
 | STD-GAP-032 | ФСТЭК БДУ | direct-rule | P3 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «ФСТЭК БДУ — Банк данных угроз») в `docs/rule-coverage.md`. Покрыты УБИ.044, УБИ.067, УБИ.072, УБИ.121, УБИ.184 со ссылками на `bdu.fstec.ru`. Правила те же, что для ATT&CK: secondary-only, не заменяет primary standard. |
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (283 правила: Nginx 68, Apache 68, Lighttpd 17, IIS 46, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (290 правил: Nginx 70, Apache 69, Lighttpd 20, IIS 47, External 73, Universal 11). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 

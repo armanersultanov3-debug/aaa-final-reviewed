@@ -18,7 +18,7 @@ def test_analyze_nginx_config_reports_missing_ssl_ciphers_when_listen_uses_ssl(
                 "ssl_certificate cert.pem;",
                 "ssl_certificate_key cert.key;",
                 "ssl_protocols TLSv1.2 TLSv1.3;",
-                'add_header Strict-Transport-Security "max-age=31536000";',
+                'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";',
                 include_rate_limits=True,
             )
         ),
@@ -401,7 +401,7 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_present(
                 "ssl_protocols TLSv1.2 TLSv1.3;",
                 "ssl_ciphers HIGH:!aNULL:!MD5;",
                 "ssl_prefer_server_ciphers on;",
-                'add_header Strict-Transport-Security "max-age=31536000";',
+                'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";',
                 include_rate_limits=True,
             )
         ),
@@ -426,7 +426,7 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_inherited
                 "listen 127.0.0.1:443 ssl http2;",
                 "ssl_certificate cert.pem;",
                 "ssl_certificate_key cert.key;",
-                'add_header Strict-Transport-Security "max-age=31536000";',
+                'add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";',
                 include_rate_limits=True,
             ),
         ),

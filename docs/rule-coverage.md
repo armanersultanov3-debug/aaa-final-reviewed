@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **283**
+Total rules: **290**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (199), external (73), universal (11) |
-| Severity | high (13), medium (99), low (160), info (11) |
-| Input kind | ast (138), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
+| Category | local (206), external (73), universal (11) |
+| Severity | high (13), medium (105), low (161), info (11) |
+| Input kind | ast (142), probe (73), effective (52), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -108,7 +108,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 68
+Count: 70
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -123,6 +123,7 @@ the benchmark covers but webconf-audit does not.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `nginx.alias_without_trailing_slash` | medium | ast | - | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
 | `nginx.allow_all_with_deny_all` | medium | ast | - | [CWE-863](https://cwe.mitre.org/data/definitions/863.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - |
+| `nginx.auth_basic_over_http` | medium | ast | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `nginx.autoindex_on` | medium | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
 | `nginx.content_security_policy_missing_reporting_endpoint` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | CIS NGINX v3.0.0 §5.3.2 (partial: CSP reporting endpoint only) |
 | `nginx.content_security_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: baseline directives and unsafe script tokens only) | CIS NGINX v3.0.0 §5.3.2 (partial: baseline policy quality checks) |
@@ -144,6 +145,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_error_log` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: directive presence; does not validate `info` log level) |
 | `nginx.missing_hidden_files_deny` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.5.3 |
 | `nginx.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS NGINX v3.0.0 §4.1.8 (partial: header presence only; does not validate HSTS policy value) |
+| `nginx.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | CIS NGINX v3.0.0 section 4.1.8 (partial: local HSTS policy value check) |
 | `nginx.missing_http2_on_tls_listener` | low | ast | - | - | - | - | - |
 | `nginx.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: scoped to sensitive locations and `limit_except`, not a full approved-method policy) |
 | `nginx.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: named HTTP server blocks only) | CIS NGINX v3.0.0 §4.1.1 (partial: local redirect directive check) |
@@ -247,8 +249,11 @@ Mapping rationale (nginx rules):
   `missing_x_content_type_options`, `missing_permissions_policy` --
   protective response headers; CWE-693 (protection mechanism failure),
   OWASP A05.
-- `missing_hsts_header` -- missing HSTS allows downgrade to HTTP:
-  CWE-319, OWASP A05 (matches the universal HSTS rule's mapping).
+- `auth_basic_over_http` -- Basic authentication on a plain HTTP
+  content-serving scope sends reusable credentials without transport
+  confidentiality: CWE-319, OWASP A02.
+- `missing_hsts_header`, `hsts_header_unsafe` -- missing HSTS or a short /
+  incomplete HSTS policy allows downgrade to HTTP: CWE-319, OWASP A05.
 - `missing_http_to_https_redirect` -- leaving a named HTTP virtual host
   reachable without an HTTPS redirect keeps a cleartext channel available:
   CWE-319, OWASP A02.
@@ -323,7 +328,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 68
+Count: 69
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -343,6 +348,7 @@ rather than to ".htaccess" itself.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `apache.allowoverride_all_in_directory` | medium | ast | - | [CWE-732](https://cwe.mitre.org/data/definitions/732.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.4 (partial: detects broad or inherited `AllowOverride`, not full `AllowOverride None` policy for every directory) |
 | `apache.allowoverride_not_none` | medium | ast | - | [CWE-732](https://cwe.mitre.org/data/definitions/732.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.3/§4.4 (partial: validates OS-root baseline presence and explicit non-`None` Directory scopes) |
+| `apache.basic_auth_over_http` | medium | ast | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `apache.backup_temp_files_not_restricted` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.13 (partial: common backup/temp file patterns only) |
 | `apache.content_security_policy_missing_reporting_endpoint` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
 | `apache.custom_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.3 (partial: `CustomLog` presence only; does not validate log format or destination policy) |
@@ -407,7 +413,7 @@ rather than to ".htaccess" itself.
 | `apache.ssl_session_cache_missing` | low | ast | tls | - | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.12 (partial: `SSLSessionCache` presence / disabled-state check) |
 | `apache.ssl_session_cache_timeout_missing_or_invalid` | low | ast | tls | - | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.12 (partial: `SSLSessionCacheTimeout` presence and maximum value) |
 | `apache.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §7.11 (partial: `Header always` presence on detected TLS scopes) |
-| `apache.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age validation only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.11 (partial: local max-age validation; includeSubDomains/preload remain policy choices) |
+| `apache.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | CIS Apache HTTP Server 2.4 v2.3.0 section 7.11 (partial: local HSTS policy value check; preload remains an operator policy choice) |
 | `apache.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: matching named VirtualHosts only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local redirect directive check) |
 
 Mapping rationale (apache rules):
@@ -525,9 +531,11 @@ Mapping rationale (apache rules):
   missing or weak local TLS protocol, cipher, and negotiation directives
   weaken cryptographic posture: CWE-327 or CWE-757 where applicable,
   OWASP A02.
+- `basic_auth_over_http` -- Basic authentication outside a TLS VirtualHost can
+  expose reusable credentials over cleartext HTTP: CWE-319, OWASP A02.
 - `missing_hsts_header`, `hsts_header_unsafe` -- missing HSTS or a short /
-  invalid `max-age` lets browsers fall back to cleartext HTTP after an active
-  downgrade opportunity: CWE-319, OWASP A05.
+  incomplete HSTS policy lets browsers fall back to cleartext HTTP after an
+  active downgrade opportunity: CWE-319, OWASP A05.
 - `missing_http_to_https_redirect` -- a named HTTP virtual host with a
   matching TLS virtual host but no redirect leaves users exposed to cleartext
   fallback: CWE-319, OWASP A02.
@@ -570,23 +578,25 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 ### Lighttpd (Local)
 
-Count: 17
+Count: 20
 
-Stage 2 step 3 mapping: **complete** for this group. The CIS column is empty
-across the whole group: there is no official *CIS Lighttpd Benchmark*, so we
-do not invent one. Where vendor guidance from
+Stage 2 step 3 mapping: **complete** for this group. There is no official
+*CIS Lighttpd Benchmark*, so CIS-specific claims stay empty. Where vendor or
+DevSec baseline guidance from
 [lighttpd.net wiki](https://redmine.lighttpd.net/projects/lighttpd/wiki)
-applies, it is mentioned in the rationale below rather than in a column
-that would imply a benchmark mapping.
+applies, it is documented as substitute vendor guidance rather than an
+official CIS mapping.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `lighttpd.access_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
+| `lighttpd.basic_auth_over_http` | medium | effective | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.dir_listing_enabled` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
 | `lighttpd.error_log_missing` | medium | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.max_connections_missing` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
 | `lighttpd.max_request_size_missing` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
 | `lighttpd.content_security_policy_missing_reporting_endpoint` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
+| `lighttpd.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | DevSec lighttpd-baseline lighttpd-05 (partial: explicit dangerous-method deny policy signal) |
 | `lighttpd.missing_strict_transport_security` | medium | effective | headers | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
 | `lighttpd.missing_x_content_type_options` | medium | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | - |
 | `lighttpd.mod_cgi_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
@@ -596,6 +606,7 @@ that would imply a benchmark mapping.
 | `lighttpd.ssl_honor_cipher_order_missing` | medium | effective | tls | [CWE-757](https://cwe.mitre.org/data/definitions/757.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - |
 | `lighttpd.ssl_pemfile_missing` | high | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.ssl_protocol_policy_missing_or_weak` | medium | effective | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: local protocol policy only) | - |
+| `lighttpd.strict_transport_security_unsafe` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | - |
 | `lighttpd.url_access_deny_missing` | medium | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.weak_ssl_cipher_list` | high | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | - |
 
@@ -614,9 +625,15 @@ Mapping rationale (lighttpd rules):
   We leave the OWASP cell empty: denial-of-service hardening does not have
   a clean mapping in the 2021 Top 10, and forcing it under A05 would
   overstretch the category.
-- `missing_strict_transport_security` -- without HSTS clients can be
-  downgraded to plaintext (CWE-319). Tracked as A05 (hardening header
-  misconfiguration), matching the universal HSTS rule's mapping.
+- `basic_auth_over_http` -- Basic authentication without SSL can expose
+  reusable credentials over cleartext HTTP: CWE-319, OWASP A02.
+- `missing_http_method_restrictions` -- no explicit dangerous-method deny
+  policy can leave TRACE, PUT, DELETE, CONNECT, PATCH, or WebDAV-like methods
+  reachable: CWE-650, OWASP A05.
+- `missing_strict_transport_security`,
+  `strict_transport_security_unsafe` -- without HSTS, or with a short /
+  incomplete HSTS policy, clients can be downgraded to plaintext (CWE-319).
+  Tracked as A05 (hardening header misconfiguration), matching the universal HSTS rule's mapping.
 - `missing_x_content_type_options` -- missing protective response header:
   CWE-693 (protection mechanism failure), OWASP A05.
 - `mod_cgi_enabled` -- enabling `mod_cgi` is not a vulnerability per se, it
@@ -649,7 +666,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 46
+Count: 47
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -675,6 +692,7 @@ archive PDFs remain historical context only.
 | `iis.logging_not_configured` | medium | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §5.2 (partial: rule checks logging present/enabled, not the full advanced logging field set) |
 | `iis.max_allowed_content_length_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.1 (partial: requires a positive limit but does not validate the benchmark size) |
 | `iis.missing_hsts_header` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Microsoft IIS 10 v1.2.1 §7.1 (partial: header presence only) |
+| `iis.hsts_header_unsafe` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | CIS Microsoft IIS 10 v1.2.1 section 7.1 (partial: local HSTS policy value check) |
 | `iis.forms_auth_require_ssl_missing` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS Microsoft IIS 10 v1.2.1 §2.3 |
 | `iis.schannel_tls12_not_enabled` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Microsoft IIS 10 v1.2.1 §7.6 (partial: SChannel registry/export evidence only) |
 | `iis.schannel_weak_protocol_enabled` | medium | mixed | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Microsoft IIS 10 v1.2.1 §7.1-§7.5 (partial: SChannel registry/export evidence only) |
@@ -742,7 +760,8 @@ Mapping rationale (iis rules):
 - `max_allowed_content_length_missing` -- no `maxAllowedContentLength`
   ceiling lets a client send arbitrarily large bodies: CWE-770. OWASP cell
   empty (no clean DoS-hardening home in the 2021 Top 10).
-- `missing_hsts_header` -- matches the universal HSTS rule: CWE-319,
+- `missing_hsts_header`, `hsts_header_unsafe` -- matches the universal HSTS
+  rule family and flags absent or incomplete local HSTS policy: CWE-319,
   OWASP A05 (misconfig).
 - `forms_auth_require_ssl_missing` -- `<forms requireSSL="false">` lets the
   authentication ticket cookie travel in cleartext: CWE-319, OWASP A02.
@@ -1057,7 +1076,7 @@ signal supports more than one recommendation.
 | Cheat Sheet | Topic | Aligned rules |
 | --- | --- | --- |
 | [HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) | response-header hardening (catch-all) | universal: `missing_hsts`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`; nginx: `missing_*_header` family, `content_security_policy_unsafe`, `referrer_policy_unsafe`; apache: `missing_*_header` family, `*_unsafe` family, `htaccess_disables_security_headers`; lighttpd: `missing_strict_transport_security`, `missing_x_content_type_options`; iis: `missing_hsts_header`, `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`; external: all `external.*_missing` / `external.*_invalid` header rules, `external.content_security_policy_*`, `external.coep_missing`, `external.coop_missing`, `external.corp_missing`, `external.permissions_policy_*`, `external.referrer_policy_*` |
-| [HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html) | HSTS specifics | universal: `missing_hsts`; nginx: `missing_hsts_header`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`; iis: `missing_hsts_header`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
+| [HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html) | HSTS specifics | universal: `missing_hsts`; nginx: `missing_hsts_header`, `hsts_header_unsafe`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`, `strict_transport_security_unsafe`; iis: `missing_hsts_header`, `hsts_header_unsafe`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
 | [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) | TLS configuration | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `ssl_session_cache_missing`, `ssl_session_timeout_missing_or_invalid`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http_to_https_redirect`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `ssl_session_cache_missing`, `ssl_session_cache_timeout_missing_or_invalid`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported`, `weak_cipher_suite`, `https_not_available`, `http_not_redirected_to_https`, `certificate_expired`, `certificate_expires_soon`, `cert_chain_incomplete`, `cert_chain_length_unusual`, `cert_san_mismatch`, `tls_certificate_self_signed` |
 | [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
 | [Cross-Site Request Forgery Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | CSRF / SameSite cookie posture | external: `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
@@ -1100,7 +1119,7 @@ requirement directly do not need a partial annotation.
 | Req. 2.2.1 | Configuration standards developed | catch-all for all hardening rules across `universal.*`, `nginx.*`, `apache.*`, `lighttpd.*`, `iis.*`, and `external.*` |
 | Req. 2.2.5 | Insecure services / protocols / daemons disabled | nginx: rules covered under Req. 2.2.6 below; apache: `trace_enable_not_off`, `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`, `mod_status_public`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled`; external: `trace_method_allowed`, `trace_method_exposed_via_options`, `dangerous_http_methods_enabled`, `webdav_methods_exposed`, `allow_header_dangerous_methods`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`, `nginx_status_exposed`, `server_status_exposed`, `server_info_exposed` |
 | Req. 2.2.6 | System security parameters configured to prevent misuse | nginx: `server_tokens_on`; apache: `server_tokens_not_prod`, `server_signature_not_off`, `server_status_exposed`, `server_info_exposed`, `file_etag_inodes`; lighttpd: `server_tag_not_blank`; iis: `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`, `http_runtime_version_header_enabled`, `http_errors_detailed`, `custom_errors_off`, `asp_script_error_sent_to_browser`, `deployment_retail_not_enabled`, `compilation_debug_enabled`, `trace_enabled`; external: `phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `git_metadata_exposed`, `svn_metadata_exposed`, `web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `external.iis.detailed_error_page`, `wordpress_admin_panel_exposed`, all `*.version_disclosed_in_server_header`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`, `external.nginx.default_welcome_page` |
-| Req. 4.2.1 | Strong cryptography for transmissions over open public networks | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `missing_hsts_header`, `missing_http_to_https_redirect`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `missing_hsts_header`, `hsts_header_unsafe`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`, `missing_strict_transport_security`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `missing_hsts_header`, `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; external: `https_not_available`, `http_not_redirected_to_https`, `tls_1_0_supported`, `tls_1_1_supported`, `weak_cipher_suite`, `hsts_*` family, `cert_*` family, `certificate_*` family, `tls_certificate_self_signed` |
+| Req. 4.2.1 | Strong cryptography for transmissions over open public networks | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `missing_hsts_header`, `missing_http_to_https_redirect`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `missing_hsts_header`, `hsts_header_unsafe`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`, `missing_strict_transport_security`, `strict_transport_security_unsafe`, `basic_auth_over_http`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `missing_hsts_header`, `hsts_header_unsafe`, `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; external: `https_not_available`, `http_not_redirected_to_https`, `tls_1_0_supported`, `tls_1_1_supported`, `weak_cipher_suite`, `hsts_*` family, `cert_*` family, `certificate_*` family, `tls_certificate_self_signed` |
 | Req. 6.2.4 | Common attack vectors / hardening for bespoke and custom software | nginx: `executable_scripts_allowed_in_uploads`, `missing_allowed_methods_restriction_for_uploads`; apache: `htaccess_enables_cgi`, `htaccess_enables_directory_listing`, `htaccess_disables_security_headers`, `htaccess_weakens_security`, `htaccess_contains_security_directive`, `htaccess_rewrite_without_limit`, `htaccess_auth_without_require`; iis: `request_filtering_*` family, `file_extensions_allow_unlisted`, `isapi_cgi_restrictions_allow_unlisted`, `handler_write_script_execute_enabled`, `cgi_handler_enabled` |
 | Req. 6.4.3 | Public-facing web application — payment-page scripts integrity (CSP / SRI surface) | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` (partial: presence and unsafe-token coverage; SRI / nonce-hash policy is `probe-depth` — see `STD-GAP-013` / `STD-GAP-014`) |
 | Req. 8.3.1 | Strong authentication for users / administrators | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users`, `forms_auth_require_ssl_missing`; external: `htpasswd_exposed` |
@@ -1144,7 +1163,7 @@ sections.
 | §3.5 | Insecure renegotiation disabled | apache: `ssl_insecure_renegotiation_enabled` (partial: Apache only; cross-server `direct-rule` follow-up open) |
 | §3.6 | TLS compression disabled | apache: `ssl_compression_enabled` (partial: Apache only) |
 | §4.2 / §4.3 (OCSP stapling) | Stapling enabled with valid resolver / verify | nginx: `ssl_stapling_disabled`, `ssl_stapling_missing_resolver`, `ssl_stapling_without_verify`; apache: `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing` |
-| §4.2.4 (HSTS) | HSTS strongly recommended | universal: `missing_hsts`; nginx: `missing_hsts_header`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`; iis: `missing_hsts_header`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
+| §4.2.4 (HSTS) | HSTS strongly recommended | universal: `missing_hsts`; nginx: `missing_hsts_header`, `hsts_header_unsafe`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`, `strict_transport_security_unsafe`; iis: `missing_hsts_header`, `hsts_header_unsafe`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
 | Top-level "no plaintext fallback" | HTTP→HTTPS / TLS-required posture | universal: `tls_intent_without_config`; nginx: `missing_ssl_certificate`, `missing_ssl_certificate_key`, `missing_http_to_https_redirect`; apache: `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`; iis: `ssl_not_required`, `basic_auth_without_ssl`, `forms_auth_require_ssl_missing`; external: `https_not_available`, `http_not_redirected_to_https` |
 
 ## ФСТЭК «Меры защиты информации в ГИС» mapping
@@ -1207,7 +1226,7 @@ Sources:
 | DevSec lighttpd-baseline `lighttpd-01` (server.tag) | server identification removal | `lighttpd.server_tag_not_blank` |
 | DevSec lighttpd-baseline `lighttpd-02` (dir-listing) | directory listing disabled | `lighttpd.dir_listing_enabled` |
 | DevSec lighttpd-baseline `lighttpd-03` (ssl modes) | TLS configuration baseline | `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `lighttpd.weak_ssl_cipher_list`, `lighttpd.ssl_honor_cipher_order_missing` |
-| DevSec lighttpd-baseline `lighttpd-05` (forbidden methods) | HTTP method allowlist | none yet — `direct-rule` follow-up: cross-server method allowlist for Lighttpd analogous to existing Nginx / Apache rules |
+| DevSec lighttpd-baseline `lighttpd-05` (forbidden methods) | HTTP method allowlist | `lighttpd.missing_http_method_restrictions` |
 | lighttpd Security wiki — `mod_status` | status endpoint exposure | `lighttpd.mod_status_public` |
 | lighttpd Security wiki — `mod_cgi` | least-functionality / CGI | `lighttpd.mod_cgi_enabled` |
 | lighttpd Security wiki — `url.access-deny` | sensitive-file deny lists | `lighttpd.url_access_deny_missing` |
@@ -1215,7 +1234,7 @@ Sources:
 | lighttpd `server.errorlog` documentation | error logging | `lighttpd.error_log_missing` |
 | lighttpd `server.max-connections` documentation | resource limits | `lighttpd.max_connections_missing` |
 | lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing` |
-| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.missing_x_content_type_options` |
+| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `lighttpd.missing_x_content_type_options` |
 
 Notes:
 

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import re
-
+from webconf_audit.hsts_policy import hsts_policy_reason
 from webconf_audit.local.apache.parser import ApacheConfigAst, ApacheSourceSpan
 from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
 from webconf_audit.local.apache.rules.security_header_utils import (
@@ -15,7 +14,6 @@ from webconf_audit.rule_registry import rule
 MISSING_RULE_ID = "apache.missing_hsts_header"
 UNSAFE_RULE_ID = "apache.hsts_header_unsafe"
 HEADER_NAME = "Strict-Transport-Security"
-MIN_HSTS_MAX_AGE = 31_536_000
 ScopeKey = tuple[str, str | None, int | None]
 
 
@@ -153,7 +151,7 @@ def _unsafe_hsts_setting(
         effective_value = _effective_static_value(settings)
         if effective_value is None:
             continue
-        reason = _hsts_policy_reason(effective_value)
+        reason = hsts_policy_reason(effective_value)
         if reason is None:
             continue
         return _last_setting(settings), effective_value, reason
@@ -169,29 +167,6 @@ def _effective_static_value(settings: list[ApacheHeaderSetting]) -> str | None:
 
 def _last_setting(settings: list[ApacheHeaderSetting]) -> ApacheHeaderSetting:
     return max(settings, key=lambda setting: setting.apply_index)
-
-
-def _hsts_policy_reason(value: str) -> str | None:
-    directives = _hsts_directives(value)
-    max_age = directives.get("max-age")
-    if max_age is None:
-        return "missing max-age directive"
-    if not re.fullmatch(r"\d+", max_age):
-        return "max-age is not a positive integer"
-    if int(max_age) < MIN_HSTS_MAX_AGE:
-        return f"max-age is below {MIN_HSTS_MAX_AGE} seconds"
-    return None
-
-
-def _hsts_directives(value: str) -> dict[str, str | None]:
-    directives: dict[str, str | None] = {}
-    for part in value.strip().strip('"').strip("'").split(";"):
-        item = part.strip()
-        if not item:
-            continue
-        name, separator, raw_value = item.partition("=")
-        directives[name.strip().lower()] = raw_value.strip() if separator else None
-    return directives
 
 
 def _scope_location(scope: ApacheHeaderScope) -> SourceLocation | None:
