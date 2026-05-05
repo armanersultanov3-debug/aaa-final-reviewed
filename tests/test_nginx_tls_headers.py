@@ -200,6 +200,45 @@ def test_analyze_nginx_config_reports_ssl_conf_command_tls_compression(
     assert findings[0].location.line == 2
 
 
+def test_analyze_nginx_config_treats_local_ssl_conf_command_as_inherited_override(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_conf_command Options Compression;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_conf_command Curves X25519:P-256;\n"
+        "    }\n"
+        "    server {\n"
+        "        listen 8443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_conf_command Curves X25519:P-256;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.ssl_conf_command_tls_compression_enabled"
+    ]
+    assert findings == []
+
+
 def test_analyze_nginx_config_accepts_disabled_ssl_conf_command_compression(
     tmp_path: Path,
 ) -> None:

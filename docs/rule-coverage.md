@@ -1372,11 +1372,11 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (13)
-- [x] Nginx local rules (75) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (77) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (70) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Lighttpd local rules (21)
+- [x] Lighttpd local rules (23)
 - [x] IIS local rules (47) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)

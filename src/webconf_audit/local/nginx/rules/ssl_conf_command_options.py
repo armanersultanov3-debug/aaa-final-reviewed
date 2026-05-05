@@ -181,9 +181,6 @@ def _inherited_directive_id(
     inherited_directives: dict[str, list[DirectiveNode]],
     directive: DirectiveNode,
 ) -> int | None:
-    server_directives = effective_child_directives(server_block, "ssl_conf_command", {})
-    if server_directives:
-        return None
     if not any(
         candidate is directive
         for candidate in inherited_directives.get("ssl_conf_command", [])
