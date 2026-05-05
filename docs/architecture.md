@@ -215,12 +215,12 @@ Current catalog: 293 rules total.
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 63 |
-| Local — Apache | 65 |
-| Local — Lighttpd | 15 |
-| Local — IIS | 44 |
+| Local — Nginx | 73 |
+| Local — Apache | 69 |
+| Local — Lighttpd | 20 |
+| Local — IIS | 47 |
 | Universal (local) | 11 |
-| External | 72 |
+| External | 73 |
 
 ## 9. Reporting model
 

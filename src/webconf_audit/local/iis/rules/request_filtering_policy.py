@@ -90,7 +90,6 @@ def find_file_extensions_allow_unlisted(
             _effective_file_extensions_finding(section)
             for section in effective_config.all_sections
             if section.section_path_suffix == "/fileExtensions"
-            and not is_pure_inheritance(section)
             and _allows_unlisted_by_default(section.attributes.get("allowUnlisted"))
         ]
         findings.extend(

@@ -154,6 +154,46 @@ def test_iis_reports_file_extensions_default_allow_unlisted(tmp_path: Path) -> N
     assert "iis.file_extensions_allow_unlisted" in _rule_ids(result)
 
 
+def test_iis_reports_inherited_file_extensions_default_at_location(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+                <fileExtensions />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+    <location path="private">
+        <system.webServer>
+            <security>
+                <requestFiltering removeServerHeader="true" />
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert isinstance(result, IISAnalysisResult)
+    assert result.issues == []
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "iis.file_extensions_allow_unlisted"
+    ]
+    assert any("private" in finding.description for finding in findings)
+
+
 def test_iis_accepts_complete_request_filtering_policy(tmp_path: Path) -> None:
     config_path = tmp_path / "web.config"
     config_path.write_text(
