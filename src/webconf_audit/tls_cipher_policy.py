@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 
 _TOKEN_SPLIT_RE = re.compile(r"[:\s,]+")
+_TOKEN_PART_SPLIT_RE = re.compile(r"[-_+]")
 _DISABLED_PREFIXES = ("!", "-")
 _BROAD_SELECTOR_TOKENS = frozenset(
     {
@@ -107,14 +108,14 @@ def _weak_markers(tokens: list[str]) -> set[str]:
 
 
 def _contains_standalone_des(token: str) -> bool:
-    parts = re.split(r"[-_]", token)
+    parts = _TOKEN_PART_SPLIT_RE.split(token)
     return "DES" in parts
 
 
 def _is_concrete_cipher_token(token: str) -> bool:
     if token in _BROAD_SELECTOR_TOKENS or token in _WEAK_EXACT_TOKENS:
         return False
-    return "-" in token or "_" in token
+    return any(separator in token for separator in ("-", "_", "+"))
 
 
 def _is_tls13_cipher(token: str) -> bool:
@@ -126,7 +127,8 @@ def _has_forward_secrecy(token: str) -> bool:
         return True
     if any(marker in token for marker in ("ANULL", "AECDH", "ADH")):
         return False
-    return any(part in re.split(r"[-_]", token) for part in ("ECDHE", "DHE", "EDH"))
+    parts = _TOKEN_PART_SPLIT_RE.split(token)
+    return any(part in parts for part in ("ECDHE", "EECDH", "DHE", "EDH"))
 
 
 def _has_aead(token: str) -> bool:

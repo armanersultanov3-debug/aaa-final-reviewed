@@ -53,6 +53,31 @@ def test_cipher_policy_accepts_modern_tls12_suite() -> None:
     assert not assessment.has_issue
 
 
+def test_cipher_policy_accepts_openssl_plus_and_selector_with_forward_secrecy() -> None:
+    assessment = analyze_cipher_policy("EECDH+AESGCM:EDH+AESGCM")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert not assessment.missing_aead
+    assert not assessment.has_issue
+
+
+def test_cipher_policy_reports_openssl_plus_selector_without_aead() -> None:
+    assessment = analyze_cipher_policy("AES256+EECDH")
+
+    assert assessment.weak_markers == ()
+    assert not assessment.missing_forward_secrecy
+    assert assessment.missing_aead
+    assert assessment.has_issue
+
+
+def test_cipher_policy_reports_standalone_des_in_openssl_plus_selector() -> None:
+    assessment = analyze_cipher_policy("DES+SHA")
+
+    assert assessment.weak_markers == ("DES",)
+    assert assessment.has_issue
+
+
 def test_cipher_policy_handles_empty_string() -> None:
     assessment = analyze_cipher_policy("")
 

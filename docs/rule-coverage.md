@@ -78,9 +78,13 @@ Mapping rationale (universal rules):
 - `tls_intent_without_config` -- a listener advertises HTTPS but no TLS is
   configured, so traffic would travel in cleartext: CWE-319, OWASP A02
   (cryptographic failures).
-- `weak_tls_protocol`, `weak_tls_ciphers` -- enabling SSLv2/SSLv3/TLSv1.0/1.1
-  or RC4/DES/3DES/MD5 cipher suites is the textbook case of CWE-327
-  (broken / risky cryptographic algorithm), which OWASP groups under A02.
+- `weak_tls_protocol`, `universal.weak_tls_ciphers` -- enabling
+  SSLv2/SSLv3/TLSv1.0/1.1 or weak TLS cipher components is the textbook case
+  of CWE-327 (broken / risky cryptographic algorithm), which OWASP groups under
+  A02. The cipher rule is a conservative posture check, not just a
+  RC4/DES/3DES/MD5 substring match: it also flags concrete cipher-suite
+  selectors without forward secrecy or AEAD while deferring full runtime
+  negotiation and vendor-specific policy depth to the server sections.
 - `missing_hsts` -- without HSTS a site can be downgraded to plain HTTP and
   expose credentials in cleartext (CWE-319). Practitioners normally treat the
   missing header itself as a misconfiguration (A05) rather than a primary
