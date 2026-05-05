@@ -11,12 +11,13 @@ from webconf_audit.local.lighttpd.effective import (
 )
 from webconf_audit.local.lighttpd.parser import (
     LighttpdAssignmentNode,
+    LighttpdAstNode,
+    LighttpdBlockNode,
     LighttpdConfigAst,
 )
 from webconf_audit.local.lighttpd.rules.rule_utils import (
     default_location,
     effective_directive_for_scope,
-    iter_all_nodes,
     normalize_value,
 )
 from webconf_audit.models import Finding, SourceLocation
@@ -98,18 +99,52 @@ def _finding_from_scope(
 
 
 def _findings_from_ast(config_ast: LighttpdConfigAst) -> list[Finding]:
-    ssl_enabled = False
-    auth: LighttpdAssignmentNode | None = None
-    for node in iter_all_nodes(config_ast):
-        if not isinstance(node, LighttpdAssignmentNode):
+    return _findings_from_ast_nodes(
+        config_ast,
+        config_ast.nodes,
+        inherited_ssl_enabled=False,
+    )
+
+
+def _findings_from_ast_nodes(
+    config_ast: LighttpdConfigAst,
+    nodes: list[LighttpdAstNode],
+    *,
+    inherited_ssl_enabled: bool,
+) -> list[Finding]:
+    ssl_enabled = _scope_ssl_enabled(nodes, inherited_ssl_enabled)
+    findings: list[Finding] = []
+    for node in nodes:
+        if isinstance(node, LighttpdAssignmentNode):
+            if (
+                node.name == "auth.require"
+                and _uses_basic_auth(node.value)
+                and not ssl_enabled
+            ):
+                findings.append(
+                    _finding(config_ast, node.source.file_path, node.source.line)
+                )
             continue
-        if node.name == "ssl.engine":
+        if isinstance(node, LighttpdBlockNode):
+            findings.extend(
+                _findings_from_ast_nodes(
+                    config_ast,
+                    node.children,
+                    inherited_ssl_enabled=ssl_enabled,
+                )
+            )
+    return findings
+
+
+def _scope_ssl_enabled(
+    nodes: list[LighttpdAstNode],
+    inherited_ssl_enabled: bool,
+) -> bool:
+    ssl_enabled = inherited_ssl_enabled
+    for node in nodes:
+        if isinstance(node, LighttpdAssignmentNode) and node.name == "ssl.engine":
             ssl_enabled = normalize_value(node.value) == "enable"
-        elif node.name == "auth.require" and _uses_basic_auth(node.value):
-            auth = node
-    if auth is None or ssl_enabled:
-        return []
-    return [_finding(config_ast, auth.source.file_path, auth.source.line)]
+    return ssl_enabled
 
 
 def _uses_basic_auth(value: str) -> bool:

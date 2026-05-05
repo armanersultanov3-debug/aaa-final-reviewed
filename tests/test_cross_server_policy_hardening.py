@@ -3,7 +3,11 @@ from __future__ import annotations
 from tests.apache_helpers import Path, analyze_apache_config
 from tests.iis_helpers import analyze_iis_config
 from tests.lighttpd_helpers import analyze_lighttpd_config
+from tests.lighttpd_helpers import parse_lighttpd_config
 from tests.nginx_helpers import analyze_nginx_config
+from webconf_audit.local.lighttpd.rules.basic_auth_over_http import (
+    find_basic_auth_over_http,
+)
 
 
 def _rule_ids(result) -> set[str]:
@@ -235,6 +239,21 @@ def test_lighttpd_inherits_basic_auth_for_scope_with_ssl_disabled(
     result = analyze_lighttpd_config(str(config_path))
 
     assert "lighttpd.basic_auth_over_http" in _rule_ids(result)
+
+
+def test_lighttpd_ast_fallback_keeps_ssl_scope_local() -> None:
+    ast = parse_lighttpd_config(
+        '$HTTP["host"] == "secure.example.test" {\n'
+        '    ssl.engine = "enable"\n'
+        '}\n'
+        'auth.require = ( "/private" => ( "method" => "basic", '
+        '"realm" => "private", "require" => "valid-user" ) )\n',
+        file_path="lighttpd.conf",
+    )
+
+    findings = find_basic_auth_over_http(ast)
+
+    assert any(finding.rule_id == "lighttpd.basic_auth_over_http" for finding in findings)
 
 
 def test_nginx_reports_weak_hsts_policy(tmp_path: Path) -> None:
