@@ -159,6 +159,22 @@ def test_lighttpd_reports_basic_auth_without_ssl(tmp_path: Path) -> None:
     assert "lighttpd.basic_auth_over_http" in _rule_ids(result)
 
 
+def test_lighttpd_reports_compact_basic_auth_without_ssl(tmp_path: Path) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'server.modules = ( "mod_auth" )\n'
+        'auth.require = ( "/private" => ( "method"=>"basic", '
+        '"realm"=>"private", "require"=>"valid-user" ) )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.basic_auth_over_http" in _rule_ids(result)
+
+
 def test_lighttpd_does_not_report_basic_auth_when_ssl_enabled(tmp_path: Path) -> None:
     config_path = tmp_path / "lighttpd.conf"
     config_path.write_text(
@@ -268,6 +284,28 @@ def test_apache_reports_hsts_without_include_subdomains(tmp_path: Path) -> None:
     result = analyze_apache_config(str(config_path))
 
     assert "apache.hsts_header_unsafe" in _rule_ids(result)
+    assert "apache.missing_hsts_header" not in _rule_ids(result)
+
+
+def test_apache_accepts_hsts_with_include_subdomains(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 443 https\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName secure.example.test\n"
+        "    SSLEngine on\n"
+        "    SSLCertificateFile cert.pem\n"
+        "    SSLCertificateKeyFile cert.key\n"
+        "    Header always set Strict-Transport-Security "
+        '"max-age=31536000; includeSubDomains"\n'
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.hsts_header_unsafe" not in _rule_ids(result)
+    assert "apache.missing_hsts_header" not in _rule_ids(result)
 
 
 def test_lighttpd_reports_weak_hsts_policy(tmp_path: Path) -> None:

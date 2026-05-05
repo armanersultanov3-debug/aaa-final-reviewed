@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from webconf_audit.finding_factory import finding_from_rule
 from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext
 from webconf_audit.local.lighttpd.effective import (
@@ -21,6 +23,10 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "lighttpd.basic_auth_over_http"
+_BASIC_AUTH_RE = re.compile(
+    r"""["']method["']\s*=>\s*["']basic["']""",
+    re.IGNORECASE,
+)
 
 
 @rule(
@@ -105,8 +111,7 @@ def _findings_from_ast(config_ast: LighttpdConfigAst) -> list[Finding]:
 
 
 def _uses_basic_auth(value: str) -> bool:
-    lowered = value.lower()
-    return '"method" => "basic"' in lowered or "'method' => 'basic'" in lowered
+    return _BASIC_AUTH_RE.search(value) is not None
 
 
 def _ssl_enabled(directive: LighttpdEffectiveDirective | None) -> bool:
