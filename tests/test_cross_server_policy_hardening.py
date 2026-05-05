@@ -214,6 +214,29 @@ def test_lighttpd_inherits_ssl_for_conditional_basic_auth(
     assert "lighttpd.basic_auth_over_http" not in _rule_ids(result)
 
 
+def test_lighttpd_inherits_basic_auth_for_scope_with_ssl_disabled(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'server.modules = ( "mod_auth" )\n'
+        'ssl.engine = "enable"\n'
+        'ssl.pemfile = "/etc/lighttpd/cert.pem"\n'
+        'auth.require = ( "/private" => ( "method" => "basic", '
+        '"realm" => "private", "require" => "valid-user" ) )\n'
+        '$HTTP["host"] == "plain.example.test" {\n'
+        '    ssl.engine = "disable"\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.basic_auth_over_http" in _rule_ids(result)
+
+
 def test_nginx_reports_weak_hsts_policy(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text(

@@ -86,11 +86,13 @@ def _finding_from_scope(
     scope: LighttpdConditionalScope,
     config_ast: LighttpdConfigAst,
 ) -> Finding | None:
-    auth = scope.directives.get("auth.require")
+    auth = effective_directive_for_scope(effective_config, scope, "auth.require")
     if auth is None or not _uses_basic_auth(auth.value):
         return None
     ssl_engine = effective_directive_for_scope(effective_config, scope, "ssl.engine")
     if _ssl_enabled(ssl_engine):
+        return None
+    if "auth.require" not in scope.directives and "ssl.engine" not in scope.directives:
         return None
     return _finding(config_ast, auth.source.file_path, auth.source.line)
 
