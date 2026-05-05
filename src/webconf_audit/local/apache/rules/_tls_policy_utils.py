@@ -34,6 +34,7 @@ TLS_DIRECTIVE_NAMES = frozenset(
         "sslstaplingcache",
         "sslstaplingreturnrespondererrors",
         "sslsessioncache",
+        "sslsessioncachetimeout",
     }
 )
 
