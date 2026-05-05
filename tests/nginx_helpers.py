@@ -30,6 +30,8 @@ def _safe_server_block(
         "keepalive_timeout 10s;",
         "ssl_stapling on;",
         "ssl_stapling_verify on;",
+        "ssl_session_cache shared:SSL:10m;",
+        "ssl_session_timeout 10m;",
         "resolver 1.1.1.1;",
         "access_log /var/log/nginx/access.log;",
         "error_log /var/log/nginx/error.log warn;",

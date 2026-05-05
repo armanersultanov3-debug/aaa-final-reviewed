@@ -7,6 +7,7 @@ _NEW_TLS_RULE_IDS = {
     "apache.ssl_insecure_renegotiation_enabled",
     "apache.ssl_protocol_missing_or_weak",
     "apache.ssl_session_cache_missing",
+    "apache.ssl_session_cache_timeout_missing_or_invalid",
     "apache.ssl_stapling_cache_missing",
     "apache.ssl_use_stapling_not_on",
 }
@@ -14,6 +15,7 @@ _NEW_TLS_RULE_IDS = {
 _SAFE_TLS_LINES = {
     "listen": "Listen 127.0.0.1:443 https",
     "session_cache": "SSLSessionCache shmcb:logs/ssl_scache(512000)",
+    "session_cache_timeout": "SSLSessionCacheTimeout 300",
     "stapling_cache": "SSLStaplingCache shmcb:logs/ssl_stapling(32768)",
     "vhost_open": "<VirtualHost *:443>",
     "server_name": "    ServerName secure.test",
@@ -235,6 +237,46 @@ def test_analyze_apache_config_reports_disabled_ssl_session_cache_nonenotnull(
     )
 
     assert "apache.ssl_session_cache_missing" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_ssl_session_cache_timeout(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(omit={"session_cache_timeout"}),
+    )
+
+    assert "apache.ssl_session_cache_timeout_missing_or_invalid" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_high_ssl_session_cache_timeout(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(
+            replacements={"session_cache_timeout": "SSLSessionCacheTimeout 600"}
+        ),
+    )
+
+    assert "apache.ssl_session_cache_timeout_missing_or_invalid" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_applies_global_ssl_session_cache_timeout_to_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_tls_config(
+            omit={"session_cache_timeout"},
+            extra_lines=["SSLSessionCacheTimeout 300"],
+        ),
+    )
+
+    assert "apache.ssl_session_cache_timeout_missing_or_invalid" not in _rule_ids(
+        findings
+    )
 
 
 def test_analyze_apache_config_applies_global_tls_policy_to_vhost(

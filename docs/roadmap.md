@@ -213,7 +213,8 @@ Planned checks:
   `SSLProtocol`.
 - TLS session settings, for example Nginx `ssl_session_cache` /
   `ssl_session_timeout` or Apache `SSLSessionCache` /
-  `SSLSessionCacheTimeout`.
+  `SSLSessionCacheTimeout`. Status: covered for Nginx and Apache local
+  analysis with inherited/effective-scope regression tests.
 - OCSP stapling not enabled at all, complementing existing checks for
   incomplete stapling configuration.
 - Default TLS virtual host behavior, such as Nginx `listen 443 default_server
@@ -224,8 +225,8 @@ Server notes:
 
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
-| Nginx | Active backlog | CIS/standards expansion should add targeted local rules with precision fixtures. | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS hosts. |
-| Apache | Active backlog | Existing Apache TLS tests cover several policies; remaining gaps should be mapped against CIS/ASVS. | High-value local coverage for protocol policy, sessions, OCSP stapling, and default TLS virtual hosts. |
+| Nginx | Partially covered | Protocol policy, session cache, and session timeout checks have targeted local regression coverage. | Remaining high-value local work is OCSP stapling completeness/default TLS hosts and deeper runtime TLS posture. |
+| Apache | Partially covered | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, and session cache timeout. | Remaining high-value local work is default TLS virtual hosts and deeper runtime TLS posture. |
 | Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
 | IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown. |
 
@@ -284,10 +285,10 @@ hardcoded finder per path.
 
 ## Current Priority
 
-The immediate priority is report-noise validation against the real Nginx
-evidence in `roadmap1.md`, followed by severity calibration, TLS hardening
-gaps, and then CIS/standards coverage expansion. The older CIS expansion note
-below remains the next standards track after these report-quality foundations.
+The immediate priority is the remaining TLS hardening work that needs deeper
+runtime or default-host evidence, followed by CIS/standards coverage expansion.
+Report-noise grouping, redirect-only scope handling, severity calibration, and
+the first Nginx/Apache TLS session-setting slice are already implemented.
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
 standards source baseline, gap labels, work order, and initial backlog for
@@ -295,10 +296,9 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: Nginx CIS direct-rule expansion. The active slice adds local
-checks for CIS §5.1.1 / §5.1.2: sensitive-location access controls that lack
-restrictive `allow`/`deny` IP filters, and explicit `limit_except` policies
-that still allow unapproved HTTP methods.
+Current step: finish the remaining TLS hardening gaps that require either
+default TLS virtual-host precision or safe external runtime evidence, then
+resume the next CIS/standards coverage slice.
 
 The external safe-probe catalog is implemented. Future external probe growth
 should add only curated non-mutating probes on top of the catalog.

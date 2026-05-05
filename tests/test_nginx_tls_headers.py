@@ -335,6 +335,221 @@ def test_analyze_nginx_config_does_not_report_missing_ssl_ciphers_when_inherited
     assert not any(finding.rule_id == "nginx.missing_ssl_ciphers" for finding in result.findings)
 
 
+def test_analyze_nginx_config_reports_missing_ssl_session_cache_for_tls_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_timeout 10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_empty_ssl_session_cache(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache;\n"
+        "    ssl_session_timeout 10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_ssl_session_cache_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_session_cache shared:SSL:10m;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_session_timeout 10m;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_uses_last_ssl_session_cache_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache shared:SSL:10m;\n"
+        "    ssl_session_cache off;\n"
+        "    ssl_session_timeout 10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_ssl_session_cache_none(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache shared:SSL:10m;\n"
+        "    ssl_session_cache none;\n"
+        "    ssl_session_timeout 10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_cache_missing" for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_missing_ssl_session_timeout_for_tls_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache shared:SSL:10m;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_timeout_missing_or_invalid"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_inherits_ssl_session_timeout_from_http(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    ssl_session_timeout 10m;\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "        ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "        ssl_prefer_server_ciphers on;\n"
+        "        ssl_session_cache shared:SSL:10m;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.ssl_session_timeout_missing_or_invalid"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_excessive_ssl_session_timeout(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 ssl;\n"
+        "    ssl_certificate cert.pem;\n"
+        "    ssl_certificate_key cert.key;\n"
+        "    ssl_protocols TLSv1.2 TLSv1.3;\n"
+        "    ssl_ciphers HIGH:!aNULL:!MD5;\n"
+        "    ssl_prefer_server_ciphers on;\n"
+        "    ssl_session_cache shared:SSL:10m;\n"
+        "    ssl_session_timeout 1h;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.ssl_session_timeout_missing_or_invalid"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_does_not_report_missing_ssl_certificate_when_present(
     tmp_path: Path,
 ) -> None:

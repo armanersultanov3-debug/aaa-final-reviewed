@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **278**
+Total rules: **281**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (194), external (73), universal (11) |
-| Severity | high (13), medium (98), low (156), info (11) |
-| Input kind | ast (133), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
+| Category | local (197), external (73), universal (11) |
+| Severity | high (13), medium (98), low (159), info (11) |
+| Input kind | ast (136), probe (73), effective (49), normalized (11), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -104,7 +104,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 65
+Count: 67
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -169,6 +169,8 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_x_xss_protection` | low | ast | headers | - | - | - | - |
 | `nginx.proxy_missing_source_ip_headers` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.4 (partial: `proxy_pass` source header forwarding) |
 | `nginx.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value and `always` checks) | CIS NGINX v3.0.0 §5.3.3 (partial: policy value and `always`) |
+| `nginx.ssl_session_cache_missing` | low | ast | tls | - | - | - | CIS NGINX v3.0.0 §4.1.10 (partial: local `ssl_session_cache` presence / disabled-state check) |
+| `nginx.ssl_session_timeout_missing_or_invalid` | low | ast | tls | - | - | - | CIS NGINX v3.0.0 §4.1.9 (partial: explicit non-zero timeout of 10 minutes or less) |
 | `nginx.sensitive_location_missing_ip_filter` | low | ast | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS NGINX v3.0.0 §5.1.1 (partial: validates restrictive `allow`/`deny` IP filters on sensitive paths that already have an access control, including `satisfy any` auth bypasses) |
 | `nginx.server_tokens_on` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS NGINX v3.0.0 §2.5.1 |
 | `nginx.ssl_stapling_missing_resolver` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: resolver presence requirement only) |
@@ -282,6 +284,9 @@ Mapping rationale (nginx rules):
 - `ssl_session_tickets_disabled` -- explicitly disabling TLS 1.3 session
   tickets breaks the CIS session-resumption recommendation, but it is not a
   weakness class by itself; CWE and OWASP stay empty.
+- `ssl_session_cache_missing`, `ssl_session_timeout_missing_or_invalid` --
+  explicit TLS session cache and timeout policy are benchmark hardening
+  posture rather than direct weakness classes; CWE and OWASP stay empty.
 
 Nginx CIS v3.0.0 gap table:
 
@@ -303,7 +308,7 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.3 | `host-depth` | Private-key permission checks require filesystem metadata. |
 | §4.1.5 | `direct-rule` | Current `ssl_ciphers` coverage is presence-only; add benchmark cipher-string validation before claiming full coverage. |
 | §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
-| §4.1.9, §4.1.10 | `parser-depth` | Upstream TLS client-certificate and upstream trust checks need proxy SSL directive modeling. |
+| §4.1.9, §4.1.10 | `direct-rule` | Covered by `nginx.ssl_session_timeout_missing_or_invalid` and `nginx.ssl_session_cache_missing` for local `http` / `server` scopes; upstream proxy TLS trust checks need their own benchmark mapping if added later. |
 | §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
 | §5.1.1 | `manual-context` | Current coverage checks missing sensitive-location access controls and flags non-IP controls, deny-only exclusions, and `satisfy any` auth bypasses that lack an effective restrictive `allow`/`deny all` policy. Full coverage still depends on the operator's sensitive-path catalogue and runtime location matching. |
 | §5.1.2 | `direct-rule` | Current coverage checks missing sensitive/upload-like `limit_except` blocks and unsafe explicit `limit_except` allowlists. Remaining work needs a site-wide approved-method policy model plus equivalent `if`/`map`/`return` patterns. |
@@ -313,7 +318,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 66
+Count: 67
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -394,6 +399,7 @@ rather than to ".htaccess" itself.
 | `apache.ssl_use_stapling_not_on` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local directive only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.10 (partial: `SSLUseStapling` only) |
 | `apache.ssl_stapling_cache_missing` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local cache directive only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.10 (partial: cache presence when stapling is enabled) |
 | `apache.ssl_session_cache_missing` | low | ast | tls | - | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.12 (partial: `SSLSessionCache` presence / disabled-state check) |
+| `apache.ssl_session_cache_timeout_missing_or_invalid` | low | ast | tls | - | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.12 (partial: `SSLSessionCacheTimeout` presence and maximum value) |
 | `apache.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §7.11 (partial: `Header always` presence on detected TLS scopes) |
 | `apache.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age validation only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.11 (partial: local max-age validation; includeSubDomains/preload remain policy choices) |
 | `apache.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: matching named VirtualHosts only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local redirect directive check) |
@@ -517,9 +523,10 @@ Mapping rationale (apache rules):
 - `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing` -- local OCSP
   stapling policy is a TLS hardening signal; CWE stays empty and OWASP A05
   covers the misconfiguration.
-- `ssl_session_cache_missing` -- missing TLS session cache is operational /
-  benchmark posture rather than a direct weakness class; CWE and OWASP stay
-  empty.
+- `ssl_session_cache_missing`,
+  `ssl_session_cache_timeout_missing_or_invalid` -- missing TLS session cache
+  or timeout policy is operational / benchmark posture rather than a direct
+  weakness class; CWE and OWASP stay empty.
 
 CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
@@ -540,7 +547,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy stays host-depth. |
 | §6.2, §6.4-§6.5 | `host-depth` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
-| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, weak cipher markers, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is full benchmark cipher-string validation, forward-secrecy runtime evidence, and certificate-chain probing. |
+| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, weak cipher markers, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is full benchmark cipher-string validation, forward-secrecy runtime evidence, and certificate-chain probing. |
 | §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
 | §7.3 | `host-depth` | Private-key protection needs filesystem ownership and permission metadata. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
@@ -1040,7 +1047,7 @@ signal supports more than one recommendation.
 | --- | --- | --- |
 | [HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) | response-header hardening (catch-all) | universal: `missing_hsts`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`; nginx: `missing_*_header` family, `content_security_policy_unsafe`, `referrer_policy_unsafe`; apache: `missing_*_header` family, `*_unsafe` family, `htaccess_disables_security_headers`; lighttpd: `missing_strict_transport_security`, `missing_x_content_type_options`; iis: `missing_hsts_header`, `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`; external: all `external.*_missing` / `external.*_invalid` header rules, `external.content_security_policy_*`, `external.coep_missing`, `external.coop_missing`, `external.corp_missing`, `external.permissions_policy_*`, `external.referrer_policy_*` |
 | [HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html) | HSTS specifics | universal: `missing_hsts`; nginx: `missing_hsts_header`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`; iis: `missing_hsts_header`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
-| [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) | TLS configuration | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http_to_https_redirect`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `ssl_session_cache_missing`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported`, `weak_cipher_suite`, `https_not_available`, `http_not_redirected_to_https`, `certificate_expired`, `certificate_expires_soon`, `cert_chain_incomplete`, `cert_chain_length_unusual`, `cert_san_mismatch`, `tls_certificate_self_signed` |
+| [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) | TLS configuration | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `ssl_session_cache_missing`, `ssl_session_timeout_missing_or_invalid`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http_to_https_redirect`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `ssl_session_cache_missing`, `ssl_session_cache_timeout_missing_or_invalid`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported`, `weak_cipher_suite`, `https_not_available`, `http_not_redirected_to_https`, `certificate_expired`, `certificate_expires_soon`, `cert_chain_incomplete`, `cert_chain_length_unusual`, `cert_san_mismatch`, `tls_certificate_self_signed` |
 | [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
 | [Cross-Site Request Forgery Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | CSRF / SameSite cookie posture | external: `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
 | [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) | session cookies / forms auth | iis: `session_state_cookieless`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `http_cookies_http_only_disabled`; external: `cookie_missing_secure_on_https`, `cookie_missing_httponly`, `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
@@ -1303,9 +1310,9 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (11)
-- [x] Nginx local rules (65) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (67) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (66) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (67) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (17)
 - [x] IIS local rules (46) — CWE/OWASP/ASVS filled; CIS existing-rule reference
