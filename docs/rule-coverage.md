@@ -653,7 +653,7 @@ official CIS mapping.
 | `lighttpd.backup_temp_files_access_not_denied` | medium | effective | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.config_data_files_access_not_denied` | medium | effective | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.generated_artifacts_access_not_denied` | medium | effective | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
-| `lighttpd.vcs_metadata_access_not_denied` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `lighttpd.vcs_metadata_access_not_denied` | medium | effective | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.weak_ssl_cipher_list` | high | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | - |
 | `lighttpd.x_frame_options_unsafe` | low | effective | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.max_request_size_unlimited` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
@@ -738,7 +738,7 @@ Mapping rationale (lighttpd rules):
   `generated_artifacts_access_not_denied`,
   `vcs_metadata_access_not_denied` -- without `url.access-deny` for backup,
   config, generated artifact, and VCS metadata markers, the server can hand out
-  sensitive files: CWE-538 / CWE-548, OWASP A05.
+  sensitive files: CWE-538 / CWE-540, OWASP A05.
 - `missing_http_to_https_redirect` -- named HTTP host without a local redirect
   policy can leave plaintext access available: CWE-319, OWASP A05.
 - `weak_ssl_cipher_list` -- enabling RC4/DES/3DES/MD5/NULL/EXPORT cipher

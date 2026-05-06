@@ -147,6 +147,35 @@ def test_lighttpd_accepts_named_http_host_with_https_redirect(
     assert "lighttpd.missing_http_to_https_redirect" not in _rule_ids(result)
 
 
+def test_lighttpd_requires_mod_redirect_for_https_redirect_policy(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'server.name = "example.test"\n'
+        + "server.port = 80\n"
+        + 'url.redirect = ( "^/(.*)$" => "https://example.test/$1" )\n',
+    )
+
+    assert "lighttpd.missing_http_to_https_redirect" in _rule_ids(result)
+
+
+def test_lighttpd_requires_whole_site_https_redirect_policy(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'server.name = "example.test"\n'
+        + "server.port = 80\n"
+        + 'server.modules += ( "mod_redirect" )\n'
+        + 'url.redirect = ( "^/login$" => "https://example.test/login" )\n',
+    )
+
+    assert "lighttpd.missing_http_to_https_redirect" in _rule_ids(result)
+
+
 def test_lighttpd_flags_auth_require_without_backend(tmp_path: Path) -> None:
     result = _analyze(
         tmp_path,
