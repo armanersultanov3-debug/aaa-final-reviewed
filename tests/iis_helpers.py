@@ -11,7 +11,7 @@ from webconf_audit.local.iis.parser import (
 from webconf_audit.models import AnalysisResult
 
 
-_ABSENCE_RULE_IDS = {
+_SAFE_BASELINE_ALLOWED_RULE_IDS = {
     "iis.authorization_policy_missing",
     "iis.deployment_retail_not_enabled",
     "iis.http_cookies_http_only_disabled",
@@ -77,7 +77,7 @@ __all__ = [
     "MINIMAL_APPLICATION_HOST_CONFIG",
     "MINIMAL_WEB_CONFIG",
     "Path",
-    "_ABSENCE_RULE_IDS",
+    "_SAFE_BASELINE_ALLOWED_RULE_IDS",
     "analyze_iis_config",
     "build_effective_config",
     "parse_iis_config",

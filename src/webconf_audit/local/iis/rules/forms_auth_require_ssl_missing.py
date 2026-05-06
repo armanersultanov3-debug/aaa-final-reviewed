@@ -2,7 +2,13 @@ from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import IISConfigDocument
-from webconf_audit.local.iis.rules.rule_utils import effective_location, is_pure_inheritance, location_context, raw_location
+from webconf_audit.local.iis.rules.rule_utils import (
+    effective_location,
+    is_pure_inheritance,
+    location_applies_to_scope,
+    location_context,
+    raw_location,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
@@ -49,7 +55,7 @@ def find_forms_auth_require_ssl_missing(
         for section in effective_config.all_sections:
             if section.section_path_suffix != "/authentication":
                 continue
-            if section.location_path in forms_locations:
+            if _has_forms_policy_for_scope(forms_locations, section.location_path):
                 continue
             if is_pure_inheritance(section):
                 continue
@@ -87,7 +93,7 @@ def find_forms_auth_require_ssl_missing(
         for section in doc.sections:
             if section.tag != "authentication":
                 continue
-            if section.location_path in forms_locations:
+            if _has_forms_policy_for_scope(forms_locations, section.location_path):
                 continue
             if not _is_system_web_authentication(section.xml_path):
                 continue
@@ -116,6 +122,16 @@ def _requires_ssl_missing_or_false(value: object) -> bool:
     if value is None:
         return True
     return str(value).strip().lower() != "true"
+
+
+def _has_forms_policy_for_scope(
+    forms_locations: set[str | None],
+    scope_location: str | None,
+) -> bool:
+    return any(
+        location_applies_to_scope(forms_location, scope_location)
+        for forms_location in forms_locations
+    )
 
 
 def _is_system_web_authentication(xml_path: str | None) -> bool:

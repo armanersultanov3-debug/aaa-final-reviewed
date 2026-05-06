@@ -115,6 +115,45 @@ def test_authorization_policy_missing_fires_when_rules_are_empty(
     assert "authorization" in (findings[0].location.xml_path or "")
 
 
+def test_authorization_policy_missing_is_scoped_per_location(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+    <location path="admin">
+        <system.webServer>
+            <security>
+                <authorization>
+                    <add accessType="Deny" users="?" />
+                </authorization>
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "iis.authorization_policy_missing"
+    ]
+    assert len(findings) == 1
+    assert "location" not in (findings[0].location.xml_path or "")
+
+
 def test_authorization_allows_all_after_anonymous_deny_silent(
     tmp_path: Path,
 ) -> None:

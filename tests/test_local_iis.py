@@ -4,7 +4,7 @@ from tests.iis_helpers import (
     MINIMAL_APPLICATION_HOST_CONFIG,
     MINIMAL_WEB_CONFIG,
     Path,
-    _ABSENCE_RULE_IDS,
+    _SAFE_BASELINE_ALLOWED_RULE_IDS,
     analyze_iis_config,
     parse_iis_config,
     pytest,
@@ -143,8 +143,10 @@ def test_analyze_valid_application_host_config(tmp_path: Path) -> None:
     assert result.mode == "local"
     assert result.server_type == "iis"
     assert result.target == str(config_path)
-    # Absence rules (HSTS, logging) may fire on minimal configs; no *insecure* findings.
-    insecure = [f for f in result.findings if f.rule_id not in _ABSENCE_RULE_IDS]
+    # Baseline/default-policy rules may fire on minimal configs; no direct insecure findings.
+    insecure = [
+        f for f in result.findings if f.rule_id not in _SAFE_BASELINE_ALLOWED_RULE_IDS
+    ]
     assert insecure == []
     assert result.issues == []
     assert result.metadata["config_kind"] == "applicationHost"
@@ -162,7 +164,9 @@ def test_analyze_valid_web_config(tmp_path: Path) -> None:
     assert isinstance(result, AnalysisResult)
     assert result.mode == "local"
     assert result.server_type == "iis"
-    insecure = [f for f in result.findings if f.rule_id not in _ABSENCE_RULE_IDS]
+    insecure = [
+        f for f in result.findings if f.rule_id not in _SAFE_BASELINE_ALLOWED_RULE_IDS
+    ]
     assert insecure == []
     assert result.issues == []
     assert result.metadata["config_kind"] == "web"
@@ -770,6 +774,22 @@ def test_http_runtime_version_header_fires_when_absent(tmp_path: Path) -> None:
 <configuration>
     <system.web>
         <httpRuntime targetFramework="4.8" />
+    </system.web>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    assert "iis.http_runtime_version_header_enabled" in {f.rule_id for f in result.findings}
+
+
+def test_http_runtime_section_missing_fires_when_system_web_present(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <compilation debug="false" />
     </system.web>
 </configuration>
 """

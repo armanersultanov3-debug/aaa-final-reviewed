@@ -7,6 +7,7 @@ from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
     is_pure_inheritance,
+    location_applies_to_scope,
     location_context,
     raw_location,
 )
@@ -386,13 +387,14 @@ def _missing_policy_findings(
             section.location_path
             for section in effective_config.all_sections
             if section.section_path_suffix == suffix
+            and not is_pure_inheritance(section)
         }
         return [
             finding_factory(section)
             for section in effective_config.all_sections
             if section.section_path_suffix == "/system.web"
             and not is_pure_inheritance(section)
-            and section.location_path not in existing_locations
+            and not _has_policy_for_scope(existing_locations, section.location_path)
         ]
 
     existing_locations = {
@@ -401,8 +403,19 @@ def _missing_policy_findings(
     return [
         finding_factory(section)
         for section in doc.sections
-        if section.tag == "system.web" and section.location_path not in existing_locations
+        if section.tag == "system.web"
+        and not _has_policy_for_scope(existing_locations, section.location_path)
     ]
+
+
+def _has_policy_for_scope(
+    policy_locations: set[str | None],
+    scope_location: str | None,
+) -> bool:
+    return any(
+        location_applies_to_scope(policy_location, scope_location)
+        for policy_location in policy_locations
+    )
 
 
 def _configured_value_is_not(value: object, expected: str) -> bool:

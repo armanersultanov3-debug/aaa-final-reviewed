@@ -54,6 +54,38 @@ def location_context(section: IISEffectiveSection) -> str:
     return ""
 
 
+def normalize_location_path(location_path: str | None) -> str | None:
+    """Normalize an IIS <location> path for inheritance comparisons."""
+    if location_path is None:
+        return None
+    normalized = location_path.replace("\\", "/").strip("/")
+    return normalized or None
+
+
+def location_inheritance_chain(location_path: str | None) -> list[str | None]:
+    """Return location path plus parent locations, ending with the root scope."""
+    normalized = normalize_location_path(location_path)
+    if normalized is None:
+        return [None]
+
+    locations: list[str | None] = [normalized]
+    parts = normalized.split("/")
+    for depth in range(len(parts) - 1, 0, -1):
+        locations.append("/".join(parts[:depth]))
+    locations.append(None)
+    return locations
+
+
+def location_applies_to_scope(
+    candidate_location: str | None,
+    scope_location: str | None,
+) -> bool:
+    """Return True when a candidate location applies to a scoped location."""
+    return normalize_location_path(candidate_location) in set(
+        location_inheritance_chain(scope_location),
+    )
+
+
 def is_pure_inheritance(section: IISEffectiveSection) -> bool:
     """Return True if this location section purely inherits without override.
 
@@ -108,7 +140,10 @@ __all__ = [
     "file_location",
     "has_https_binding",
     "is_pure_inheritance",
+    "location_applies_to_scope",
     "location_context",
+    "location_inheritance_chain",
+    "normalize_location_path",
     "raw_location",
     "ssl_flag_tokens",
 ]

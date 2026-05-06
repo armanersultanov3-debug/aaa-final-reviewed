@@ -6,6 +6,8 @@ from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
     is_pure_inheritance,
     location_context,
+    location_inheritance_chain,
+    normalize_location_path,
     raw_location,
 )
 from webconf_audit.models import Finding, SourceLocation
@@ -453,32 +455,12 @@ def _has_raw_file_extensions_section(
     doc: IISConfigDocument,
     location_path: str | None,
 ) -> bool:
-    candidate_locations = set(_location_inheritance_chain(location_path))
+    candidate_locations = set(location_inheritance_chain(location_path))
     return any(
         section.tag == "fileExtensions"
-        and _normalize_location_path(section.location_path) in candidate_locations
+        and normalize_location_path(section.location_path) in candidate_locations
         for section in doc.sections
     )
-
-
-def _location_inheritance_chain(location_path: str | None) -> list[str | None]:
-    normalized = _normalize_location_path(location_path)
-    if normalized is None:
-        return [None]
-
-    locations: list[str | None] = [normalized]
-    parts = normalized.split("/")
-    for depth in range(len(parts) - 1, 0, -1):
-        locations.append("/".join(parts[:depth]))
-    locations.append(None)
-    return locations
-
-
-def _normalize_location_path(location_path: str | None) -> str | None:
-    if location_path is None:
-        return None
-    normalized = location_path.replace("\\", "/").strip("/")
-    return normalized or None
 
 
 def _unsafe_isapi_cgi_attrs(attributes: dict[str, str]) -> list[str]:

@@ -4,8 +4,9 @@ from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSe
 from webconf_audit.local.iis.parser import IISChildElement, IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
-    file_location,
     is_pure_inheritance,
+    location_inheritance_chain,
+    normalize_location_path,
     location_context,
     raw_location,
     ssl_flag_tokens,
@@ -146,46 +147,89 @@ def _effective_authorization_policy_missing_findings(
     doc: IISConfigDocument,
     effective_config: IISEffectiveConfig,
 ) -> list[Finding]:
-    sections = [
-        section
-        for section in effective_config.all_sections
-        if section.section_path_suffix == "/authorization"
-        and _is_iis_url_authorization_path(section.source.xml_path)
-    ]
-    if not sections:
-        if _has_system_webserver(doc):
-            return [_authorization_policy_absent_finding(doc)]
-        return []
-
     findings: list[Finding] = []
-    for section in sections:
-        if is_pure_inheritance(section):
+    for scope in _effective_system_webserver_scopes(effective_config):
+        authorization = effective_config.get_effective_section(
+            "/authorization",
+            location_path=scope.location_path,
+        )
+        if authorization is None or not _is_iis_url_authorization_path(
+            authorization.source.xml_path,
+        ):
+            findings.append(_effective_authorization_policy_absent_finding(scope))
             continue
-        if _has_explicit_authorization_rules(section.children):
+        if _has_explicit_authorization_rules(authorization.children):
             continue
-        findings.append(_effective_authorization_policy_empty_finding(section))
+        if is_pure_inheritance(authorization):
+            continue
+        findings.append(_effective_authorization_policy_empty_finding(authorization))
     return findings
 
 
 def _raw_authorization_policy_missing_findings(
     doc: IISConfigDocument,
 ) -> list[Finding]:
-    sections = [
+    findings: list[Finding] = []
+    sections_by_location = _url_authorization_sections_by_location(doc.sections)
+    for scope in _raw_system_webserver_scopes(doc):
+        sections = _nearest_authorization_sections(
+            sections_by_location,
+            scope.location_path,
+        )
+        if not sections:
+            findings.append(_raw_authorization_policy_absent_finding(scope))
+            continue
+        findings.extend(
+            _raw_authorization_policy_empty_finding(section)
+            for section in sections
+            if not _has_explicit_authorization_rules(section.children)
+        )
+    return findings
+
+
+def _effective_system_webserver_scopes(
+    effective_config: IISEffectiveConfig,
+) -> list[IISEffectiveSection]:
+    return [
+        section
+        for section in effective_config.all_sections
+        if section.section_path_suffix == "/system.webServer"
+        and not is_pure_inheritance(section)
+    ]
+
+
+def _raw_system_webserver_scopes(doc: IISConfigDocument) -> list[IISSection]:
+    return [
         section
         for section in doc.sections
-        if section.tag == "authorization"
-        and _is_iis_url_authorization_path(section.xml_path)
+        if section.tag == "system.webServer"
     ]
-    if not sections:
-        if _has_system_webserver(doc):
-            return [_authorization_policy_absent_finding(doc)]
-        return []
 
-    return [
-        _raw_authorization_policy_empty_finding(section)
-        for section in sections
-        if not _has_explicit_authorization_rules(section.children)
-    ]
+
+def _url_authorization_sections_by_location(
+    sections: list[IISSection],
+) -> dict[str | None, list[IISSection]]:
+    by_location: dict[str | None, list[IISSection]] = {}
+    for section in sections:
+        if section.tag != "authorization":
+            continue
+        if not _is_iis_url_authorization_path(section.xml_path):
+            continue
+        by_location.setdefault(normalize_location_path(section.location_path), []).append(
+            section,
+        )
+    return by_location
+
+
+def _nearest_authorization_sections(
+    sections_by_location: dict[str | None, list[IISSection]],
+    scope_location: str | None,
+) -> list[IISSection]:
+    for location in location_inheritance_chain(scope_location):
+        sections = sections_by_location.get(location)
+        if sections:
+            return sections
+    return []
 
 
 def _anonymous_allow_users(children: list[IISChildElement]) -> list[str]:
@@ -211,14 +255,6 @@ def _has_explicit_authorization_rules(children: list[IISChildElement]) -> bool:
         child.tag.lower() == "add"
         and child.attributes.get("accessType", "").strip().lower() in {"allow", "deny"}
         for child in children
-    )
-
-
-def _has_system_webserver(doc: IISConfigDocument) -> bool:
-    return any(
-        section.xml_path.lower().endswith("/system.webserver")
-        or "/system.webserver/" in section.xml_path.lower()
-        for section in doc.sections
     )
 
 
@@ -284,7 +320,25 @@ def _raw_authorization_finding(section: IISSection, users: list[str]) -> Finding
     )
 
 
-def _authorization_policy_absent_finding(doc: IISConfigDocument) -> Finding:
+def _effective_authorization_policy_absent_finding(
+    section: IISEffectiveSection,
+) -> Finding:
+    ctx = location_context(section)
+    return Finding(
+        rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
+        title="IIS URL authorization policy is not explicit",
+        severity="low",
+        description=(
+            f"The configuration contains system.webServer settings but no IIS URL "
+            f"authorization policy{ctx}. IIS defaults can allow broad access "
+            "unless authorization is constrained at a higher configuration level."
+        ),
+        recommendation="Add an explicit system.webServer/security/authorization policy for protected applications, or document that this application is intentionally public.",
+        location=effective_location(section),
+    )
+
+
+def _raw_authorization_policy_absent_finding(section: IISSection) -> Finding:
     return Finding(
         rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
         title="IIS URL authorization policy is not explicit",
@@ -295,7 +349,7 @@ def _authorization_policy_absent_finding(doc: IISConfigDocument) -> Finding:
             "authorization is constrained at a higher configuration level."
         ),
         recommendation="Add an explicit system.webServer/security/authorization policy for protected applications, or document that this application is intentionally public.",
-        location=file_location(doc),
+        location=raw_location(section),
     )
 
 
