@@ -1448,7 +1448,7 @@ Progress:
 - [x] Lighttpd local rules (47)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
-- [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)
+- [x] External (probe) rules (80) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates
 
 Stage 2 step 3 is complete for CWE / OWASP Top 10. This file is already the

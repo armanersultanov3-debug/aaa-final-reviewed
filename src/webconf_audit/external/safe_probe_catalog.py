@@ -403,7 +403,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         body_matchers=(
             BodyMatcher(
                 "regex",
-                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile)""",
+                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:)""",
             ),
         ),
         order=697,

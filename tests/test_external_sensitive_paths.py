@@ -885,6 +885,27 @@ def test_body_matched_sensitive_path_rules_require_expected_content(
     assert rule_id not in {f.rule_id for f in result.findings}
 
 
+def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch) -> None:
+    sp = _sensitive_path_probe(
+        "/backup.zip",
+        status_code=200,
+        content_type="application/zip",
+        body_snippet=None,
+    )
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    assert "external.backup_archive_exposed" in {f.rule_id for f in result.findings}
+
+
 # ---------------------------------------------------------------------------
 # No false positives from sensitive path rules on baseline probes
 # ---------------------------------------------------------------------------

@@ -159,10 +159,8 @@ def _looks_like_iis_default_welcome_page(body_snippet: str) -> bool:
     lower_body = body_snippet.lower()
     return (
         "iis windows server" in lower_body
-        or (
-            "internet information services" in lower_body
-            and "welcome to iis" in lower_body
-        )
+        and "internet information services" in lower_body
+        and "welcome to iis" in lower_body
     )
 
 

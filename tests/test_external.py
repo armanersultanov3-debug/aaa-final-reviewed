@@ -380,6 +380,30 @@ def test_default_welcome_page_rule_fires_at_medium_confidence(
         assert welcome_findings[0].location.target == expected_target
 
 
+def test_iis_default_welcome_page_rule_requires_full_default_signature() -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            server_header="Microsoft-IIS/10.0",
+            body_snippet="<html><body>IIS Windows Server application dashboard</body></html>",
+        ),
+        _http_redirect_probe(server_header="Microsoft-IIS/10.0"),
+    ]
+    identification = ServerIdentification(
+        server_type="iis",
+        confidence="medium",
+        evidence=(),
+        candidate_server_types=("iis",),
+    )
+
+    findings = run_external_rules(
+        probe_attempts,
+        "example.com",
+        server_identification=identification,
+    )
+
+    assert "external.iis.default_welcome_page" not in {f.rule_id for f in findings}
+
+
 def test_apache_conditional_version_rule_fires_at_high_confidence() -> None:
     probe_attempts = [
         _https_probe_with_headers(server_header="Apache/2.4.58 (Ubuntu)"),
