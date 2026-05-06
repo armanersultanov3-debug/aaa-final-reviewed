@@ -35,7 +35,7 @@ Total rules: **339**
 | --- | --- |
 | Category | local (246), external (80), universal (13) |
 | Severity | high (17), medium (118), low (193), info (11) |
-| Input kind | ast (149), effective (85), probe (73), normalized (13), htaccess (6), mixed (6) |
+| Input kind | ast (149), effective (85), probe (80), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 

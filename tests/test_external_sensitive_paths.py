@@ -861,6 +861,7 @@ def test_expanded_sensitive_path_rules_do_not_fire_on_404(
         ("/.env", "external.env_file_exposed", "<html>Custom page</html>"),
         ("/phpinfo.php", "external.phpinfo_exposed", "<html>PHP status</html>"),
         ("/web.config", "external.web_config_exposed", "<html>configuration</html>"),
+        ("/backup.zip", "external.backup_archive_exposed", "<html>Custom page</html>"),
     ],
 )
 def test_body_matched_sensitive_path_rules_require_expected_content(

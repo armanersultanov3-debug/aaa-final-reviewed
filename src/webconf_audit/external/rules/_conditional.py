@@ -78,13 +78,7 @@ def _find_nginx_default_welcome_page(
 
     findings: list[Finding] = []
     for attempt in probe_attempts:
-        if not attempt.has_http_response:
-            continue
-        if attempt.status_code != 200:
-            continue
-        if attempt.target.path != "/":
-            continue
-        if attempt.body_snippet is None:
+        if not _attempt_has_default_root_body(attempt):
             continue
         if not _looks_like_nginx_default_welcome_page(attempt.body_snippet):
             continue
@@ -166,7 +160,7 @@ def _find_apache_default_welcome_page(
     for attempt in probe_attempts:
         if not _attempt_has_default_root_body(attempt):
             continue
-        if not _looks_like_apache_default_welcome_page(attempt.body_snippet or ""):
+        if not _looks_like_apache_default_welcome_page(attempt.body_snippet):
             continue
 
         findings.append(
@@ -374,7 +368,7 @@ def _find_iis_default_welcome_page(
     for attempt in probe_attempts:
         if not _attempt_has_default_root_body(attempt):
             continue
-        if not _looks_like_iis_default_welcome_page(attempt.body_snippet or ""):
+        if not _looks_like_iis_default_welcome_page(attempt.body_snippet):
             continue
 
         findings.append(
@@ -453,7 +447,7 @@ def _find_lighttpd_default_welcome_page(
     for attempt in probe_attempts:
         if not _attempt_has_default_root_body(attempt):
             continue
-        if not _looks_like_lighttpd_default_welcome_page(attempt.body_snippet or ""):
+        if not _looks_like_lighttpd_default_welcome_page(attempt.body_snippet):
             continue
 
         findings.append(

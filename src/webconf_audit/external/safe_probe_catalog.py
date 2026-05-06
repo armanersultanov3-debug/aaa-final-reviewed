@@ -333,6 +333,9 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "/site.zip",
             "/www.zip",
         ),
+        body_matchers=(
+            BodyMatcher("regex", r"^(?:PK\x03\x04|\x1f(?:\x8b|\ufffd))"),
+        ),
         order=695,
         metadata_recommendation="Remove backup archives from the web root.",
     ),

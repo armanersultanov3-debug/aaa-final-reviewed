@@ -808,6 +808,7 @@ def test_lighttpd_mod_status_public_does_not_fire_for_other_server_type() -> Non
                 path="/backup.zip",
                 status_code=200,
                 content_type="application/zip",
+                body_snippet="PK\x03\x04 archived content",
             ),
             "external.backup_archive_exposed",
         ),

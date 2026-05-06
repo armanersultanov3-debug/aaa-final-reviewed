@@ -188,6 +188,20 @@ class TestOrdering:
         for m in full_reg.list_rules(category="external"):
             assert 600 <= m.order <= 799, f"{m.rule_id} order={m.order}"
 
+    def test_external_rule_orders_are_unique(self, full_reg: RuleRegistry) -> None:
+        rules = full_reg.list_rules(category="external")
+        order_to_ids: dict[int, list[str]] = {}
+        for meta in rules:
+            order_to_ids.setdefault(meta.order, []).append(meta.rule_id)
+
+        duplicates = {
+            order: rule_ids
+            for order, rule_ids in order_to_ids.items()
+            if len(rule_ids) > 1
+        }
+
+        assert duplicates == {}
+
     def test_list_rules_sorted(self, full_reg: RuleRegistry) -> None:
         all_rules = full_reg.list_rules()
         keys = [(m.order, m.rule_id) for m in all_rules]
