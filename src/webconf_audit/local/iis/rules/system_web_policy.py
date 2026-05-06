@@ -17,6 +17,7 @@ FORMS_PROTECTION_RULE_ID = "iis.forms_auth_protection_unsafe"
 CREDENTIALS_FORMAT_RULE_ID = "iis.credentials_password_format_clear"
 CREDENTIALS_STORED_RULE_ID = "iis.credentials_stored_in_config"
 HTTP_ONLY_RULE_ID = "iis.http_cookies_http_only_disabled"
+COOKIE_REQUIRE_SSL_RULE_ID = "iis.http_cookies_require_ssl_missing"
 RETAIL_RULE_ID = "iis.deployment_retail_not_enabled"
 TRUST_RULE_ID = "iis.trust_level_full"
 MACHINE_KEY_RULE_ID = "iis.machine_key_validation_weak"
@@ -128,16 +129,41 @@ def find_credentials_stored_in_config(
 def find_http_cookies_http_only_disabled(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
-    return [
-        _http_only_finding(section)
-        for section in _sections(
-            doc,
-            effective_config,
-            suffix="/httpCookies",
-            tag="httpCookies",
-        )
-        if _is_value(section.attributes.get("httpOnlyCookies"), "false")
-    ]
+    return _http_cookie_policy_findings(
+        doc,
+        effective_config,
+        attribute="httpOnlyCookies",
+        expected="true",
+        rule_id=HTTP_ONLY_RULE_ID,
+        finding_factory=_http_only_finding,
+        missing_factory=_http_only_missing_finding,
+    )
+
+
+@rule(
+    rule_id=COOKIE_REQUIRE_SSL_RULE_ID,
+    title="ASP.NET cookies do not require SSL",
+    severity="medium",
+    description="ASP.NET httpCookies does not require secure transport.",
+    recommendation='Set httpCookies requireSSL="true".',
+    category="local",
+    server_type="iis",
+    tags=("tls",),
+    input_kind="effective",
+    order=546,
+)
+def find_http_cookies_require_ssl_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return _http_cookie_policy_findings(
+        doc,
+        effective_config,
+        attribute="requireSSL",
+        expected="true",
+        rule_id=COOKIE_REQUIRE_SSL_RULE_ID,
+        finding_factory=_cookie_require_ssl_finding,
+        missing_factory=_cookie_require_ssl_missing_finding,
+    )
 
 
 @rule(
@@ -154,7 +180,7 @@ def find_http_cookies_http_only_disabled(
 def find_deployment_retail_not_enabled(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
-    return [
+    findings = [
         _retail_finding(section)
         for section in _sections(
             doc,
@@ -162,8 +188,18 @@ def find_deployment_retail_not_enabled(
             suffix="/deployment",
             tag="deployment",
         )
-        if _is_value(section.attributes.get("retail"), "false")
+        if not _is_value(section.attributes.get("retail"), "true")
     ]
+    findings.extend(
+        _missing_policy_findings(
+            doc,
+            effective_config,
+            suffix="/deployment",
+            tag="deployment",
+            finding_factory=_retail_missing_finding,
+        ),
+    )
+    return findings
 
 
 @rule(
@@ -180,11 +216,21 @@ def find_deployment_retail_not_enabled(
 def find_trust_level_full(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
-    return [
+    findings = [
         _trust_finding(section)
         for section in _sections(doc, effective_config, suffix="/trust", tag="trust")
-        if _is_value(section.attributes.get("level"), "full")
+        if _lower_value(section.attributes.get("level", "full")) in {"", "full"}
     ]
+    findings.extend(
+        _missing_policy_findings(
+            doc,
+            effective_config,
+            suffix="/trust",
+            tag="trust",
+            finding_factory=_trust_missing_finding,
+        ),
+    )
+    return findings
 
 
 @rule(
@@ -293,6 +339,70 @@ def _credential_user_sections(
             continue
         if _is_stored_credential_user(section):
             yield section
+
+
+def _http_cookie_policy_findings(
+    doc: IISConfigDocument,
+    effective_config: IISEffectiveConfig | None,
+    *,
+    attribute: str,
+    expected: str,
+    rule_id: str,
+    finding_factory,
+    missing_factory,
+) -> list[Finding]:
+    findings = [
+        finding_factory(section)
+        for section in _sections(
+            doc,
+            effective_config,
+            suffix="/httpCookies",
+            tag="httpCookies",
+        )
+        if not _is_value(section.attributes.get(attribute), expected)
+    ]
+    findings.extend(
+        _missing_policy_findings(
+            doc,
+            effective_config,
+            suffix="/httpCookies",
+            tag="httpCookies",
+            finding_factory=missing_factory,
+        ),
+    )
+    return findings
+
+
+def _missing_policy_findings(
+    doc: IISConfigDocument,
+    effective_config: IISEffectiveConfig | None,
+    *,
+    suffix: str,
+    tag: str,
+    finding_factory,
+) -> list[Finding]:
+    if effective_config is not None:
+        existing_locations = {
+            section.location_path
+            for section in effective_config.all_sections
+            if section.section_path_suffix == suffix
+        }
+        return [
+            finding_factory(section)
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/system.web"
+            and not is_pure_inheritance(section)
+            and section.location_path not in existing_locations
+        ]
+
+    existing_locations = {
+        section.location_path for section in doc.sections if section.tag == tag
+    }
+    return [
+        finding_factory(section)
+        for section in doc.sections
+        if section.tag == "system.web" and section.location_path not in existing_locations
+    ]
 
 
 def _configured_value_is_not(value: object, expected: str) -> bool:
@@ -422,6 +532,57 @@ def _http_only_finding(section: IISEffectiveSection | IISSection) -> Finding:
     )
 
 
+def _http_only_missing_finding(section: IISEffectiveSection | IISSection) -> Finding:
+    ctx = _context(section)
+    return Finding(
+        rule_id=HTTP_ONLY_RULE_ID,
+        title="ASP.NET cookies are not forced HttpOnly",
+        severity="medium",
+        description=(
+            f"ASP.NET httpCookies is not configured{ctx}. The framework "
+            "default does not force HttpOnly cookies, so script-readable "
+            "cookies remain possible unless each caller sets HttpOnly itself."
+        ),
+        recommendation='Add httpCookies httpOnlyCookies="true".',
+        location=_location(section),
+    )
+
+
+def _cookie_require_ssl_finding(
+    section: IISEffectiveSection | IISSection,
+) -> Finding:
+    ctx = _context(section)
+    return Finding(
+        rule_id=COOKIE_REQUIRE_SSL_RULE_ID,
+        title="ASP.NET cookies do not require SSL",
+        severity="medium",
+        description=(
+            f"ASP.NET httpCookies does not require SSL transport{ctx}. "
+            "Cookies that rely on the global ASP.NET cookie policy can be "
+            "sent over plaintext HTTP."
+        ),
+        recommendation='Set httpCookies requireSSL="true".',
+        location=_location(section),
+    )
+
+
+def _cookie_require_ssl_missing_finding(
+    section: IISEffectiveSection | IISSection,
+) -> Finding:
+    ctx = _context(section)
+    return Finding(
+        rule_id=COOKIE_REQUIRE_SSL_RULE_ID,
+        title="ASP.NET cookies do not require SSL",
+        severity="medium",
+        description=(
+            f"ASP.NET httpCookies is not configured{ctx}. The framework "
+            "default does not require secure transport for cookies."
+        ),
+        recommendation='Add httpCookies requireSSL="true".',
+        location=_location(section),
+    )
+
+
 def _retail_finding(section: IISEffectiveSection | IISSection) -> Finding:
     ctx = _context(section)
     return Finding(
@@ -438,6 +599,23 @@ def _retail_finding(section: IISEffectiveSection | IISSection) -> Finding:
     )
 
 
+def _retail_missing_finding(section: IISEffectiveSection | IISSection) -> Finding:
+    ctx = _context(section)
+    return Finding(
+        rule_id=RETAIL_RULE_ID,
+        title="ASP.NET deployment retail mode is not enabled",
+        severity="medium",
+        description=(
+            f"ASP.NET deployment retail mode is not configured{ctx}. The "
+            "framework default is non-retail, so production deployments do "
+            "not get machine-wide suppression of debug and detailed error "
+            "behavior from this configuration."
+        ),
+        recommendation='Set deployment retail="true" in production machine-level configuration.',
+        location=_location(section),
+    )
+
+
 def _trust_finding(section: IISEffectiveSection | IISSection) -> Finding:
     ctx = _context(section)
     return Finding(
@@ -447,6 +625,21 @@ def _trust_finding(section: IISEffectiveSection | IISSection) -> Finding:
         description=(
             f"ASP.NET trust level is explicitly set to Full{ctx}. "
             "Full trust grants the application broad runtime permissions."
+        ),
+        recommendation="Set trust to the least-privileged level supported by the application.",
+        location=_location(section),
+    )
+
+
+def _trust_missing_finding(section: IISEffectiveSection | IISSection) -> Finding:
+    ctx = _context(section)
+    return Finding(
+        rule_id=TRUST_RULE_ID,
+        title="ASP.NET trust level is Full",
+        severity="medium",
+        description=(
+            f"ASP.NET trust level is not configured{ctx}. The framework "
+            "default is Full trust, which grants broad runtime permissions."
         ),
         recommendation="Set trust to the least-privileged level supported by the application.",
         location=_location(section),

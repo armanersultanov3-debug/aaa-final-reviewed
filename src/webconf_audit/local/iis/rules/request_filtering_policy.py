@@ -13,6 +13,8 @@ from webconf_audit.rule_registry import rule
 
 MAX_URL_RULE_ID = "iis.request_filtering_max_url_too_high"
 MAX_QUERY_STRING_RULE_ID = "iis.request_filtering_max_query_string_too_high"
+MAX_URL_MISSING_RULE_ID = "iis.request_filtering_max_url_missing"
+MAX_QUERY_STRING_MISSING_RULE_ID = "iis.request_filtering_max_query_string_missing"
 FILE_EXTENSIONS_RULE_ID = "iis.file_extensions_allow_unlisted"
 ISAPI_CGI_RULE_ID = "iis.isapi_cgi_restrictions_allow_unlisted"
 REMOVE_SERVER_HEADER_RULE_ID = "iis.request_filtering_remove_server_header_disabled"
@@ -68,6 +70,56 @@ def find_request_filtering_max_query_string_too_high(
         rule_id=MAX_QUERY_STRING_RULE_ID,
         title="Request filtering maximum query string length is unsafe",
         unit_label="query string",
+    )
+
+
+@rule(
+    rule_id=MAX_URL_MISSING_RULE_ID,
+    title="Request filtering maximum URL length is not set",
+    severity="low",
+    description="Request filtering does not explicitly cap URL length.",
+    recommendation='Set requestLimits maxUrl to "4096" or lower.',
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    order=544,
+)
+def find_request_filtering_max_url_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return _missing_limit_findings(
+        doc,
+        effective_config=effective_config,
+        attribute="maxUrl",
+        rule_id=MAX_URL_MISSING_RULE_ID,
+        title="Request filtering maximum URL length is not set",
+        unit_label="URL",
+        recommendation='Set requestLimits maxUrl to "4096" or lower.',
+    )
+
+
+@rule(
+    rule_id=MAX_QUERY_STRING_MISSING_RULE_ID,
+    title="Request filtering maximum query string length is not set",
+    severity="low",
+    description="Request filtering does not explicitly cap query string length.",
+    recommendation='Set requestLimits maxQueryString to "2048" or lower.',
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    order=545,
+)
+def find_request_filtering_max_query_string_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return _missing_limit_findings(
+        doc,
+        effective_config=effective_config,
+        attribute="maxQueryString",
+        rule_id=MAX_QUERY_STRING_MISSING_RULE_ID,
+        title="Request filtering maximum query string length is not set",
+        unit_label="query string",
+        recommendation='Set requestLimits maxQueryString to "2048" or lower.',
     )
 
 
@@ -173,13 +225,13 @@ def find_request_filtering_remove_server_header_disabled(
             for section in effective_config.all_sections
             if section.section_path_suffix == "/requestFiltering"
             and not is_pure_inheritance(section)
-            and _is_false(section.attributes.get("removeServerHeader"))
+            and _is_not_true(section.attributes.get("removeServerHeader"))
         ]
     return [
         _raw_remove_server_header_finding(section)
         for section in doc.sections
         if section.tag == "requestFiltering"
-        and _is_false(section.attributes.get("removeServerHeader"))
+        and _is_not_true(section.attributes.get("removeServerHeader"))
     ]
 
 
@@ -227,6 +279,49 @@ def _limit_findings(
     return [finding for finding in findings if finding is not None]
 
 
+def _missing_limit_findings(
+    doc: IISConfigDocument,
+    *,
+    effective_config: IISEffectiveConfig | None,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> list[Finding]:
+    if effective_config is not None:
+        return [
+            _missing_limit_finding(
+                location=effective_location(section),
+                context_suffix=location_context(section),
+                attribute=attribute,
+                rule_id=rule_id,
+                title=title,
+                unit_label=unit_label,
+                recommendation=recommendation,
+            )
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestLimits"
+            and not is_pure_inheritance(section)
+            and not str(section.attributes.get(attribute, "")).strip()
+        ]
+
+    return [
+        _missing_limit_finding(
+            location=raw_location(section),
+            context_suffix="",
+            attribute=attribute,
+            rule_id=rule_id,
+            title=title,
+            unit_label=unit_label,
+            recommendation=recommendation,
+        )
+        for section in doc.sections
+        if section.tag == "requestLimits"
+        and not str(section.attributes.get(attribute, "")).strip()
+    ]
+
+
 def _limit_finding(
     *,
     raw_val: str,
@@ -253,6 +348,30 @@ def _limit_finding(
             f"length to {threshold} characters or fewer."
         ),
         recommendation=f'Set requestLimits {attribute} to "{threshold}" or lower.',
+        location=location,
+    )
+
+
+def _missing_limit_finding(
+    *,
+    location: SourceLocation,
+    context_suffix: str,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> Finding:
+    return Finding(
+        rule_id=rule_id,
+        title=title,
+        severity="low",
+        description=(
+            f"IIS requestLimits does not set {attribute}{context_suffix}. "
+            f"The effective {unit_label} limit is inherited from IIS defaults "
+            "or parent configuration rather than being explicitly bounded here."
+        ),
+        recommendation=recommendation,
         location=location,
     )
 
@@ -446,8 +565,8 @@ def _is_true(value: object) -> bool:
     return str(value).strip().lower() == "true"
 
 
-def _is_false(value: object) -> bool:
-    return str(value).strip().lower() == "false"
+def _is_not_true(value: object) -> bool:
+    return str(value).strip().lower() != "true"
 
 
 def _allows_unlisted_by_default(value: object) -> bool:

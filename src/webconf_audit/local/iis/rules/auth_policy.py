@@ -4,6 +4,7 @@ from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSe
 from webconf_audit.local.iis.parser import IISChildElement, IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
+    file_location,
     is_pure_inheritance,
     location_context,
     raw_location,
@@ -13,6 +14,7 @@ from webconf_audit.models import Finding
 from webconf_audit.rule_registry import StandardReference, rule
 
 AUTHORIZATION_RULE_ID = "iis.authorization_allows_anonymous_users"
+AUTHORIZATION_POLICY_MISSING_RULE_ID = "iis.authorization_policy_missing"
 BASIC_SSL_RULE_ID = "iis.basic_auth_without_ssl"
 ANONYMOUS_USER_IDENTITY_RULE_ID = "iis.anonymous_auth_uses_specific_user"
 
@@ -34,6 +36,25 @@ def find_authorization_allows_anonymous_users(
     if effective_config is not None:
         return _effective_authorization_findings(effective_config)
     return _raw_authorization_findings(doc)
+
+
+@rule(
+    rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
+    title="IIS URL authorization policy is not explicit",
+    severity="low",
+    description="IIS URL authorization does not define explicit allow or deny rules.",
+    recommendation="Add explicit URL authorization allow/deny rules for protected applications.",
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    order=543,
+)
+def find_authorization_policy_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    if effective_config is not None:
+        return _effective_authorization_policy_missing_findings(doc, effective_config)
+    return _raw_authorization_policy_missing_findings(doc)
 
 
 @rule(
@@ -121,6 +142,52 @@ def _raw_authorization_findings(doc: IISConfigDocument) -> list[Finding]:
     return findings
 
 
+def _effective_authorization_policy_missing_findings(
+    doc: IISConfigDocument,
+    effective_config: IISEffectiveConfig,
+) -> list[Finding]:
+    sections = [
+        section
+        for section in effective_config.all_sections
+        if section.section_path_suffix == "/authorization"
+        and _is_iis_url_authorization_path(section.source.xml_path)
+    ]
+    if not sections:
+        if _has_system_webserver(doc):
+            return [_authorization_policy_absent_finding(doc)]
+        return []
+
+    findings: list[Finding] = []
+    for section in sections:
+        if is_pure_inheritance(section):
+            continue
+        if _has_explicit_authorization_rules(section.children):
+            continue
+        findings.append(_effective_authorization_policy_empty_finding(section))
+    return findings
+
+
+def _raw_authorization_policy_missing_findings(
+    doc: IISConfigDocument,
+) -> list[Finding]:
+    sections = [
+        section
+        for section in doc.sections
+        if section.tag == "authorization"
+        and _is_iis_url_authorization_path(section.xml_path)
+    ]
+    if not sections:
+        if _has_system_webserver(doc):
+            return [_authorization_policy_absent_finding(doc)]
+        return []
+
+    return [
+        _raw_authorization_policy_empty_finding(section)
+        for section in sections
+        if not _has_explicit_authorization_rules(section.children)
+    ]
+
+
 def _anonymous_allow_users(children: list[IISChildElement]) -> list[str]:
     users: list[str] = []
     anonymous_denied = False
@@ -137,6 +204,28 @@ def _anonymous_allow_users(children: list[IISChildElement]) -> list[str]:
         if _allows_anonymous_user(raw_users, anonymous_denied=anonymous_denied):
             users.append(raw_users)
     return users
+
+
+def _has_explicit_authorization_rules(children: list[IISChildElement]) -> bool:
+    return any(
+        child.tag.lower() == "add"
+        and child.attributes.get("accessType", "").strip().lower() in {"allow", "deny"}
+        for child in children
+    )
+
+
+def _has_system_webserver(doc: IISConfigDocument) -> bool:
+    return any(
+        section.xml_path.lower().endswith("/system.webserver")
+        or "/system.webserver/" in section.xml_path.lower()
+        for section in doc.sections
+    )
+
+
+def _is_iis_url_authorization_path(xml_path: str | None) -> bool:
+    return (xml_path or "").lower().endswith(
+        "/system.webserver/security/authorization",
+    )
 
 
 def _allows_anonymous_user(value: str, *, anonymous_denied: bool) -> bool:
@@ -191,6 +280,54 @@ def _raw_authorization_finding(section: IISSection, users: list[str]) -> Finding
             "that should require authenticated authorization."
         ),
         recommendation="Replace wildcard or anonymous allow rules with explicit authenticated users or roles, or add a deny rule for anonymous users.",
+        location=raw_location(section),
+    )
+
+
+def _authorization_policy_absent_finding(doc: IISConfigDocument) -> Finding:
+    return Finding(
+        rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
+        title="IIS URL authorization policy is not explicit",
+        severity="low",
+        description=(
+            "The configuration contains system.webServer settings but no IIS URL "
+            "authorization policy. IIS defaults can allow broad access unless "
+            "authorization is constrained at a higher configuration level."
+        ),
+        recommendation="Add an explicit system.webServer/security/authorization policy for protected applications, or document that this application is intentionally public.",
+        location=file_location(doc),
+    )
+
+
+def _effective_authorization_policy_empty_finding(
+    section: IISEffectiveSection,
+) -> Finding:
+    ctx = location_context(section)
+    return Finding(
+        rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
+        title="IIS URL authorization policy is not explicit",
+        severity="low",
+        description=(
+            f"IIS URL authorization defines no effective allow or deny rules{ctx}. "
+            "An empty policy can fall back to permissive defaults or parent "
+            "configuration that is not visible in this file."
+        ),
+        recommendation="Add explicit URL authorization allow/deny rules for protected applications.",
+        location=effective_location(section),
+    )
+
+
+def _raw_authorization_policy_empty_finding(section: IISSection) -> Finding:
+    return Finding(
+        rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
+        title="IIS URL authorization policy is not explicit",
+        severity="low",
+        description=(
+            "IIS URL authorization defines no effective allow or deny rules. "
+            "An empty policy can fall back to permissive defaults or parent "
+            "configuration that is not visible in this file."
+        ),
+        recommendation="Add explicit URL authorization allow/deny rules for protected applications.",
         location=raw_location(section),
     )
 

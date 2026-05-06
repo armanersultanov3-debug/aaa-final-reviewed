@@ -31,7 +31,7 @@ def find_request_filtering_allow_high_bit(
                 continue
             if is_pure_inheritance(section):
                 continue
-            if section.attributes.get("allowHighBitCharacters", "").lower() == "true":
+            if section.attributes.get("allowHighBitCharacters", "").lower() != "false":
                 ctx = location_context(section)
                 findings.append(Finding(
                     rule_id=RULE_ID, title="Request filtering allows high-bit characters", severity="low",
@@ -40,16 +40,16 @@ def find_request_filtering_allow_high_bit(
                         f"in URLs{ctx}. This can facilitate homograph attacks and "
                         "may bypass URL-based security filters."
                     ),
-                    recommendation='Set requestFiltering allowHighBitCharacters="false" or remove the attribute to restore the default restriction.',
+                    recommendation='Set requestFiltering allowHighBitCharacters="false" unless non-ASCII URLs are explicitly required.',
                     location=effective_location(section),
                 ))
     else:
         for section in doc.sections:
-            if section.tag == "requestFiltering" and section.attributes.get("allowHighBitCharacters", "").lower() == "true":
+            if section.tag == "requestFiltering" and section.attributes.get("allowHighBitCharacters", "").lower() != "false":
                 findings.append(Finding(
                     rule_id=RULE_ID, title="Request filtering allows high-bit characters", severity="low",
                     description="IIS request filtering allows high-bit (non-ASCII) characters in URLs. This can facilitate homograph attacks and may bypass URL-based security filters.",
-                    recommendation='Set requestFiltering allowHighBitCharacters="false" or remove the attribute to restore the default restriction.',
+                    recommendation='Set requestFiltering allowHighBitCharacters="false" unless non-ASCII URLs are explicitly required.',
                     location=raw_location(section),
                 ))
 

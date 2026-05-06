@@ -58,6 +58,61 @@ def test_authorization_denies_anonymous_users_silent(tmp_path: Path) -> None:
 
     _assert_no_analysis_issues(result)
     assert "iis.authorization_allows_anonymous_users" not in _rule_ids(result)
+    assert "iis.authorization_policy_missing" not in _rule_ids(result)
+
+
+def test_authorization_policy_missing_fires_when_no_authorization_section(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.authorization_policy_missing" in _rule_ids(result)
+
+
+def test_authorization_policy_missing_fires_when_rules_are_empty(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <clear />
+            </authorization>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "iis.authorization_policy_missing"
+    ]
+    assert len(findings) == 1
+    assert "authorization" in (findings[0].location.xml_path or "")
 
 
 def test_authorization_allows_all_after_anonymous_deny_silent(
@@ -260,6 +315,32 @@ def test_request_filtering_length_limits_safe_silent(tmp_path: Path) -> None:
     rule_ids = _rule_ids(result)
     assert "iis.request_filtering_max_url_too_high" not in rule_ids
     assert "iis.request_filtering_max_query_string_too_high" not in rule_ids
+    assert "iis.request_filtering_max_url_missing" not in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" not in rule_ids
+
+
+def test_request_filtering_length_limits_missing_fire(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.request_filtering_max_url_missing" in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" in rule_ids
 
 
 def test_file_extensions_allow_unlisted_fires(tmp_path: Path) -> None:
@@ -352,6 +433,30 @@ def test_request_filtering_remove_server_header_true_silent(
 
     _assert_no_analysis_issues(result)
     assert "iis.request_filtering_remove_server_header_disabled" not in _rule_ids(result)
+
+
+def test_request_filtering_remove_server_header_absent_fires(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.request_filtering_remove_server_header_disabled" in _rule_ids(result)
 
 
 def test_request_filtering_remove_server_header_location_override_fires(

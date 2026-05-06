@@ -764,7 +764,7 @@ def test_http_runtime_version_header_does_not_fire_when_false(tmp_path: Path) ->
     assert "iis.http_runtime_version_header_enabled" not in {f.rule_id for f in result.findings}
 
 
-def test_http_runtime_version_header_does_not_fire_when_absent(tmp_path: Path) -> None:
+def test_http_runtime_version_header_fires_when_absent(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -775,7 +775,7 @@ def test_http_runtime_version_header_does_not_fire_when_absent(tmp_path: Path) -
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
-    assert "iis.http_runtime_version_header_enabled" not in {f.rule_id for f in result.findings}
+    assert "iis.http_runtime_version_header_enabled" in {f.rule_id for f in result.findings}
 
 
 # --- IIS rules: iis.request_filtering_allow_double_escaping ---
@@ -859,31 +859,48 @@ def test_no_iis_rule_findings_on_safe_baseline(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
-    <system.webServer>
-        <directoryBrowse enabled="false" />
-        <httpErrors errorMode="DetailedLocalOnly" />
-        <httpLogging dontLog="false" />
-        <asp scriptErrorSentToBrowser="false" />
-        <requestFiltering allowDoubleEscaping="false">
-            <requestLimits maxAllowedContentLength="4194304" />
-            <fileExtensions allowUnlisted="false" />
-        </requestFiltering>
-        <httpProtocol>
-            <customHeaders>
-                <remove name="X-Powered-By" />
+        <system.webServer>
+            <directoryBrowse enabled="false" />
+            <httpErrors errorMode="DetailedLocalOnly" />
+            <httpLogging dontLog="false" />
+            <asp scriptErrorSentToBrowser="false" />
+            <security>
+                <authorization>
+                    <add accessType="Deny" users="?" />
+                    <add accessType="Allow" users="*" />
+                </authorization>
+                <requestFiltering
+                    allowDoubleEscaping="false"
+                    allowHighBitCharacters="false"
+                    removeServerHeader="true"
+                >
+                    <requestLimits
+                        maxAllowedContentLength="4194304"
+                        maxUrl="4096"
+                        maxQueryString="2048"
+                    />
+                    <fileExtensions allowUnlisted="false" />
+                </requestFiltering>
+            </security>
+            <httpProtocol>
+                <customHeaders>
+                    <remove name="X-Powered-By" />
                 <add name="Strict-Transport-Security"
                      value="max-age=31536000; includeSubDomains" />
             </customHeaders>
         </httpProtocol>
     </system.webServer>
-    <system.web>
-        <customErrors mode="RemoteOnly" />
-        <compilation debug="false" />
-        <trace enabled="false" />
-        <httpRuntime enableVersionHeader="false" />
-    </system.web>
-</configuration>
-"""
+        <system.web>
+            <customErrors mode="RemoteOnly" />
+            <compilation debug="false" />
+            <deployment retail="true" />
+            <httpCookies httpOnlyCookies="true" requireSSL="true" />
+            <trace enabled="false" />
+            <httpRuntime enableVersionHeader="false" />
+            <trust level="Medium" />
+        </system.web>
+    </configuration>
+    """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
     server_findings = [f for f in result.findings if not f.rule_id.startswith("universal.")]
