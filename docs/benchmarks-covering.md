@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 307-rule inventory plus the rule-level work needed to cover the
+existing 319-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -175,7 +175,7 @@ Authentication), and SI (System and Information Integrity).
 | AU-2 / AU-3 / AU-12 | Event logging, content of audit records, audit record generation | `nginx.missing_access_log`, `nginx.missing_error_log`, `nginx.missing_log_format`, `nginx.error_log_too_restrictive`, `nginx.log_format_missing_fields`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `apache.log_level_too_restrictive`, `apache.log_format_missing_fields`, `apache.missing_log_format`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured` | `direct-rule`: extend `log_format_missing_fields` to require `request-id`, `x-forwarded-for` chain, and TLS-version fields per AU-3(1). |
 | AU-9 | Protection of audit information | none direct — `out-of-scope` | Log-file ownership / mode requires filesystem inspection outside this tool. |
 | CM-6 | Configuration settings | catch-all for every misconfig rule (`server_tokens_*`, `*.options_*`, `*.directory_*`, `*.autoindex_*`, etc.). | — |
-| CM-7 / CM-7(1) | Least functionality | `lighttpd.mod_cgi_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `iis.handler_write_script_execute_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.allow_header_dangerous_methods`, `external.webdav_methods_exposed`, `apache.server_status_exposed`, `apache.server_info_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public` | `parser-depth`: Apache module inventory (already in `STD-GAP-007`). |
+| CM-7 / CM-7(1) | Least functionality | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `iis.handler_write_script_execute_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.allow_header_dangerous_methods`, `external.webdav_methods_exposed`, `apache.server_status_exposed`, `apache.server_info_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public` | `parser-depth`: Apache module inventory (already in `STD-GAP-007`). |
 | IA-2 / IA-5 / IA-5(1) | Identification and authentication | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.machine_key_validation_weak`, `iis.machine_key_legacy_validation_weak`, `external.htpasswd_exposed` | `direct-rule`: detect `auth_basic` over plain HTTP for Nginx (mirrors `iis.basic_auth_without_ssl`). |
 | SI-10 / SI-10(2) | Information input validation | `iis.request_filtering_allow_double_escaping`, `iis.request_filtering_allow_high_bit`, `iis.file_extensions_allow_unlisted`, `iis.isapi_cgi_restrictions_allow_unlisted`, `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high` | `direct-rule`: equivalent header-byte limits for Apache (`LimitRequestFieldSize`) — already covered; cross-server extension allowlist for Nginx / Apache. |
 | SI-11 | Error handling | `iis.http_errors_detailed`, `iis.custom_errors_off`, `iis.asp_script_error_sent_to_browser`, `iis.deployment_retail_not_enabled`, `iis.compilation_debug_enabled`, `iis.trace_enabled`, `apache.error_document_404_missing`, `apache.error_document_500_missing`, `external.iis.detailed_error_page`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.phpinfo_exposed` | — |
@@ -238,7 +238,7 @@ already aligned with the relevant requirements.
 | PCI DSS v4.0.1 requirement | Topic | Already-covered rules (candidate `covered`) | Gap follow-up |
 | --- | --- | --- | --- |
 | 2.2.1 | Configuration standards developed | catch-all for every misconfig rule. | — |
-| 2.2.5 | Where insecure services / protocols / daemons in use, business justification documented and security features implemented | `lighttpd.mod_cgi_enabled`, `iis.webdav_module_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.webdav_methods_exposed` | — |
+| 2.2.5 | Where insecure services / protocols / daemons in use, business justification documented and security features implemented | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.webdav_methods_exposed` | — |
 | 2.2.6 | System security parameters configured to prevent misuse | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.htpasswd_exposed`, `external.env_file_exposed` | `direct-rule`: backup file probe pattern broader than `.bak` / `.old` / `.swp`. |
 | 4.2.1 | Strong cryptography for transmissions over open public networks | All TLS / HSTS / redirect rules from §5.1. | — |
 | 6.2.4 | Common attack vectors / hardening | `nginx.executable_scripts_allowed_in_uploads`, `iis.handler_write_script_execute_enabled`, `iis.cgi_handler_enabled`, `iis.request_filtering_*` family, `apache.htaccess_enables_cgi`, `apache.htaccess_enables_directory_listing`, `apache.htaccess_disables_security_headers`, `apache.htaccess_weakens_security` | — |
@@ -262,7 +262,7 @@ auditors usually want to see.
 | 3.10 | Encrypt sensitive data in transit | All TLS / HSTS / redirect rules from §5.1. |
 | 4.1 | Establish and maintain a secure configuration process | catch-all for every hardening rule. |
 | 4.6 | Securely manage enterprise assets and software | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `lighttpd.server_tag_not_blank`, IIS server-header rules, all `external.*.version_disclosed_in_server_header`. |
-| 4.8 | Uninstall or disable unnecessary services on enterprise assets and software | `lighttpd.mod_cgi_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`. |
+| 4.8 | Uninstall or disable unnecessary services on enterprise assets and software | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`. |
 | 4.9 | Configure trusted DNS servers on enterprise assets | `nginx.ssl_stapling_missing_resolver` (partial, scoped to OCSP). |
 | 8.2 | Collect audit logs | All AU-2 rules from §5.2. |
 | 8.5 | Collect detailed audit logs | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`. |
@@ -300,7 +300,7 @@ Annex A** controls.
 | 8.5 | Secure authentication | All IA-2 rules from §5.2. |
 | 8.15 | Logging | All AU-2 rules from §5.2. |
 | 8.16 | Monitoring activities | partial via logging rules. |
-| 8.18 | Use of privileged utility programs | `iis.webdav_module_enabled`, `lighttpd.mod_cgi_enabled`, `apache.options_execcgi_enabled`. |
+| 8.18 | Use of privileged utility programs | `iis.webdav_module_enabled`, `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `apache.options_execcgi_enabled`. |
 | 8.27 | Secure system architecture and engineering principles | catch-all hardening. |
 | 8.34 | Protection of information systems during audit testing | out-of-scope. |
 
@@ -415,7 +415,7 @@ content.
 | DevSec lighttpd-03 ssl modes | `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `lighttpd.weak_ssl_cipher_list`, `lighttpd.ssl_honor_cipher_order_missing`. |
 | DevSec lighttpd-05 forbidden methods | `lighttpd.missing_http_method_restrictions`. |
 | lighttpd Security wiki — `mod_status` | `lighttpd.mod_status_public`. |
-| lighttpd Security wiki — `mod_cgi` | `lighttpd.mod_cgi_enabled`. |
+| lighttpd Security wiki — `mod_cgi` / `mod_webdav` | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`. |
 | lighttpd Security wiki — `url.access-deny` | `lighttpd.url_access_deny_missing`. |
 
 `STD-GAP` follow-up: add a `Vendor` column for the Lighttpd table populated
@@ -598,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 307 правил (Nginx 77, Apache 70, Lighttpd 23, IIS 51,
+  обновлён до 319 правил (Nginx 77, Apache 71, Lighttpd 34, IIS 51,
   External 73, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -659,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (307 правил: Nginx 77, Apache 70, Lighttpd 23, IIS 51, External 73, Universal 13). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (319 правил: Nginx 77, Apache 71, Lighttpd 34, IIS 51, External 73, Universal 13). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 
