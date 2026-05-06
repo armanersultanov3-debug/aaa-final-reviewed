@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 303-rule inventory plus the rule-level work needed to cover the
+existing 307-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -119,10 +119,10 @@ Russian sources verified on the same date:
 | --- | --- | --- |
 | CWE | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:cwe()` | Complete across all five rule families. |
 | OWASP Top 10 2021 | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:owasp_top10_2021()` | Complete across all five rule families. |
-| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md:303-337` | First-pass complete; follow-up backlog in `STD-GAP-013`/`STD-GAP-014`. |
-| CIS NGINX Benchmark v3.0.0 | `docs/rule-coverage.md` (`CIS / Vendor` column) plus gap table at `docs/rule-coverage.md:284-310` | Existing-rule reference pass complete. |
-| CIS Apache HTTP Server 2.4 v2.3.0 | `docs/rule-coverage.md` plus gap table at `docs/rule-coverage.md:521-548` | Existing-rule reference pass complete. |
-| CIS Microsoft IIS 10 v1.2.1 (incl. SChannel) | `docs/rule-coverage.md` plus gap table at `docs/rule-coverage.md:812-828` | Existing-rule reference pass complete. |
+| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; follow-up backlog in `STD-GAP-013`/`STD-GAP-014`. |
+| CIS NGINX Benchmark v3.0.0 | `docs/rule-coverage.md` (`CIS / Vendor` column) plus the Nginx gap table in the same file | Existing-rule reference pass complete. |
+| CIS Apache HTTP Server 2.4 v2.3.0 | `docs/rule-coverage.md` plus the Apache gap table in the same file | Existing-rule reference pass complete. |
+| CIS Microsoft IIS 10 v1.2.1 (incl. SChannel) | `docs/rule-coverage.md` plus the IIS/SChannel gap table in the same file | Existing-rule reference pass complete. |
 
 This document does not duplicate those mappings. It only references them when
 a row crosses standards (for example, the same TLS rule that already cites
@@ -342,7 +342,7 @@ standards reference.
 ### 5.12 OWASP Cheat Sheet Series
 
 The Cheat Sheet Series is the natural per-rule companion for external probe
-rules. `docs/rule-coverage.md:837-839` already names it as the conceptual
+rules. `docs/rule-coverage.md` already names it as the conceptual
 companion but does not cite per-rule.
 
 | Cheat sheet | Already-covered rules (candidate `covered`) |
@@ -552,7 +552,7 @@ disclosure / exposure правил.
 
 ## 7. Cross-source partial для external probes
 
-`docs/rule-coverage.md:830-844` намеренно оставляет колонку `CIS / Vendor`
+`docs/rule-coverage.md` намеренно оставляет колонку `CIS / Vendor`
 пустой для всех external rules, потому что external — это runtime-проб, а
 CIS Benchmarks — config-level. Это разумное по-умолчанию правило, но для
 части CIS-секций runtime evidence действительно есть, и текущий пустой `-`
@@ -598,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 303 правил (Nginx 77, Apache 70, Lighttpd 23, IIS 47,
+  обновлён до 307 правил (Nginx 77, Apache 70, Lighttpd 23, IIS 51,
   External 73, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -659,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-05) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md:40-49` (303 правил: Nginx 77, Apache 70, Lighttpd 23, IIS 47, External 73, Universal 13). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (307 правил: Nginx 77, Apache 70, Lighttpd 23, IIS 51, External 73, Universal 13). Sync-check на блок «Total rules» в roadmap пока отложен — `tests/test_rule_coverage_doc.py` уже валидирует registry-vs-`rule-coverage.md`, добавление третьей точки потребует отдельного теста. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 
