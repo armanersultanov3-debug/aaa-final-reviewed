@@ -3,7 +3,9 @@ from __future__ import annotations
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext
 from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
 
-TRANSPARENT_WRAPPER_BLOCKS = frozenset({"ifdefine", "ifmodule", "ifversion"})
+TRANSPARENT_WRAPPER_BLOCKS = frozenset(
+    {"ifdefine", "ifmodule", "ifversion", "requireall"}
+)
 WHOLE_PATHS = frozenset({"", "/"})
 WHOLE_PATTERNS = frozenset(
     {

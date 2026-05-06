@@ -49,8 +49,7 @@ RECOMMENDATION = (
             url="https://www.cisecurity.org/benchmark/apache_http_server",
             coverage="partial",
             note=(
-                "First/default non-TLS name-based VirtualHost catch-all "
-                "rejection only."
+                "First/default non-TLS VirtualHost catch-all rejection only."
             ),
         ),
     ),
@@ -64,6 +63,7 @@ def find_default_vhost_not_rejecting_unknown_hosts(
     seen_contexts: set[int] = set()
 
     for contexts in _non_tls_contexts_by_listen_key(config_ast).values():
+        shared_listen_address = len(contexts) > 1
         context = contexts[0]
         context_id = id(context)
         if context_id in seen_contexts:
@@ -72,7 +72,9 @@ def find_default_vhost_not_rejecting_unknown_hosts(
 
         if rejects_unknown_hosts(context.node) or is_redirect_only_virtualhost(context):
             continue
-        findings.append(_finding(context))
+        findings.append(
+            _finding(context, shared_listen_address=shared_listen_address)
+        )
 
     return findings
 
@@ -96,16 +98,21 @@ def _non_tls_contexts_by_listen_key(
     return dict(contexts_by_key)
 
 
-def _finding(context: ApacheVirtualHostContext) -> Finding:
+def _finding(
+    context: ApacheVirtualHostContext, *, shared_listen_address: bool
+) -> Finding:
     source = context.node.source
     label = context.server_name or context.listen_address or "<unnamed>"
+    shared_suffix = (
+        " on a shared non-TLS listen address" if shared_listen_address else ""
+    )
     return Finding(
         rule_id=RULE_ID,
         title=TITLE,
         severity="low",
         description=(
             f"Apache default VirtualHost '{label}' can serve requests for "
-            "unknown host names on a shared non-TLS listen address."
+            f"unknown host names{shared_suffix}."
         ),
         recommendation=RECOMMENDATION,
         location=SourceLocation(
