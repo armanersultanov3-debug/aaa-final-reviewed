@@ -17,6 +17,15 @@ _SAFE_HEADERS = (
     '"Permissions-Policy" => "geolocation=(), camera=()" )\n'
 )
 
+_FULL_ACCESS_DENY = (
+    'url.access-deny = ( ".inc", ".bak", ".old", ".backup", ".orig", '
+    '".save", ".swp", ".tmp", ".sql", ".conf", ".ini", ".log", ".env", '
+    '".DS_Store", "Thumbs.db", "composer.json", "composer.lock", '
+    '"package-lock.json", ".npmrc", ".yarnrc", ".idea", ".vscode", '
+    '".git", ".svn" )\n'
+)
+
+
 def _analyze(tmp_path: Path, config_text: str) -> AnalysisResult:
     config_path = tmp_path / "lighttpd.conf"
     config_path.write_text(config_text, encoding="utf-8")
@@ -86,6 +95,56 @@ def test_lighttpd_unsafe_header_policy_uses_header_location(
 
     assert finding.location is not None
     assert finding.location.line == 6
+
+
+def test_lighttpd_flags_sensitive_path_category_gaps(tmp_path: Path) -> None:
+    result = _analyze(tmp_path, _BASE + 'url.access-deny = ( ".inc" )\n')
+
+    assert {
+        "lighttpd.backup_temp_files_access_not_denied",
+        "lighttpd.config_data_files_access_not_denied",
+        "lighttpd.generated_artifacts_access_not_denied",
+        "lighttpd.vcs_metadata_access_not_denied",
+    }.issubset(_rule_ids(result))
+
+
+def test_lighttpd_accepts_complete_sensitive_path_deny_policy(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(tmp_path, _BASE + _FULL_ACCESS_DENY)
+
+    assert {
+        "lighttpd.backup_temp_files_access_not_denied",
+        "lighttpd.config_data_files_access_not_denied",
+        "lighttpd.generated_artifacts_access_not_denied",
+        "lighttpd.vcs_metadata_access_not_denied",
+    }.isdisjoint(_rule_ids(result))
+
+
+def test_lighttpd_flags_named_http_host_without_https_redirect(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE + 'server.name = "example.test"\n' + "server.port = 80\n",
+    )
+
+    assert "lighttpd.missing_http_to_https_redirect" in _rule_ids(result)
+
+
+def test_lighttpd_accepts_named_http_host_with_https_redirect(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'server.name = "example.test"\n'
+        + "server.port = 80\n"
+        + 'server.modules += ( "mod_redirect" )\n'
+        + 'url.redirect = ( "^/(.*)$" => "https://example.test/$1" )\n',
+    )
+
+    assert "lighttpd.missing_http_to_https_redirect" not in _rule_ids(result)
 
 
 def test_lighttpd_flags_auth_require_without_backend(tmp_path: Path) -> None:
