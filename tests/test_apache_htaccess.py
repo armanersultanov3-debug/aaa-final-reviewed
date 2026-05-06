@@ -1325,8 +1325,8 @@ class TestBuildEffectiveConfig:
             "</Directory>\n"
         )
         ec = build_effective_config(ast, "/var/www")
-        # Without +/- prefix -> last-wins replacement
-        assert ec.directives["options"].args == ["None"]
+        # Without +/- prefix -> last-wins replacement to an empty Options set.
+        assert ec.directives["options"].args == []
 
     def test_options_none_cleared_before_relative_merge(self, tmp_path: Path) -> None:
         ast = parse_apache_config(

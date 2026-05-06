@@ -304,6 +304,76 @@ def test_analyze_apache_config_skips_non_default_tls_vhosts(
     )
 
 
+def test_analyze_apache_config_reports_default_non_tls_vhost_without_reject(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName api.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.default_vhost_not_rejecting_unknown_hosts"
+    ]
+    assert len(matching) == 1
+    assert "app.example.test" in matching[0].description
+
+
+def test_analyze_apache_config_accepts_rejecting_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName _",
+            '    <Location "/">',
+            "        Require all denied",
+            "    </Location>",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_redirect_only_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "    Redirect permanent / https://app.example.test/",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName api.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
 def _analyze_config(tmp_path: Path, config: str):
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(config, encoding="utf-8")
