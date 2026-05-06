@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **308**
+Total rules: **319**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (222), external (73), universal (13) |
-| Severity | high (15), medium (108), low (174), info (11) |
-| Input kind | ast (150), probe (73), effective (60), normalized (13), htaccess (6), mixed (6) |
+| Category | local (233), external (73), universal (13) |
+| Severity | high (15), medium (108), low (185), info (11) |
+| Input kind | ast (149), probe (73), effective (72), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -607,7 +607,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 ### Lighttpd (Local)
 
-Count: 23
+Count: 34
 
 Stage 2 step 3 mapping: **complete** for this group. There is no official
 *CIS Lighttpd Benchmark*, so CIS-specific claims stay empty. Where vendor or
@@ -618,18 +618,19 @@ official CIS mapping.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `lighttpd.access_log_format_missing_fields` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
-| `lighttpd.access_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
+| `lighttpd.access_log_missing` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.basic_auth_over_http` | medium | effective | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.dir_listing_enabled` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
-| `lighttpd.error_log_missing` | medium | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
-| `lighttpd.max_connections_missing` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
-| `lighttpd.max_request_size_missing` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.error_log_missing` | medium | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
+| `lighttpd.max_connections_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_request_size_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
 | `lighttpd.content_security_policy_missing_reporting_endpoint` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
+| `lighttpd.content_security_policy_unsafe` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: local directive quality only) | - |
 | `lighttpd.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | DevSec lighttpd-baseline lighttpd-05 (partial: explicit dangerous-method deny policy signal) |
 | `lighttpd.missing_strict_transport_security` | medium | effective | headers | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
 | `lighttpd.missing_x_content_type_options` | medium | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | - |
 | `lighttpd.mod_cgi_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `lighttpd.mod_webdav_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.mod_status_public` | medium | effective | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
 | `lighttpd.server_tag_not_blank` | low | effective | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
 | `lighttpd.ssl_engine_not_enabled` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
@@ -639,8 +640,17 @@ official CIS mapping.
 | `lighttpd.ssl_pemfile_missing` | high | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.ssl_protocol_policy_missing_or_weak` | medium | effective | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 (partial: local protocol policy only) | - |
 | `lighttpd.strict_transport_security_unsafe` | medium | effective | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | - |
-| `lighttpd.url_access_deny_missing` | medium | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `lighttpd.url_access_deny_missing` | medium | effective | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.weak_ssl_cipher_list` | high | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | - |
+| `lighttpd.x_frame_options_unsafe` | low | effective | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
+| `lighttpd.max_request_size_unlimited` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_request_size_too_large` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_request_field_size_too_large` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_keep_alive_idle_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_read_idle_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_write_idle_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.max_keep_alive_requests_unlimited` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
+| `lighttpd.webdav_write_access_enabled` | low | effective | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 
 Mapping rationale (lighttpd rules):
 
@@ -653,12 +663,14 @@ Mapping rationale (lighttpd rules):
 - `dir_listing_enabled` -- direct match for CWE-548. Categorised as A05
   (misconfig) because lighttpd defaults are safe; the finding fires only
   when the operator explicitly enables `dir-listing.activate`.
-- `max_connections_missing`, `max_request_size_missing` -- absence of
-  `server.max-connections` / `server.max-request-size` lets clients exhaust
-  connections or memory: CWE-770 (allocation of resources without limits).
-  We leave the OWASP cell empty: denial-of-service hardening does not have
-  a clean mapping in the 2021 Top 10, and forcing it under A05 would
-  overstretch the category.
+- `max_connections_missing`, `max_request_size_missing`,
+  `max_request_size_unlimited`, `max_request_size_too_large`,
+  `max_request_field_size_too_large`, and the idle / keep-alive policy
+  rules -- missing, disabled, or unusually broad request/resource limits can
+  let clients retain connections or memory longer than intended: CWE-770
+  (allocation of resources without limits). We leave the OWASP cell empty:
+  denial-of-service hardening does not have a clean mapping in the 2021 Top
+  10, and forcing it under A05 would overstretch the category.
 - `basic_auth_over_http` -- Basic authentication without SSL can expose
   reusable credentials over cleartext HTTP: CWE-319, OWASP A02.
 - `missing_http_method_restrictions` -- no explicit dangerous-method deny
@@ -668,12 +680,20 @@ Mapping rationale (lighttpd rules):
   `strict_transport_security_unsafe` -- without HSTS, or with a short /
   incomplete HSTS policy, clients can be downgraded to plaintext (CWE-319).
   Tracked as A05 (hardening header misconfiguration), matching the universal HSTS rule's mapping.
-- `missing_x_content_type_options` -- missing protective response header:
-  CWE-693 (protection mechanism failure), OWASP A05.
-- `mod_cgi_enabled` -- enabling `mod_cgi` is not a vulnerability per se, it
-  is an attack-surface increase that violates least-privilege deployment.
-  No single CWE maps cleanly, so the CWE cell stays empty; OWASP A05 covers
+- `missing_x_content_type_options`, `content_security_policy_unsafe` -- missing
+  or weak protective response-header policy: CWE-693 (protection mechanism
+  failure), OWASP A05.
+- `x_frame_options_unsafe` -- unsafe framing policy maps to clickjacking
+  protection failure (CWE-1021), kept as OWASP A05 because this rule evaluates
+  static header configuration.
+- `mod_cgi_enabled`, `mod_webdav_enabled` -- enabling optional executable or
+  publishing modules is not a vulnerability per se, it is an attack-surface
+  increase that violates least-privilege deployment. No single CWE maps cleanly
+  to the module-presence signal, so the CWE cell stays empty; OWASP A05 covers
   it as a hardening item ("only enable modules you actually need").
+- `webdav_write_access_enabled` -- WebDAV write publishing without
+  `webdav.is-readonly = "enable"` expands write-capable access surface:
+  CWE-284, OWASP A05.
 - `mod_status_public`, `server_tag_not_blank` -- both leak server-internal
   information to unauthenticated clients: CWE-200 (information exposure),
   OWASP A05.
@@ -1269,13 +1289,15 @@ Sources:
 | DevSec lighttpd-baseline `lighttpd-03` (ssl modes) | TLS configuration baseline | `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `lighttpd.weak_ssl_cipher_list`, `lighttpd.ssl_honor_cipher_order_missing` |
 | DevSec lighttpd-baseline `lighttpd-05` (forbidden methods) | HTTP method allowlist | `lighttpd.missing_http_method_restrictions` |
 | lighttpd Security wiki — `mod_status` | status endpoint exposure | `lighttpd.mod_status_public` |
-| lighttpd Security wiki — `mod_cgi` | least-functionality / CGI | `lighttpd.mod_cgi_enabled` |
+| lighttpd Security wiki — `mod_cgi` / `mod_webdav` | least-functionality / CGI / WebDAV publishing | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled` |
 | lighttpd Security wiki — `url.access-deny` | sensitive-file deny lists | `lighttpd.url_access_deny_missing` |
 | lighttpd `mod_accesslog` documentation | access logging | `lighttpd.access_log_missing`, `lighttpd.access_log_format_missing_fields` |
 | lighttpd `server.errorlog` documentation | error logging | `lighttpd.error_log_missing` |
 | lighttpd `server.max-connections` documentation | resource limits | `lighttpd.max_connections_missing` |
-| lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing` |
-| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `lighttpd.missing_x_content_type_options` |
+| lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing`, `lighttpd.max_request_size_unlimited`, `lighttpd.max_request_size_too_large` |
+| lighttpd `server.max-request-field-size` documentation | request header field limits | `lighttpd.max_request_field_size_too_large` |
+| lighttpd idle / keep-alive timeout documentation | idle connection resource limits | `lighttpd.max_keep_alive_idle_too_high`, `lighttpd.max_read_idle_too_high`, `lighttpd.max_write_idle_too_high`, `lighttpd.max_keep_alive_requests_unlimited` |
+| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `lighttpd.missing_x_content_type_options`, `lighttpd.content_security_policy_unsafe`, `lighttpd.x_frame_options_unsafe` |
 
 Notes:
 
@@ -1284,8 +1306,9 @@ Notes:
   `CIS / Vendor` column in the inventory table for Lighttpd remains empty.
 - The lighttpd wiki pages cited above are stable URLs; if the wiki is
   reorganised, this block must be updated rather than the inventory rows.
-- The `lighttpd-05` row is the only DevSec control without a corresponding
-  rule in the registry today and is left as a `direct-rule` follow-up.
+- `lighttpd-05` is covered by `lighttpd.missing_http_method_restrictions`;
+  this block intentionally keeps DevSec references topic-grouped rather than
+  filling the per-row `CIS / Vendor` cells.
 
 ## ISO/IEC 27002:2022 / ГОСТ Р ИСО/МЭК 27002-2021 mapping
 
@@ -1386,7 +1409,7 @@ Progress:
   pass complete
 - [x] Apache local rules (71) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Lighttpd local rules (23)
+- [x] Lighttpd local rules (34)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)
