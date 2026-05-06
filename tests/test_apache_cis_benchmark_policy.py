@@ -66,6 +66,20 @@ def test_analyze_apache_config_uses_last_allowoverride_for_same_directory(
     assert "apache.allowoverride_not_none" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_does_not_require_redundant_child_allowoverride_none(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        '<Directory "/var/www/html">',
+        "    Options -Indexes",
+        "</Directory>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.directory_without_allowoverride" not in _rule_ids(findings)
+
+
 def test_analyze_apache_config_keeps_prior_allowoverride_when_later_block_omits_it(
     tmp_path: Path,
 ) -> None:

@@ -99,12 +99,18 @@ Status: implemented in `codex/tls-local-complements`.
 
 ## PR Slice 7: Apache Precision Without Parser Changes
 
-Status: planned.
+Status: implemented in `codex/apache-precision-policy`.
 
-- Improve `Options` policy precision per directory class.
-- Refine non-TLS VirtualHost allowed-host precision.
-- Tune `AllowOverride` and timeout noise only where current effective helpers
-  can prove the inherited/default outcome.
+- `directory_without_allowoverride` now suppresses redundant findings when a
+  same-path or covering parent `<Directory>` effectively inherits
+  `AllowOverride None`.
+- HTTP-to-HTTPS redirect matching now uses TLS VirtualHost identity instead of
+  broad inherited TLS policy intent, and matches `ServerName` / `ServerAlias`
+  wildcard overlap without module inventory.
+- `Options` checks stay on the existing effective-scope helper and regression
+  coverage; no parser rewrite is needed for this slice.
+- Missing/default timeout findings remain deferred because absence alone is
+  too noisy without an explicit benchmark/profile policy.
 
 ## PR Slice 8: IIS XML Policy Completeness
 
