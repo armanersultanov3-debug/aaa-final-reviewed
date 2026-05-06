@@ -89,7 +89,7 @@ def _effective_allowoverride(
     if block_path is None:
         return None
 
-    best_match: tuple[int, int, frozenset[str]] | None = None
+    best_match: tuple[int, int, int, frozenset[str]] | None = None
     for source_order, candidate_context in enumerate(all_contexts):
         if not _scope_can_inherit(
             target_scope=context.scope,
@@ -110,14 +110,20 @@ def _effective_allowoverride(
             continue
 
         specificity = path_match_specificity(candidate_path)
+        scope_depth = len(candidate_context.scope)
         if (
             best_match is None
             or specificity > best_match[0]
-            or (specificity == best_match[0] and source_order > best_match[1])
+            or (specificity == best_match[0] and scope_depth > best_match[1])
+            or (
+                specificity == best_match[0]
+                and scope_depth == best_match[1]
+                and source_order > best_match[2]
+            )
         ):
-            best_match = (specificity, source_order, allowed)
+            best_match = (specificity, scope_depth, source_order, allowed)
 
-    return best_match[2] if best_match is not None else None
+    return best_match[3] if best_match is not None else None
 
 
 def _resolve_block_path(block: ApacheBlockNode) -> Path | None:
