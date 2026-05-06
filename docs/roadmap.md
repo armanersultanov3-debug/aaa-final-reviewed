@@ -285,10 +285,12 @@ hardcoded finder per path.
 
 ## Current Priority
 
-The immediate priority is the remaining TLS hardening work that needs deeper
-runtime or default-host evidence, followed by CIS/standards coverage expansion.
-Report-noise grouping, redirect-only scope handling, severity calibration, and
-the first Nginx/Apache TLS session-setting slice are already implemented.
+The immediate priority has moved from local/static rule additions to the next
+evidence layer. The high-value local work that did not require parser or
+analyzer rewrites is mostly implemented: report-noise grouping, redirect-only
+scope handling, severity calibration, request/body/header limit quality,
+logging quality, sensitive-path deny policy, header policy quality, local TLS
+complements, and IIS XML policy completeness are all present.
 
 Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
 standards source baseline, gap labels, work order, and initial backlog for
@@ -296,9 +298,11 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: finish the remaining TLS hardening gaps that require safe
-external runtime evidence or broader virtual-host allowed-host precision, then
-resume the next CIS/standards coverage slice.
+Current step: choose between the remaining Apache precision tail
+(`Options` policy per directory class and broader non-TLS VirtualHost
+allowed-host precision) and the external-safe runtime evidence track:
+certificate chain/trust, runtime redirect corroboration, default pages, OCSP
+runtime behavior, and eventually ECH diagnostics/limitations.
 
 The external safe-probe catalog is implemented. Future external probe growth
 should add only curated non-mutating probes on top of the catalog.

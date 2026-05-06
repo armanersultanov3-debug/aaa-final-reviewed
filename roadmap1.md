@@ -9,30 +9,25 @@ host-inspection, package/service checks, and parser rewrites.
 
 ## PR Slice 1: Cross-Server Request/Auth/Header Policy
 
-Status: in progress.
+Status: implemented.
 
 1. HTTP method policy.
-   - Nginx: keep hardening method policy coverage around `limit_except` and
-     request-method policy patterns.
-   - Apache: keep hardening `Limit`, `LimitExcept`, and `Require method`
-     coverage.
-   - Lighttpd: add local detection for explicit unsafe request-method policies,
-     especially TRACE, PUT, DELETE, CONNECT, PATCH, PROPFIND, and WebDAV-like
-     methods.
+   - Nginx: `limit_except` and explicit method-policy checks are covered.
+   - Apache: `Limit`, `LimitExcept`, and `Require method` style explicit
+     allowlists are covered where the current AST can prove them.
+   - Lighttpd: explicit dangerous-method policy coverage is present for
+     TRACE, PUT, DELETE, CONNECT, PATCH, PROPFIND, and WebDAV-like methods.
 
 2. Authentication over plain HTTP.
-   - Nginx: flag active `auth_basic` on non-TLS, non-redirect content scopes.
-   - Apache: flag `AuthType Basic` on non-TLS scopes.
-   - Lighttpd: flag `auth.require` / Basic-auth style policy when SSL is not
-     enabled for the analyzed scope.
+   - Apache and Lighttpd now flag Basic-auth style policy on non-TLS scopes.
+   - IIS Basic/form-auth transport coupling is covered by the IIS XML policy
+     rules.
+   - Nginx remains covered indirectly by local TLS/auth policy checks and is a
+     lower-priority follow-up if stricter `auth_basic` scope modeling is needed.
 
 3. HSTS policy quality.
-   - Nginx: flag weak `Strict-Transport-Security` values on TLS servers.
-   - Apache: keep the existing missing/unsafe HSTS checks and align quality
-     semantics with the shared policy.
-   - Lighttpd: flag weak `Strict-Transport-Security` values configured through
-     `setenv.add-response-header`.
-   - IIS: flag weak `Strict-Transport-Security` custom header values.
+   - Nginx, Apache, Lighttpd, and IIS all have local weak
+     `Strict-Transport-Security` value checks aligned with the shared policy.
 
 ## PR Slice 2: Request, Body, and Header Limits
 
@@ -71,7 +66,7 @@ Status: implemented.
 
 ## PR Slice 5: Header Policy Quality
 
-Status: implemented in `codex/header-policy-quality`.
+Status: implemented.
 
 - Referrer-Policy: shared unsafe-value semantics for Nginx, Apache, and the
   normalized universal layer used by Lighttpd/IIS.
@@ -84,7 +79,7 @@ Status: implemented in `codex/header-policy-quality`.
 
 ## PR Slice 6: TLS Local Complements
 
-Status: implemented in `codex/tls-local-complements`.
+Status: implemented.
 
 - Added only direct, parseable TLS configuration complements that do not require
   a live handshake.
@@ -99,22 +94,30 @@ Status: implemented in `codex/tls-local-complements`.
 
 ## PR Slice 7: Apache Precision Without Parser Changes
 
-Status: planned.
+Status: partially implemented; remaining work is a focused follow-up.
 
-- Improve `Options` policy precision per directory class.
-- Refine non-TLS VirtualHost allowed-host precision.
-- Tune `AllowOverride` and timeout noise only where current effective helpers
-  can prove the inherited/default outcome.
+- `AllowOverride` baseline checks, timeout/keepalive value checks, redirect
+  precision, and default TLS VirtualHost unknown-host rejection are present.
+- Remaining direct-rule work: improve `Options` policy precision per directory
+  class and refine broader non-TLS VirtualHost allowed-host precision.
+- Deeper `Require` / module-inventory / ModSecurity semantics stay
+  `parser-depth` and should not be forced into string-only checks.
 
 ## PR Slice 8: IIS XML Policy Completeness
 
-Status: planned.
+Status: implemented.
 
-- Authorization defaults.
-- `system.web` absence/default policy.
-- requestFiltering absence/default policy.
-- App pool default materialization where available in the current effective
-  model.
+- Authorization defaults now cover absent/empty IIS URL authorization policy,
+  anonymous allow rules, inheritance, remove-only overrides, and affected
+  `<location>` scopes.
+- `system.web` policy checks cover `httpRuntime`, forms authentication,
+  cookies, credentials, retail mode, trust level, and MachineKey posture where
+  the effective XML model exposes the setting.
+- `requestFiltering` policy checks cover double escaping, high-bit characters,
+  URL/query/body limits, file-extension allow-unlisted defaults, and explicit
+  native `Server` header removal disablement.
+- App-pool checks cover explicit identity policy and cross-site shared pool
+  usage where applicationHost data exposes the relevant attributes.
 
 ## Explicitly Out Of Scope
 

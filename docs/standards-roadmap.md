@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 303 rules (synchronized with
+The current project inventory is 307 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -46,7 +46,7 @@ registry and `docs/rule-coverage.md`):
 - Nginx local: 77
 - Apache local: 70
 - Lighttpd local: 23
-- IIS local: 47
+- IIS local: 51
 - External probes: 73
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
@@ -355,7 +355,7 @@ standard section before implementation.
 | STD-GAP-006 | Apache CIS | direct-rule | P2 | `FileETag`, timeout/keepalive values, request-limit thresholds, primary security-header checks, sensitive-location method restrictions, explicit unsafe method allowlists, `AllowOverride None` baseline checks, sensitive-file deny lists, IP-based request denial, default TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, Apache TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and conservative weak cipher / FS / AEAD posture are now partially covered. Remaining direct-rule work focuses on full site-wide approved-method policy, environment-specific path policy, broader non-TLS virtualhost allowed-host precision, and runtime TLS evidence. |
 | STD-GAP-007 | Apache CIS | parser-depth | P2 | Improve module inventory, proxy/TLS directive modeling, and effective access-control semantics before adding rules that reason about loaded modules, upstream TLS trust, ModSecurity/CRS, or broad `Require` policy. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy is out of scope. |
-| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, and SChannel TLS 1.2 / AES / cipher-suite-order policy are now partially covered. Remaining IIS XML checks include full authorization defaults, deeper app-pool default materialization / shared-hosting exceptions, absence-complete/default policy for system.web settings, runtime native-header verification, and absence-complete request-filtering policy. |
+| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, and requestFiltering default/absence policy are now covered where the current effective XML model exposes the signal. Remaining follow-up work is runtime native-header verification, deeper application-pool shared-hosting exceptions, and parser/effective-depth only where the current model cannot materialize defaults. |
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
