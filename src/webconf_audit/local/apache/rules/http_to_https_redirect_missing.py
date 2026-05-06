@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cache
 from fnmatch import fnmatchcase
 
 from webconf_audit.local.apache.effective import (
@@ -130,19 +131,56 @@ def _hostname_globs_overlap(left: str, right: str) -> bool:
     right_labels = right.split(".")
 
     if len(left_labels) == len(right_labels):
-        label_candidates: list[str] = []
-        for left_label, right_label in zip(left_labels, right_labels, strict=True):
-            label = _overlap_label_candidate(left_label, right_label)
-            if label is None:
-                break
-            label_candidates.append(label)
-        else:
-            candidates.insert(0, ".".join(label_candidates))
+        if all(
+            _labels_globs_overlap(left_label, right_label)
+            for left_label, right_label in zip(
+                left_labels,
+                right_labels,
+                strict=True,
+            )
+        ):
+            return True
 
     return any(
         _hostname_matches(candidate, left) and _hostname_matches(candidate, right)
         for candidate in candidates
     )
+
+
+def _labels_globs_overlap(left: str, right: str) -> bool:
+    @cache
+    def overlaps(left_index: int, right_index: int) -> bool:
+        if left_index == len(left) and right_index == len(right):
+            return True
+
+        left_char = left[left_index] if left_index < len(left) else None
+        right_char = right[right_index] if right_index < len(right) else None
+
+        if left_char == "*":
+            if right_char == "*":
+                return (
+                    overlaps(left_index + 1, right_index)
+                    or overlaps(left_index, right_index + 1)
+                    or overlaps(left_index + 1, right_index + 1)
+                )
+            return overlaps(left_index + 1, right_index) or (
+                right_char is not None and overlaps(left_index, right_index + 1)
+            )
+
+        if right_char == "*":
+            return overlaps(left_index, right_index + 1) or (
+                left_char is not None and overlaps(left_index + 1, right_index)
+            )
+
+        if left_char is None or right_char is None:
+            return False
+
+        if left_char == "?" or right_char == "?" or left_char == right_char:
+            return overlaps(left_index + 1, right_index + 1)
+
+        return False
+
+    return overlaps(0, 0)
 
 
 def _overlap_label_candidate(left: str, right: str) -> str | None:

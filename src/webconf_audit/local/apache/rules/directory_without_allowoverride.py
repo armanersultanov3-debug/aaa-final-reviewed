@@ -147,7 +147,10 @@ def _scope_can_inherit(
     target_scope: tuple[int, ...],
     candidate_scope: tuple[int, ...],
 ) -> bool:
-    return candidate_scope == target_scope or not candidate_scope
+    return (
+        len(candidate_scope) <= len(target_scope)
+        and target_scope[: len(candidate_scope)] == candidate_scope
+    )
 
 
 def _iter_directory_contexts(
