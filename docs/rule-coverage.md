@@ -629,7 +629,7 @@ official CIS mapping.
 | `lighttpd.content_security_policy_missing_reporting_endpoint` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
 | `lighttpd.content_security_policy_unsafe` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: local directive quality only) | - |
 | `lighttpd.missing_content_security_policy` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: presence only) | - |
-| `lighttpd.missing_http_to_https_redirect` | low | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.2.1 (partial: local redirect policy only) | - |
+| `lighttpd.missing_http_to_https_redirect` | low | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: local redirect policy only) | - |
 | `lighttpd.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | DevSec lighttpd-baseline lighttpd-05 (partial: explicit dangerous-method deny policy signal) |
 | `lighttpd.missing_permissions_policy` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (partial: presence only) | - |
 | `lighttpd.missing_referrer_policy` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | - |
@@ -740,7 +740,7 @@ Mapping rationale (lighttpd rules):
   config, generated artifact, and VCS metadata markers, the server can hand out
   sensitive files: CWE-538 / CWE-540, OWASP A05.
 - `missing_http_to_https_redirect` -- named HTTP host without a local redirect
-  policy can leave plaintext access available: CWE-319, OWASP A05.
+  policy can leave plaintext access available: CWE-319, OWASP A02.
 - `weak_ssl_cipher_list` -- enabling RC4/DES/3DES/MD5/NULL/EXPORT cipher
   tokens is the textbook CWE-327 (broken / risky cryptographic algorithm),
   OWASP A02.

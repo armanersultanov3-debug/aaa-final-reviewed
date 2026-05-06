@@ -161,6 +161,21 @@ def test_lighttpd_requires_mod_redirect_for_https_redirect_policy(
     assert "lighttpd.missing_http_to_https_redirect" in _rule_ids(result)
 
 
+def test_lighttpd_requires_exact_mod_redirect_module_name(
+    tmp_path: Path,
+) -> None:
+    result = _analyze(
+        tmp_path,
+        _BASE
+        + 'server.name = "example.test"\n'
+        + "server.port = 80\n"
+        + 'server.modules += ( "mod_redirector" )\n'
+        + 'url.redirect = ( "^/(.*)$" => "https://example.test/$1" )\n',
+    )
+
+    assert "lighttpd.missing_http_to_https_redirect" in _rule_ids(result)
+
+
 def test_lighttpd_requires_whole_site_https_redirect_policy(
     tmp_path: Path,
 ) -> None:

@@ -214,14 +214,7 @@ def _finding(
 
 
 def _unique(markers: Iterable[str]) -> list[str]:
-    result: list[str] = []
-    seen: set[str] = set()
-    for marker in markers:
-        if marker in seen:
-            continue
-        result.append(marker)
-        seen.add(marker)
-    return result
+    return list(dict.fromkeys(markers))
 
 
 __all__ = [

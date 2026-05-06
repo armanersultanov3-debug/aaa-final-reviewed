@@ -11,8 +11,8 @@ from webconf_audit.local.lighttpd.rules.directive_value_utils import (
     configured_value,
 )
 from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
-    _redirect_value_targets_whole_https,
     is_redirect_only_config,
+    redirect_value_targets_whole_https,
 )
 from webconf_audit.local.lighttpd.rules.rule_utils import default_location
 from webconf_audit.models import Finding
@@ -76,13 +76,24 @@ def _has_https_redirect(
     directives: dict[str, LighttpdEffectiveDirective],
 ) -> bool:
     modules = directives.get("server.modules")
-    if modules is None or "mod_redirect" not in configured_value(modules):
+    if modules is None or "mod_redirect" not in _module_names(configured_value(modules)):
         return False
 
     redirect = directives.get("url.redirect")
     if redirect is None:
         return False
-    return _redirect_value_targets_whole_https(configured_value(redirect))
+    return redirect_value_targets_whole_https(configured_value(redirect))
+
+
+def _module_names(value: str) -> set[str]:
+    stripped = value.strip()
+    if stripped.startswith("(") and stripped.endswith(")"):
+        stripped = stripped[1:-1]
+    return {
+        part.strip().strip('"').strip("'").strip()
+        for part in stripped.split(",")
+        if part.strip().strip('"').strip("'").strip()
+    }
 
 
 __all__ = ["find_missing_http_to_https_redirect"]

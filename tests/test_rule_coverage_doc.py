@@ -174,12 +174,12 @@ def test_repeated_document_counters_match_registry() -> None:
         },
         _REPO_ROOT / "docs" / "benchmarks-covering.md": {
             "total": r"existing\s+(\d+)-rule inventory",
-            "nginx": r"Nginx\s+(\d+),\s+Apache\s+\d+,\s+Lighttpd\s+\d+,\s+IIS\s+\d+,\s+External\s+\d+,\s+Universal\s+\d+",
-            "apache": r"Nginx\s+\d+,\s+Apache\s+(\d+),\s+Lighttpd\s+\d+,\s+IIS\s+\d+,\s+External\s+\d+,\s+Universal\s+\d+",
-            "lighttpd": r"Nginx\s+\d+,\s+Apache\s+\d+,\s+Lighttpd\s+(\d+),\s+IIS\s+\d+,\s+External\s+\d+,\s+Universal\s+\d+",
-            "iis": r"Nginx\s+\d+,\s+Apache\s+\d+,\s+Lighttpd\s+\d+,\s+IIS\s+(\d+),\s+External\s+\d+,\s+Universal\s+\d+",
-            "external": r"Nginx\s+\d+,\s+Apache\s+\d+,\s+Lighttpd\s+\d+,\s+IIS\s+\d+,\s+External\s+(\d+),\s+Universal\s+\d+",
-            "universal": r"Nginx\s+\d+,\s+Apache\s+\d+,\s+Lighttpd\s+\d+,\s+IIS\s+\d+,\s+External\s+\d+,\s+Universal\s+(\d+)",
+            "nginx": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bNginx\s+(\d+)",
+            "apache": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bApache\s+(\d+)",
+            "lighttpd": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bLighttpd\s+(\d+)",
+            "iis": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bIIS\s+(\d+)",
+            "external": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bExternal\s+(\d+)",
+            "universal": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bUniversal\s+(\d+)",
         },
     }
 
