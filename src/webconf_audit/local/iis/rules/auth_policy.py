@@ -181,7 +181,12 @@ def _effective_authorization_policy_missing_findings(
         if authorization is None:
             findings.append(_effective_authorization_policy_absent_finding(scope))
             continue
-        findings.append(_effective_authorization_policy_empty_finding(authorization))
+        findings.append(
+            _effective_authorization_policy_empty_finding(
+                authorization,
+                affected_location_path=scope.location_path,
+            ),
+        )
     return findings
 
 
@@ -460,8 +465,10 @@ def _raw_authorization_policy_absent_finding(section: IISSection) -> Finding:
 
 def _effective_authorization_policy_empty_finding(
     section: IISEffectiveSection,
+    *,
+    affected_location_path: str | None = None,
 ) -> Finding:
-    ctx = location_context(section)
+    ctx = _location_path_context(affected_location_path or section.location_path)
     return Finding(
         rule_id=AUTHORIZATION_POLICY_MISSING_RULE_ID,
         title="IIS URL authorization policy is not explicit",
@@ -474,6 +481,13 @@ def _effective_authorization_policy_empty_finding(
         recommendation="Add explicit URL authorization allow/deny rules for protected applications.",
         location=effective_location(section),
     )
+
+
+def _location_path_context(location_path: str | None) -> str:
+    location_path = normalize_location_path(location_path)
+    if location_path:
+        return f' (at location path "{location_path}")'
+    return ""
 
 
 def _raw_authorization_policy_empty_finding(section: IISSection) -> Finding:

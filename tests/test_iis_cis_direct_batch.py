@@ -1,4 +1,6 @@
 from tests.iis_helpers import AnalysisResult, Path, analyze_iis_config, parse_iis_config
+from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
+from webconf_audit.local.iis.parser import IISChildElement, IISConfigDocument, IISSourceRef
 from webconf_audit.local.iis.rules.auth_policy import find_authorization_policy_missing
 from webconf_audit.local.iis.rules.request_filtering_policy import (
     find_request_filtering_max_query_string_missing,
@@ -13,6 +15,25 @@ def _assert_no_analysis_issues(result: AnalysisResult) -> None:
 
 def _rule_ids(result: AnalysisResult) -> set[str]:
     return {finding.rule_id for finding in result.findings}
+
+
+def _effective_section(
+    *,
+    tag: str,
+    suffix: str,
+    location_path: str | None,
+    source_path: str,
+    xml_path: str,
+    children: list[IISChildElement] | None = None,
+) -> IISEffectiveSection:
+    return IISEffectiveSection(
+        tag=tag,
+        section_path_suffix=suffix,
+        attributes={},
+        children=children or [],
+        location_path=location_path,
+        origin_chain=[IISSourceRef(file_path=source_path, xml_path=xml_path)],
+    )
 
 
 def test_authorization_allows_all_users_fires(tmp_path: Path) -> None:
@@ -346,6 +367,43 @@ def test_authorization_policy_inherited_empty_parent_still_fires(
         if finding.rule_id == "iis.authorization_policy_missing"
     ]
     assert any('location path "admin"' in finding.description for finding in findings)
+
+
+def test_authorization_policy_empty_inherited_section_reports_affected_scope() -> None:
+    doc = IISConfigDocument(
+        root_tag="configuration",
+        config_kind="web",
+        sections=[],
+        file_path="web.config",
+    )
+    authorization = _effective_section(
+        tag="authorization",
+        suffix="/authorization",
+        location_path=None,
+        source_path="machine.config",
+        xml_path="configuration/system.webServer/security/authorization",
+        children=[IISChildElement(tag="clear")],
+    )
+    system_webserver = _effective_section(
+        tag="system.webServer",
+        suffix="/system.webServer",
+        location_path="admin",
+        source_path="web.config",
+        xml_path='configuration/location[@path="admin"]/system.webServer',
+    )
+    effective_config = IISEffectiveConfig(
+        global_sections={authorization.section_path_suffix: authorization},
+        location_sections={
+            "admin": {system_webserver.section_path_suffix: system_webserver},
+        },
+    )
+
+    findings = find_authorization_policy_missing(doc, effective_config=effective_config)
+
+    assert [finding.rule_id for finding in findings] == [
+        "iis.authorization_policy_missing",
+    ]
+    assert 'location path "admin"' in findings[0].description
 
 
 def test_authorization_allows_all_after_anonymous_deny_silent(
