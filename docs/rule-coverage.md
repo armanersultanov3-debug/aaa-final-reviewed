@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **319**
+Total rules: **327**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (233), external (73), universal (13) |
-| Severity | high (15), medium (108), low (185), info (11) |
-| Input kind | ast (149), probe (73), effective (72), normalized (13), htaccess (6), mixed (6) |
+| Category | local (241), external (73), universal (13) |
+| Severity | high (15), medium (110), low (191), info (11) |
+| Input kind | ast (149), effective (80), probe (73), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -607,7 +607,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 
 ### Lighttpd (Local)
 
-Count: 34
+Count: 42
 
 Stage 2 step 3 mapping: **complete** for this group. There is no official
 *CIS Lighttpd Benchmark*, so CIS-specific claims stay empty. Where vendor or
@@ -620,18 +620,26 @@ official CIS mapping.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `lighttpd.access_log_missing` | low | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.basic_auth_over_http` | medium | effective | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
+| `lighttpd.auth_backend_missing` | medium | effective | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
+| `lighttpd.auth_backend_userfile_missing` | medium | effective | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
 | `lighttpd.dir_listing_enabled` | medium | effective | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | - |
 | `lighttpd.error_log_missing` | medium | effective | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | - |
 | `lighttpd.max_connections_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
 | `lighttpd.max_request_size_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | - |
 | `lighttpd.content_security_policy_missing_reporting_endpoint` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
 | `lighttpd.content_security_policy_unsafe` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: local directive quality only) | - |
+| `lighttpd.missing_content_security_policy` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: presence only) | - |
 | `lighttpd.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | DevSec lighttpd-baseline lighttpd-05 (partial: explicit dangerous-method deny policy signal) |
+| `lighttpd.missing_permissions_policy` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (partial: presence only) | - |
+| `lighttpd.missing_referrer_policy` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | - |
 | `lighttpd.missing_strict_transport_security` | medium | effective | headers | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | - |
 | `lighttpd.missing_x_content_type_options` | medium | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.4 | - |
+| `lighttpd.missing_x_frame_options` | low | effective | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.mod_cgi_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.mod_webdav_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `lighttpd.mod_status_public` | medium | effective | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | - |
+| `lighttpd.permissions_policy_unsafe` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (related: wildcard / ineffective policy quality) | - |
+| `lighttpd.referrer_policy_unsafe` | low | effective | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 | - |
 | `lighttpd.server_tag_not_blank` | low | effective | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
 | `lighttpd.ssl_engine_not_enabled` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `lighttpd.ssl_compression_enabled` | medium | effective | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.5 (partial: explicit local OpenSSL option only) | - |
@@ -673,6 +681,9 @@ Mapping rationale (lighttpd rules):
   10, and forcing it under A05 would overstretch the category.
 - `basic_auth_over_http` -- Basic authentication without SSL can expose
   reusable credentials over cleartext HTTP: CWE-319, OWASP A02.
+- `auth_backend_missing`, `auth_backend_userfile_missing` -- `auth.require`
+  without a usable backend cannot enforce the intended authentication policy:
+  CWE-287, OWASP A07.
 - `missing_http_method_restrictions` -- no explicit dangerous-method deny
   policy can leave TRACE, PUT, DELETE, CONNECT, PATCH, or WebDAV-like methods
   reachable: CWE-650, OWASP A05.
@@ -680,12 +691,15 @@ Mapping rationale (lighttpd rules):
   `strict_transport_security_unsafe` -- without HSTS, or with a short /
   incomplete HSTS policy, clients can be downgraded to plaintext (CWE-319).
   Tracked as A05 (hardening header misconfiguration), matching the universal HSTS rule's mapping.
-- `missing_x_content_type_options`, `content_security_policy_unsafe` -- missing
-  or weak protective response-header policy: CWE-693 (protection mechanism
-  failure), OWASP A05.
-- `x_frame_options_unsafe` -- unsafe framing policy maps to clickjacking
-  protection failure (CWE-1021), kept as OWASP A05 because this rule evaluates
-  static header configuration.
+- `missing_x_content_type_options`, `missing_content_security_policy`,
+  `content_security_policy_unsafe`, `missing_referrer_policy`,
+  `referrer_policy_unsafe`, `missing_permissions_policy`, and
+  `permissions_policy_unsafe` -- missing or weak protective response-header
+  policy: CWE-693 where a direct protection-mechanism mapping exists, OWASP A05
+  otherwise.
+- `missing_x_frame_options`, `x_frame_options_unsafe` -- missing or unsafe
+  framing policy maps to clickjacking protection failure (CWE-1021), kept as
+  OWASP A05 because this rule evaluates static header configuration.
 - `mod_cgi_enabled`, `mod_webdav_enabled` -- enabling optional executable or
   publishing modules is not a vulnerability per se, it is an attack-surface
   increase that violates least-privilege deployment. No single CWE maps cleanly
@@ -1136,10 +1150,10 @@ signal supports more than one recommendation.
 
 | Cheat Sheet | Topic | Aligned rules |
 | --- | --- | --- |
-| [HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) | response-header hardening (catch-all) | universal: `missing_hsts`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`; nginx: `missing_*_header` family, `content_security_policy_unsafe`, `referrer_policy_unsafe`; apache: `missing_*_header` family, `*_unsafe` family, `htaccess_disables_security_headers`; lighttpd: `missing_strict_transport_security`, `missing_x_content_type_options`; iis: `missing_hsts_header`, `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`; external: all `external.*_missing` / `external.*_invalid` header rules, `external.content_security_policy_*`, `external.coep_missing`, `external.coop_missing`, `external.corp_missing`, `external.permissions_policy_*`, `external.referrer_policy_*` |
+| [HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) | response-header hardening (catch-all) | universal: `missing_hsts`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`; nginx: `missing_*_header` family, `content_security_policy_unsafe`, `referrer_policy_unsafe`; apache: `missing_*_header` family, `*_unsafe` family, `htaccess_disables_security_headers`; lighttpd: `missing_strict_transport_security`, `missing_x_content_type_options`, `missing_x_frame_options`, `missing_content_security_policy`, `missing_referrer_policy`, `referrer_policy_unsafe`, `missing_permissions_policy`, `permissions_policy_unsafe`; iis: `missing_hsts_header`, `custom_headers_expose_server`, `request_filtering_remove_server_header_disabled`; external: all `external.*_missing` / `external.*_invalid` header rules, `external.content_security_policy_*`, `external.coep_missing`, `external.coop_missing`, `external.corp_missing`, `external.permissions_policy_*`, `external.referrer_policy_*` |
 | [HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html) | HSTS specifics | universal: `missing_hsts`; nginx: `missing_hsts_header`, `hsts_header_unsafe`; apache: `missing_hsts_header`, `hsts_header_unsafe`; lighttpd: `missing_strict_transport_security`, `strict_transport_security_unsafe`; iis: `missing_hsts_header`, `hsts_header_unsafe`; external: `hsts_header_missing`, `hsts_header_invalid`, `hsts_max_age_too_short`, `hsts_missing_include_subdomains` |
 | [Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) | TLS configuration | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`; nginx: `weak_ssl_protocols`, `missing_ssl_protocols`, `missing_ssl_ciphers`, `missing_ssl_prefer_server_ciphers`, `ssl_conf_command_tls_compression_enabled`, `ssl_conf_command_unsafe_renegotiation_enabled`, `ssl_session_cache_missing`, `ssl_session_timeout_missing_or_invalid`, `ssl_stapling_*` family, `missing_ssl_certificate*`, `missing_http_to_https_redirect`, `missing_http2_on_tls_listener`; apache: `ssl_protocol_missing_or_weak`, `ssl_cipher_suite_*`, `ssl_honor_cipher_order_not_on`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`, `ssl_use_stapling_not_on`, `ssl_stapling_cache_missing`, `ssl_session_cache_missing`, `ssl_session_cache_timeout_missing_or_invalid`, `missing_http_to_https_redirect`; lighttpd: `ssl_engine_not_enabled`, `ssl_pemfile_missing`, `ssl_protocol_policy_missing_or_weak`, `weak_ssl_cipher_list`, `ssl_honor_cipher_order_missing`, `ssl_compression_enabled`, `ssl_insecure_renegotiation_enabled`; iis: `schannel_*` family, `ssl_not_required`, `ssl_weak_cipher_strength`, `forms_auth_require_ssl_missing`, `basic_auth_without_ssl`; external: `tls_1_0_supported`, `tls_1_1_supported`, `tls_1_3_not_supported`, `weak_cipher_suite`, `https_not_available`, `http_not_redirected_to_https`, `certificate_expired`, `certificate_expires_soon`, `cert_chain_incomplete`, `cert_chain_length_unusual`, `cert_san_mismatch`, `tls_certificate_self_signed` |
-| [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
+| [Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) | CSP authoring | universal: `missing_content_security_policy`; nginx: `missing_content_security_policy`, `content_security_policy_unsafe`; lighttpd: `missing_content_security_policy`, `content_security_policy_unsafe`; apache: `htaccess_disables_security_headers` (partial); external: `content_security_policy_missing`, `content_security_policy_unsafe_inline`, `content_security_policy_unsafe_eval`, `content_security_policy_missing_frame_ancestors`, `content_security_policy_object_src_not_none`, `content_security_policy_base_uri_not_restricted` |
 | [Cross-Site Request Forgery Prevention](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) | CSRF / SameSite cookie posture | external: `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
 | [Session Management](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html) | session cookies / forms auth | iis: `session_state_cookieless`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `http_cookies_http_only_disabled`; external: `cookie_missing_secure_on_https`, `cookie_missing_httponly`, `cookie_missing_samesite`, `cookie_samesite_none_without_secure` |
 | [Logging](https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html) | access / error logs and log content | nginx: `missing_access_log`, `missing_error_log`, `missing_log_format`, `error_log_too_restrictive`, `log_format_missing_fields`, `proxy_missing_source_ip_headers`; apache: `custom_log_missing`, `error_log_missing`, `error_log_unsafe_destination`, `log_level_too_restrictive`, `log_format_missing_fields`, `missing_log_format`; lighttpd: `access_log_missing`, `access_log_format_missing_fields`, `error_log_missing`; iis: `logging_not_configured` |
@@ -1297,7 +1311,7 @@ Sources:
 | lighttpd `server.max-request-size` documentation | request body limits | `lighttpd.max_request_size_missing`, `lighttpd.max_request_size_unlimited`, `lighttpd.max_request_size_too_large` |
 | lighttpd `server.max-request-field-size` documentation | request header field limits | `lighttpd.max_request_field_size_too_large` |
 | lighttpd idle / keep-alive timeout documentation | idle connection resource limits | `lighttpd.max_keep_alive_idle_too_high`, `lighttpd.max_read_idle_too_high`, `lighttpd.max_write_idle_too_high`, `lighttpd.max_keep_alive_requests_unlimited` |
-| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `lighttpd.missing_x_content_type_options`, `lighttpd.content_security_policy_unsafe`, `lighttpd.x_frame_options_unsafe` |
+| lighttpd Security wiki — security response headers via `mod_setenv` | hardening response headers | `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `lighttpd.missing_x_content_type_options`, `lighttpd.missing_x_frame_options`, `lighttpd.x_frame_options_unsafe`, `lighttpd.missing_content_security_policy`, `lighttpd.content_security_policy_unsafe`, `lighttpd.missing_referrer_policy`, `lighttpd.referrer_policy_unsafe`, `lighttpd.missing_permissions_policy`, `lighttpd.permissions_policy_unsafe` |
 
 Notes:
 
@@ -1409,7 +1423,7 @@ Progress:
   pass complete
 - [x] Apache local rules (71) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Lighttpd local rules (34)
+- [x] Lighttpd local rules (42)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)
