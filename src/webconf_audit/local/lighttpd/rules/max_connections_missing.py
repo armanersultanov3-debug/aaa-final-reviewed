@@ -44,6 +44,8 @@ def find_max_connections_missing(
         return [] if "server.max-connections" in merged_directives else [_make_finding(config_ast)]
 
     if effective_config is not None:
+        # Without a concrete host context, conditional-only values do not prove
+        # that the default or every other host has a connection limit.
         return (
             []
             if "server.max-connections" in effective_config.global_directives

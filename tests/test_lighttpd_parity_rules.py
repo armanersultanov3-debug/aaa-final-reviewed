@@ -1,3 +1,11 @@
+from webconf_audit.local.lighttpd.parser import (
+    LighttpdAssignmentNode,
+    LighttpdSourceSpan,
+)
+from webconf_audit.local.lighttpd.rules.directive_value_utils import (
+    directive_location,
+)
+
 from tests.lighttpd_helpers import Path, analyze_lighttpd_config
 
 
@@ -204,3 +212,18 @@ def test_lighttpd_missing_request_limits_respect_host_conditional_values(
     assert "lighttpd.max_request_size_missing" in _rule_ids(other)
     assert "lighttpd.max_connections_missing" in _rule_ids(default)
     assert "lighttpd.max_request_size_missing" in _rule_ids(default)
+
+
+def test_lighttpd_directive_location_handles_missing_source_span() -> None:
+    directive = LighttpdAssignmentNode(
+        name="server.max-request-size",
+        value="0",
+        operator="=",
+        source=LighttpdSourceSpan(),
+    )
+
+    location = directive_location(directive)
+
+    assert location.file_path == "<unknown>"
+    assert location.line == 0
+    assert location.details == "Source location unavailable in Lighttpd AST."

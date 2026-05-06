@@ -61,7 +61,20 @@ def parse_int_value(
 
 def directive_location(
     directive: LighttpdEffectiveDirective | LighttpdAssignmentNode,
+    *,
+    fallback: SourceLocation | None = None,
 ) -> SourceLocation:
+    if directive.source.file_path is None or directive.source.line is None:
+        if fallback is not None:
+            return fallback
+        return SourceLocation(
+            mode="local",
+            kind="file",
+            file_path=directive.source.file_path or "<unknown>",
+            line=directive.source.line or 0,
+            details="Source location unavailable in Lighttpd AST.",
+        )
+
     return SourceLocation(
         mode="local",
         kind="file",
