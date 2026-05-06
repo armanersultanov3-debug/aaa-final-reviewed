@@ -314,6 +314,107 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         order=694,
         metadata_recommendation="Block access to .svn/.",
     ),
+    SafePathRule(
+        rule_id="external.backup_archive_exposed",
+        title="Backup archive exposed",
+        severity="medium",
+        description=(
+            "A common backup archive path is externally accessible. Public backup "
+            "archives often contain source code, configuration files, database "
+            "exports, or other sensitive deployment data."
+        ),
+        recommendation=(
+            "Remove backup archives from the web root and block public access to "
+            "backup file extensions at the web server."
+        ),
+        paths=(
+            "/backup.zip",
+            "/backup.tar.gz",
+            "/site.zip",
+            "/www.zip",
+        ),
+        order=695,
+        metadata_recommendation="Remove backup archives from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.database_dump_exposed",
+        title="Database dump exposed",
+        severity="high",
+        description=(
+            "A common database dump path is externally accessible and its body "
+            "resembles SQL dump content. This can expose application data and "
+            "schema details."
+        ),
+        recommendation=(
+            "Remove database dumps from the web root, rotate any exposed secrets, "
+            "and block public access to dump files."
+        ),
+        paths=(
+            "/backup.sql",
+            "/db.sql",
+            "/dump.sql",
+        ),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)\b(?:create\s+table|insert\s+into|mysql\s+dump|begin\s+transaction)\b",
+            ),
+        ),
+        order=696,
+        metadata_recommendation="Remove database dumps from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.dependency_manifest_exposed",
+        title="Dependency manifest exposed",
+        severity="low",
+        description=(
+            "A common dependency manifest or lockfile is externally accessible. "
+            "These files can disclose framework choices, package versions, and "
+            "application structure useful during reconnaissance."
+        ),
+        recommendation=(
+            "Avoid serving dependency manifests and lockfiles from the public "
+            "web root unless intentionally required."
+        ),
+        paths=(
+            "/composer.json",
+            "/composer.lock",
+            "/package.json",
+            "/package-lock.json",
+            "/yarn.lock",
+        ),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile)""",
+            ),
+        ),
+        order=697,
+        metadata_recommendation="Block public access to dependency manifests.",
+    ),
+    SafePathRule(
+        rule_id="external.npmrc_exposed",
+        title=".npmrc file exposed",
+        severity="high",
+        description=(
+            "The /.npmrc file is externally accessible and appears to contain npm "
+            "configuration. This file may expose private registry settings or "
+            "authentication tokens."
+        ),
+        recommendation=(
+            "Block public access to .npmrc files and rotate any registry tokens "
+            "that may have been exposed."
+        ),
+        paths=("/.npmrc",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)^(?:registry|always-auth|//[^=\s]+:_authToken)\s*=",
+            ),
+        ),
+        order=698,
+        metadata_recommendation="Block public access to .npmrc files.",
+    ),
 )
 
 CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (

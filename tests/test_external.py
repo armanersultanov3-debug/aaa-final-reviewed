@@ -304,6 +304,93 @@ def test_nginx_default_welcome_page_rule_does_not_fire_for_non_root_path() -> No
     assert "external.nginx.default_welcome_page" not in {f.rule_id for f in findings}
 
 
+def test_apache_default_welcome_page_rule_fires_at_medium_confidence() -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            server_header="Apache/2.4.58",
+            body_snippet=(
+                "<html><title>Apache2 Ubuntu Default Page: It works</title>"
+                "<body>It works! This is the default welcome page used to test "
+                "the correct operation of the Apache2 server.</body></html>"
+            ),
+        ),
+        _http_redirect_probe(server_header="Apache/2.4.58"),
+    ]
+    identification = ServerIdentification(
+        server_type="apache",
+        confidence="medium",
+        evidence=(),
+        candidate_server_types=("apache",),
+    )
+
+    findings = run_external_rules(
+        probe_attempts,
+        "example.com",
+        server_identification=identification,
+    )
+
+    welcome_findings = [
+        f for f in findings if f.rule_id == "external.apache.default_welcome_page"
+    ]
+    assert len(welcome_findings) == 1
+    assert welcome_findings[0].location.target == "https://example.com/"
+
+
+def test_lighttpd_default_welcome_page_rule_fires_at_medium_confidence() -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            server_header="lighttpd/1.4.71",
+            body_snippet=(
+                "<html><title>Placeholder page</title><body>"
+                "This page is used to test the proper operation of the "
+                "lighttpd web server after it has been installed.</body></html>"
+            ),
+        ),
+        _http_redirect_probe(server_header="lighttpd/1.4.71"),
+    ]
+    identification = ServerIdentification(
+        server_type="lighttpd",
+        confidence="medium",
+        evidence=(),
+        candidate_server_types=("lighttpd",),
+    )
+
+    findings = run_external_rules(
+        probe_attempts,
+        "example.com",
+        server_identification=identification,
+    )
+
+    assert "external.lighttpd.default_welcome_page" in {f.rule_id for f in findings}
+
+
+def test_iis_default_welcome_page_rule_fires_at_medium_confidence() -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            server_header="Microsoft-IIS/10.0",
+            body_snippet=(
+                "<html><title>IIS Windows Server</title><body>"
+                "Internet Information Services. Welcome to IIS.</body></html>"
+            ),
+        ),
+        _http_redirect_probe(server_header="Microsoft-IIS/10.0"),
+    ]
+    identification = ServerIdentification(
+        server_type="iis",
+        confidence="medium",
+        evidence=(),
+        candidate_server_types=("iis",),
+    )
+
+    findings = run_external_rules(
+        probe_attempts,
+        "example.com",
+        server_identification=identification,
+    )
+
+    assert "external.iis.default_welcome_page" in {f.rule_id for f in findings}
+
+
 def test_apache_conditional_version_rule_fires_at_high_confidence() -> None:
     probe_attempts = [
         _https_probe_with_headers(server_header="Apache/2.4.58 (Ubuntu)"),
@@ -710,6 +797,63 @@ def test_lighttpd_mod_status_public_does_not_fire_for_other_server_type() -> Non
     rule_ids = {f.rule_id for f in findings}
     assert "external.lighttpd.mod_status_public" not in rule_ids
     assert "external.server_status_exposed" in rule_ids
+
+
+@pytest.mark.parametrize(
+    ("probe", "expected_rule_id"),
+    [
+        (
+            SensitivePathProbe(
+                url="https://example.com/backup.zip",
+                path="/backup.zip",
+                status_code=200,
+                content_type="application/zip",
+            ),
+            "external.backup_archive_exposed",
+        ),
+        (
+            SensitivePathProbe(
+                url="https://example.com/dump.sql",
+                path="/dump.sql",
+                status_code=200,
+                content_type="text/plain",
+                body_snippet="-- MySQL dump\nCREATE TABLE users (id int);",
+            ),
+            "external.database_dump_exposed",
+        ),
+        (
+            SensitivePathProbe(
+                url="https://example.com/package.json",
+                path="/package.json",
+                status_code=200,
+                content_type="application/json",
+                body_snippet='{"scripts":{"build":"vite"},"dependencies":{}}',
+            ),
+            "external.dependency_manifest_exposed",
+        ),
+        (
+            SensitivePathProbe(
+                url="https://example.com/.npmrc",
+                path="/.npmrc",
+                status_code=200,
+                content_type="text/plain",
+                body_snippet="//registry.npmjs.org/:_authToken=${NPM_TOKEN}",
+            ),
+            "external.npmrc_exposed",
+        ),
+    ],
+)
+def test_safe_probe_catalog_flags_curated_artifact_rules(
+    probe: SensitivePathProbe,
+    expected_rule_id: str,
+) -> None:
+    findings = run_external_rules(
+        [_https_probe_with_headers()],
+        "example.com",
+        sensitive_path_probes=[probe],
+    )
+
+    assert expected_rule_id in {f.rule_id for f in findings}
 
 
 @pytest.mark.parametrize(

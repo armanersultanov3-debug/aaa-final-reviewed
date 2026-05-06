@@ -134,6 +134,38 @@ def _looks_like_nginx_default_welcome_page(body_snippet: str) -> bool:
     )
 
 
+def _looks_like_apache_default_welcome_page(body_snippet: str) -> bool:
+    lower_body = body_snippet.lower()
+    return (
+        "apache2 ubuntu default page" in lower_body
+        or (
+            "it works!" in lower_body
+            and "apache" in lower_body
+            and "default welcome page" in lower_body
+        )
+    )
+
+
+def _looks_like_lighttpd_default_welcome_page(body_snippet: str) -> bool:
+    lower_body = body_snippet.lower()
+    return (
+        "placeholder page" in lower_body
+        and "lighttpd web server" in lower_body
+        and "proper operation" in lower_body
+    )
+
+
+def _looks_like_iis_default_welcome_page(body_snippet: str) -> bool:
+    lower_body = body_snippet.lower()
+    return (
+        "iis windows server" in lower_body
+        or (
+            "internet information services" in lower_body
+            and "welcome to iis" in lower_body
+        )
+    )
+
+
 def _looks_like_iis_detailed_error(value: str) -> bool:
     lower_value = value.lower()
     return any(marker in lower_value for marker in _IIS_DETAILED_ERROR_MARKERS)

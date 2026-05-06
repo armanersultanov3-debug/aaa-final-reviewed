@@ -12,7 +12,10 @@ from webconf_audit.external.rules._helpers import (
     _is_lighttpd_server_header,
     _is_nginx_conditional_applicable,
     _is_nginx_family_server_header,
+    _looks_like_apache_default_welcome_page,
     _looks_like_iis_detailed_error,
+    _looks_like_iis_default_welcome_page,
+    _looks_like_lighttpd_default_welcome_page,
     _looks_like_nginx_default_welcome_page,
 )
 from webconf_audit.models import Finding, SourceLocation
@@ -145,6 +148,46 @@ def _find_apache_version_disclosed_in_server_header(
                     kind="header",
                     target=attempt.target.url,
                     details=f"Server: {attempt.server_header}",
+                ),
+            )
+        )
+
+    return findings
+
+
+def _find_apache_default_welcome_page(
+    probe_attempts: list["ProbeAttempt"],
+    server_identification: "ServerIdentification | None",
+) -> list[Finding]:
+    if not _is_apache_conditional_applicable(server_identification):
+        return []
+
+    findings: list[Finding] = []
+    for attempt in probe_attempts:
+        if not _attempt_has_default_root_body(attempt):
+            continue
+        if not _looks_like_apache_default_welcome_page(attempt.body_snippet or ""):
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.apache.default_welcome_page",
+                title="Default Apache welcome page exposed",
+                severity="medium",
+                description=(
+                    "The externally visible root page matches a default Apache "
+                    "welcome page, indicating a default or placeholder "
+                    "deployment is still exposed."
+                ),
+                recommendation=(
+                    "Replace the default Apache welcome page with the intended "
+                    "application content or a hardened maintenance page."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="url",
+                    target=attempt.target.url,
+                    details="default Apache welcome page",
                 ),
             )
         )
@@ -320,6 +363,46 @@ def _find_iis_detailed_error_page(
     return findings
 
 
+def _find_iis_default_welcome_page(
+    probe_attempts: list["ProbeAttempt"],
+    server_identification: "ServerIdentification | None",
+) -> list[Finding]:
+    if not _is_iis_conditional_applicable(server_identification):
+        return []
+
+    findings: list[Finding] = []
+    for attempt in probe_attempts:
+        if not _attempt_has_default_root_body(attempt):
+            continue
+        if not _looks_like_iis_default_welcome_page(attempt.body_snippet or ""):
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.iis.default_welcome_page",
+                title="Default IIS welcome page exposed",
+                severity="medium",
+                description=(
+                    "The externally visible root page matches the default IIS "
+                    "welcome page, indicating a default or placeholder "
+                    "deployment is still exposed."
+                ),
+                recommendation=(
+                    "Replace the default IIS welcome page with the intended "
+                    "application content or a hardened maintenance page."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="url",
+                    target=attempt.target.url,
+                    details="default IIS welcome page",
+                ),
+            )
+        )
+
+    return findings
+
+
 def _find_lighttpd_version_in_server_header(
     probe_attempts: list["ProbeAttempt"],
     server_identification: "ServerIdentification | None",
@@ -352,6 +435,46 @@ def _find_lighttpd_version_in_server_header(
                     kind="header",
                     target=attempt.target.url,
                     details=f"Server: {attempt.server_header}",
+                ),
+            )
+        )
+
+    return findings
+
+
+def _find_lighttpd_default_welcome_page(
+    probe_attempts: list["ProbeAttempt"],
+    server_identification: "ServerIdentification | None",
+) -> list[Finding]:
+    if not _is_lighttpd_conditional_applicable(server_identification):
+        return []
+
+    findings: list[Finding] = []
+    for attempt in probe_attempts:
+        if not _attempt_has_default_root_body(attempt):
+            continue
+        if not _looks_like_lighttpd_default_welcome_page(attempt.body_snippet or ""):
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.lighttpd.default_welcome_page",
+                title="Default lighttpd welcome page exposed",
+                severity="medium",
+                description=(
+                    "The externally visible root page matches the default "
+                    "lighttpd placeholder page, indicating a default or "
+                    "placeholder deployment is still exposed."
+                ),
+                recommendation=(
+                    "Replace the default lighttpd welcome page with the intended "
+                    "application content or a hardened maintenance page."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="url",
+                    target=attempt.target.url,
+                    details="default lighttpd welcome page",
                 ),
             )
         )
@@ -398,6 +521,15 @@ def _find_lighttpd_mod_status_public(
     return findings
 
 
+def _attempt_has_default_root_body(attempt: "ProbeAttempt") -> bool:
+    return (
+        attempt.has_http_response
+        and attempt.status_code == 200
+        and attempt.target.path == "/"
+        and attempt.body_snippet is not None
+    )
+
+
 def collect_conditional_findings(
     probe_attempts: list["ProbeAttempt"],
     path_probes: list["SensitivePathProbe"],
@@ -418,6 +550,12 @@ def collect_conditional_findings(
     )
     findings.extend(
         _find_apache_version_disclosed_in_server_header(
+            probe_attempts,
+            server_identification,
+        )
+    )
+    findings.extend(
+        _find_apache_default_welcome_page(
             probe_attempts,
             server_identification,
         )
@@ -446,7 +584,19 @@ def collect_conditional_findings(
         )
     )
     findings.extend(
+        _find_iis_default_welcome_page(
+            probe_attempts,
+            server_identification,
+        )
+    )
+    findings.extend(
         _find_lighttpd_version_in_server_header(
+            probe_attempts,
+            server_identification,
+        )
+    )
+    findings.extend(
+        _find_lighttpd_default_welcome_page(
             probe_attempts,
             server_identification,
         )
