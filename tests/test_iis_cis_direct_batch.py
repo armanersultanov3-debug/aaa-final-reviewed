@@ -1,6 +1,8 @@
 from tests.iis_helpers import AnalysisResult, Path, analyze_iis_config, parse_iis_config
 from webconf_audit.local.iis.rules.auth_policy import find_authorization_policy_missing
 from webconf_audit.local.iis.rules.request_filtering_policy import (
+    find_request_filtering_max_query_string_missing,
+    find_request_filtering_max_url_missing,
     find_request_filtering_remove_server_header_disabled,
 )
 
@@ -224,6 +226,43 @@ def test_raw_authorization_policy_empty_finding_is_deduplicated_for_locations() 
         "iis.authorization_policy_missing",
     ]
     assert "authorization" in (findings[0].location.xml_path or "")
+
+
+def test_authorization_policy_remove_only_location_keeps_parent_explicit_rules(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <add accessType="Deny" users="?" />
+            </authorization>
+        </security>
+    </system.webServer>
+    <location path="admin">
+        <system.webServer>
+            <security>
+                <authorization>
+                    <remove users="CONTOSO\\LegacyUser" />
+                </authorization>
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+    raw_findings = find_authorization_policy_missing(
+        parse_iis_config(config, file_path="web.config"),
+    )
+
+    _assert_no_analysis_issues(result)
+    assert "iis.authorization_policy_missing" not in _rule_ids(result)
+    assert raw_findings == []
 
 
 def test_authorization_allows_all_after_anonymous_deny_silent(
@@ -503,6 +542,36 @@ def test_raw_request_filtering_remove_server_header_inherits_parent_true() -> No
     findings = find_request_filtering_remove_server_header_disabled(doc)
 
     assert findings == []
+
+
+def test_raw_request_limits_missing_checks_inherited_length_attributes() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxUrl="4096" maxQueryString="2048" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+    <location path="uploads">
+        <system.webServer>
+            <security>
+                <requestFiltering>
+                    <requestLimits maxAllowedContentLength="4194304" />
+                </requestFiltering>
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    assert find_request_filtering_max_url_missing(doc) == []
+    assert find_request_filtering_max_query_string_missing(doc) == []
 
 
 def test_file_extensions_allow_unlisted_fires(tmp_path: Path) -> None:

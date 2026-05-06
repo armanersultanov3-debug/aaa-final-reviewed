@@ -344,7 +344,9 @@ def _missing_limit_findings(
         )
         for section in doc.sections
         if section.tag == "requestLimits"
-        and not str(section.attributes.get(attribute, "")).strip()
+        and not str(
+            _raw_request_limits_attribute(doc, section.location_path, attribute) or "",
+        ).strip()
     ]
     findings.extend(
         _missing_limit_finding(
@@ -540,6 +542,22 @@ def _raw_request_filtering_attribute(
     for location in location_inheritance_chain(location_path):
         for section in reversed(doc.sections):
             if section.tag != "requestFiltering":
+                continue
+            if normalize_location_path(section.location_path) != location:
+                continue
+            if attribute in section.attributes:
+                return section.attributes.get(attribute)
+    return None
+
+
+def _raw_request_limits_attribute(
+    doc: IISConfigDocument,
+    location_path: str | None,
+    attribute: str,
+) -> str | None:
+    for location in location_inheritance_chain(location_path):
+        for section in reversed(doc.sections):
+            if section.tag != "requestLimits":
                 continue
             if normalize_location_path(section.location_path) != location:
                 continue

@@ -157,6 +157,11 @@ def _effective_authorization_policy_missing_findings(
             scope.location_path,
         )
         if raw_sections:
+            if _raw_authorization_chain_has_explicit_rules(
+                raw_sections_by_location,
+                scope.location_path,
+            ):
+                continue
             findings.extend(
                 _raw_authorization_policy_empty_finding(section)
                 for section in raw_sections
@@ -193,6 +198,11 @@ def _raw_authorization_policy_missing_findings(
         )
         if not sections:
             findings.append(_raw_authorization_policy_absent_finding(scope))
+            continue
+        if _raw_authorization_chain_has_explicit_rules(
+            sections_by_location,
+            scope.location_path,
+        ):
             continue
         findings.extend(
             _raw_authorization_policy_empty_finding(section)
@@ -270,6 +280,50 @@ def _nearest_authorization_sections(
         if sections:
             return sections
     return []
+
+
+def _raw_authorization_chain_has_explicit_rules(
+    sections_by_location: dict[str | None, list[IISSection]],
+    scope_location: str | None,
+) -> bool:
+    children: list[IISChildElement] = []
+    for location in reversed(location_inheritance_chain(scope_location)):
+        for section in sections_by_location.get(location, []):
+            children = _merge_authorization_children(children, section.children)
+    return _has_explicit_authorization_rules(children)
+
+
+def _merge_authorization_children(
+    base: list[IISChildElement],
+    incoming: list[IISChildElement],
+) -> list[IISChildElement]:
+    result = list(base)
+    for child in incoming:
+        tag = child.tag.lower()
+        if tag == "clear":
+            result.clear()
+            continue
+        if tag == "remove":
+            result = [
+                candidate
+                for candidate in result
+                if not _authorization_remove_matches(candidate, child)
+            ]
+            continue
+        result.append(child)
+    return result
+
+
+def _authorization_remove_matches(
+    candidate: IISChildElement,
+    remove_child: IISChildElement,
+) -> bool:
+    if candidate.tag.lower() != "add" or not remove_child.attributes:
+        return False
+    return all(
+        candidate.attributes.get(name) == value
+        for name, value in remove_child.attributes.items()
+    )
 
 
 def _remember_raw_section(
