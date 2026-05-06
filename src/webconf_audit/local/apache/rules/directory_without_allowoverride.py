@@ -84,8 +84,7 @@ def _effective_allowoverride(
     context: _DirectoryBlockContext,
     all_contexts: list[_DirectoryBlockContext],
 ) -> frozenset[str] | None:
-    block = context.block
-    block_path = _resolve_block_path(block)
+    block_path = _resolve_block_path(context.block)
     if block_path is None:
         return None
 
@@ -97,12 +96,11 @@ def _effective_allowoverride(
         ):
             continue
 
-        candidate = candidate_context.block
-        candidate_path = _resolve_block_path(candidate)
+        candidate_path = _resolve_block_path(candidate_context.block)
         if candidate_path is None:
             continue
 
-        allowed = extract_allowoverride(candidate)
+        allowed = extract_allowoverride(candidate_context.block)
         if allowed is None:
             continue
 

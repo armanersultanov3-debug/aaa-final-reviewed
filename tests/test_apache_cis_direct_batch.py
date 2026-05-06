@@ -285,6 +285,82 @@ def test_analyze_apache_config_reports_http_vhost_without_https_redirect(
     assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_matches_unnamed_default_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1",
+            "    SSLCipherSuite HIGH:!aNULL:!MD5:!RC4:!3DES",
+            "    SSLHonorCipherOrder On",
+            SAFE_HSTS_LINE,
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_matches_tls_wildcard_alias(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    ServerAlias *.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1",
+            "    SSLCipherSuite HIGH:!aNULL:!MD5:!RC4:!3DES",
+            "    SSLHonorCipherOrder On",
+            SAFE_HSTS_LINE,
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_matches_default_tls_vhost_syntax(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost 127.0.0.1:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost _default_:443>",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1",
+            "    SSLCipherSuite HIGH:!aNULL:!MD5:!RC4:!3DES",
+            "    SSLHonorCipherOrder On",
+            SAFE_HSTS_LINE,
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.missing_http_to_https_redirect" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_accepts_redirect_directive_to_https(
     tmp_path: Path,
 ) -> None:
