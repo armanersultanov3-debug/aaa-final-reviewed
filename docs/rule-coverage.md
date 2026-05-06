@@ -1227,7 +1227,7 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 | РСБ.7 | Защита информации о событиях безопасности | none — `out-of-scope` (права на лог-файлы / ротация / целостность вне web-server config) |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
 | АНЗ.2 | Контроль установки обновлений ПО | none — `out-of-scope` |
-| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
+| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | ЗИС.20 | Защита каналов связи | same set as `УПД.13` (TLS / HSTS / redirect rules) |
 | ЗИС.32 | Защита веб-серверов / веб-приложений | catch-all для всех hardening rules (response headers, CSP, sensitive paths, request limits, timeout, request filtering) |
 
@@ -1300,7 +1300,7 @@ Per `STD-GAP-024` from `docs/benchmarks-covering.md`. ГОСТ Р ИСО/МЭК
 | 8.15 | Logging | same set as ФСТЭК `РСБ.1` / `РСБ.3` above |
 | 8.16 | Monitoring activities | partial via the same logging rules; full monitoring is application/SOC concern |
 | 8.18 | Use of privileged utility programs | apache: `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled` |
-| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
+| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | 8.21 | Security of network services | same set as ФСТЭК `УПД.13` (TLS / HSTS / redirect family) |
 | 8.23 | Web filtering | `out-of-scope` |
 | 8.24 | Use of cryptography | same set as NIST SP 800-52 Rev. 2 §3.x sections above |
@@ -1384,7 +1384,7 @@ Progress:
 - [x] Universal rules (13)
 - [x] Nginx local rules (77) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (70) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (71) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (23)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
