@@ -37,6 +37,7 @@ class SafePathRule:
     method: SafeProbeMethod = "GET"
     default_paths: tuple[str, ...] = ()
     body_matchers: tuple[BodyMatcher, ...] = ()
+    content_type_matchers: tuple[str, ...] = ()
     suppress_when_identified: tuple[IdentifiedServerSuppression, ...] = ()
     standards: tuple[StandardReference, ...] = ()
     metadata_recommendation: str | None = None
@@ -334,7 +335,13 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "/www.zip",
         ),
         body_matchers=(
-            BodyMatcher("regex", r"^(?:PK\x03\x04|\x1f(?:\x8b|\ufffd))"),
+            BodyMatcher("regex", r"^(?:PK\x03\x04|\x1f\x8b)", case_sensitive=True),
+        ),
+        content_type_matchers=(
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/gzip",
+            "application/x-gzip",
         ),
         order=695,
         metadata_recommendation="Remove backup archives from the web root.",
@@ -483,6 +490,13 @@ def body_matcher_matches(matcher: BodyMatcher, body_snippet: str | None) -> bool
     raise ValueError(f"Unsupported body matcher kind: {matcher.kind}")
 
 
+def content_type_matches(expected: str, content_type: str | None) -> bool:
+    if content_type is None:
+        return False
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == expected.lower()
+
+
 __all__ = [
     "BodyMatcher",
     "CONDITIONAL_SAFE_PROBE_CONFIDENCES",
@@ -495,5 +509,6 @@ __all__ = [
     "SafePathRule",
     "SafeProbeMethod",
     "body_matcher_matches",
+    "content_type_matches",
     "safe_probe_paths_for_identification",
 ]

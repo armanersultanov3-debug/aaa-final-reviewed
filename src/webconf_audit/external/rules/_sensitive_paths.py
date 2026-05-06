@@ -8,6 +8,7 @@ from webconf_audit.external.safe_probe_catalog import (
     SAFE_PATH_RULES,
     SafePathRule,
     body_matcher_matches,
+    content_type_matches,
 )
 from webconf_audit.models import Finding, SourceLocation
 
@@ -20,10 +21,18 @@ def _rule_matches_probe(rule: SafePathRule, probe: "SensitivePathProbe") -> bool
         return False
     if not _is_accessible_status(probe.status_code):
         return False
-    return all(
+    if not rule.body_matchers and not rule.content_type_matchers:
+        return True
+
+    body_matches = bool(rule.body_matchers) and all(
         body_matcher_matches(matcher, probe.body_snippet)
         for matcher in rule.body_matchers
     )
+    content_type_matches_rule = any(
+        content_type_matches(matcher, probe.content_type)
+        for matcher in rule.content_type_matchers
+    )
+    return body_matches or content_type_matches_rule
 
 
 def _rule_suppressed_by_identification(

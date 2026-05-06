@@ -304,82 +304,68 @@ def test_nginx_default_welcome_page_rule_does_not_fire_for_non_root_path() -> No
     assert "external.nginx.default_welcome_page" not in {f.rule_id for f in findings}
 
 
-def test_apache_default_welcome_page_rule_fires_at_medium_confidence() -> None:
-    probe_attempts = [
-        _https_probe_with_headers(
-            server_header="Apache/2.4.58",
-            body_snippet=(
+@pytest.mark.parametrize(
+    (
+        "server_header",
+        "body_snippet",
+        "server_type",
+        "expected_rule_id",
+        "expected_target",
+    ),
+    [
+        (
+            "Apache/2.4.58",
+            (
                 "<html><title>Apache2 Ubuntu Default Page: It works</title>"
                 "<body>It works! This is the default welcome page used to test "
                 "the correct operation of the Apache2 server.</body></html>"
             ),
+            "apache",
+            "external.apache.default_welcome_page",
+            "https://example.com/",
         ),
-        _http_redirect_probe(server_header="Apache/2.4.58"),
-    ]
-    identification = ServerIdentification(
-        server_type="apache",
-        confidence="medium",
-        evidence=(),
-        candidate_server_types=("apache",),
-    )
-
-    findings = run_external_rules(
-        probe_attempts,
-        "example.com",
-        server_identification=identification,
-    )
-
-    welcome_findings = [
-        f for f in findings if f.rule_id == "external.apache.default_welcome_page"
-    ]
-    assert len(welcome_findings) == 1
-    assert welcome_findings[0].location.target == "https://example.com/"
-
-
-def test_lighttpd_default_welcome_page_rule_fires_at_medium_confidence() -> None:
-    probe_attempts = [
-        _https_probe_with_headers(
-            server_header="lighttpd/1.4.71",
-            body_snippet=(
+        (
+            "lighttpd/1.4.71",
+            (
                 "<html><title>Placeholder page</title><body>"
                 "This page is used to test the proper operation of the "
                 "lighttpd web server after it has been installed.</body></html>"
             ),
+            "lighttpd",
+            "external.lighttpd.default_welcome_page",
+            None,
         ),
-        _http_redirect_probe(server_header="lighttpd/1.4.71"),
-    ]
-    identification = ServerIdentification(
-        server_type="lighttpd",
-        confidence="medium",
-        evidence=(),
-        candidate_server_types=("lighttpd",),
-    )
-
-    findings = run_external_rules(
-        probe_attempts,
-        "example.com",
-        server_identification=identification,
-    )
-
-    assert "external.lighttpd.default_welcome_page" in {f.rule_id for f in findings}
-
-
-def test_iis_default_welcome_page_rule_fires_at_medium_confidence() -> None:
-    probe_attempts = [
-        _https_probe_with_headers(
-            server_header="Microsoft-IIS/10.0",
-            body_snippet=(
+        (
+            "Microsoft-IIS/10.0",
+            (
                 "<html><title>IIS Windows Server</title><body>"
                 "Internet Information Services. Welcome to IIS.</body></html>"
             ),
+            "iis",
+            "external.iis.default_welcome_page",
+            None,
         ),
-        _http_redirect_probe(server_header="Microsoft-IIS/10.0"),
+    ],
+)
+def test_default_welcome_page_rule_fires_at_medium_confidence(
+    server_header: str,
+    body_snippet: str,
+    server_type: str,
+    expected_rule_id: str,
+    expected_target: str | None,
+) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            server_header=server_header,
+            body_snippet=body_snippet,
+        ),
+        _http_redirect_probe(server_header=server_header),
     ]
     identification = ServerIdentification(
-        server_type="iis",
+        server_type=server_type,
         confidence="medium",
         evidence=(),
-        candidate_server_types=("iis",),
+        candidate_server_types=(server_type,),
     )
 
     findings = run_external_rules(
@@ -388,7 +374,10 @@ def test_iis_default_welcome_page_rule_fires_at_medium_confidence() -> None:
         server_identification=identification,
     )
 
-    assert "external.iis.default_welcome_page" in {f.rule_id for f in findings}
+    welcome_findings = [f for f in findings if f.rule_id == expected_rule_id]
+    assert len(welcome_findings) == 1
+    if expected_target is not None:
+        assert welcome_findings[0].location.target == expected_target
 
 
 def test_apache_conditional_version_rule_fires_at_high_confidence() -> None:

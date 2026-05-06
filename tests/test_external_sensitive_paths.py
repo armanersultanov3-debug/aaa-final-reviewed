@@ -964,6 +964,10 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         "external.robots_txt_exposed",
         "external.sitemap_xml_exposed",
         "external.svn_metadata_exposed",
+        "external.backup_archive_exposed",
+        "external.database_dump_exposed",
+        "external.dependency_manifest_exposed",
+        "external.npmrc_exposed",
     }
     fired = sensitive_rule_ids & {f.rule_id for f in result.findings}
     assert fired == set()
