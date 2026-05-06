@@ -200,12 +200,13 @@ def _finding(
 ) -> list[Finding]:
     if is_redirect_only_config(config_ast) or not missing_markers:
         return []
+    default_description = finding_from_rule(rule_fn).description
     return [
         finding_from_rule(
             rule_fn,
             location=default_location(config_ast),
             description=(
-                f"{rule_fn._rule_meta.description} Missing markers: "
+                f"{default_description} Missing markers: "
                 + ", ".join(missing_markers)
             ),
             metadata={"missing_markers": missing_markers},
