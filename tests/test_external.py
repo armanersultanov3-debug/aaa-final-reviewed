@@ -333,7 +333,7 @@ def test_nginx_default_welcome_page_rule_does_not_fire_for_non_root_path() -> No
             ),
             "lighttpd",
             "external.lighttpd.default_welcome_page",
-            None,
+            "https://example.com/",
         ),
         (
             "Microsoft-IIS/10.0",
@@ -343,7 +343,7 @@ def test_nginx_default_welcome_page_rule_does_not_fire_for_non_root_path() -> No
             ),
             "iis",
             "external.iis.default_welcome_page",
-            None,
+            "https://example.com/",
         ),
     ],
 )
