@@ -170,6 +170,7 @@ def _raw_authorization_policy_missing_findings(
     doc: IISConfigDocument,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    empty_section_keys: set[tuple[str | None, str | None, str | None]] = set()
     sections_by_location = _url_authorization_sections_by_location(doc.sections)
     for scope in _raw_system_webserver_scopes(doc):
         sections = _nearest_authorization_sections(
@@ -183,6 +184,7 @@ def _raw_authorization_policy_missing_findings(
             _raw_authorization_policy_empty_finding(section)
             for section in sections
             if not _has_explicit_authorization_rules(section.children)
+            if _remember_raw_section(empty_section_keys, section)
         )
     return findings
 
@@ -230,6 +232,17 @@ def _nearest_authorization_sections(
         if sections:
             return sections
     return []
+
+
+def _remember_raw_section(
+    seen: set[tuple[str | None, str | None, str | None]],
+    section: IISSection,
+) -> bool:
+    key = (section.source.file_path, section.source.xml_path, section.location_path)
+    if key in seen:
+        return False
+    seen.add(key)
+    return True
 
 
 def _anonymous_allow_users(children: list[IISChildElement]) -> list[str]:

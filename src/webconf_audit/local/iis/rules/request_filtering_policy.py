@@ -5,6 +5,7 @@ from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
     is_pure_inheritance,
+    location_applies_to_scope,
     location_context,
     location_inheritance_chain,
     normalize_location_path,
@@ -292,10 +293,9 @@ def _missing_limit_findings(
     recommendation: str,
 ) -> list[Finding]:
     if effective_config is not None:
-        return [
-            _missing_limit_finding(
-                location=effective_location(section),
-                context_suffix=location_context(section),
+        findings = [
+            _missing_limit_finding_for_section(
+                section,
                 attribute=attribute,
                 rule_id=rule_id,
                 title=title,
@@ -307,10 +307,28 @@ def _missing_limit_findings(
             and not is_pure_inheritance(section)
             and not str(section.attributes.get(attribute, "")).strip()
         ]
+        findings.extend(
+            _missing_limit_finding_for_section(
+                section,
+                attribute=attribute,
+                rule_id=rule_id,
+                title=title,
+                unit_label=unit_label,
+                recommendation=recommendation,
+            )
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestFiltering"
+            and not is_pure_inheritance(section)
+            and not _has_effective_request_limits_section(
+                effective_config,
+                section.location_path,
+            )
+        )
+        return findings
 
-    return [
+    findings = [
         _missing_limit_finding(
-            location=raw_location(section),
+            raw_location(section),
             context_suffix="",
             attribute=attribute,
             rule_id=rule_id,
@@ -322,6 +340,21 @@ def _missing_limit_findings(
         if section.tag == "requestLimits"
         and not str(section.attributes.get(attribute, "")).strip()
     ]
+    findings.extend(
+        _missing_limit_finding(
+            raw_location(section),
+            context_suffix="",
+            attribute=attribute,
+            rule_id=rule_id,
+            title=title,
+            unit_label=unit_label,
+            recommendation=recommendation,
+        )
+        for section in doc.sections
+        if section.tag == "requestFiltering"
+        and not _has_raw_request_limits_section(doc, section.location_path)
+    )
+    return findings
 
 
 def _limit_finding(
@@ -354,9 +387,29 @@ def _limit_finding(
     )
 
 
-def _missing_limit_finding(
+def _missing_limit_finding_for_section(
+    section: IISEffectiveSection,
     *,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> Finding:
+    return _missing_limit_finding(
+        effective_location(section),
+        context_suffix=location_context(section),
+        attribute=attribute,
+        rule_id=rule_id,
+        title=title,
+        unit_label=unit_label,
+        recommendation=recommendation,
+    )
+
+
+def _missing_limit_finding(
     location: SourceLocation,
+    *,
     context_suffix: str,
     attribute: str,
     rule_id: str,
@@ -448,6 +501,28 @@ def _has_file_extensions_section(
         section.section_path_suffix == "/fileExtensions"
         and section.location_path == location_path
         for section in effective_config.all_sections
+    )
+
+
+def _has_effective_request_limits_section(
+    effective_config: IISEffectiveConfig,
+    location_path: str | None,
+) -> bool:
+    return any(
+        section.section_path_suffix == "/requestLimits"
+        and location_applies_to_scope(section.location_path, location_path)
+        for section in effective_config.all_sections
+    )
+
+
+def _has_raw_request_limits_section(
+    doc: IISConfigDocument,
+    location_path: str | None,
+) -> bool:
+    return any(
+        section.tag == "requestLimits"
+        and location_applies_to_scope(section.location_path, location_path)
+        for section in doc.sections
     )
 
 
