@@ -7,6 +7,7 @@ from webconf_audit.external.safe_probe_catalog import (
     CONDITIONAL_SAFE_PROBE_CONFIDENCES,
     SAFE_PATH_RULES,
     SafePathRule,
+    binary_body_matcher_matches,
     body_matcher_matches,
     content_type_matches,
 )
@@ -21,18 +22,26 @@ def _rule_matches_probe(rule: SafePathRule, probe: "SensitivePathProbe") -> bool
         return False
     if not _is_accessible_status(probe.status_code):
         return False
-    if not rule.body_matchers and not rule.content_type_matchers:
+    if (
+        not rule.body_matchers
+        and not rule.binary_body_matchers
+        and not rule.content_type_matchers
+    ):
         return True
 
     body_matches = bool(rule.body_matchers) and all(
         body_matcher_matches(matcher, probe.body_snippet)
         for matcher in rule.body_matchers
     )
+    binary_body_matches = bool(rule.binary_body_matchers) and any(
+        binary_body_matcher_matches(matcher, probe.raw_body_prefix)
+        for matcher in rule.binary_body_matchers
+    )
     content_type_matches_rule = any(
         content_type_matches(matcher, probe.content_type)
         for matcher in rule.content_type_matchers
     )
-    return body_matches or content_type_matches_rule
+    return body_matches or binary_body_matches or content_type_matches_rule
 
 
 def _rule_suppressed_by_identification(

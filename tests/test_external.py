@@ -803,6 +803,16 @@ def test_lighttpd_mod_status_public_does_not_fire_for_other_server_type() -> Non
         ),
         (
             SensitivePathProbe(
+                url="https://example.com/backup.tar.gz",
+                path="/backup.tar.gz",
+                status_code=200,
+                content_type="application/octet-stream",
+                raw_body_prefix=b"\x1f\x8b compressed content",
+            ),
+            "external.backup_archive_exposed",
+        ),
+        (
+            SensitivePathProbe(
                 url="https://example.com/dump.sql",
                 path="/dump.sql",
                 status_code=200,

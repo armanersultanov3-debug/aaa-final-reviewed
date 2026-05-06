@@ -100,6 +100,7 @@ class SensitivePathProbe:
     status_code: int | None = None
     content_type: str | None = None
     body_snippet: str | None = None
+    raw_body_prefix: bytes | None = None
     error_message: str | None = None
 
 
@@ -1162,6 +1163,7 @@ def _try_sensitive_path(probe_target: ProbeTarget) -> SensitivePathProbe:
             status_code=response.status,
             content_type=response.getheader("Content-Type"),
             body_snippet=body_snippet,
+            raw_body_prefix=raw_body,
         )
     except (OSError, http.client.HTTPException) as exc:
         return SensitivePathProbe(

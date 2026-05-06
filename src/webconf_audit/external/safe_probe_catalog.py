@@ -20,6 +20,11 @@ class BodyMatcher:
 
 
 @dataclass(frozen=True, slots=True)
+class BinaryBodyMatcher:
+    prefix: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class IdentifiedServerSuppression:
     server_type: str
     paths: tuple[str, ...] = ()
@@ -37,6 +42,7 @@ class SafePathRule:
     method: SafeProbeMethod = "GET"
     default_paths: tuple[str, ...] = ()
     body_matchers: tuple[BodyMatcher, ...] = ()
+    binary_body_matchers: tuple[BinaryBodyMatcher, ...] = ()
     content_type_matchers: tuple[str, ...] = ()
     suppress_when_identified: tuple[IdentifiedServerSuppression, ...] = ()
     standards: tuple[StandardReference, ...] = ()
@@ -334,8 +340,9 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "/site.zip",
             "/www.zip",
         ),
-        body_matchers=(
-            BodyMatcher("regex", r"^(?:PK\x03\x04|\x1f\x8b)", case_sensitive=True),
+        binary_body_matchers=(
+            BinaryBodyMatcher(b"PK\x03\x04"),
+            BinaryBodyMatcher(b"\x1f\x8b"),
         ),
         content_type_matchers=(
             "application/zip",
@@ -490,6 +497,15 @@ def body_matcher_matches(matcher: BodyMatcher, body_snippet: str | None) -> bool
     raise ValueError(f"Unsupported body matcher kind: {matcher.kind}")
 
 
+def binary_body_matcher_matches(
+    matcher: BinaryBodyMatcher,
+    raw_body_prefix: bytes | None,
+) -> bool:
+    if raw_body_prefix is None:
+        return False
+    return raw_body_prefix.startswith(matcher.prefix)
+
+
 def content_type_matches(expected: str, content_type: str | None) -> bool:
     if content_type is None:
         return False
@@ -498,6 +514,7 @@ def content_type_matches(expected: str, content_type: str | None) -> bool:
 
 
 __all__ = [
+    "BinaryBodyMatcher",
     "BodyMatcher",
     "CONDITIONAL_SAFE_PROBE_CONFIDENCES",
     "CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE",
@@ -508,6 +525,7 @@ __all__ = [
     "SAFE_PATH_RULES",
     "SafePathRule",
     "SafeProbeMethod",
+    "binary_body_matcher_matches",
     "body_matcher_matches",
     "content_type_matches",
     "safe_probe_paths_for_identification",
