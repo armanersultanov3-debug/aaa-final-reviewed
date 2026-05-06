@@ -406,7 +406,7 @@ rather than to ".htaccess" itself.
 | `apache.http_protocol_options_unsafe` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.9 |
 | `apache.listen_requires_explicit_address` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.15 |
 | `apache.ip_based_requests_allowed` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14 (partial: top-level `ServerName` rewrite policy signal only) |
-| `apache.default_vhost_not_rejecting_unknown_hosts` | low | ast | host | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14/§5.15 (partial: first/default non-TLS name-based VirtualHost catch-all rejection only) |
+| `apache.default_vhost_not_rejecting_unknown_hosts` | low | ast | host | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14/§5.15 (partial: first/default non-TLS VirtualHost catch-all rejection only) |
 | `apache.default_tls_vhost_not_rejecting_unknown_hosts` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.14 (partial: first/default TLS VirtualHost catch-all rejection only) |
 | `apache.vcs_metadata_not_restricted` | medium | ast | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: `.git` / `.svn` deny-list coverage) |
 | `apache.file_etag_inodes` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §8.4 |
@@ -534,12 +534,11 @@ Mapping rationale (apache rules):
   serving real content there can expose the wrong site. This is a virtual-host
   precision hardening signal, so CWE stays empty and OWASP A05 carries the
   mapping.
-- `default_vhost_not_rejecting_unknown_hosts` -- when multiple non-TLS
-  name-based `VirtualHost` blocks share a listen address, the first one is the
-  default for unmatched host names. Serving real content there can expose the
-  wrong site; a whole-scope reject or redirect-only default host is accepted.
-  This is a virtual-host precision hardening signal, so CWE stays empty and
-  OWASP A05 carries the mapping.
+- `apache.default_vhost_not_rejecting_unknown_hosts` -- the first non-TLS
+  `VirtualHost` for a listen address is the default for unmatched host names.
+  Serving real content there can expose the wrong site; a whole-scope reject
+  or redirect-only default host is accepted. This is a virtual-host precision
+  hardening signal, so CWE stays empty and OWASP A05 carries the mapping.
 - `missing_http_method_restrictions`,
   `http_method_policy_allows_unapproved` -- sensitive scopes with no method
   restriction, or explicit method allowlists that still include unapproved
@@ -591,7 +590,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
-| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, `apache.default_vhost_not_rejecting_unknown_hosts` checks first/default non-TLS name-based VirtualHosts, `apache.default_tls_vhost_not_rejecting_unknown_hosts` checks first/default TLS VirtualHosts for whole-scope rejection, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is rewrite module inventory and deployment-specific exceptions. |
+| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, `apache.default_vhost_not_rejecting_unknown_hosts` checks first/default non-TLS VirtualHosts, `apache.default_tls_vhost_not_rejecting_unknown_hosts` checks first/default TLS VirtualHosts for whole-scope rejection, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is rewrite module inventory and deployment-specific exceptions. |
 | §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
 | §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |

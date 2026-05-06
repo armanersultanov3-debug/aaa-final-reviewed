@@ -333,6 +333,8 @@ def test_analyze_apache_config_does_not_report_safe_options_without_execcgi(
                     "ErrorDocument 500 /custom500.html",
                     "<VirtualHost *:80>",
                     "    Options FollowSymLinks SymLinksIfOwnerMatch",
+                    "    RewriteEngine On",
+                    "    RewriteRule ^/.*$ - [F,L]",
                     "</VirtualHost>",
                 ]
             )

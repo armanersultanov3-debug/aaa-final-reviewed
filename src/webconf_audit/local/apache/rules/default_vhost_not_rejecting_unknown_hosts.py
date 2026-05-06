@@ -22,9 +22,9 @@ from webconf_audit.standards import owasp_top10_2021
 RULE_ID = "apache.default_vhost_not_rejecting_unknown_hosts"
 TITLE = "Apache default virtual host does not reject unknown hosts"
 DESCRIPTION = (
-    "Multiple non-TLS Apache VirtualHosts share a listen address, so the first "
-    "one acts as the default host, but it does not explicitly reject requests "
-    "for unknown host names."
+    "The first non-TLS Apache VirtualHost for a listen address acts as the "
+    "default host, but it does not explicitly reject requests for unknown host "
+    "names."
 )
 RECOMMENDATION = (
     "Use a dedicated first/default VirtualHost for the listen address that "
@@ -64,9 +64,6 @@ def find_default_vhost_not_rejecting_unknown_hosts(
     seen_contexts: set[int] = set()
 
     for contexts in _non_tls_contexts_by_listen_key(config_ast).values():
-        if len(contexts) < 2:
-            continue
-
         context = contexts[0]
         context_id = id(context)
         if context_id in seen_contexts:

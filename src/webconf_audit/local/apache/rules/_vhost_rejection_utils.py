@@ -9,6 +9,8 @@ WHOLE_PATTERNS = frozenset(
     {
         "^",
         "^/",
+        "^/.*$",
+        "^/.*",
         "^/(.*)$",
         "^/(.*)",
         "^.*$",
@@ -23,7 +25,7 @@ def listen_keys(context: ApacheVirtualHostContext) -> list[str]:
     addresses = context.listen_addresses
     if not addresses and context.listen_address is not None:
         addresses = (context.listen_address,)
-    return [_normalize_listen_key(address) for address in addresses]
+    return list(dict.fromkeys(_normalize_listen_key(address) for address in addresses))
 
 
 def rejects_unknown_hosts(block: ApacheBlockNode) -> bool:
