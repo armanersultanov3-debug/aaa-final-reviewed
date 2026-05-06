@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from fnmatch import fnmatchcase
+
 from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
     extract_virtualhost_contexts,
@@ -99,11 +101,26 @@ def _has_matching_tls_scope(
             continue
 
         tls_hostnames = _context_hostnames(tls_context)
-        if tls_hostnames and not hostnames.isdisjoint(tls_hostnames):
+        if tls_hostnames and _hostnames_overlap(hostnames, tls_hostnames):
             return True
         if not tls_hostnames and _listen_addresses_overlap(context, tls_context):
             return True
     return False
+
+
+def _hostnames_overlap(left: set[str], right: set[str]) -> bool:
+    return any(
+        _hostname_matches(left_hostname, right_hostname)
+        or _hostname_matches(right_hostname, left_hostname)
+        for left_hostname in left
+        for right_hostname in right
+    )
+
+
+def _hostname_matches(hostname: str, pattern: str) -> bool:
+    if "*" not in pattern and "?" not in pattern:
+        return hostname == pattern
+    return fnmatchcase(hostname, pattern)
 
 
 def _context_hostnames(context: ApacheVirtualHostContext) -> set[str]:
@@ -143,11 +160,18 @@ def _address_host(value: str) -> str:
     if value.isdigit():
         return "*"
     if ":" not in value:
-        return value.lower()
+        return _normalize_address_host(value)
     host, _, port = value.rpartition(":")
     if not port.isdigit():
-        return value.lower()
-    return host.lower() or "*"
+        return _normalize_address_host(value)
+    return _normalize_address_host(host)
+
+
+def _normalize_address_host(value: str) -> str:
+    host = value.lower() or "*"
+    if host == "_default_":
+        return "*"
+    return host
 
 
 def _address_port(value: str) -> int | None:
