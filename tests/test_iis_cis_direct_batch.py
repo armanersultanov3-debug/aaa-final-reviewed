@@ -369,6 +369,44 @@ def test_authorization_policy_inherited_empty_parent_still_fires(
     assert any('location path "admin"' in finding.description for finding in findings)
 
 
+def test_authorization_policy_empty_parent_in_current_file_reports_child_scope(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <clear />
+            </authorization>
+        </security>
+    </system.webServer>
+    <location path="admin/reports">
+        <system.webServer>
+            <security>
+                <requestFiltering />
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "iis.authorization_policy_missing"
+    ]
+    assert any(
+        'location path "admin/reports"' in finding.description for finding in findings
+    )
+
+
 def test_authorization_policy_empty_inherited_section_reports_affected_scope() -> None:
     doc = IISConfigDocument(
         root_tag="configuration",

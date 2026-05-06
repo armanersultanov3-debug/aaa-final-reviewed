@@ -170,6 +170,14 @@ def _effective_authorization_policy_missing_findings(
                 scope.location_path,
             ):
                 continue
+            if authorization is not None:
+                findings.append(
+                    _effective_authorization_policy_empty_finding(
+                        authorization,
+                        affected_location_path=scope.location_path,
+                    ),
+                )
+                continue
             findings.extend(
                 _raw_authorization_policy_empty_finding(section)
                 for section in raw_sections
