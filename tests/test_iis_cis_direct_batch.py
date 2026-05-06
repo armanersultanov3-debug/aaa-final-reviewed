@@ -1,5 +1,8 @@
 from tests.iis_helpers import AnalysisResult, Path, analyze_iis_config, parse_iis_config
 from webconf_audit.local.iis.rules.auth_policy import find_authorization_policy_missing
+from webconf_audit.local.iis.rules.request_filtering_policy import (
+    find_request_filtering_remove_server_header_disabled,
+)
 
 
 def _assert_no_analysis_issues(result: AnalysisResult) -> None:
@@ -153,6 +156,35 @@ def test_authorization_policy_missing_is_scoped_per_location(
     ]
     assert len(findings) == 1
     assert "location" not in (findings[0].location.xml_path or "")
+
+
+def test_authorization_policy_uses_iis_url_authorization_when_aspnet_exists(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <add accessType="Deny" users="?" />
+            </authorization>
+        </security>
+    </system.webServer>
+    <system.web>
+        <authorization>
+            <allow users="*" />
+        </authorization>
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.authorization_policy_missing" not in _rule_ids(result)
 
 
 def test_raw_authorization_policy_empty_finding_is_deduplicated_for_locations() -> None:
@@ -444,6 +476,33 @@ def test_request_filtering_missing_request_limits_fires_length_limits(
     rule_ids = _rule_ids(result)
     assert "iis.request_filtering_max_url_missing" in rule_ids
     assert "iis.request_filtering_max_query_string_missing" in rule_ids
+
+
+def test_raw_request_filtering_remove_server_header_inherits_parent_true() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering removeServerHeader="true" />
+        </security>
+    </system.webServer>
+    <location path="admin">
+        <system.webServer>
+            <security>
+                <requestFiltering allowHighBitCharacters="false" />
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    findings = find_request_filtering_remove_server_header_disabled(doc)
+
+    assert findings == []
 
 
 def test_file_extensions_allow_unlisted_fires(tmp_path: Path) -> None:

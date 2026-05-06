@@ -234,7 +234,13 @@ def find_request_filtering_remove_server_header_disabled(
         _raw_remove_server_header_finding(section)
         for section in doc.sections
         if section.tag == "requestFiltering"
-        and _is_not_true(section.attributes.get("removeServerHeader"))
+        and _is_not_true(
+            _raw_request_filtering_attribute(
+                doc,
+                section.location_path,
+                "removeServerHeader",
+            ),
+        )
     ]
 
 
@@ -524,6 +530,22 @@ def _has_raw_request_limits_section(
         and location_applies_to_scope(section.location_path, location_path)
         for section in doc.sections
     )
+
+
+def _raw_request_filtering_attribute(
+    doc: IISConfigDocument,
+    location_path: str | None,
+    attribute: str,
+) -> str | None:
+    for location in location_inheritance_chain(location_path):
+        for section in reversed(doc.sections):
+            if section.tag != "requestFiltering":
+                continue
+            if normalize_location_path(section.location_path) != location:
+                continue
+            if attribute in section.attributes:
+                return section.attributes.get(attribute)
+    return None
 
 
 def _has_raw_file_extensions_section(

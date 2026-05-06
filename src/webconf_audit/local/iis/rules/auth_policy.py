@@ -5,9 +5,10 @@ from webconf_audit.local.iis.parser import IISChildElement, IISConfigDocument, I
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
     is_pure_inheritance,
+    location_applies_to_scope,
+    location_context,
     location_inheritance_chain,
     normalize_location_path,
-    location_context,
     raw_location,
     ssl_flag_tokens,
 )
@@ -148,14 +149,27 @@ def _effective_authorization_policy_missing_findings(
     effective_config: IISEffectiveConfig,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    empty_section_keys: set[tuple[str | None, str | None, str | None]] = set()
+    raw_sections_by_location = _url_authorization_sections_by_location(doc.sections)
     for scope in _effective_system_webserver_scopes(effective_config):
-        authorization = effective_config.get_effective_section(
-            "/authorization",
-            location_path=scope.location_path,
+        raw_sections = _nearest_authorization_sections(
+            raw_sections_by_location,
+            scope.location_path,
         )
-        if authorization is None or not _is_iis_url_authorization_path(
-            authorization.source.xml_path,
-        ):
+        if raw_sections:
+            findings.extend(
+                _raw_authorization_policy_empty_finding(section)
+                for section in raw_sections
+                if not _has_explicit_authorization_rules(section.children)
+                if _remember_raw_section(empty_section_keys, section)
+            )
+            continue
+
+        authorization = _nearest_effective_iis_url_authorization_section(
+            effective_config,
+            scope.location_path,
+        )
+        if authorization is None:
             findings.append(_effective_authorization_policy_absent_finding(scope))
             continue
         if _has_explicit_authorization_rules(authorization.children):
@@ -206,6 +220,30 @@ def _raw_system_webserver_scopes(doc: IISConfigDocument) -> list[IISSection]:
         for section in doc.sections
         if section.tag == "system.webServer"
     ]
+
+
+def _nearest_effective_iis_url_authorization_section(
+    effective_config: IISEffectiveConfig,
+    scope_location: str | None,
+) -> IISEffectiveSection | None:
+    for location in location_inheritance_chain(scope_location):
+        for section in reversed(effective_config.all_sections):
+            if section.section_path_suffix != "/authorization":
+                continue
+            if not location_applies_to_scope(section.location_path, location):
+                continue
+            if _effective_section_has_iis_url_authorization_origin(section):
+                return section
+    return None
+
+
+def _effective_section_has_iis_url_authorization_origin(
+    section: IISEffectiveSection,
+) -> bool:
+    return any(
+        _is_iis_url_authorization_path(origin.xml_path)
+        for origin in section.origin_chain
+    )
 
 
 def _url_authorization_sections_by_location(
