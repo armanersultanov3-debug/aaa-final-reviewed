@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **303**
+Total rules: **307**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (217), external (73), universal (13) |
-| Severity | high (15), medium (107), low (170), info (11) |
-| Input kind | ast (149), probe (73), effective (56), normalized (13), htaccess (6), mixed (6) |
+| Category | local (221), external (73), universal (13) |
+| Severity | high (15), medium (108), low (173), info (11) |
+| Input kind | ast (149), probe (73), effective (60), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -697,7 +697,7 @@ Mapping rationale (lighttpd rules):
 
 ### IIS (Local)
 
-Count: 47
+Count: 51
 
 Stage 2 mapping status: **CWE / OWASP / ASVS complete; CIS existing-rule
 reference pass complete** for this group. CIS references come from a full
@@ -738,9 +738,12 @@ archive PDFs remain historical context only.
 | `iis.content_security_policy_missing_reporting_endpoint` | low | effective | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
 | `iis.anonymous_auth_enabled` | medium | effective | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.1/§2.2 (partial: rule detects anonymous auth combined with named auth, not a full authorization-policy audit) |
 | `iis.authorization_allows_anonymous_users` | medium | effective | - | [CWE-287](https://cwe.mitre.org/data/definitions/287.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.1/§2.2 (partial: detects explicit `users="*"` / `users="?"` allow rules) |
+| `iis.authorization_policy_missing` | low | effective | - | [CWE-862](https://cwe.mitre.org/data/definitions/862.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS Microsoft IIS 10 v1.2.1 §2.1/§2.2 (partial: detects absent or empty IIS URL authorization policy where system.webServer is visible) |
 | `iis.basic_auth_without_ssl` | medium | effective | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | CIS Microsoft IIS 10 v1.2.1 §2.6 |
 | `iis.request_filtering_max_url_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.2 (partial: explicit unsafe local `maxUrl` values only) |
 | `iis.request_filtering_max_query_string_too_high` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.3 (partial: explicit unsafe local `maxQueryString` values only) |
+| `iis.request_filtering_max_url_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.2 (partial: detects missing explicit `maxUrl` where requestLimits is visible) |
+| `iis.request_filtering_max_query_string_missing` | low | effective | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS Microsoft IIS 10 v1.2.1 §4.3 (partial: detects missing explicit `maxQueryString` where requestLimits is visible) |
 | `iis.file_extensions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.7 (partial: explicit true or missing/default `allowUnlisted` policy where requestFiltering is present) |
 | `iis.isapi_cgi_restrictions_allow_unlisted` | medium | effective | - | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §4.9/§4.10 (partial: explicit unlisted ISAPI/CGI allowance only) |
 | `iis.request_filtering_remove_server_header_disabled` | low | effective | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Microsoft IIS 10 v1.2.1 §3.12 (partial: explicit `removeServerHeader="false"` values only) |
@@ -748,6 +751,7 @@ archive PDFs remain historical context only.
 | `iis.credentials_password_format_clear` | medium | effective | - | [CWE-256](https://cwe.mitre.org/data/definitions/256.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.7 |
 | `iis.credentials_stored_in_config` | medium | effective | - | [CWE-798](https://cwe.mitre.org/data/definitions/798.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §2.8 |
 | `iis.http_cookies_http_only_disabled` | medium | effective | - | [CWE-1004](https://cwe.mitre.org/data/definitions/1004.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.7 (partial: explicit `httpOnlyCookies="false"` only) |
+| `iis.http_cookies_require_ssl_missing` | medium | effective | tls | [CWE-614](https://cwe.mitre.org/data/definitions/614.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-3.4.1 (related: secure cookie transport) | CIS Microsoft IIS 10 v1.2.1 §3.7 (related: complements HttpOnly cookie hardening with secure transport policy) |
 | `iis.deployment_retail_not_enabled` | medium | effective | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.1 (partial: explicit `retail="false"` only) |
 | `iis.trust_level_full` | medium | effective | - | [CWE-250](https://cwe.mitre.org/data/definitions/250.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Microsoft IIS 10 v1.2.1 §3.10 (partial: explicit `trust level="Full"` only) |
 | `iis.machine_key_validation_weak` | medium | effective | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Microsoft IIS 10 v1.2.1 §3.9 (partial: explicit validation algorithms other than SHA-2 HMAC only) |
@@ -889,11 +893,11 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §1.1, Windows Server host hardening | `out-of-scope` | Web-root partitioning, OS service posture, filesystem ACLs, and broader Windows Server host baseline checks are outside web-server config / safe external analysis. |
 | §1.2 | `covered` | `iis.binding_without_host_header` detects HTTP/HTTPS bindings without host names; deliberate catch-all binding policy remains operator-specific. |
 | §1.4/§1.5/§1.6 | `partial` | `iis.application_pool_identity_not_application_pool_identity`, `iis.sites_share_application_pool`, and `iis.anonymous_auth_uses_specific_user` cover explicit app-pool identities, cross-site shared pools, and explicit specific anonymous users. Follow-up remains for deeper default materialization and deployment-specific shared-hosting exceptions. |
-| §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled` and `iis.authorization_allows_anonymous_users` cover common anonymous/authenticated mixups and explicit wildcard/anonymous allow rules; full authorization default semantics remain parser-policy follow-up. |
+| §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, and `iis.authorization_policy_missing` cover common anonymous/authenticated mixups, explicit wildcard/anonymous allow rules, and absent/empty visible IIS URL authorization policy. |
 | §2.5/§2.7/§2.8 | `partial` | `iis.forms_auth_protection_unsafe`, `iis.credentials_password_format_clear`, and `iis.credentials_stored_in_config` cover explicit unsafe forms credential settings; broader inherited/default policy remains follow-up. |
 | §2.6 | `covered` | `iis.basic_auth_without_ssl` checks Basic Authentication together with the effective `access sslFlags` requirement; `iis.ssl_not_required` remains a broader access-section signal. |
-| §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, and `iis.request_filtering_remove_server_header_disabled` cover explicit unsafe values; absence-complete/default policy and runtime native-header verification remain follow-up. |
-| §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values; `fileExtensions` also covers missing/default allow-unlisted policy when `requestFiltering` is present. `maxUrl` / `maxQueryString` missing attributes stay silent because IIS defaults match the benchmark ceilings. |
+| §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.http_cookies_require_ssl_missing`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, and `iis.request_filtering_remove_server_header_disabled` cover explicit unsafe values plus selected visible default-policy absence cases; runtime native-header verification remains follow-up. |
+| §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.request_filtering_max_url_missing`, `iis.request_filtering_max_query_string_missing`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values and visible missing/default request-filtering policy where the relevant XML section is present. |
 | §4.8 | `covered` | `iis.handler_write_script_execute_enabled` detects handler `accessPolicy` values that grant Write together with Script or Execute; `iis.cgi_handler_enabled` remains an extra CGI handler signal. |
 | §4.11/§5.1/§5.3 | `out-of-scope` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals and are outside the tool scope. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |
@@ -1377,7 +1381,7 @@ Progress:
 - [x] Apache local rules (70) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (23)
-- [x] IIS local rules (47) — CWE/OWASP/ASVS filled; CIS existing-rule reference
+- [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
   pass complete
 - [x] External (probe) rules (73) — CWE/OWASP filled; CIS not applicable (probes)
 - [x] ASVS 5.0.0 first-pass references for reviewed direct/partial candidates

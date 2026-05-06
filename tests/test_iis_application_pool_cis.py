@@ -167,6 +167,35 @@ def test_sites_share_application_pool_silent_for_distinct_pools(
     assert not _rule_findings(result, "iis.sites_share_application_pool")
 
 
+def test_sites_share_default_application_pool_when_application_pool_absent(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.applicationHost>
+        <sites>
+            <site name="Site One" id="1">
+                <application path="/" />
+            </site>
+            <site name="Site Two" id="2">
+                <application path="/" />
+            </site>
+        </sites>
+    </system.applicationHost>
+</configuration>
+"""
+    config_path = tmp_path / "applicationHost.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path), use_tls_registry=False)
+
+    _assert_no_analysis_issues(result)
+    findings = _rule_findings(result, "iis.sites_share_application_pool")
+    assert len(findings) == 1
+    assert findings[0].metadata["application_pool"] == "DefaultAppPool"
+
+
 def test_anonymous_auth_specific_user_fires_for_iusr(
     tmp_path: Path,
 ) -> None:

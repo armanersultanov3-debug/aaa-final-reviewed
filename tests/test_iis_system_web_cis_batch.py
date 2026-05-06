@@ -51,6 +51,53 @@ def test_forms_auth_protection_all_silent(tmp_path: Path) -> None:
     assert "iis.forms_auth_protection_unsafe" not in _rule_ids(result)
 
 
+def test_forms_auth_mode_without_forms_requires_ssl_fires(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <authentication mode="Forms" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.forms_auth_require_ssl_missing" in _rule_ids(result)
+
+
+def test_forms_auth_inherits_parent_forms_require_ssl(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <authentication>
+            <forms requireSSL="true" />
+        </authentication>
+    </system.web>
+    <location path="admin">
+        <system.web>
+            <authentication mode="Forms" />
+        </system.web>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.forms_auth_require_ssl_missing" not in _rule_ids(result)
+
+
 def test_credentials_clear_format_and_stored_credentials_fire(
     tmp_path: Path,
 ) -> None:
@@ -141,6 +188,77 @@ def test_http_cookies_http_only_true_silent(tmp_path: Path) -> None:
     assert "iis.http_cookies_http_only_disabled" not in _rule_ids(result)
 
 
+def test_http_cookies_missing_secure_defaults_fire(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <compilation debug="false" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.http_cookies_http_only_disabled" in rule_ids
+    assert "iis.http_cookies_require_ssl_missing" in rule_ids
+
+
+def test_http_cookies_secure_defaults_silent(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <httpCookies httpOnlyCookies="true" requireSSL="true" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.http_cookies_http_only_disabled" not in rule_ids
+    assert "iis.http_cookies_require_ssl_missing" not in rule_ids
+
+
+def test_system_web_missing_policies_respect_parent_location_inheritance(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <httpCookies httpOnlyCookies="true" requireSSL="true" />
+        <deployment retail="true" />
+        <trust level="Medium" />
+    </system.web>
+    <location path="admin">
+        <system.web>
+            <compilation debug="false" />
+        </system.web>
+    </location>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.http_cookies_http_only_disabled" not in rule_ids
+    assert "iis.http_cookies_require_ssl_missing" not in rule_ids
+    assert "iis.deployment_retail_not_enabled" not in rule_ids
+    assert "iis.trust_level_full" not in rule_ids
+
+
 def test_deployment_retail_not_enabled_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
@@ -177,6 +295,24 @@ def test_deployment_retail_true_silent(tmp_path: Path) -> None:
     assert "iis.deployment_retail_not_enabled" not in _rule_ids(result)
 
 
+def test_deployment_retail_absent_fires_with_system_web(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <customErrors mode="RemoteOnly" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.deployment_retail_not_enabled" in _rule_ids(result)
+
+
 def test_trust_level_full_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
@@ -211,6 +347,24 @@ def test_trust_level_medium_silent(tmp_path: Path) -> None:
 
     _assert_no_analysis_issues(result)
     assert "iis.trust_level_full" not in _rule_ids(result)
+
+
+def test_trust_level_absent_fires_with_system_web(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <customErrors mode="RemoteOnly" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.trust_level_full" in _rule_ids(result)
 
 
 def test_machine_key_validation_weak_fires(tmp_path: Path) -> None:

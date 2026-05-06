@@ -4,7 +4,7 @@ from tests.iis_helpers import (
     MINIMAL_APPLICATION_HOST_CONFIG,
     MINIMAL_WEB_CONFIG,
     Path,
-    _ABSENCE_RULE_IDS,
+    _SAFE_BASELINE_ALLOWED_RULE_IDS,
     analyze_iis_config,
     parse_iis_config,
     pytest,
@@ -143,8 +143,10 @@ def test_analyze_valid_application_host_config(tmp_path: Path) -> None:
     assert result.mode == "local"
     assert result.server_type == "iis"
     assert result.target == str(config_path)
-    # Absence rules (HSTS, logging) may fire on minimal configs; no *insecure* findings.
-    insecure = [f for f in result.findings if f.rule_id not in _ABSENCE_RULE_IDS]
+    # Baseline/default-policy rules may fire on minimal configs; no direct insecure findings.
+    insecure = [
+        f for f in result.findings if f.rule_id not in _SAFE_BASELINE_ALLOWED_RULE_IDS
+    ]
     assert insecure == []
     assert result.issues == []
     assert result.metadata["config_kind"] == "applicationHost"
@@ -162,7 +164,9 @@ def test_analyze_valid_web_config(tmp_path: Path) -> None:
     assert isinstance(result, AnalysisResult)
     assert result.mode == "local"
     assert result.server_type == "iis"
-    insecure = [f for f in result.findings if f.rule_id not in _ABSENCE_RULE_IDS]
+    insecure = [
+        f for f in result.findings if f.rule_id not in _SAFE_BASELINE_ALLOWED_RULE_IDS
+    ]
     assert insecure == []
     assert result.issues == []
     assert result.metadata["config_kind"] == "web"
@@ -764,7 +768,7 @@ def test_http_runtime_version_header_does_not_fire_when_false(tmp_path: Path) ->
     assert "iis.http_runtime_version_header_enabled" not in {f.rule_id for f in result.findings}
 
 
-def test_http_runtime_version_header_does_not_fire_when_absent(tmp_path: Path) -> None:
+def test_http_runtime_version_header_fires_when_absent(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -775,7 +779,23 @@ def test_http_runtime_version_header_does_not_fire_when_absent(tmp_path: Path) -
 """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
-    assert "iis.http_runtime_version_header_enabled" not in {f.rule_id for f in result.findings}
+    assert "iis.http_runtime_version_header_enabled" in {f.rule_id for f in result.findings}
+
+
+def test_http_runtime_section_missing_fires_when_system_web_present(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <compilation debug="false" />
+    </system.web>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    assert "iis.http_runtime_version_header_enabled" in {f.rule_id for f in result.findings}
 
 
 # --- IIS rules: iis.request_filtering_allow_double_escaping ---
@@ -859,31 +879,48 @@ def test_no_iis_rule_findings_on_safe_baseline(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
-    <system.webServer>
-        <directoryBrowse enabled="false" />
-        <httpErrors errorMode="DetailedLocalOnly" />
-        <httpLogging dontLog="false" />
-        <asp scriptErrorSentToBrowser="false" />
-        <requestFiltering allowDoubleEscaping="false">
-            <requestLimits maxAllowedContentLength="4194304" />
-            <fileExtensions allowUnlisted="false" />
-        </requestFiltering>
-        <httpProtocol>
-            <customHeaders>
-                <remove name="X-Powered-By" />
+        <system.webServer>
+            <directoryBrowse enabled="false" />
+            <httpErrors errorMode="DetailedLocalOnly" />
+            <httpLogging dontLog="false" />
+            <asp scriptErrorSentToBrowser="false" />
+            <security>
+                <authorization>
+                    <add accessType="Deny" users="?" />
+                    <add accessType="Allow" users="*" />
+                </authorization>
+                <requestFiltering
+                    allowDoubleEscaping="false"
+                    allowHighBitCharacters="false"
+                    removeServerHeader="true"
+                >
+                    <requestLimits
+                        maxAllowedContentLength="4194304"
+                        maxUrl="4096"
+                        maxQueryString="2048"
+                    />
+                    <fileExtensions allowUnlisted="false" />
+                </requestFiltering>
+            </security>
+            <httpProtocol>
+                <customHeaders>
+                    <remove name="X-Powered-By" />
                 <add name="Strict-Transport-Security"
                      value="max-age=31536000; includeSubDomains" />
             </customHeaders>
         </httpProtocol>
     </system.webServer>
-    <system.web>
-        <customErrors mode="RemoteOnly" />
-        <compilation debug="false" />
-        <trace enabled="false" />
-        <httpRuntime enableVersionHeader="false" />
-    </system.web>
-</configuration>
-"""
+        <system.web>
+            <customErrors mode="RemoteOnly" />
+            <compilation debug="false" />
+            <deployment retail="true" />
+            <httpCookies httpOnlyCookies="true" requireSSL="true" />
+            <trace enabled="false" />
+            <httpRuntime enableVersionHeader="false" />
+            <trust level="Medium" />
+        </system.web>
+    </configuration>
+    """
     (tmp_path / "web.config").write_text(config, encoding="utf-8")
     result = analyze_iis_config(str(tmp_path / "web.config"))
     server_findings = [f for f in result.findings if not f.rule_id.startswith("universal.")]

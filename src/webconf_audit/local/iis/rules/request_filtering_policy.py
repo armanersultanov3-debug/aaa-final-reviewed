@@ -5,7 +5,10 @@ from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     effective_location,
     is_pure_inheritance,
+    location_applies_to_scope,
     location_context,
+    location_inheritance_chain,
+    normalize_location_path,
     raw_location,
 )
 from webconf_audit.models import Finding, SourceLocation
@@ -13,6 +16,8 @@ from webconf_audit.rule_registry import rule
 
 MAX_URL_RULE_ID = "iis.request_filtering_max_url_too_high"
 MAX_QUERY_STRING_RULE_ID = "iis.request_filtering_max_query_string_too_high"
+MAX_URL_MISSING_RULE_ID = "iis.request_filtering_max_url_missing"
+MAX_QUERY_STRING_MISSING_RULE_ID = "iis.request_filtering_max_query_string_missing"
 FILE_EXTENSIONS_RULE_ID = "iis.file_extensions_allow_unlisted"
 ISAPI_CGI_RULE_ID = "iis.isapi_cgi_restrictions_allow_unlisted"
 REMOVE_SERVER_HEADER_RULE_ID = "iis.request_filtering_remove_server_header_disabled"
@@ -68,6 +73,56 @@ def find_request_filtering_max_query_string_too_high(
         rule_id=MAX_QUERY_STRING_RULE_ID,
         title="Request filtering maximum query string length is unsafe",
         unit_label="query string",
+    )
+
+
+@rule(
+    rule_id=MAX_URL_MISSING_RULE_ID,
+    title="Request filtering maximum URL length is not set",
+    severity="low",
+    description="Request filtering does not explicitly cap URL length.",
+    recommendation='Set requestLimits maxUrl to "4096" or lower.',
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    order=544,
+)
+def find_request_filtering_max_url_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return _missing_limit_findings(
+        doc,
+        effective_config=effective_config,
+        attribute="maxUrl",
+        rule_id=MAX_URL_MISSING_RULE_ID,
+        title="Request filtering maximum URL length is not set",
+        unit_label="URL",
+        recommendation='Set requestLimits maxUrl to "4096" or lower.',
+    )
+
+
+@rule(
+    rule_id=MAX_QUERY_STRING_MISSING_RULE_ID,
+    title="Request filtering maximum query string length is not set",
+    severity="low",
+    description="Request filtering does not explicitly cap query string length.",
+    recommendation='Set requestLimits maxQueryString to "2048" or lower.',
+    category="local",
+    server_type="iis",
+    input_kind="effective",
+    order=545,
+)
+def find_request_filtering_max_query_string_missing(
+    doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
+) -> list[Finding]:
+    return _missing_limit_findings(
+        doc,
+        effective_config=effective_config,
+        attribute="maxQueryString",
+        rule_id=MAX_QUERY_STRING_MISSING_RULE_ID,
+        title="Request filtering maximum query string length is not set",
+        unit_label="query string",
+        recommendation='Set requestLimits maxQueryString to "2048" or lower.',
     )
 
 
@@ -173,13 +228,19 @@ def find_request_filtering_remove_server_header_disabled(
             for section in effective_config.all_sections
             if section.section_path_suffix == "/requestFiltering"
             and not is_pure_inheritance(section)
-            and _is_false(section.attributes.get("removeServerHeader"))
+            and _is_not_true(section.attributes.get("removeServerHeader"))
         ]
     return [
         _raw_remove_server_header_finding(section)
         for section in doc.sections
         if section.tag == "requestFiltering"
-        and _is_false(section.attributes.get("removeServerHeader"))
+        and _is_not_true(
+            _raw_request_filtering_attribute(
+                doc,
+                section.location_path,
+                "removeServerHeader",
+            ),
+        )
     ]
 
 
@@ -227,6 +288,83 @@ def _limit_findings(
     return [finding for finding in findings if finding is not None]
 
 
+def _missing_limit_findings(
+    doc: IISConfigDocument,
+    *,
+    effective_config: IISEffectiveConfig | None,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> list[Finding]:
+    if effective_config is not None:
+        findings = [
+            _missing_limit_finding_for_section(
+                section,
+                attribute=attribute,
+                rule_id=rule_id,
+                title=title,
+                unit_label=unit_label,
+                recommendation=recommendation,
+            )
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestLimits"
+            and not is_pure_inheritance(section)
+            and not str(section.attributes.get(attribute, "")).strip()
+        ]
+        findings.extend(
+            _missing_limit_finding_for_section(
+                section,
+                attribute=attribute,
+                rule_id=rule_id,
+                title=title,
+                unit_label=unit_label,
+                recommendation=recommendation,
+            )
+            for section in effective_config.all_sections
+            if section.section_path_suffix == "/requestFiltering"
+            and not is_pure_inheritance(section)
+            and not _has_effective_request_limits_section(
+                effective_config,
+                section.location_path,
+            )
+        )
+        return findings
+
+    findings = [
+        _missing_limit_finding(
+            raw_location(section),
+            context_suffix="",
+            attribute=attribute,
+            rule_id=rule_id,
+            title=title,
+            unit_label=unit_label,
+            recommendation=recommendation,
+        )
+        for section in doc.sections
+        if section.tag == "requestLimits"
+        and not str(
+            _raw_request_limits_attribute(doc, section.location_path, attribute) or "",
+        ).strip()
+    ]
+    findings.extend(
+        _missing_limit_finding(
+            raw_location(section),
+            context_suffix="",
+            attribute=attribute,
+            rule_id=rule_id,
+            title=title,
+            unit_label=unit_label,
+            recommendation=recommendation,
+        )
+        for section in doc.sections
+        if section.tag == "requestFiltering"
+        and not _has_raw_request_limits_section(doc, section.location_path)
+    )
+    return findings
+
+
 def _limit_finding(
     *,
     raw_val: str,
@@ -253,6 +391,50 @@ def _limit_finding(
             f"length to {threshold} characters or fewer."
         ),
         recommendation=f'Set requestLimits {attribute} to "{threshold}" or lower.',
+        location=location,
+    )
+
+
+def _missing_limit_finding_for_section(
+    section: IISEffectiveSection,
+    *,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> Finding:
+    return _missing_limit_finding(
+        effective_location(section),
+        context_suffix=location_context(section),
+        attribute=attribute,
+        rule_id=rule_id,
+        title=title,
+        unit_label=unit_label,
+        recommendation=recommendation,
+    )
+
+
+def _missing_limit_finding(
+    location: SourceLocation,
+    *,
+    context_suffix: str,
+    attribute: str,
+    rule_id: str,
+    title: str,
+    unit_label: str,
+    recommendation: str,
+) -> Finding:
+    return Finding(
+        rule_id=rule_id,
+        title=title,
+        severity="low",
+        description=(
+            f"IIS requestLimits does not set {attribute}{context_suffix}. "
+            f"The effective {unit_label} limit is inherited from IIS defaults "
+            "or parent configuration rather than being explicitly bounded here."
+        ),
+        recommendation=recommendation,
         location=location,
     )
 
@@ -330,36 +512,70 @@ def _has_file_extensions_section(
     )
 
 
-def _has_raw_file_extensions_section(
+def _has_effective_request_limits_section(
+    effective_config: IISEffectiveConfig,
+    location_path: str | None,
+) -> bool:
+    return any(
+        section.section_path_suffix == "/requestLimits"
+        and location_applies_to_scope(section.location_path, location_path)
+        for section in effective_config.all_sections
+    )
+
+
+def _has_raw_request_limits_section(
     doc: IISConfigDocument,
     location_path: str | None,
 ) -> bool:
-    candidate_locations = set(_location_inheritance_chain(location_path))
     return any(
-        section.tag == "fileExtensions"
-        and _normalize_location_path(section.location_path) in candidate_locations
+        section.tag == "requestLimits"
+        and location_applies_to_scope(section.location_path, location_path)
         for section in doc.sections
     )
 
 
-def _location_inheritance_chain(location_path: str | None) -> list[str | None]:
-    normalized = _normalize_location_path(location_path)
-    if normalized is None:
-        return [None]
+def _raw_request_filtering_attribute(
+    doc: IISConfigDocument,
+    location_path: str | None,
+    attribute: str,
+) -> str | None:
+    for location in location_inheritance_chain(location_path):
+        for section in reversed(doc.sections):
+            if section.tag != "requestFiltering":
+                continue
+            if normalize_location_path(section.location_path) != location:
+                continue
+            if attribute in section.attributes:
+                return section.attributes.get(attribute)
+    return None
 
-    locations: list[str | None] = [normalized]
-    parts = normalized.split("/")
-    for depth in range(len(parts) - 1, 0, -1):
-        locations.append("/".join(parts[:depth]))
-    locations.append(None)
-    return locations
+
+def _raw_request_limits_attribute(
+    doc: IISConfigDocument,
+    location_path: str | None,
+    attribute: str,
+) -> str | None:
+    for location in location_inheritance_chain(location_path):
+        for section in reversed(doc.sections):
+            if section.tag != "requestLimits":
+                continue
+            if normalize_location_path(section.location_path) != location:
+                continue
+            if attribute in section.attributes:
+                return section.attributes.get(attribute)
+    return None
 
 
-def _normalize_location_path(location_path: str | None) -> str | None:
-    if location_path is None:
-        return None
-    normalized = location_path.replace("\\", "/").strip("/")
-    return normalized or None
+def _has_raw_file_extensions_section(
+    doc: IISConfigDocument,
+    location_path: str | None,
+) -> bool:
+    candidate_locations = set(location_inheritance_chain(location_path))
+    return any(
+        section.tag == "fileExtensions"
+        and normalize_location_path(section.location_path) in candidate_locations
+        for section in doc.sections
+    )
 
 
 def _unsafe_isapi_cgi_attrs(attributes: dict[str, str]) -> list[str]:
@@ -446,8 +662,8 @@ def _is_true(value: object) -> bool:
     return str(value).strip().lower() == "true"
 
 
-def _is_false(value: object) -> bool:
-    return str(value).strip().lower() == "false"
+def _is_not_true(value: object) -> bool:
+    return str(value).strip().lower() != "true"
 
 
 def _allows_unlisted_by_default(value: object) -> bool:

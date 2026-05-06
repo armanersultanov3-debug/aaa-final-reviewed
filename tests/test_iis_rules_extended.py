@@ -48,6 +48,23 @@ def test_request_filtering_allow_high_bit_silent(tmp_path: Path) -> None:
     assert "iis.request_filtering_allow_high_bit" not in {f.rule_id for f in result.findings}
 
 
+def test_request_filtering_allow_high_bit_absent_fires(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering />
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+    assert "iis.request_filtering_allow_high_bit" in {f.rule_id for f in result.findings}
+
+
 def test_anonymous_auth_enabled_fires_with_other_scheme(tmp_path: Path) -> None:
     """anonymous + basic both enabled → fires."""
     config = """\
