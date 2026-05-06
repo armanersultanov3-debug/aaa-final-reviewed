@@ -52,6 +52,15 @@ ACCUMULATION_DIRECTIVES: dict[str, dict[str, Literal["replace", "accumulate", "r
         "merge": "accumulate",
     }
 }
+APACHE_ALL_OPTIONS = frozenset(
+    {
+        "execcgi",
+        "followsymlinks",
+        "includes",
+        "indexes",
+        "symlinksifownermatch",
+    }
+)
 
 
 DirectiveArgs = list[str] | list[list[str]]
@@ -430,7 +439,7 @@ def _apply_directives(
         name_lower = node.name.lower()
         origin = DirectiveOrigin(layer=layer, source=node.source)
 
-        if name_lower == "options" and _has_plus_minus_prefix(node.args):
+        if name_lower == "options":
             _merge_options(directives, node, origin)
             continue
 
@@ -448,10 +457,6 @@ def _apply_directives(
         )
 
 
-def _has_plus_minus_prefix(args: list[str]) -> bool:
-    return any(arg.startswith(("+", "-")) for arg in args)
-
-
 def _merge_options(
     directives: dict[str, EffectiveDirective],
     node: ApacheDirectiveNode,
@@ -463,17 +468,23 @@ def _merge_options(
     else:
         current_set = set()
 
+    absolute_group_active = False
     for arg in node.args:
         lowered = arg.lower()
         if lowered == "none":
             current_set.clear()
+            absolute_group_active = True
         elif arg.startswith("+"):
-            current_set.add(arg[1:].lower())
+            current_set.update(_expanded_option_token(arg[1:].lower()))
+            absolute_group_active = False
         elif arg.startswith("-"):
-            current_set.discard(arg[1:].lower())
+            current_set.difference_update(_expanded_option_token(arg[1:].lower()))
+            absolute_group_active = False
         else:
-            current_set.clear()
-            current_set.add(lowered)
+            if not absolute_group_active:
+                current_set.clear()
+                absolute_group_active = True
+            current_set.update(_expanded_option_token(lowered))
 
     chain = list(prev.override_chain) + [prev.origin] if prev else []
     directives["options"] = EffectiveDirective(
@@ -598,7 +609,18 @@ def _extract_option_set(args: DirectiveArgs) -> set[str]:
     absolute_args = [arg.lower() for arg in flat_args if not arg.startswith(("+", "-"))]
     if "none" in absolute_args:
         return set()
-    return set(absolute_args)
+    option_set: set[str] = set()
+    for arg in absolute_args:
+        option_set.update(_expanded_option_token(arg))
+    return option_set
+
+
+def _expanded_option_token(token: str) -> frozenset[str]:
+    if token == "all":
+        return APACHE_ALL_OPTIONS
+    if token == "none":
+        return frozenset()
+    return frozenset({token})
 
 
 def _clone_directives(

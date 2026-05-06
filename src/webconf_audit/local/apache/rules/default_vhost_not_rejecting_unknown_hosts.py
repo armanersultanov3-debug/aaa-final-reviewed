@@ -1,0 +1,127 @@
+from __future__ import annotations
+
+from collections import defaultdict
+
+from webconf_audit.local.apache.effective import (
+    ApacheVirtualHostContext,
+    extract_virtualhost_contexts,
+)
+from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.rules._redirect_scope_utils import (
+    is_redirect_only_virtualhost,
+)
+from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
+from webconf_audit.local.apache.rules._vhost_rejection_utils import (
+    listen_keys,
+    rejects_unknown_hosts,
+)
+from webconf_audit.models import Finding, SourceLocation
+from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import owasp_top10_2021
+
+RULE_ID = "apache.default_vhost_not_rejecting_unknown_hosts"
+TITLE = "Apache default virtual host does not reject unknown hosts"
+DESCRIPTION = (
+    "The first non-TLS Apache VirtualHost for a listen address acts as the "
+    "default host, but it does not explicitly reject requests for unknown host "
+    "names."
+)
+RECOMMENDATION = (
+    "Use a dedicated first/default VirtualHost for the listen address that "
+    "rejects unknown hosts with 'Require all denied', a catch-all forbidden "
+    "rewrite, or a whole-scope HTTP-to-HTTPS redirect."
+)
+
+
+@rule(
+    rule_id=RULE_ID,
+    title=TITLE,
+    severity="low",
+    description=DESCRIPTION,
+    recommendation=RECOMMENDATION,
+    category="local",
+    server_type="apache",
+    standards=(
+        owasp_top10_2021("A05:2021"),
+        StandardReference(
+            standard="CIS",
+            reference="Apache HTTP Server 2.4 v2.3.0 sections 5.14/5.15",
+            url="https://www.cisecurity.org/benchmark/apache_http_server",
+            coverage="partial",
+            note=(
+                "First/default non-TLS VirtualHost catch-all rejection only."
+            ),
+        ),
+    ),
+    order=367,
+    tags=("host",),
+)
+def find_default_vhost_not_rejecting_unknown_hosts(
+    config_ast: ApacheConfigAst,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    seen_contexts: set[int] = set()
+
+    for contexts in _non_tls_contexts_by_listen_key(config_ast).values():
+        shared_listen_address = len(contexts) > 1
+        context = contexts[0]
+        context_id = id(context)
+        if context_id in seen_contexts:
+            continue
+        seen_contexts.add(context_id)
+
+        if rejects_unknown_hosts(context.node) or is_redirect_only_virtualhost(context):
+            continue
+        findings.append(
+            _finding(context, shared_listen_address=shared_listen_address)
+        )
+
+    return findings
+
+
+def _non_tls_contexts_by_listen_key(
+    config_ast: ApacheConfigAst,
+) -> dict[str, list[ApacheVirtualHostContext]]:
+    tls_context_ids = {
+        id(scope.context)
+        for scope in iter_tls_scopes(config_ast)
+        if scope.context is not None
+    }
+    contexts_by_key: dict[str, list[ApacheVirtualHostContext]] = defaultdict(list)
+
+    for context in extract_virtualhost_contexts(config_ast):
+        if id(context) in tls_context_ids or context.optional_ancestor_names:
+            continue
+        for listen_key in listen_keys(context):
+            contexts_by_key[listen_key].append(context)
+
+    return dict(contexts_by_key)
+
+
+def _finding(
+    context: ApacheVirtualHostContext, *, shared_listen_address: bool
+) -> Finding:
+    source = context.node.source
+    label = context.server_name or context.listen_address or "<unnamed>"
+    shared_suffix = (
+        " on a shared non-TLS listen address" if shared_listen_address else ""
+    )
+    return Finding(
+        rule_id=RULE_ID,
+        title=TITLE,
+        severity="low",
+        description=(
+            f"Apache default VirtualHost '{label}' can serve requests for "
+            f"unknown host names{shared_suffix}."
+        ),
+        recommendation=RECOMMENDATION,
+        location=SourceLocation(
+            mode="local",
+            kind="file",
+            file_path=source.file_path,
+            line=source.line,
+        ),
+    )
+
+
+__all__ = ["find_default_vhost_not_rejecting_unknown_hosts"]

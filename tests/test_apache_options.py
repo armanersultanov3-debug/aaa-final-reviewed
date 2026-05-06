@@ -103,6 +103,78 @@ def test_analyze_apache_config_reports_mixed_options_indexes_in_directory(tmp_pa
     assert finding.title == "Directory indexing enabled"
 
 
+def test_analyze_apache_config_reports_options_all_risky_tokens(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    '<Directory "/var/www/html">',
+                    "    AllowOverride None",
+                    "    Options All",
+                    "</Directory>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    rule_ids = {finding.rule_id for finding in result.findings}
+    assert result.issues == []
+    assert {
+        "apache.options_execcgi_enabled",
+        "apache.options_includes_enabled",
+        "apache.options_indexes",
+    }.issubset(rule_ids)
+    assert "apache.options_multiviews_enabled" not in rule_ids
+
+
+def test_analyze_apache_config_applies_ordered_options_all_modifiers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    '<Directory "/var/www/html">',
+                    "    AllowOverride None",
+                    "    Options All -Indexes -ExecCGI -Includes",
+                    "</Directory>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert result.findings == []
+
+
 def test_analyze_apache_config_reports_options_plus_execcgi_in_directory(tmp_path: Path) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
@@ -261,6 +333,8 @@ def test_analyze_apache_config_does_not_report_safe_options_without_execcgi(
                     "ErrorDocument 500 /custom500.html",
                     "<VirtualHost *:80>",
                     "    Options FollowSymLinks SymLinksIfOwnerMatch",
+                    "    RewriteEngine On",
+                    "    RewriteRule ^/.*$ - [F,L]",
                     "</VirtualHost>",
                 ]
             )

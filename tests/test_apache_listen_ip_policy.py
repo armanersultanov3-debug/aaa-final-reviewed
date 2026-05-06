@@ -1,4 +1,7 @@
 from tests.apache_helpers import Path, _safe_apache_config, analyze_apache_config
+from webconf_audit.local.apache.effective import ApacheVirtualHostContext
+from webconf_audit.local.apache.parser import ApacheBlockNode
+from webconf_audit.local.apache.rules._vhost_rejection_utils import listen_keys
 
 
 def test_analyze_apache_config_accepts_explicit_listen_address(
@@ -302,6 +305,178 @@ def test_analyze_apache_config_skips_non_default_tls_vhosts(
         "apache.default_tls_vhost_not_rejecting_unknown_hosts"
         not in _rule_ids(findings)
     )
+
+
+def test_analyze_apache_config_reports_default_non_tls_vhost_without_reject(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName api.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.default_vhost_not_rejecting_unknown_hosts"
+    ]
+    assert len(matching) == 1
+    assert "app.example.test" in matching[0].description
+    assert "shared non-TLS listen address" in matching[0].description
+
+
+def test_analyze_apache_config_reports_single_named_default_non_tls_vhost_without_reject(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    matching = [
+        finding
+        for finding in findings
+        if finding.rule_id == "apache.default_vhost_not_rejecting_unknown_hosts"
+    ]
+    assert len(matching) == 1
+    assert "app.example.test" in matching[0].description
+    assert "shared non-TLS listen address" not in matching[0].description
+
+
+def test_analyze_apache_config_accepts_rejecting_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName _",
+            '    <Location "/">',
+            "        Require all denied",
+            "    </Location>",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_requireall_rejecting_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName _",
+            '    <Location "/">',
+            "        <RequireAll>",
+            "            Require all denied",
+            "        </RequireAll>",
+            "    </Location>",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_locationmatch_catchall_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            '    <LocationMatch "^/.*$">',
+            "        Require all denied",
+            "    </LocationMatch>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_rewrite_catchall_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "    RewriteEngine On",
+            "    RewriteRule ^/.*$ - [F,L]",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_accepts_redirect_only_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "    Redirect permanent / https://app.example.test/",
+            "</VirtualHost>",
+            "<VirtualHost *:80>",
+            "    ServerName api.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_apache_vhost_listen_keys_are_deduplicated() -> None:
+    context = ApacheVirtualHostContext(
+        server_name="app.example.test",
+        server_aliases=[],
+        listen_address="*:80",
+        listen_addresses=("*:80", "_default_:80", "*:80"),
+        node=ApacheBlockNode(name="VirtualHost", args=["*:80"], children=[]),
+    )
+
+    assert listen_keys(context) == ["*:80"]
 
 
 def _analyze_config(tmp_path: Path, config: str):
