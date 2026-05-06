@@ -265,6 +265,46 @@ def test_authorization_policy_remove_only_location_keeps_parent_explicit_rules(
     assert raw_findings == []
 
 
+def test_authorization_policy_remove_only_location_uses_effective_parent_rules(
+    tmp_path: Path,
+) -> None:
+    machine_config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authorization>
+                <add accessType="Deny" users="?" />
+            </authorization>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    web_config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <location path="admin">
+        <system.webServer>
+            <security>
+                <authorization>
+                    <remove users="CONTOSO\\LegacyUser" />
+                </authorization>
+            </security>
+        </system.webServer>
+    </location>
+</configuration>
+"""
+    machine_path = tmp_path / "machine.config"
+    web_path = tmp_path / "web.config"
+    machine_path.write_text(machine_config, encoding="utf-8")
+    web_path.write_text(web_config, encoding="utf-8")
+
+    result = analyze_iis_config(str(web_path), machine_config_path=str(machine_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.authorization_policy_missing" not in _rule_ids(result)
+
+
 def test_authorization_allows_all_after_anonymous_deny_silent(
     tmp_path: Path,
 ) -> None:

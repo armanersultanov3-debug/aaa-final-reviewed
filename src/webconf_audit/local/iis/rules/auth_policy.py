@@ -152,6 +152,14 @@ def _effective_authorization_policy_missing_findings(
     empty_section_keys: set[tuple[str | None, str | None, str | None]] = set()
     raw_sections_by_location = _url_authorization_sections_by_location(doc.sections)
     for scope in _effective_system_webserver_scopes(effective_config):
+        authorization = _nearest_effective_iis_url_authorization_section(
+            effective_config,
+            scope.location_path,
+        )
+        if authorization is not None and _has_explicit_authorization_rules(
+            authorization.children,
+        ):
+            continue
         raw_sections = _nearest_authorization_sections(
             raw_sections_by_location,
             scope.location_path,
@@ -170,14 +178,8 @@ def _effective_authorization_policy_missing_findings(
             )
             continue
 
-        authorization = _nearest_effective_iis_url_authorization_section(
-            effective_config,
-            scope.location_path,
-        )
         if authorization is None:
             findings.append(_effective_authorization_policy_absent_finding(scope))
-            continue
-        if _has_explicit_authorization_rules(authorization.children):
             continue
         if is_pure_inheritance(authorization):
             continue
