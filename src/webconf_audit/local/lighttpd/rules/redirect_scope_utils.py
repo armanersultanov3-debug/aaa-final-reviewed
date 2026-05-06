@@ -45,7 +45,7 @@ def is_redirect_only_config(config_ast: LighttpdConfigAst) -> bool:
         if not isinstance(node, LighttpdAssignmentNode):
             return False
         if node.name == "url.redirect":
-            if not _redirect_value_targets_whole_https(node.value):
+            if not redirect_value_targets_whole_https(node.value):
                 return False
             has_whole_https_redirect = True
             continue
@@ -55,7 +55,7 @@ def is_redirect_only_config(config_ast: LighttpdConfigAst) -> bool:
     return has_whole_https_redirect
 
 
-def _redirect_value_targets_whole_https(value: str) -> bool:
+def redirect_value_targets_whole_https(value: str) -> bool:
     saw_pair = False
     cursor = 0
     for match in _REDIRECT_PAIR_RE.finditer(value):
@@ -83,4 +83,4 @@ def _is_https_target(value: str) -> bool:
     return urlparse(value.strip()).scheme.lower() == "https"
 
 
-__all__ = ["is_redirect_only_config"]
+__all__ = ["is_redirect_only_config", "redirect_value_targets_whole_https"]

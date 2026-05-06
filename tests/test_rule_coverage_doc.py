@@ -16,7 +16,8 @@ from pathlib import Path
 from webconf_audit.cli import _ensure_all_rules_loaded
 from webconf_audit.rule_registry import registry
 
-_DOC_PATH = Path(__file__).resolve().parents[1] / "docs" / "rule-coverage.md"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_DOC_PATH = _REPO_ROOT / "docs" / "rule-coverage.md"
 _RULE_ID_PATTERN = re.compile(
     r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
 )
@@ -33,6 +34,43 @@ def _documented_rule_ids() -> set[str]:
 def _registered_rule_ids() -> set[str]:
     _ensure_all_rules_loaded()
     return {meta.rule_id for meta in registry.list_rules()}
+
+
+def _registry_counter_values() -> dict[str, int]:
+    _ensure_all_rules_loaded()
+    rules = registry.list_rules()
+    local_counts = Counter(
+        meta.server_type
+        for meta in rules
+        if meta.category == "local"
+    )
+    category_counts = Counter(meta.category for meta in rules)
+    return {
+        "total": len(rules),
+        "local": category_counts["local"],
+        "universal": category_counts["universal"],
+        "external": category_counts["external"],
+        "nginx": local_counts["nginx"],
+        "apache": local_counts["apache"],
+        "lighttpd": local_counts["lighttpd"],
+        "iis": local_counts["iis"],
+    }
+
+
+def _assert_doc_counter(
+    *,
+    doc_path: Path,
+    label: str,
+    pattern: str,
+    expected: int,
+) -> None:
+    text = doc_path.read_text(encoding="utf-8")
+    match = re.search(pattern, text, flags=re.IGNORECASE | re.MULTILINE | re.DOTALL)
+    assert match is not None, f"{doc_path} is missing counter pattern for {label!r}"
+    actual = int(match.group(1))
+    assert actual == expected, (
+        f"{doc_path} reports {label}={actual}, expected {expected} from registry"
+    )
 
 
 def test_every_registered_rule_appears_in_doc() -> None:
@@ -96,3 +134,60 @@ def test_per_group_counts_match_registry() -> None:
             f"docs/rule-coverage.md '{heading}' reports {actual} rules but "
             f"registry has {expected}"
         )
+
+
+def test_repeated_document_counters_match_registry() -> None:
+    counts = _registry_counter_values()
+    targets = {
+        _REPO_ROOT / "README.md": {
+            "total": r"The catalog currently contains\s+(\d+)\s+rules",
+            "nginx": r"\|\s*Local\s+[^|]*Nginx\s*\|\s*(\d+)\s*\|",
+            "apache": r"\|\s*Local\s+[^|]*Apache\s*\|\s*(\d+)\s*\|",
+            "lighttpd": r"\|\s*Local\s+[^|]*Lighttpd\s*\|\s*(\d+)\s*\|",
+            "iis": r"\|\s*Local\s+[^|]*IIS\s*\|\s*(\d+)\s*\|",
+            "universal": r"\|\s*Universal \(local\)\s*\|\s*(\d+)\s*\|",
+            "external": r"\|\s*External\s*\|\s*(\d+)\s*\|",
+        },
+        _REPO_ROOT / "docs" / "architecture.md": {
+            "total": r"Current catalog:\s+(\d+)\s+rules total",
+            "nginx": r"\|\s*Local\s+[^|]*Nginx\s*\|\s*(\d+)\s*\|",
+            "apache": r"\|\s*Local\s+[^|]*Apache\s*\|\s*(\d+)\s*\|",
+            "lighttpd": r"\|\s*Local\s+[^|]*Lighttpd\s*\|\s*(\d+)\s*\|",
+            "iis": r"\|\s*Local\s+[^|]*IIS\s*\|\s*(\d+)\s*\|",
+            "universal": r"\|\s*Universal \(local\)\s*\|\s*(\d+)\s*\|",
+            "external": r"\|\s*External\s*\|\s*(\d+)\s*\|",
+        },
+        _REPO_ROOT / "docs" / "standards-roadmap.md": {
+            "total": r"current project inventory is\s+(\d+)\s+rules",
+            "nginx": r"-\s+Nginx local:\s+(\d+)",
+            "apache": r"-\s+Apache local:\s+(\d+)",
+            "lighttpd": r"-\s+Lighttpd local:\s+(\d+)",
+            "iis": r"-\s+IIS local:\s+(\d+)",
+            "universal": r"-\s+Universal:\s+(\d+)",
+            "external": r"-\s+External probes:\s+(\d+)",
+        },
+        _DOC_PATH: {
+            "total": r"Total rules:\s+\*\*(\d+)\*\*",
+            "local": r"Category\s*\|\s*local \((\d+)\)",
+            "universal": r"Category\s*\|.*universal \((\d+)\)",
+            "external": r"Category\s*\|.*external \((\d+)\)",
+        },
+        _REPO_ROOT / "docs" / "benchmarks-covering.md": {
+            "total": r"existing\s+(\d+)-rule inventory",
+            "nginx": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bNginx\s+(\d+)",
+            "apache": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bApache\s+(\d+)",
+            "lighttpd": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bLighttpd\s+(\d+)",
+            "iis": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bIIS\s+(\d+)",
+            "external": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bExternal\s+(\d+)",
+            "universal": r"обновлён до\s+\d+\s+правил\s+\([^)]*\bUniversal\s+(\d+)",
+        },
+    }
+
+    for doc_path, patterns in targets.items():
+        for label, pattern in patterns.items():
+            _assert_doc_counter(
+                doc_path=doc_path,
+                label=label,
+                pattern=pattern,
+                expected=counts[label],
+            )

@@ -96,14 +96,37 @@ def _missing_markers(
     merged_directives: dict[str, LighttpdEffectiveDirective] | None,
     use_request_scoped_directives: bool,
 ) -> list[str]:
+    missing_by_scope = [
+        _missing_markers_from_text(text)
+        for text in url_access_deny_texts(
+            config_ast,
+            effective_config=effective_config,
+            merged_directives=merged_directives,
+            use_request_scoped_directives=use_request_scoped_directives,
+        )
+    ]
+    return _unique_markers(
+        marker
+        for missing_markers in missing_by_scope
+        for marker in missing_markers
+    )
+
+
+def url_access_deny_texts(
+    config_ast: LighttpdConfigAst,
+    *,
+    effective_config: LighttpdEffectiveConfig | None,
+    merged_directives: dict[str, LighttpdEffectiveDirective] | None,
+    use_request_scoped_directives: bool,
+) -> list[str | None]:
     if use_request_scoped_directives and merged_directives is not None:
         directive = merged_directives.get(URL_ACCESS_DENY_NAME)
-        return _missing_markers_from_text(directive.value if directive else None)
+        return [directive.value if directive else None]
 
     if effective_config is not None:
-        return _missing_markers_from_effective_scopes(effective_config)
+        return _effective_url_access_deny_texts(effective_config)
 
-    return _missing_markers_from_text(_combined_assignment_text(config_ast))
+    return [_combined_assignment_text(config_ast)]
 
 
 def _missing_markers_from_effective_scopes(
@@ -213,4 +236,4 @@ def _unique_markers(markers: Iterable[str]) -> list[str]:
     return unique
 
 
-__all__ = ["find_url_access_deny_missing"]
+__all__ = ["find_url_access_deny_missing", "url_access_deny_texts"]
