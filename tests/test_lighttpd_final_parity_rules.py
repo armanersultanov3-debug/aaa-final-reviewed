@@ -1,4 +1,5 @@
 from tests.lighttpd_helpers import Path, analyze_lighttpd_config
+from webconf_audit.models import AnalysisResult
 
 
 _BASE = (
@@ -16,7 +17,7 @@ _SAFE_HEADERS = (
     '"Permissions-Policy" => "geolocation=(), camera=()" )\n'
 )
 
-def _analyze(tmp_path: Path, config_text: str):
+def _analyze(tmp_path: Path, config_text: str) -> AnalysisResult:
     config_path = tmp_path / "lighttpd.conf"
     config_path.write_text(config_text, encoding="utf-8")
     return analyze_lighttpd_config(str(config_path))
@@ -64,6 +65,27 @@ def test_lighttpd_flags_unsafe_referrer_and_permissions_policy(
 
     assert "lighttpd.referrer_policy_unsafe" in _rule_ids(result)
     assert "lighttpd.permissions_policy_unsafe" in _rule_ids(result)
+
+
+def test_lighttpd_unsafe_header_policy_uses_header_location(
+    tmp_path: Path,
+) -> None:
+    spacer = "# keep the unsafe header away from the default location\n"
+    config = (
+        _BASE
+        + spacer
+        + 'setenv.add-response-header = ( "Referrer-Policy" => "unsafe-url" )\n'
+    )
+
+    result = _analyze(tmp_path, config)
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "lighttpd.referrer_policy_unsafe"
+    )
+
+    assert finding.location is not None
+    assert finding.location.line == 6
 
 
 def test_lighttpd_flags_auth_require_without_backend(tmp_path: Path) -> None:

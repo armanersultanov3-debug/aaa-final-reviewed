@@ -12,13 +12,13 @@ from webconf_audit.local.lighttpd.effective import (
     LighttpdEffectiveConfig,
     LighttpdEffectiveDirective,
 )
-from webconf_audit.local.lighttpd.parser import LighttpdConfigAst
+from webconf_audit.local.lighttpd.parser import LighttpdConfigAst, LighttpdSourceSpan
 from webconf_audit.local.lighttpd.rules.header_tuple_utils import iter_header_values
 from webconf_audit.local.lighttpd.rules.redirect_scope_utils import (
     is_redirect_only_config,
 )
 from webconf_audit.local.lighttpd.rules.rule_utils import default_location
-from webconf_audit.models import Finding
+from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 
@@ -280,11 +280,25 @@ def _unsafe_header(
         findings.append(
             finding_from_rule(
                 rule_fn,
-                location=default_location(config_ast),
+                location=_header_location(config_ast, header.source),
                 metadata={"configured_value": header.value},
             )
         )
     return findings
+
+
+def _header_location(
+    config_ast: LighttpdConfigAst,
+    source: LighttpdSourceSpan,
+) -> SourceLocation:
+    if source.file_path is not None and source.line is not None:
+        return SourceLocation(
+            mode="local",
+            kind="file",
+            file_path=source.file_path,
+            line=source.line,
+        )
+    return default_location(config_ast)
 
 
 __all__ = [
