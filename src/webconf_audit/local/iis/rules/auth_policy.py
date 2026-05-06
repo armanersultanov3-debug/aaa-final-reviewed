@@ -181,8 +181,6 @@ def _effective_authorization_policy_missing_findings(
         if authorization is None:
             findings.append(_effective_authorization_policy_absent_finding(scope))
             continue
-        if is_pure_inheritance(authorization):
-            continue
         findings.append(_effective_authorization_policy_empty_finding(authorization))
     return findings
 
