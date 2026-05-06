@@ -300,7 +300,7 @@ reporting.
 
 Current step: choose between the remaining Apache precision tail
 (`Options` policy per directory class and broader non-TLS VirtualHost
-allowed-host precision) and the external-safe runtime evidence track
+allowed-host precision) and the external-safe runtime evidence track:
 certificate chain/trust, runtime redirect corroboration, default pages, OCSP
 runtime behavior, and eventually ECH diagnostics/limitations.
 
