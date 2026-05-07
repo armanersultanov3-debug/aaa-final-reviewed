@@ -147,6 +147,20 @@ def effective_location_guarantees_ip_restriction(
     return restricted
 
 
+def effective_location_guarantees_method_restriction(
+    scopes: list[ApacheBlockNode],
+    modules: frozenset[str],
+) -> bool:
+    if not scopes:
+        return False
+
+    restricted = False
+    for scope in scopes:
+        if _location_scope_defines_method_policy(scope, modules):
+            restricted = nodes_guarantee_method_restriction(scope.children, modules)
+    return restricted
+
+
 def iter_enabled_directives(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     modules: frozenset[str],
@@ -282,10 +296,13 @@ def _nodes_guarantee_ip_restriction(
     container_name: str = "requireany",
 ) -> bool:
     relevant = _relevant_authz_nodes(nodes, modules)
-    if not relevant:
+    legacy_result = _legacy_access_policy_result(nodes, modules)
+    if not relevant and not legacy_result.defines_policy:
         return False
 
     child_results = [_node_guarantees_ip_restriction(node, modules) for node in relevant]
+    if legacy_result.defines_policy:
+        child_results.append(legacy_result.guarantees_ip_restriction)
     return _combine_guarantees(child_results, container_name=container_name)
 
 
@@ -330,7 +347,7 @@ def _node_guarantees_ip_restriction(
     modules: frozenset[str],
 ) -> bool:
     if isinstance(node, ApacheDirectiveNode):
-        return _is_require_ip(node) or _is_require_all_denied(node) or _is_legacy_deny_all(node)
+        return _is_require_ip(node) or _is_require_local(node) or _is_require_all_denied(node)
 
     name = node.name.lower()
     if name in AUTHZ_CONTAINER_BLOCKS:
@@ -368,10 +385,13 @@ def _nodes_guarantee_deny_all(
     container_name: str = "requireany",
 ) -> bool:
     relevant = _relevant_authz_nodes(nodes, modules)
-    if not relevant:
+    legacy_result = _legacy_access_policy_result(nodes, modules)
+    if not relevant and not legacy_result.defines_policy:
         return False
 
     child_results = [_node_guarantees_deny_all(node, modules) for node in relevant]
+    if legacy_result.defines_policy:
+        child_results.append(legacy_result.guarantees_deny_all)
     return _combine_guarantees(child_results, container_name=container_name)
 
 
@@ -380,7 +400,7 @@ def _node_guarantees_deny_all(
     modules: frozenset[str],
 ) -> bool:
     if isinstance(node, ApacheDirectiveNode):
-        return _is_require_all_denied(node) or _is_legacy_deny_all(node)
+        return _is_require_all_denied(node)
 
     name = node.name.lower()
     if name in AUTHZ_CONTAINER_BLOCKS:
@@ -443,7 +463,7 @@ def _node_method_policy(
     approved_methods: frozenset[str],
 ) -> MethodPolicyResult:
     if isinstance(node, ApacheDirectiveNode):
-        if _is_require_all_denied(node) or _is_legacy_deny_all(node):
+        if _is_require_all_denied(node):
             return _method_policy_from_allowed_methods(frozenset(), approved_methods)
         if not _is_require_method(node):
             return MethodPolicyResult(has_policy=False)
@@ -521,8 +541,8 @@ def _relevant_authz_nodes(
         if isinstance(node, ApacheDirectiveNode):
             if (
                 _is_require_ip(node)
+                or _is_require_local(node)
                 or _is_require_all_denied(node)
-                or _is_legacy_deny_all(node)
                 or _is_require_all_granted(node)
             ):
                 relevant.append(node)
@@ -544,7 +564,6 @@ def _relevant_method_nodes(
                 _is_require_method(node)
                 or _is_require_all_granted(node)
                 or _is_require_all_denied(node)
-                or _is_legacy_deny_all(node)
             ):
                 relevant.append(node)
             continue
@@ -554,11 +573,40 @@ def _relevant_method_nodes(
     return relevant
 
 
+def _nodes_define_explicit_method_policy(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
+) -> bool:
+    for node in iter_enabled_nodes(nodes, modules):
+        if isinstance(node, ApacheDirectiveNode):
+            if _is_require_method(node):
+                return True
+            continue
+
+        name = node.name.lower()
+        if name in METHOD_RESTRICTION_BLOCKS:
+            return True
+        if name in AUTHZ_CONTAINER_BLOCKS and _nodes_define_explicit_method_policy(
+            node.children,
+            modules,
+        ):
+            return True
+    return False
+
+
 def _location_scope_defines_authz(
     block: ApacheBlockNode,
     modules: frozenset[str],
 ) -> bool:
-    return bool(_relevant_authz_nodes(block.children, modules))
+    legacy_result = _legacy_access_policy_result(block.children, modules)
+    return bool(_relevant_authz_nodes(block.children, modules)) or legacy_result.defines_policy
+
+
+def _location_scope_defines_method_policy(
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+) -> bool:
+    return _nodes_define_explicit_method_policy(block.children, modules)
 
 
 def _location_block_matches(block: ApacheBlockNode, target_path: str) -> bool:
@@ -643,6 +691,14 @@ def _is_require_ip(directive: ApacheDirectiveNode) -> bool:
     )
 
 
+def _is_require_local(directive: ApacheDirectiveNode) -> bool:
+    return (
+        directive.name.lower() == "require"
+        and len(directive.args) >= 1
+        and directive.args[0].lower() == "local"
+    )
+
+
 def _is_require_method(directive: ApacheDirectiveNode) -> bool:
     return (
         directive.name.lower() == "require"
@@ -669,17 +725,123 @@ def _is_require_all_granted(directive: ApacheDirectiveNode) -> bool:
     )
 
 
-def _is_legacy_deny_all(directive: ApacheDirectiveNode) -> bool:
-    return (
-        directive.name.lower() == "deny"
-        and len(directive.args) >= 2
-        and directive.args[0].lower() == "from"
-        and directive.args[1].lower() == "all"
+@dataclass(frozen=True, slots=True)
+class LegacyAccessPolicyResult:
+    defines_policy: bool
+    guarantees_ip_restriction: bool
+    guarantees_deny_all: bool
+
+
+def _legacy_access_policy_result(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
+) -> LegacyAccessPolicyResult:
+    order_value: str | None = None
+    allow_all = False
+    allow_specific = False
+    deny_all = False
+    satisfy_any = False
+    saw_legacy_directive = False
+
+    for node in iter_enabled_nodes(nodes, modules):
+        if not isinstance(node, ApacheDirectiveNode):
+            continue
+
+        name = node.name.lower()
+        if name == "order" and node.args:
+            saw_legacy_directive = True
+            order_value = "".join(node.args).replace(" ", "").lower()
+            continue
+
+        if name == "satisfy" and node.args:
+            saw_legacy_directive = True
+            satisfy_any = node.args[0].lower() == "any"
+            continue
+
+        if name not in {"allow", "deny"} or len(node.args) < 2:
+            continue
+        if node.args[0].lower() != "from":
+            continue
+
+        saw_legacy_directive = True
+        if any(arg.lower() == "all" for arg in node.args[1:]):
+            if name == "allow":
+                allow_all = True
+            else:
+                deny_all = True
+            continue
+
+        if name == "allow":
+            allow_specific = True
+
+    if not saw_legacy_directive or order_value is None:
+        return LegacyAccessPolicyResult(
+            defines_policy=False,
+            guarantees_ip_restriction=False,
+            guarantees_deny_all=False,
+        )
+
+    if satisfy_any:
+        return LegacyAccessPolicyResult(
+            defines_policy=True,
+            guarantees_ip_restriction=False,
+            guarantees_deny_all=False,
+        )
+
+    if order_value == "allow,deny":
+        if deny_all:
+            return LegacyAccessPolicyResult(
+                defines_policy=True,
+                guarantees_ip_restriction=True,
+                guarantees_deny_all=True,
+            )
+        if allow_all:
+            return LegacyAccessPolicyResult(
+                defines_policy=True,
+                guarantees_ip_restriction=False,
+                guarantees_deny_all=False,
+            )
+        if allow_specific:
+            return LegacyAccessPolicyResult(
+                defines_policy=True,
+                guarantees_ip_restriction=True,
+                guarantees_deny_all=False,
+            )
+        return LegacyAccessPolicyResult(
+            defines_policy=True,
+            guarantees_ip_restriction=True,
+            guarantees_deny_all=True,
+        )
+
+    if order_value == "deny,allow":
+        if allow_all:
+            return LegacyAccessPolicyResult(
+                defines_policy=True,
+                guarantees_ip_restriction=False,
+                guarantees_deny_all=False,
+            )
+        if deny_all:
+            return LegacyAccessPolicyResult(
+                defines_policy=True,
+                guarantees_ip_restriction=True,
+                guarantees_deny_all=not allow_specific,
+            )
+        return LegacyAccessPolicyResult(
+            defines_policy=True,
+            guarantees_ip_restriction=False,
+            guarantees_deny_all=False,
+        )
+
+    return LegacyAccessPolicyResult(
+        defines_policy=True,
+        guarantees_ip_restriction=False,
+        guarantees_deny_all=False,
     )
 
 
 __all__ = [
     "MethodPolicyResult",
+    "effective_location_guarantees_method_restriction",
     "block_guarantees_ip_restriction",
     "block_has_unapproved_allowed_methods",
     "effective_location_guarantees_ip_restriction",

@@ -404,6 +404,135 @@ def test_analyze_apache_config_accepts_requireall_deny_all_with_unapproved_metho
     assert "apache.http_method_policy_allows_unapproved" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_uses_inherited_global_method_policy_for_sensitive_location(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            '<Location "/">',
+            "    <LimitExcept GET HEAD POST OPTIONS>",
+            "        Require all denied",
+            "    </LimitExcept>",
+            "</Location>",
+            '<Location "/admin">',
+            "    Require all granted",
+            "</Location>",
+        ),
+    )
+
+    assert "apache.missing_http_method_restrictions" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_uses_inherited_vhost_method_policy_for_sensitive_location(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            '    <Location "/">',
+            "        <LimitExcept GET HEAD POST OPTIONS>",
+            "            Require all denied",
+            "        </LimitExcept>",
+            "    </Location>",
+            '    <Location "/api">',
+            "        Require all granted",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.missing_http_method_restrictions" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_legacy_limitexcept_method_restriction(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            '<Location "/admin">',
+            "    <LimitExcept GET HEAD POST OPTIONS>",
+            "        Order deny,allow",
+            "        Deny from all",
+            "    </LimitExcept>",
+            "</Location>",
+        ),
+    )
+
+    assert "apache.missing_http_method_restrictions" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_modsecurity_module_inventory(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "ServerName app.example.test",
+            include_cis_modsecurity=False,
+        ),
+    )
+
+    assert "apache.modsecurity_module_missing" in _rule_ids(findings)
+    assert "apache.modsecurity_crs_not_configured" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_modsecurity_static_inventory_without_loadmodule(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<IfModule security2_module>",
+            "    SecRuleEngine On",
+            "</IfModule>",
+            include_cis_modsecurity=False,
+        ),
+    )
+
+    assert "apache.modsecurity_module_missing" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_crs_when_modsecurity_present(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "LoadModule security2_module modules/mod_security2.so",
+            "SecRuleEngine On",
+            include_cis_modsecurity=False,
+        ),
+    )
+
+    assert "apache.modsecurity_module_missing" not in _rule_ids(findings)
+    assert "apache.modsecurity_crs_not_configured" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_crs_inventory_when_included(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "LoadModule security2_module modules/mod_security2.so",
+            "SecRuleEngine On",
+            "IncludeOptional conf/owasp-crs/crs-setup.conf",
+            "IncludeOptional conf/owasp-crs/rules/*.conf",
+            include_cis_modsecurity=False,
+        ),
+    )
+
+    assert "apache.modsecurity_module_missing" not in _rule_ids(findings)
+    assert "apache.modsecurity_crs_not_configured" not in _rule_ids(findings)
+
+
 def _analyze_config(tmp_path: Path, config: str):
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(config, encoding="utf-8")

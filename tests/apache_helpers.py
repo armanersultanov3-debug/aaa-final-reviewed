@@ -58,6 +58,12 @@ _SAFE_APACHE_CIS_LOG_LINES = [
 _SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES = [
     "HttpProtocolOptions Strict Require1.0",
 ]
+_SAFE_APACHE_CIS_MODSECURITY_LINES = [
+    "LoadModule security2_module modules/mod_security2.so",
+    "SecRuleEngine On",
+    "IncludeOptional conf/owasp-crs/crs-setup.conf",
+    "IncludeOptional conf/owasp-crs/rules/*.conf",
+]
 _SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES = [
     "    AllowOverride None",
 ]
@@ -84,6 +90,7 @@ _SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
 _SAFE_APACHE_CIS_BASELINE_LINES = [
     *_SAFE_APACHE_CIS_LOG_LINES,
     *_SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES,
+    *_SAFE_APACHE_CIS_MODSECURITY_LINES,
     "<Directory />",
     *_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES,
     *_SAFE_APACHE_CIS_ROOT_OPTIONS_LINES,
@@ -99,6 +106,7 @@ def _with_backup_files_restriction(
     include_cis_allowoverride_root: bool = True,
     include_cis_root_options: bool = True,
     include_cis_http_protocol: bool = True,
+    include_cis_modsecurity: bool = True,
 ) -> str:
     security_headers = (
         "\n" + "\n".join(_SAFE_SECURITY_HEADER_BASELINE_LINES)
@@ -123,6 +131,11 @@ def _with_backup_files_restriction(
             if include_cis_http_protocol
             else []
         ),
+        *(
+            _SAFE_APACHE_CIS_MODSECURITY_LINES
+            if include_cis_modsecurity
+            else []
+        ),
         *global_options_lines,
         *root_directory_lines,
         *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
@@ -135,7 +148,10 @@ def _with_backup_files_restriction(
     )
 
 
-def _safe_apache_config(*extra_lines: str) -> str:
+def _safe_apache_config(
+    *extra_lines: str,
+    include_cis_modsecurity: bool = True,
+) -> str:
     lines = [
         "ServerSignature Off",
         "TraceEnable Off",
@@ -149,7 +165,10 @@ def _safe_apache_config(*extra_lines: str) -> str:
         "Listen 127.0.0.1:80",
     ]
     lines.extend(extra_lines)
-    return _with_backup_files_restriction("\n".join(lines))
+    return _with_backup_files_restriction(
+        "\n".join(lines),
+        include_cis_modsecurity=include_cis_modsecurity,
+    )
 
 
 def _safe_apache_config_without_headers(

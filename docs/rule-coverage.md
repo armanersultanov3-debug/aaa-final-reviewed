@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **348**
+Total rules: **350**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (252), external (83), universal (13) |
-| Severity | high (17), medium (123), low (197), info (11) |
-| Input kind | ast (155), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
+| Category | local (254), external (83), universal (13) |
+| Severity | high (17), medium (123), low (199), info (11) |
+| Input kind | ast (157), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -358,7 +358,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 75
+Count: 77
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -451,6 +451,8 @@ rather than to ".htaccess" itself.
 | `apache.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: matching named VirtualHosts only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local redirect directive check) |
 | `apache.ssl_proxy_verify_not_required` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.2 (partial: HTTPS upstream proxy trust when Apache acts as a TLS client) |
 | `apache.ssl_proxy_peer_name_check_disabled` | medium | ast | tls, proxy | [CWE-297](https://cwe.mitre.org/data/definitions/297.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.2 (partial: HTTPS upstream proxy hostname verification when Apache acts as a TLS client) |
+| `apache.modsecurity_module_missing` | low | ast | waf | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.6 (partial: visible ModSecurity module/package inventory only) |
+| `apache.modsecurity_crs_not_configured` | low | ast | waf | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.7 (partial: visible CRS include inventory only; does not validate rule tuning or enforcement mode) |
 
 Mapping rationale (apache rules):
 
@@ -520,6 +522,10 @@ Mapping rationale (apache rules):
 - `ssl_proxy_verify_not_required`, `ssl_proxy_peer_name_check_disabled` --
   HTTPS upstream proxying without certificate-chain or hostname validation
   lets Apache trust an unverified peer: CWE-295 / CWE-297, OWASP A02.
+- `modsecurity_module_missing`, `modsecurity_crs_not_configured` -- missing
+  visible ModSecurity or CRS inventory leaves request-filtering protection
+  absent, unverifiable, or inconsistently deployed from the Apache config
+  review point of view: CWE-693, OWASP A05.
 - `index_options_scanhtmltitles_enabled` -- enables Apache to scan HTML
   files for titles when rendering a directory listing; only matters once
   listing is already on, so we keep CWE empty and tag OWASP A05.
@@ -603,9 +609,9 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
 | §1.1-§1.3 | `out-of-scope` | Planning, single-use host posture, and package-source verification need host and deployment inventory, which is outside the tool scope. |
-| §2.1-§2.9 | `parser-depth` | Explicit `LoadModule` inventory now backs status/info and upstream-proxy rules, but benchmark-wide module minimization still needs build/package data that the config alone cannot prove. |
+| §2.1-§2.9 | `parser-depth` | Explicit `LoadModule` inventory now backs status/info, upstream-proxy, and ModSecurity / CRS inventory rules, but benchmark-wide module minimization still needs build/package data that the config alone cannot prove. |
 | §3.1-§3.13 | `out-of-scope` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata, which is outside the tool scope. |
-| §4.1-§4.2 | `parser-depth` | Effective `RequireAll` / `RequireAny` IP+method semantics now back the current status/info and method-policy rules, but broader authorization posture still needs richer legacy/default modelling before benchmark-wide claims are safe. |
+| §4.1-§4.2 | `parser-depth` | Effective `RequireAll` / `RequireAny` IP+method semantics, `Require local`, and legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults now back the current status/info and method-policy rules. Broader server-wide authorization posture still needs deployment context before benchmark-wide claims are safe. |
 | §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
 | §5.1-§5.3 | `direct-rule` | `apache.options_not_none_in_root_directory` now validates an empty OS-root `Options` baseline, while the existing `Options` rules cover effective `ExecCGI` / `Includes` / `Indexes`, specific `MultiViews`, and ordered `Options All` subtractive semantics. Remaining deployment-specific exceptions are backlog tuning, not a missing CIS baseline rule. |
 | §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
@@ -616,7 +622,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §5.16-§5.18 | `manual-context` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; application-specific allowlist choices and deeper per-directory / runtime response validation remain operator/runtime review rather than an honest static baseline rule. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
 | §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |
-| §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
+| §6.6-§6.7 | `direct-rule` | `apache.modsecurity_module_missing` and `apache.modsecurity_crs_not_configured` now require visible ModSecurity and CRS inventory in Apache config. Package installation state, CRS tuning depth, and runtime enforcement remain outside what static config alone can prove. |
 | §7.1, §7.4-§7.12 | `covered` | Apache TLS directive coverage includes `SSLProtocol`, `SSLCipherSuite`, conservative weak cipher / FS / AEAD posture, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, matching-vhost HTTP redirects, and external runtime corroboration for negotiated TLS posture, OCSP stapling, and chain behavior. |
 | §7.2 | `covered` | Runtime certificate validity, SAN, and chain verification are covered by external certificate probes, while `apache.ssl_proxy_verify_not_required` and `apache.ssl_proxy_peer_name_check_disabled` cover HTTPS upstream proxy trust when Apache acts as a TLS client. |
 | §7.3 | `out-of-scope` | Private-key protection needs filesystem ownership and permission metadata, which is outside web-server config / safe external analysis. |

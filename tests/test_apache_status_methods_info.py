@@ -166,6 +166,42 @@ def test_analyze_apache_config_accepts_server_status_requireall_ip_policy(
     )
 
 
+def test_analyze_apache_config_accepts_server_status_require_local(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    '<Location "/server-status">',
+                    "    SetHandler server-status",
+                    "    Require local",
+                    "</Location>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.server_status_exposed"
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_reports_server_status_requireany_with_granted_branch(
     tmp_path: Path,
 ) -> None:
@@ -189,6 +225,44 @@ def test_analyze_apache_config_reports_server_status_requireany_with_granted_bra
                     "        Require ip 127.0.0.1",
                     "        Require all granted",
                     "    </RequireAny>",
+                    "</Location>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "apache.server_status_exposed"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_reports_server_status_legacy_allow_from_all(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    '<Location "/server-status">',
+                    "    SetHandler server-status",
+                    "    Order deny,allow",
+                    "    Deny from all",
+                    "    Allow from all",
                     "</Location>",
                 ]
             )
@@ -653,6 +727,44 @@ def test_analyze_apache_config_accepts_server_info_requireall_ip_policy(
                     "        Require ip 127.0.0.1",
                     "        Require all granted",
                     "    </RequireAll>",
+                    "</Location>",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.server_info_exposed"
+        for finding in result.findings
+    )
+
+
+def test_analyze_apache_config_accepts_server_info_legacy_ip_allowlist(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    '<Location "/server-info">',
+                    "    SetHandler server-info",
+                    "    Order deny,allow",
+                    "    Deny from all",
+                    "    Allow from 127.0.0.1",
                     "</Location>",
                 ]
             )
