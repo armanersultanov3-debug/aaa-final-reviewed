@@ -12,6 +12,7 @@ _NEW_CIS_RULE_IDS = {
     "apache.log_format_missing_fields",
     "apache.log_level_too_restrictive",
     "apache.missing_log_format",
+    "apache.options_not_none_in_root_directory",
     "apache.sensitive_config_files_not_restricted",
     "apache.vcs_metadata_not_restricted",
 }
@@ -33,6 +34,111 @@ def test_analyze_apache_config_reports_missing_root_allowoverride_none(
     findings = _analyze_config(tmp_path, config)
 
     assert "apache.allowoverride_not_none" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_root_options_none(
+    tmp_path: Path,
+) -> None:
+    config = _remove_simple_block(_safe_apache_config(), "<Directory />")
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_non_none_root_options_scope(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options FollowSymLinks",
+        1,
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_uses_last_root_options_for_same_directory(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config(
+        "<Directory />",
+        "    Options FollowSymLinks",
+        "</Directory>",
+        "<Directory />",
+        "    Options None",
+        "</Directory>",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_root_options_all_with_full_subtractive_reset(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options All -ExecCGI -FollowSymLinks -Includes -Indexes "
+        "-SymLinksIfOwnerMatch",
+        1,
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_root_subtractive_only_options_scope(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options -ExecCGI",
+        1,
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_global_subtractive_only_options_scope(
+    tmp_path: Path,
+) -> None:
+    config = _safe_apache_config().replace(
+        "<Directory />\n    AllowOverride None\n    Options None\n</Directory>",
+        "Options -ExecCGI",
+        1,
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_merges_multiple_options_in_single_root_directory(
+    tmp_path: Path,
+) -> None:
+    safe_config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options FollowSymLinks\n    Options None",
+        1,
+    )
+    unsafe_config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options None\n    Options FollowSymLinks",
+        1,
+    )
+
+    safe_findings = _analyze_config(tmp_path, safe_config)
+    unsafe_findings = _analyze_config(tmp_path, unsafe_config)
+
+    assert "apache.options_not_none_in_root_directory" not in _rule_ids(safe_findings)
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(unsafe_findings)
 
 
 def test_analyze_apache_config_reports_non_none_allowoverride_scope(
