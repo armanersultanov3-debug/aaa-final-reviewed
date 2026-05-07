@@ -138,6 +138,7 @@ def _looks_like_apache_default_welcome_page(body_snippet: str) -> bool:
     lower_body = body_snippet.lower()
     return (
         "apache2 ubuntu default page" in lower_body
+        or "apache2 debian default page" in lower_body
         or (
             "it works!" in lower_body
             and "apache" in lower_body

@@ -325,6 +325,17 @@ def test_nginx_default_welcome_page_rule_does_not_fire_for_non_root_path() -> No
             "https://example.com/",
         ),
         (
+            "Apache/2.4.58",
+            (
+                "<html><title>Apache2 Debian Default Page: It works</title>"
+                "<body>This is the default welcome page used to test the "
+                "correct operation of the Apache2 server after installation.</body></html>"
+            ),
+            "apache",
+            "external.apache.default_welcome_page",
+            "https://example.com/",
+        ),
+        (
             "lighttpd/1.4.71",
             (
                 "<html><title>Placeholder page</title><body>"
