@@ -59,7 +59,7 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 332
+        assert len(full_reg._catalog) == 339
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
         assert len(full_reg._executable) == 259
@@ -92,7 +92,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 73
+        assert len(rules) == 80
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -100,12 +100,12 @@ class TestCategoryCounts:
         first_size = reg.catalog_size
 
         register_external_rule_metas(reg)
-        assert reg.catalog_size == first_size == 73
+        assert reg.catalog_size == first_size == 80
 
         reg.clear()
         register_external_rule_metas(reg)
 
-        assert reg.catalog_size == 73
+        assert reg.catalog_size == 80
         assert reg.get_meta("external.https_not_available") is not None
 
     def test_external_meta_registration_rejects_duplicate_seed_ids(
@@ -187,6 +187,20 @@ class TestOrdering:
     def test_external_order_range(self, full_reg: RuleRegistry) -> None:
         for m in full_reg.list_rules(category="external"):
             assert 600 <= m.order <= 799, f"{m.rule_id} order={m.order}"
+
+    def test_external_rule_orders_are_unique(self, full_reg: RuleRegistry) -> None:
+        rules = full_reg.list_rules(category="external")
+        order_to_ids: dict[int, list[str]] = {}
+        for meta in rules:
+            order_to_ids.setdefault(meta.order, []).append(meta.rule_id)
+
+        duplicates = {
+            order: rule_ids
+            for order, rule_ids in order_to_ids.items()
+            if len(rule_ids) > 1
+        }
+
+        assert duplicates == {}
 
     def test_list_rules_sorted(self, full_reg: RuleRegistry) -> None:
         all_rules = full_reg.list_rules()

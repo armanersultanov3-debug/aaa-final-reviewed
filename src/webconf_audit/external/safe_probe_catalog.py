@@ -20,6 +20,11 @@ class BodyMatcher:
 
 
 @dataclass(frozen=True, slots=True)
+class BinaryBodyMatcher:
+    prefix: bytes
+
+
+@dataclass(frozen=True, slots=True)
 class IdentifiedServerSuppression:
     server_type: str
     paths: tuple[str, ...] = ()
@@ -37,6 +42,8 @@ class SafePathRule:
     method: SafeProbeMethod = "GET"
     default_paths: tuple[str, ...] = ()
     body_matchers: tuple[BodyMatcher, ...] = ()
+    binary_body_matchers: tuple[BinaryBodyMatcher, ...] = ()
+    content_type_matchers: tuple[str, ...] = ()
     suppress_when_identified: tuple[IdentifiedServerSuppression, ...] = ()
     standards: tuple[StandardReference, ...] = ()
     metadata_recommendation: str | None = None
@@ -314,6 +321,117 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         order=694,
         metadata_recommendation="Block access to .svn/.",
     ),
+    SafePathRule(
+        rule_id="external.backup_archive_exposed",
+        title="Backup archive exposed",
+        severity="medium",
+        description=(
+            "A common backup archive path is externally accessible. Public backup "
+            "archives often contain source code, configuration files, database "
+            "exports, or other sensitive deployment data."
+        ),
+        recommendation=(
+            "Remove backup archives from the web root and block public access to "
+            "backup file extensions at the web server."
+        ),
+        paths=(
+            "/backup.zip",
+            "/backup.tar.gz",
+            "/site.zip",
+            "/www.zip",
+        ),
+        binary_body_matchers=(
+            BinaryBodyMatcher(b"PK\x03\x04"),
+            BinaryBodyMatcher(b"\x1f\x8b"),
+        ),
+        content_type_matchers=(
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/gzip",
+            "application/x-gzip",
+        ),
+        order=695,
+        metadata_recommendation="Remove backup archives from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.database_dump_exposed",
+        title="Database dump exposed",
+        severity="high",
+        description=(
+            "A common database dump path is externally accessible and its body "
+            "resembles SQL dump content. This can expose application data and "
+            "schema details."
+        ),
+        recommendation=(
+            "Remove database dumps from the web root, rotate any exposed secrets, "
+            "and block public access to dump files."
+        ),
+        paths=(
+            "/backup.sql",
+            "/db.sql",
+            "/dump.sql",
+        ),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)\b(?:create\s+table|insert\s+into|mysql\s+dump|begin\s+transaction)\b",
+            ),
+        ),
+        order=696,
+        metadata_recommendation="Remove database dumps from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.dependency_manifest_exposed",
+        title="Dependency manifest exposed",
+        severity="low",
+        description=(
+            "A common dependency manifest or lockfile is externally accessible. "
+            "These files can disclose framework choices, package versions, and "
+            "application structure useful during reconnaissance."
+        ),
+        recommendation=(
+            "Avoid serving dependency manifests and lockfiles from the public "
+            "web root unless intentionally required."
+        ),
+        paths=(
+            "/composer.json",
+            "/composer.lock",
+            "/package.json",
+            "/package-lock.json",
+            "/yarn.lock",
+        ),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:)""",
+            ),
+        ),
+        order=697,
+        metadata_recommendation="Block public access to dependency manifests.",
+    ),
+    SafePathRule(
+        rule_id="external.npmrc_exposed",
+        title=".npmrc file exposed",
+        severity="high",
+        description=(
+            "The /.npmrc file is externally accessible and appears to contain npm "
+            "configuration. This file may expose private registry settings or "
+            "authentication tokens."
+        ),
+        recommendation=(
+            "Block public access to .npmrc files and rotate any registry tokens "
+            "that may have been exposed."
+        ),
+        paths=("/.npmrc",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)^(?:(?:@[^=\s:]+:)?registry|always-auth|_authToken|//[^=\s]+:_authToken)\s*=",
+            ),
+        ),
+        order=698,
+        metadata_recommendation="Block public access to .npmrc files.",
+    ),
 )
 
 CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (
@@ -379,7 +497,24 @@ def body_matcher_matches(matcher: BodyMatcher, body_snippet: str | None) -> bool
     raise ValueError(f"Unsupported body matcher kind: {matcher.kind}")
 
 
+def binary_body_matcher_matches(
+    matcher: BinaryBodyMatcher,
+    raw_body_prefix: bytes | None,
+) -> bool:
+    if raw_body_prefix is None:
+        return False
+    return raw_body_prefix.startswith(matcher.prefix)
+
+
+def content_type_matches(expected: str, content_type: str | None) -> bool:
+    if content_type is None:
+        return False
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == expected.lower()
+
+
 __all__ = [
+    "BinaryBodyMatcher",
     "BodyMatcher",
     "CONDITIONAL_SAFE_PROBE_CONFIDENCES",
     "CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE",
@@ -390,6 +525,8 @@ __all__ = [
     "SAFE_PATH_RULES",
     "SafePathRule",
     "SafeProbeMethod",
+    "binary_body_matcher_matches",
     "body_matcher_matches",
+    "content_type_matches",
     "safe_probe_paths_for_identification",
 ]

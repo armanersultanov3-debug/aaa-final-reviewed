@@ -34,6 +34,19 @@ def test_sensitive_paths_phase_1_4_1_set() -> None:
         "/robots.txt",
         "/sitemap.xml",
         "/.svn/entries",
+        "/backup.zip",
+        "/backup.tar.gz",
+        "/site.zip",
+        "/www.zip",
+        "/backup.sql",
+        "/db.sql",
+        "/dump.sql",
+        "/composer.json",
+        "/composer.lock",
+        "/package.json",
+        "/package-lock.json",
+        "/yarn.lock",
+        "/.npmrc",
     )
 
 
@@ -848,6 +861,7 @@ def test_expanded_sensitive_path_rules_do_not_fire_on_404(
         ("/.env", "external.env_file_exposed", "<html>Custom page</html>"),
         ("/phpinfo.php", "external.phpinfo_exposed", "<html>PHP status</html>"),
         ("/web.config", "external.web_config_exposed", "<html>configuration</html>"),
+        ("/backup.zip", "external.backup_archive_exposed", "<html>Custom page</html>"),
     ],
 )
 def test_body_matched_sensitive_path_rules_require_expected_content(
@@ -869,6 +883,27 @@ def test_body_matched_sensitive_path_rules_require_expected_content(
     )
 
     assert rule_id not in {f.rule_id for f in result.findings}
+
+
+def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch) -> None:
+    sp = _sensitive_path_probe(
+        "/backup.zip",
+        status_code=200,
+        content_type="application/zip",
+        body_snippet=None,
+    )
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    assert "external.backup_archive_exposed" in {f.rule_id for f in result.findings}
 
 
 # ---------------------------------------------------------------------------
@@ -898,6 +933,10 @@ def test_no_sensitive_path_findings_on_baseline_probe(monkeypatch) -> None:
         "external.robots_txt_exposed",
         "external.sitemap_xml_exposed",
         "external.svn_metadata_exposed",
+        "external.backup_archive_exposed",
+        "external.database_dump_exposed",
+        "external.dependency_manifest_exposed",
+        "external.npmrc_exposed",
     }
     fired = sensitive_rule_ids & {f.rule_id for f in result.findings}
     assert fired == set()
@@ -920,6 +959,10 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         SensitivePathProbe(url="https://example.com/robots.txt", path="/robots.txt", status_code=304),
         SensitivePathProbe(url="https://example.com/sitemap.xml", path="/sitemap.xml", status_code=500),
         SensitivePathProbe(url="https://example.com/.svn/entries", path="/.svn/entries", status_code=404),
+        SensitivePathProbe(url="https://example.com/backup.zip", path="/backup.zip", status_code=404),
+        SensitivePathProbe(url="https://example.com/dump.sql", path="/dump.sql", status_code=403),
+        SensitivePathProbe(url="https://example.com/package.json", path="/package.json", status_code=500),
+        SensitivePathProbe(url="https://example.com/.npmrc", path="/.npmrc", status_code=404),
     ]
     probe_attempts = [
         _https_probe_with_headers(),
@@ -942,6 +985,10 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         "external.robots_txt_exposed",
         "external.sitemap_xml_exposed",
         "external.svn_metadata_exposed",
+        "external.backup_archive_exposed",
+        "external.database_dump_exposed",
+        "external.dependency_manifest_exposed",
+        "external.npmrc_exposed",
     }
     fired = sensitive_rule_ids & {f.rule_id for f in result.findings}
     assert fired == set()
