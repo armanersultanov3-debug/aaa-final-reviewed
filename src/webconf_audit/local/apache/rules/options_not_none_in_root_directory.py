@@ -165,12 +165,16 @@ def _is_os_root_directory(blocks: list[ApacheBlockNode]) -> bool:
     return any(block.args and block.args[0] == "/" for block in blocks)
 
 
-def _find_options_directive(block: ApacheBlockNode) -> ApacheDirectiveNode | None:
-    winner: ApacheDirectiveNode | None = None
+def _iter_options_directives(block: ApacheBlockNode) -> list[ApacheDirectiveNode]:
+    directives: list[ApacheDirectiveNode] = []
     for child in block.children:
-        if isinstance(child, ApacheDirectiveNode) and child.name.lower() == "options":
-            winner = child
-    return winner
+        if isinstance(child, ApacheDirectiveNode):
+            if child.name.lower() == "options":
+                directives.append(child)
+            continue
+        if child.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
+            directives.extend(_iter_options_directives(child))
+    return directives
 
 
 def _effective_options_directive(
@@ -180,15 +184,13 @@ def _effective_options_directive(
     effective_directive: ApacheDirectiveNode | None = None
 
     for block in blocks:
-        directive = _find_options_directive(block)
-        if directive is None:
-            continue
-        state = _merge_options_tokens(state, directive.args)
-        effective_directive = ApacheDirectiveNode(
-            name=directive.name,
-            args=list(state.tokens),
-            source=directive.source,
-        )
+        for directive in _iter_options_directives(block):
+            state = _merge_options_tokens(state, directive.args)
+            effective_directive = ApacheDirectiveNode(
+                name=directive.name,
+                args=list(state.tokens),
+                source=directive.source,
+            )
 
     if effective_directive is None or state is None:
         return None

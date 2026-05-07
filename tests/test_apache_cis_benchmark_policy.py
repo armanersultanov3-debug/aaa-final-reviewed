@@ -120,6 +120,27 @@ def test_analyze_apache_config_reports_global_subtractive_only_options_scope(
     assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_merges_multiple_options_in_single_root_directory(
+    tmp_path: Path,
+) -> None:
+    safe_config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options FollowSymLinks\n    Options None",
+        1,
+    )
+    unsafe_config = _safe_apache_config().replace(
+        "    Options None",
+        "    Options None\n    Options FollowSymLinks",
+        1,
+    )
+
+    safe_findings = _analyze_config(tmp_path, safe_config)
+    unsafe_findings = _analyze_config(tmp_path, unsafe_config)
+
+    assert "apache.options_not_none_in_root_directory" not in _rule_ids(safe_findings)
+    assert "apache.options_not_none_in_root_directory" in _rule_ids(unsafe_findings)
+
+
 def test_analyze_apache_config_reports_non_none_allowoverride_scope(
     tmp_path: Path,
 ) -> None:
