@@ -163,6 +163,53 @@ def test_analyze_apache_config_accepts_https_upstream_with_proxy_verify_require(
     assert "apache.ssl_proxy_verify_not_required" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_handles_https_upstream_proxy_with_options(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProxyEngine On",
+            "    ProxyPass / https://backend.internal/ retry=1",
+            '    <Location "/">',
+            "        <LimitExcept GET HEAD POST OPTIONS>",
+            "            Require all denied",
+            "        </LimitExcept>",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.ssl_proxy_verify_not_required" in _rule_ids(findings)
+
+    accepted_findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProxyEngine On",
+            "    SSLProxyVerify require",
+            "    ProxyPass / https://backend.internal/ retry=1",
+            '    <Location "/">',
+            "        <LimitExcept GET HEAD POST OPTIONS>",
+            "            Require all denied",
+            "        </LimitExcept>",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.ssl_proxy_verify_not_required" not in _rule_ids(accepted_findings)
+
+
 def test_analyze_apache_config_reports_main_server_https_upstream_without_proxy_verify(
     tmp_path: Path,
 ) -> None:

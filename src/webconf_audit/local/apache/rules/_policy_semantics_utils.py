@@ -152,12 +152,13 @@ def has_https_upstream_proxy(
     for directive in iter_enabled_scoped_directives(nodes, modules):
         if directive.name.lower() not in {"proxypass", "proxypassmatch"}:
             continue
-        if not directive.args:
-            continue
-        target = directive.args[-1].strip().strip('"').strip("'").lower()
-        if target.startswith("https://"):
+        if any(_is_https_proxy_target(arg) for arg in directive.args):
             return True
     return False
+
+
+def _is_https_proxy_target(raw_value: str) -> bool:
+    return raw_value.strip().strip('"').strip("'").lower().startswith("https://")
 
 
 def _iter_loadmodule_directives(
