@@ -1366,6 +1366,7 @@ def test_analyze_nginx_config_reports_public_autoindex_with_sibling_rate_limits(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert isinstance(result, AnalysisResult)
     assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
     assert finding.location is not None
@@ -1396,10 +1397,40 @@ def test_analyze_nginx_config_reports_public_autoindex_weak_rate_limit_values(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert isinstance(result, AnalysisResult)
     assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
     assert finding.location is not None
     assert finding.location.line == 9
+    assert finding.metadata["weaknesses"] == "limit_req_rate_too_high,limit_conn_limit_too_high"
+
+
+def test_analyze_nginx_config_reports_server_autoindex_weak_rate_limit_values(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=1000r/s;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        root /srv/www;\n"
+        "        limit_req zone=perip burst=1000;\n"
+        "        limit_conn addr 500;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 6
     assert finding.metadata["weaknesses"] == "limit_req_rate_too_high,limit_conn_limit_too_high"
 
 
@@ -1426,6 +1457,7 @@ def test_analyze_nginx_config_accepts_public_autoindex_moderate_rate_limits(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert isinstance(result, AnalysisResult)
     assert result.issues == []
     assert not any(
         finding.rule_id == "nginx.public_autoindex_rate_limit_policy_weak"
@@ -1456,6 +1488,7 @@ def test_analyze_nginx_config_reports_public_autoindex_invalid_rate_limits_as_no
 
     result = analyze_nginx_config(str(config_path))
 
+    assert isinstance(result, AnalysisResult)
     assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
     assert finding.location is not None

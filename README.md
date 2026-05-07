@@ -227,8 +227,8 @@ The catalog currently contains 348 rules:
 
 | Category | Rules |
 |----------|------:|
-| Local ? Nginx | 79 |
-| Local ? Apache | 75 |
+| Local — Nginx | 79 |
+| Local — Apache | 75 |
 | Local — Lighttpd | 47 |
 | Local — IIS | 51 |
 | Universal (local) | 13 |

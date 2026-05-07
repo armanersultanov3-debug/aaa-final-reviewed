@@ -215,8 +215,8 @@ Current catalog: 348 rules total.
 
 | Category | Rules |
 |----------|------:|
-| Local ? Nginx | 79 |
-| Local ? Apache | 75 |
+| Local — Nginx | 79 |
+| Local — Apache | 75 |
 | Local — Lighttpd | 47 |
 | Local — IIS | 51 |
 | Universal (local) | 13 |
