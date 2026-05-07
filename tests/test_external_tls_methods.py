@@ -152,6 +152,27 @@ def test_deep_tls_probe_results_in_diagnostics(monkeypatch) -> None:
     )
 
 
+def test_tls_probe_errors_in_diagnostics(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.3",
+        cipher_preference_error="TLS 1.2 cipher preference probe failed",
+        ocsp_stapling_error="OCSP client request support is unavailable.",
+    )
+    probe_attempts = [
+        _https_probe_with_headers(tls_info=tls),
+        _http_redirect_probe(),
+    ]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert any(
+        "cipher_preference_error: TLS 1.2 cipher preference probe failed" in d
+        for d in result.diagnostics
+    )
+    assert any(
+        "ocsp_stapling_error: OCSP client request support is unavailable." in d
+        for d in result.diagnostics
+    )
+
+
 # --- _extract_san unit test ---
 
 

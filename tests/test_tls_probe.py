@@ -263,11 +263,16 @@ class TestServerCipherPreferenceProbe:
         assert len(calls) == 2
 
     def test_reports_client_order_when_cipher_choice_changes(self, monkeypatch) -> None:
+        calls: list[str] = []
         choices = iter(("ECDHE-RSA-AES128-GCM-SHA256", "AES128-GCM-SHA256"))
+
+        def fake_probe(host, port, ciphers, timeout):
+            calls.append(ciphers)
+            return next(choices)
 
         monkeypatch.setattr(
             "webconf_audit.external.recon.tls_probe._probe_tls12_cipher",
-            lambda host, port, ciphers, timeout: next(choices),
+            fake_probe,
         )
 
         result = probe_server_cipher_preference("example.com", 443)
@@ -275,6 +280,10 @@ class TestServerCipherPreferenceProbe:
         assert result.server_order is False
         assert result.first_cipher == "ECDHE-RSA-AES128-GCM-SHA256"
         assert result.reversed_cipher == "AES128-GCM-SHA256"
+        assert calls == [
+            "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256",
+            "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+        ]
 
     def test_reports_indeterminate_when_one_handshake_fails(self, monkeypatch) -> None:
         choices = iter(("ECDHE-RSA-AES128-GCM-SHA256", None))
@@ -310,6 +319,54 @@ class TestOCSPStaplingProbe:
 
         assert result.stapled is None
         assert "OCSP" in result.error_message
+
+    def test_probe_counts_empty_ocsp_response_as_observed(self, monkeypatch) -> None:
+        class FakeContext:
+            def __init__(self, _method):
+                self.ocsp_callback = None
+
+            def set_verify(self, *_args):
+                pass
+
+            def set_ocsp_client_callback(self, callback):
+                self.ocsp_callback = callback
+
+        class FakeConnection:
+            def __init__(self, context, _raw_sock):
+                self.context = context
+
+            def set_tlsext_host_name(self, _hostname):
+                pass
+
+            def request_ocsp(self):
+                pass
+
+            def set_connect_state(self):
+                pass
+
+            def do_handshake(self):
+                self.context.ocsp_callback(self, b"", None)
+
+            def close(self):
+                pass
+
+        raw_sock = MagicMock()
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe._OSSL.Context",
+            FakeContext,
+        )
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe._OSSL.Connection",
+            FakeConnection,
+        )
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.socket.create_connection",
+            lambda *_args, **_kwargs: raw_sock,
+        )
+
+        result = probe_ocsp_stapling("example.com", 443)
+
+        assert result.stapled is True
 
 
 # ---------------------------------------------------------------------------

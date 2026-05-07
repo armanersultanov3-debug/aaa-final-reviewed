@@ -265,7 +265,7 @@ def probe_ocsp_stapling(
         conn.set_connect_state()
         conn.do_handshake()
 
-        return OCSPStaplingProbeResult(stapled=bool(ocsp_response["value"]))
+        return OCSPStaplingProbeResult(stapled=ocsp_response["value"] is not None)
     except (OSError, _OSSL.Error, Exception) as exc:  # noqa: BLE001
         return OCSPStaplingProbeResult(stapled=None, error_message=str(exc))
     finally:

@@ -1564,8 +1564,14 @@ def _attempt_tls_diagnostics(tls_info: TLSInfo | None) -> list[str]:
             "cipher_preference_reversed_cipher: "
             f"{tls_info.cipher_preference_reversed_cipher}"
         )
+    if tls_info.cipher_preference_error is not None:
+        diagnostics.append(
+            f"cipher_preference_error: {tls_info.cipher_preference_error}"
+        )
     if tls_info.ocsp_stapled is not None:
         diagnostics.append(f"ocsp_stapled: {tls_info.ocsp_stapled}")
+    if tls_info.ocsp_stapling_error is not None:
+        diagnostics.append(f"ocsp_stapling_error: {tls_info.ocsp_stapling_error}")
     return diagnostics
 
 
