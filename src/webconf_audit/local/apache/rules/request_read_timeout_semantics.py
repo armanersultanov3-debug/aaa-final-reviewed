@@ -126,7 +126,7 @@ def _parse_request_read_timeout_sections(args: list[str]) -> dict[str, str]:
     rendered = " ".join(args)
     sections: dict[str, str] = {}
     for match in re.finditer(
-        r"\b(header|body)\s*=\s*([^=]+?)(?=\s+\b(?:header|body)\s*=|$)",
+        r"\b(header|body)\s*=\s*(.+?)(?=\s+\b(?:header|body)\s*=|$)",
         rendered,
         flags=re.IGNORECASE,
     ):
@@ -139,14 +139,31 @@ def _request_timeout_value_is_valid(raw_value: str) -> bool:
     if not value:
         return False
 
-    window = value.split(",", 1)[0].strip()
+    parts = [part.strip() for part in value.split(",") if part.strip()]
+    if not parts:
+        return False
+
+    window = parts[0]
     if "-" in window:
         start, end = window.split("-", 1)
         if not (start.isdigit() and end.isdigit()):
             return False
-        return int(start) > 0 and int(end) >= int(start)
+        if not (int(start) > 0 and int(end) >= int(start)):
+            return False
+    elif not (window.isdigit() and int(window) > 0):
+        return False
 
-    return window.isdigit() and int(window) > 0
+    for param in parts[1:]:
+        key, separator, raw_value = param.partition("=")
+        if not separator:
+            return False
+        if key.strip().lower() != "minrate":
+            return False
+        normalized_value = raw_value.strip()
+        if not (normalized_value.isdigit() and int(normalized_value) > 0):
+            return False
+
+    return True
 
 
 def _directive_location(directive: ApacheDirectiveNode) -> SourceLocation:

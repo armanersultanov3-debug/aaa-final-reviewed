@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules._block_policy_utils import (
     block_denies_all,
@@ -34,6 +36,7 @@ _SENSITIVE_PATH_MARKERS = (
     "samples",
     "demo",
 )
+_TOKEN_SPLIT_RE = re.compile(r"[^a-z0-9]+")
 
 
 @rule(
@@ -85,10 +88,11 @@ def _block_mentions_sensitive_path(block) -> bool:
 
 def _matching_markers(pattern: str) -> set[str]:
     lowered = pattern.lower()
+    tokens = {token for token in _TOKEN_SPLIT_RE.split(lowered) if token}
     return {
         marker
         for marker in _SENSITIVE_PATH_MARKERS
-        if marker in lowered
+        if marker in tokens
     }
 
 

@@ -75,15 +75,14 @@ def find_default_content_probe(config_ast: ApacheConfigAst) -> list[Finding]:
 
         for relative_path, markers in _SAMPLE_PATH_MARKERS.items():
             sample_path = document_root / relative_path
-            if str(sample_path) in seen_files:
+            sample_key = str(sample_path)
+            if sample_key in seen_files:
                 continue
+            seen_files.add(sample_key)
 
             finding = _sample_content_finding(sample_path, markers)
-            if finding is None:
-                continue
-
-            findings.append(finding)
-            seen_files.add(str(sample_path))
+            if finding is not None:
+                findings.append(finding)
 
     return findings
 
