@@ -10,6 +10,9 @@ from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
     ApacheConfigAst,
 )
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    explicit_module_inventory,
+)
 from webconf_audit.local.apache.rules._redirect_scope_utils import (
     has_whole_https_redirect,
 )
@@ -46,6 +49,7 @@ def find_missing_http_to_https_redirect(
         return []
 
     findings: list[Finding] = []
+    modules = explicit_module_inventory(config_ast)
     for context in extract_virtualhost_contexts(config_ast):
         if context.optional_ancestor_names:
             continue
@@ -54,7 +58,7 @@ def find_missing_http_to_https_redirect(
             continue
         if not _virtualhost_listens_on_http(context):
             continue
-        if _has_https_redirect(context.node):
+        if _has_https_redirect(context.node, modules):
             continue
         findings.append(
             Finding(
@@ -185,8 +189,11 @@ def _address_port(value: str) -> int | None:
     return int(port)
 
 
-def _has_https_redirect(block: ApacheBlockNode) -> bool:
-    return has_whole_https_redirect(block)
+def _has_https_redirect(
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+) -> bool:
+    return has_whole_https_redirect(block, modules)
 
 
 __all__ = ["find_missing_http_to_https_redirect"]
