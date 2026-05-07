@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from webconf_audit.local.apache.effective import (
-    ApacheVirtualHostContext,
     extract_document_root,
     extract_virtualhost_contexts,
 )
