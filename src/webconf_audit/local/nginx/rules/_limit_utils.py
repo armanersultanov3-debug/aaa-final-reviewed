@@ -57,10 +57,18 @@ def parse_positive_integer(value: str) -> int | None:
 
 
 def is_positive_rate(value: str) -> bool:
+    parsed = parse_rate_per_second(value)
+    return parsed is not None and parsed > 0
+
+
+def parse_rate_per_second(value: str) -> float | None:
     match = _RATE_RE.fullmatch(value)
     if match is None:
-        return False
-    return int(match.group("value"), 10) > 0
+        return None
+    parsed = int(match.group("value"), 10)
+    if match.group("unit").lower() == "m":
+        return parsed / 60
+    return float(parsed)
 
 
 def make_finding(
@@ -95,5 +103,6 @@ __all__ = [
     "iter_directives",
     "make_finding",
     "parse_positive_integer",
+    "parse_rate_per_second",
     "parse_zone_name",
 ]

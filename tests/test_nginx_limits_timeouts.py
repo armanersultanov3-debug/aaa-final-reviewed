@@ -1338,3 +1338,159 @@ def test_analyze_nginx_config_does_not_report_missing_limit_conn_when_inherited_
     assert isinstance(result, AnalysisResult)
     assert result.issues == []
     assert not any(finding.rule_id == "nginx.missing_limit_conn" for finding in result.findings)
+
+
+def test_analyze_nginx_config_reports_public_autoindex_with_sibling_rate_limits(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=10r/s;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        location /api/ {\n"
+        "            limit_req zone=perip burst=10;\n"
+        "            limit_conn addr 10;\n"
+        "            proxy_pass http://api.internal;\n"
+        "        }\n"
+        "        location /downloads/ {\n"
+        "            autoindex on;\n"
+        "            root /srv/www;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 12
+    assert finding.metadata["weaknesses"] == "limit_req_not_effective,limit_conn_not_effective"
+
+
+def test_analyze_nginx_config_reports_public_autoindex_weak_rate_limit_values(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=1000r/s;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=perip burst=1000;\n"
+        "        limit_conn addr 500;\n"
+        "        location /downloads/ {\n"
+        "            autoindex on;\n"
+        "            root /srv/www;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 9
+    assert finding.metadata["weaknesses"] == "limit_req_rate_too_high,limit_conn_limit_too_high"
+
+
+def test_analyze_nginx_config_reports_server_autoindex_weak_rate_limit_values(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=1000r/s;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        autoindex on;\n"
+        "        root /srv/www;\n"
+        "        limit_req zone=perip burst=1000;\n"
+        "        limit_conn addr 500;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 6
+    assert finding.metadata["weaknesses"] == "limit_req_rate_too_high,limit_conn_limit_too_high"
+
+
+def test_analyze_nginx_config_accepts_public_autoindex_moderate_rate_limits(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=30r/m;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=perip burst=10;\n"
+        "        limit_conn addr 10;\n"
+        "        location /downloads/ {\n"
+        "            autoindex on;\n"
+        "            root /srv/www;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.public_autoindex_rate_limit_policy_weak"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_public_autoindex_invalid_rate_limits_as_not_effective(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=30r/m;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=missing burst=10;\n"
+        "        limit_conn addr nope;\n"
+        "        location /downloads/ {\n"
+        "            autoindex on;\n"
+        "            root /srv/www;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 9
+    assert finding.metadata["weaknesses"] == "limit_req_not_effective,limit_conn_not_effective"

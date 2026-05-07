@@ -169,6 +169,29 @@
       ]
     },
     {
+      "id": "nginx-merge-slashes-off",
+      "server_type": "nginx",
+      "profile": "vulnerable",
+      "source": "Nginx core module reference",
+      "source_url": "https://nginx.org/en/docs/http/ngx_http_core_module.html#merge_slashes",
+      "license": "Nginx documentation used as directive reference; this fixture is synthetic-derived.",
+      "description": "Reference case for disabled URI slash compression via merge_slashes off.",
+      "entrypoint": "nginx/vulnerable/merge-slashes-off.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The fixture is minimized to exercise the merge_slashes hardening rule without copying a third-party deployment.",
+      "references": [
+        "https://nginx.org/en/docs/http/ngx_http_core_module.html#merge_slashes"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "nginx.merge_slashes_off",
+          "severity": "low",
+          "title_contains": "Merge slashes",
+          "location_contains": "merge-slashes-off.conf"
+        }
+      ]
+    },
+    {
       "id": "nginx-mozilla-modern-secure-baseline",
       "server_type": "nginx",
       "profile": "secure",

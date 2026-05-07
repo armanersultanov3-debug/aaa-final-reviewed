@@ -307,6 +307,148 @@ def test_merge_effective_configs_three_levels_clear_resets_collection() -> None:
     assert handlers.children == []
 
 
+def test_merge_effective_configs_preserves_cross_file_handler_children() -> None:
+    app_host_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers>
+            <add name="StaticFile" path="*" verb="*" modules="StaticFileModule" />
+            <add name="CgiExe" path="*.exe" verb="*" modules="CgiModule" />
+        </handlers>
+    </system.webServer>
+</configuration>
+""",
+        file_path="applicationHost.config",
+    )
+    web_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <handlers>
+            <remove name="CgiExe" />
+            <add name="ApiHandler" path="api/*" verb="GET" modules="ManagedPipelineHandler" />
+        </handlers>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    merged = merge_effective_configs(
+        build_effective_config(app_host_doc),
+        build_effective_config(web_doc),
+    )
+
+    handlers = merged.get_effective_section("/handlers")
+    assert handlers is not None
+    assert [child.attributes.get("name") for child in handlers.children] == [
+        "StaticFile",
+        "ApiHandler",
+    ]
+
+
+def test_merge_effective_configs_applies_cross_file_modules_clear_and_add() -> None:
+    app_host_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <modules>
+            <add name="StaticFileModule" />
+            <add name="WebDAVModule" />
+        </modules>
+    </system.webServer>
+</configuration>
+""",
+        file_path="applicationHost.config",
+    )
+    web_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <modules>
+            <clear />
+            <add name="ManagedPipelineModule" />
+        </modules>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    merged = merge_effective_configs(
+        build_effective_config(app_host_doc),
+        build_effective_config(web_doc),
+    )
+
+    modules = merged.get_effective_section("/modules")
+    assert modules is not None
+    assert [child.attributes.get("name") for child in modules.children] == [
+        "ManagedPipelineModule",
+    ]
+
+
+def test_merge_effective_configs_merges_cross_file_request_filtering_children() -> None:
+    app_host_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <fileExtensions allowUnlisted="false">
+                    <add fileExtension=".html" allowed="true" />
+                    <add fileExtension=".config" allowed="false" />
+                </fileExtensions>
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+        file_path="applicationHost.config",
+    )
+    web_doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxUrl="2048" maxQueryString="1024" />
+                <fileExtensions>
+                    <remove fileExtension=".config" />
+                    <add fileExtension=".json" allowed="true" />
+                </fileExtensions>
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    merged = merge_effective_configs(
+        build_effective_config(app_host_doc),
+        build_effective_config(web_doc),
+    )
+
+    file_extensions = merged.get_effective_section("/fileExtensions")
+    request_limits = merged.get_effective_section("/requestLimits")
+
+    assert file_extensions is not None
+    assert file_extensions.attributes["allowUnlisted"] == "false"
+    assert [child.attributes.get("fileExtension") for child in file_extensions.children] == [
+        ".html",
+        ".json",
+    ]
+    assert request_limits is not None
+    assert request_limits.attributes == {"maxUrl": "2048", "maxQueryString": "1024"}
+
+
 def test_build_effective_config_location_remove_matches_all_attributes() -> None:
     doc = parse_iis_config(
         """\
