@@ -426,7 +426,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         body_matchers=(
             BodyMatcher(
                 "regex",
-                r"(?im)^(?:registry|always-auth|//[^=\s]+:_authToken)\s*=",
+                r"(?im)^(?:(?:@[^=\s:]+:)?registry|always-auth|_authToken|//[^=\s]+:_authToken)\s*=",
             ),
         ),
         order=698,

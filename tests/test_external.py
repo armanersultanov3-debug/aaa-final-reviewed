@@ -865,6 +865,26 @@ def test_lighttpd_mod_status_public_does_not_fire_for_other_server_type() -> Non
             ),
             "external.npmrc_exposed",
         ),
+        (
+            SensitivePathProbe(
+                url="https://example.com/.npmrc",
+                path="/.npmrc",
+                status_code=200,
+                content_type="text/plain",
+                body_snippet="_authToken=XXXXXXXX",
+            ),
+            "external.npmrc_exposed",
+        ),
+        (
+            SensitivePathProbe(
+                url="https://example.com/.npmrc",
+                path="/.npmrc",
+                status_code=200,
+                content_type="text/plain",
+                body_snippet="@myscope:registry=https://registry.npmjs.org/",
+            ),
+            "external.npmrc_exposed",
+        ),
     ],
 )
 def test_safe_probe_catalog_flags_curated_artifact_rules(
