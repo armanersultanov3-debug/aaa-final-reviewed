@@ -1044,7 +1044,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.robots_txt_exposed` | info | probe | - | - | - | - | - |
 | `external.sitemap_xml_exposed` | info | probe | - | - | - | - | - |
 | `external.svn_metadata_exposed` | medium | probe | - | [CWE-540](https://cwe.mitre.org/data/definitions/540.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 | CIS NGINX v3.0.0 §2.5.3; CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: runtime evidence; primary CIS references at `nginx.missing_hidden_files_deny` / `apache.vcs_metadata_not_restricted`) |
-| `external.backup_archive_exposed` | medium | probe | - | [CWE-530](https://cwe.mitre.org/data/definitions/530.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 (partial: fixed backup archive paths only) | - |
+| `external.backup_archive_exposed` | medium | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 (partial: fixed backup archive paths only) | - |
 | `external.database_dump_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.1 (partial: fixed SQL dump paths only) | - |
 | `external.dependency_manifest_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `external.npmrc_exposed` | high | probe | - | [CWE-522](https://cwe.mitre.org/data/definitions/522.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | - | - |
@@ -1136,8 +1136,8 @@ Mapping rationale (external probes), grouped by pattern:
 - **Sensitive paths** (`git_metadata_exposed`, `svn_metadata_exposed`) --
   CWE-540 (inclusion of sensitive information in source code);
   (`env_file_exposed`, `htaccess_exposed`, `web_config_exposed`,
-  `database_dump_exposed`) -- CWE-538 (file/directory information exposure);
-  (`backup_archive_exposed`) -- CWE-530 (backup file exposure);
+  `database_dump_exposed`, `backup_archive_exposed`) -- CWE-538
+  (file/directory information exposure);
   (`dependency_manifest_exposed`) -- CWE-200 (reconnaissance-useful package
   metadata exposure);
   (`htpasswd_exposed`, `npmrc_exposed`) -- CWE-522 (insufficiently protected credentials),
