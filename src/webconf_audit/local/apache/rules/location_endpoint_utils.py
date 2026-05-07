@@ -12,7 +12,16 @@ from webconf_audit.local.apache.effective import (
     extract_document_root,
     extract_virtualhost_contexts,
 )
-from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
+from webconf_audit.local.apache.parser import (
+    ApacheBlockNode,
+    ApacheConfigAst,
+    ApacheDirectiveNode,
+)
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    effective_location_guarantees_ip_restriction,
+    explicit_module_inventory,
+    matching_location_scopes_for_path,
+)
 
 TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
@@ -105,6 +114,26 @@ def effective_location_has_require_ip(effective_config: EffectiveConfig) -> bool
     return len(directive.args) >= 2 and first_arg.lower() == "ip"
 
 
+def effective_location_has_require_ip_for_ast(
+    config_ast: ApacheConfigAst,
+    effective_config: EffectiveConfig,
+) -> bool:
+    if effective_config.location_path is None:
+        return False
+
+    modules = explicit_module_inventory(config_ast)
+    scopes = matching_location_scopes_for_path(
+        config_ast,
+        effective_config.location_path,
+        virtualhost_context=effective_config.virtualhost,
+        modules=modules,
+    )
+    if not scopes:
+        return False
+
+    return effective_location_guarantees_ip_restriction(scopes, modules)
+
+
 def virtualhost_label(context: ApacheVirtualHostContext | None) -> str:
     if context is None:
         return "<global>"
@@ -165,6 +194,7 @@ def _regex_location_matches(pattern: str, target_path: str) -> bool:
 __all__ = [
     "EffectiveLocationEvaluation",
     "effective_location_has_require_ip",
+    "effective_location_has_require_ip_for_ast",
     "find_effective_location_evaluations",
     "find_location_blocks",
     "location_has_require_ip",

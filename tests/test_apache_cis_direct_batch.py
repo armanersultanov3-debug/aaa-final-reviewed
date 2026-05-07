@@ -386,6 +386,24 @@ def test_analyze_apache_config_accepts_rewrite_rule_to_https(
     assert "apache.missing_http_to_https_redirect" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_accepts_rewritecond_https_off_redirect_only_vhost(
+    tmp_path: Path,
+) -> None:
+    config = _redirect_noise_config(
+        "    RewriteEngine On",
+        "    RewriteCond %{HTTPS} off",
+        "    RewriteRule ^ https://app.example.test%{REQUEST_URI} [R=301,L]",
+    )
+
+    findings = _analyze_config(tmp_path, config)
+
+    http_vhost_rule_ids = _rule_ids_at_line(
+        findings, _line_number(config, "<VirtualHost *:80>")
+    )
+    assert http_vhost_rule_ids.isdisjoint(_APACHE_REDIRECT_NOISE_RULE_IDS)
+    assert "apache.missing_http_to_https_redirect" not in http_vhost_rule_ids
+
+
 def test_analyze_apache_config_reports_partial_https_redirect_as_missing_full_redirect(
     tmp_path: Path,
 ) -> None:

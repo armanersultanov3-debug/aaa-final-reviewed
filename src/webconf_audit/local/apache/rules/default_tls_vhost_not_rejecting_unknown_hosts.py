@@ -4,6 +4,9 @@ from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
 )
 from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    explicit_module_inventory,
+)
 from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
 from webconf_audit.local.apache.rules._vhost_rejection_utils import (
     listen_keys,
@@ -49,13 +52,14 @@ def find_default_tls_vhost_not_rejecting_unknown_hosts(
 ) -> list[Finding]:
     findings: list[Finding] = []
     seen_contexts: set[int] = set()
+    modules = explicit_module_inventory(config_ast)
 
     for context in _default_tls_contexts_by_listen_key(config_ast).values():
         context_id = id(context)
         if context_id in seen_contexts:
             continue
         seen_contexts.add(context_id)
-        if rejects_unknown_hosts(context.node):
+        if rejects_unknown_hosts(context.node, modules):
             continue
         findings.append(_finding(context))
 

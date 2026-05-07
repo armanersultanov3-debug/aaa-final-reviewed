@@ -4,6 +4,9 @@ from urllib.parse import urlparse
 
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext
 from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    iter_enabled_nodes,
+)
 
 _REDIRECT_STATUSES = frozenset(
     {"301", "302", "303", "307", "308", "permanent", "temp", "temporary", "seeother"}
@@ -16,6 +19,7 @@ _REDIRECT_METADATA_DIRECTIVES = frozenset(
         "customlog",
         "errorlog",
         "loglevel",
+        "rewritecond",
         "rewriteengine",
         "serveradmin",
         "serveralias",
@@ -38,20 +42,21 @@ _WHOLE_PATTERNS = frozenset(
 )
 
 
-def is_redirect_only_virtualhost(context: ApacheVirtualHostContext) -> bool:
+def is_redirect_only_virtualhost(
+    context: ApacheVirtualHostContext,
+    modules: frozenset[str] = frozenset(),
+) -> bool:
     if not _virtualhost_listens_on_http(context):
         return False
-    return _block_scope_state(context.node) is True
+    return _block_scope_state(context.node, modules) is True
 
 
-def has_whole_https_redirect(block: ApacheBlockNode) -> bool:
-    for node in block.children:
+def has_whole_https_redirect(
+    block: ApacheBlockNode,
+    modules: frozenset[str] = frozenset(),
+) -> bool:
+    for node in iter_enabled_nodes(block.children, modules):
         if isinstance(node, ApacheBlockNode):
-            if (
-                node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS
-                and has_whole_https_redirect(node)
-            ):
-                return True
             continue
 
         if _directive_redirects_all_to_https(node) is True:
@@ -59,13 +64,16 @@ def has_whole_https_redirect(block: ApacheBlockNode) -> bool:
     return False
 
 
-def _block_scope_state(block: ApacheBlockNode) -> bool | None:
+def _block_scope_state(
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+) -> bool | None:
     has_whole_https_redirect = False
-    for node in block.children:
+    for node in iter_enabled_nodes(block.children, modules):
         if isinstance(node, ApacheBlockNode):
             if node.name.lower() not in _TRANSPARENT_WRAPPER_BLOCKS:
                 return False
-            child_state = _block_scope_state(node)
+            child_state = _block_scope_state(node, modules)
             if child_state is False:
                 return False
             if child_state is None:
@@ -96,7 +104,7 @@ def _directive_redirects_all_to_https(
     if name == "rewriterule":
         return _rewrite_rule_targets_whole_https(directive)
     if name == "rewritecond":
-        return False
+        return None
     return None
 
 

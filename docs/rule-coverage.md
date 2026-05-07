@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **343**
+Total rules: **346**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (247), external (83), universal (13) |
-| Severity | high (17), medium (120), low (195), info (11) |
-| Input kind | ast (150), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
+| Category | local (250), external (83), universal (13) |
+| Severity | high (17), medium (122), low (196), info (11) |
+| Input kind | ast (153), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -348,7 +348,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 72
+Count: 75
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -425,6 +425,7 @@ rather than to ".htaccess" itself.
 | `apache.permissions_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (partial: flags wildcard feature grants; detailed allowlist choices remain application-specific) |
 | `apache.missing_http_method_restrictions` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: sensitive `Location` / `LocationMatch` scopes only) |
 | `apache.http_method_policy_allows_unapproved` | low | ast | - | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: explicit method allowlists only) |
+| `apache.sitewide_http_method_policy_missing` | low | ast | access | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.7 (partial: whole-scope request policy when `Location` / `LocationMatch` or proxy routing exposes request-scope handling) |
 | `apache.ssl_protocol_missing_or_weak` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local `SSLProtocol` presence and weak-version checks) |
 | `apache.ssl_cipher_suite_missing` | low | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: cipher policy presence only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.4 (partial: `SSLCipherSuite` presence only) |
 | `apache.ssl_cipher_suite_weak` | medium | ast | tls | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.4 (partial: weak local cipher components; does not prove full benchmark cipher posture) |
@@ -438,6 +439,8 @@ rather than to ".htaccess" itself.
 | `apache.missing_hsts_header` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 | CIS Apache HTTP Server 2.4 v2.3.0 §7.11 (partial: `Header always` presence on detected TLS scopes) |
 | `apache.hsts_header_unsafe` | medium | ast | headers, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.1 (partial: local max-age / includeSubDomains validation) | CIS Apache HTTP Server 2.4 v2.3.0 section 7.11 (partial: local HSTS policy value check; preload remains an operator policy choice) |
 | `apache.missing_http_to_https_redirect` | low | ast | tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 (partial: matching named VirtualHosts only) | CIS Apache HTTP Server 2.4 v2.3.0 §7.1 (partial: local redirect directive check) |
+| `apache.ssl_proxy_verify_not_required` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.2 (partial: HTTPS upstream proxy trust when Apache acts as a TLS client) |
+| `apache.ssl_proxy_peer_name_check_disabled` | medium | ast | tls, proxy | [CWE-297](https://cwe.mitre.org/data/definitions/297.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.2 (partial: HTTPS upstream proxy hostname verification when Apache acts as a TLS client) |
 
 Mapping rationale (apache rules):
 
@@ -483,6 +486,11 @@ Mapping rationale (apache rules):
   or overly broad Permissions-Policy leaves browser feature access governed by
   defaults or wildcard grants rather than explicit least-privilege policy:
   CWE-693, OWASP A05.
+- `missing_http_method_restrictions`, `http_method_policy_allows_unapproved`,
+  `sitewide_http_method_policy_missing` -- missing or unsafe request-method
+  policy on sensitive or whole-scope request paths increases the attack
+  surface exposed to state-changing or rarely needed verbs: CWE-650, OWASP
+  A05.
 - `htaccess_enables_cgi`, `options_execcgi_enabled`, `options_includes_enabled`
   -- enabling CGI / SSI from `.htaccess` or `Options` is an attack-surface
   increase, not a textbook weakness class. CWE empty, OWASP A05.
@@ -499,6 +507,9 @@ Mapping rationale (apache rules):
 - `htaccess_weakens_security` -- `.htaccess` re-enables `ServerSignature`
   after the main config disabled it: CWE-200 (information exposure),
   OWASP A05.
+- `ssl_proxy_verify_not_required`, `ssl_proxy_peer_name_check_disabled` --
+  HTTPS upstream proxying without certificate-chain or hostname validation
+  lets Apache trust an unverified peer: CWE-295 / CWE-297, OWASP A02.
 - `index_options_scanhtmltitles_enabled` -- enables Apache to scan HTML
   files for titles when rendering a directory listing; only matters once
   listing is already on, so we keep CWE empty and tag OWASP A05.
@@ -582,22 +593,22 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
 | §1.1-§1.3 | `out-of-scope` | Planning, single-use host posture, and package-source verification need host and deployment inventory, which is outside the tool scope. |
-| §2.1-§2.9 | `parser-depth` | Module minimization needs reliable module inventory from `LoadModule` / build data; current status/info rules only partially cover exposed endpoints. |
+| §2.1-§2.9 | `parser-depth` | Explicit `LoadModule` inventory now backs status/info and upstream-proxy rules, but benchmark-wide module minimization still needs build/package data that the config alone cannot prove. |
 | §3.1-§3.13 | `out-of-scope` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata, which is outside the tool scope. |
-| §4.1-§4.2 | `parser-depth` | General access-control posture needs richer effective `Require`/legacy access semantics before broad claims are safe. |
+| §4.1-§4.2 | `parser-depth` | Effective `RequireAll` / `RequireAny` IP+method semantics now back the current status/info and method-policy rules, but broader authorization posture still needs richer legacy/default modelling before benchmark-wide claims are safe. |
 | §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
 | §5.1-§5.3 | `direct-rule` | `apache.options_not_none_in_root_directory` now validates an empty OS-root `Options` baseline, while the existing `Options` rules cover effective `ExecCGI` / `Includes` / `Indexes`, specific `MultiViews`, and ordered `Options All` subtractive semantics. Remaining deployment-specific exceptions are backlog tuning, not a missing CIS baseline rule. |
 | §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
-| §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
+| §5.7 | `covered` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, `apache.http_method_policy_allows_unapproved` catches explicit unapproved allowlists, and `apache.sitewide_http_method_policy_missing` adds a conservative whole-scope request-policy signal when Apache exposes request-scope `Location` handling or proxy routing. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
 | §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
-| §5.14-§5.15 | `direct-rule` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, `apache.default_vhost_not_rejecting_unknown_hosts` checks first/default non-TLS VirtualHosts, `apache.default_tls_vhost_not_rejecting_unknown_hosts` checks first/default TLS VirtualHosts for whole-scope rejection, and `apache.listen_requires_explicit_address` flags port-only, hostname, wildcard, and all-zero `Listen` bindings. Remaining precision work is rewrite module inventory and deployment-specific exceptions. |
-| §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are now present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; remaining work is application-specific allowlist judgment and deeper per-directory / runtime response validation. |
+| §5.14-§5.15 | `covered` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, the default TLS and non-TLS VirtualHost rules check first/default catch-all rejection, `apache.listen_requires_explicit_address` flags risky `Listen` bindings, and explicit `LoadModule` / `IfModule` handling now underpins rewrite-backed signals. Deliberate internal-only listener or host-routing exceptions remain operator context rather than missing static rules. |
+| §5.16-§5.18 | `manual-context` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; application-specific allowlist choices and deeper per-directory / runtime response validation remain operator/runtime review rather than an honest static baseline rule. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
 | §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |
 | §6.6-§6.7 | `parser-depth` | ModSecurity and CRS checks need module/package/config inventory beyond current parser rules. |
-| §7.1, §7.4-§7.12 | `direct-rule` | Apache TLS directive coverage now includes `SSLProtocol`, `SSLCipherSuite`, conservative weak cipher / FS / AEAD posture, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, and matching-vhost HTTP redirects; remaining work is runtime negotiation evidence and certificate-chain probing. |
-| §7.2 | `probe-depth` | Trusted certificate and chain validation needs runtime certificate probing rather than local path presence alone. |
+| §7.1, §7.4-§7.12 | `covered` | Apache TLS directive coverage includes `SSLProtocol`, `SSLCipherSuite`, conservative weak cipher / FS / AEAD posture, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, matching-vhost HTTP redirects, and external runtime corroboration for negotiated TLS posture, OCSP stapling, and chain behavior. |
+| §7.2 | `covered` | Runtime certificate validity, SAN, and chain verification are covered by external certificate probes, while `apache.ssl_proxy_verify_not_required` and `apache.ssl_proxy_peer_name_check_disabled` cover HTTPS upstream proxy trust when Apache acts as a TLS client. |
 | §7.3 | `out-of-scope` | Private-key protection needs filesystem ownership and permission metadata, which is outside web-server config / safe external analysis. |
 | §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
 | §8.4 | `covered` | `apache.file_etag_inodes` detects explicit `FileETag` values that include inode data. |
@@ -1451,7 +1462,7 @@ Progress:
 - [x] Universal rules (13)
 - [x] Nginx local rules (77) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (72) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (75) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (47)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference

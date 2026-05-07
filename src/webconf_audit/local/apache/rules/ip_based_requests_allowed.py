@@ -5,6 +5,10 @@ from webconf_audit.local.apache.parser import (
     ApacheConfigAst,
     ApacheDirectiveNode,
 )
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    explicit_module_inventory,
+    iter_enabled_directives,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -35,7 +39,8 @@ TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     order=363,
 )
 def find_ip_based_requests_allowed(config_ast: ApacheConfigAst) -> list[Finding]:
-    directives = _iter_server_directives(config_ast.nodes)
+    modules = explicit_module_inventory(config_ast)
+    directives = _iter_server_directives(config_ast.nodes, modules)
     server_name = _top_level_server_name(directives)
     if server_name is None:
         return []
@@ -64,15 +69,9 @@ def find_ip_based_requests_allowed(config_ast: ApacheConfigAst) -> list[Finding]
 
 def _iter_server_directives(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
 ) -> list[ApacheDirectiveNode]:
-    directives: list[ApacheDirectiveNode] = []
-    for node in nodes:
-        if isinstance(node, ApacheDirectiveNode):
-            directives.append(node)
-            continue
-        if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
-            directives.extend(_iter_server_directives(node.children))
-    return directives
+    return iter_enabled_directives(nodes, modules)
 
 
 def _top_level_server_name(
