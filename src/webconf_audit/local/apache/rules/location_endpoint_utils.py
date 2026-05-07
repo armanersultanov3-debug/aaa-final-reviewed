@@ -121,16 +121,16 @@ def effective_location_has_require_ip_for_ast(
     if effective_config.location_path is None:
         return False
 
+    modules = explicit_module_inventory(config_ast)
     scopes = matching_location_scopes_for_path(
         config_ast,
         effective_config.location_path,
         virtualhost_context=effective_config.virtualhost,
-        modules=explicit_module_inventory(config_ast),
+        modules=modules,
     )
     if not scopes:
         return False
 
-    modules = explicit_module_inventory(config_ast)
     return effective_location_guarantees_ip_restriction(scopes, modules)
 
 

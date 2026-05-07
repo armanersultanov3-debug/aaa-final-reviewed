@@ -210,6 +210,32 @@ def test_analyze_apache_config_reports_https_upstream_peer_name_check_disabled(
     assert "apache.ssl_proxy_peer_name_check_disabled" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_accepts_https_upstream_with_peer_name_check_enabled(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProxyEngine On",
+            "    SSLProxyVerify require",
+            "    ProxyPass / https://backend.internal/",
+            '    <Location "/">',
+            "        <LimitExcept GET HEAD POST OPTIONS>",
+            "            Require all denied",
+            "        </LimitExcept>",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.ssl_proxy_peer_name_check_disabled" not in _rule_ids(findings)
+
+
 def test_analyze_apache_config_reports_main_server_proxy_peer_name_check_disabled(
     tmp_path: Path,
 ) -> None:

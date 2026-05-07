@@ -290,6 +290,10 @@ def _combine_guarantees(
     *,
     container_name: str,
 ) -> bool:
+    # This combines "does this block guarantee restriction?" answers, not raw
+    # Apache authorization truth values. In RequireAll, any restrictive child
+    # constrains the whole block; in RequireAny, every branch must be
+    # restrictive because a permissive branch can be chosen.
     if not child_results:
         return False
 

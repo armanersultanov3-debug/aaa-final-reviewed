@@ -65,10 +65,6 @@ def find_ssl_proxy_peer_name_check_disabled(
     return findings
 
 
-def _peer_name_check_explicitly_disabled(directives) -> bool:
-    return _disabled_peer_name_source(directives) is not None
-
-
 def _disabled_peer_name_source(directives):
     for name in ("sslproxycheckpeername", "sslproxycheckpeercn"):
         directive = directives.get(name)

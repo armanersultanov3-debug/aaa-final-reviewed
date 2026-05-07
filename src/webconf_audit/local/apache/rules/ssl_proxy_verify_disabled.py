@@ -41,7 +41,7 @@ def find_ssl_proxy_verify_not_required(
     findings: list[Finding] = []
     contexts = extract_virtualhost_contexts(config_ast)
 
-    if _scope_has_https_upstream_proxy(config_ast.nodes, modules):
+    if has_https_upstream_proxy(config_ast.nodes, modules):
         effective = build_server_effective_config(config_ast)
         if not _verify_is_required(effective.directives):
             findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
@@ -52,7 +52,7 @@ def find_ssl_proxy_verify_not_required(
     for context in contexts:
         if context.optional_ancestor_names:
             continue
-        if not _scope_has_https_upstream_proxy(context.node.children, modules):
+        if not has_https_upstream_proxy(context.node.children, modules):
             continue
 
         effective = build_server_effective_config(config_ast, virtualhost_context=context)
@@ -62,13 +62,6 @@ def find_ssl_proxy_verify_not_required(
         findings.append(_finding_from_source(context.node.source))
 
     return findings
-
-
-def _scope_has_https_upstream_proxy(
-    nodes,
-    modules: frozenset[str],
-) -> bool:
-    return has_https_upstream_proxy(nodes, modules)
 
 
 def _verify_is_required(directives) -> bool:
