@@ -1,11 +1,9 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
-from webconf_audit.local.apache.effective import (
-    APACHE_ALL_OPTIONS,
-    build_server_effective_config,
-)
+from webconf_audit.local.apache.effective import APACHE_ALL_OPTIONS
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
     ApacheConfigAst,
@@ -16,6 +14,21 @@ from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.options_not_none_in_root_directory"
+_TRANSPARENT_WRAPPER_BLOCKS = frozenset(
+    {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _MergedOptionsState:
+    tokens: list[str]
+    baseline_proven: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _EvaluatedOptionsDirective:
+    directive: ApacheDirectiveNode
+    baseline_proven: bool
 
 
 @rule(
@@ -44,16 +57,16 @@ def find_options_not_none_in_root_directory(
 
     root_blocks = [blocks for blocks in groups.values() if _is_os_root_directory(blocks)]
     if not root_blocks:
-        global_options = build_server_effective_config(config_ast).directives.get("options")
-        if global_options is not None and _is_effective_options_none_args(global_options.args):
+        global_options = _effective_global_options_state(config_ast)
+        if global_options is not None and _is_empty_options_baseline(global_options):
             return []
         return [_make_missing_root_finding(config_ast)]
 
     for blocks in root_blocks:
-        directive = _effective_options_directive(blocks)
-        if directive is not None and _is_effective_options_none(directive):
+        evaluated = _effective_options_directive(blocks)
+        if evaluated is not None and _is_effective_options_none(evaluated):
             continue
-        findings.append(_make_finding(blocks[-1], directive=directive))
+        findings.append(_make_finding(blocks[-1], evaluated=evaluated))
 
     return findings
 
@@ -79,10 +92,16 @@ def _make_missing_root_finding(config_ast: ApacheConfigAst) -> Finding:
 def _make_finding(
     block: ApacheBlockNode,
     *,
-    directive: ApacheDirectiveNode | None,
+    evaluated: _EvaluatedOptionsDirective | None,
 ) -> Finding:
+    directive = evaluated.directive if evaluated is not None else None
     if directive is None:
         detail = "does not set an effective empty 'Options' baseline"
+    elif not evaluated.baseline_proven and not directive.args:
+        detail = (
+            "uses subtractive-only 'Options' modifiers without proving an "
+            "empty baseline"
+        )
     else:
         configured = " ".join(directive.args) if directive.args else "<empty>"
         detail = f"sets effective 'Options {configured}'"
@@ -156,29 +175,49 @@ def _find_options_directive(block: ApacheBlockNode) -> ApacheDirectiveNode | Non
 
 def _effective_options_directive(
     blocks: list[ApacheBlockNode],
-) -> ApacheDirectiveNode | None:
-    effective_tokens: list[str] | None = None
+) -> _EvaluatedOptionsDirective | None:
+    state: _MergedOptionsState | None = None
     effective_directive: ApacheDirectiveNode | None = None
 
     for block in blocks:
         directive = _find_options_directive(block)
         if directive is None:
             continue
-        effective_tokens = _merge_options_tokens(effective_tokens, directive.args)
+        state = _merge_options_tokens(state, directive.args)
         effective_directive = ApacheDirectiveNode(
             name=directive.name,
-            args=effective_tokens,
+            args=list(state.tokens),
             source=directive.source,
         )
 
-    return effective_directive
+    if effective_directive is None or state is None:
+        return None
+
+    return _EvaluatedOptionsDirective(
+        directive=effective_directive,
+        baseline_proven=state.baseline_proven,
+    )
+
+
+def _effective_global_options_state(
+    config_ast: ApacheConfigAst,
+) -> _MergedOptionsState | None:
+    state: _MergedOptionsState | None = None
+    for directive in _iter_top_level_directives(config_ast.nodes):
+        if directive.name.lower() != "options":
+            continue
+        state = _merge_options_tokens(state, directive.args)
+    return state
 
 
 def _merge_options_tokens(
-    current_tokens: list[str] | None,
+    current_state: _MergedOptionsState | None,
     directive_args: list[str],
-) -> list[str]:
-    current_set = set(current_tokens or [])
+) -> _MergedOptionsState:
+    current_set = set(current_state.tokens if current_state is not None else [])
+    baseline_proven = (
+        current_state.baseline_proven if current_state is not None else False
+    )
     absolute_group_active = False
 
     for arg in directive_args:
@@ -186,6 +225,7 @@ def _merge_options_tokens(
         if lowered == "none":
             current_set.clear()
             absolute_group_active = True
+            baseline_proven = True
         elif arg.startswith("+"):
             current_set.update(_expanded_option_token(arg[1:].lower()))
             absolute_group_active = False
@@ -197,16 +237,41 @@ def _merge_options_tokens(
                 current_set.clear()
                 absolute_group_active = True
             current_set.update(_expanded_option_token(lowered))
+            baseline_proven = True
 
-    return sorted(current_set)
+    return _MergedOptionsState(
+        tokens=sorted(current_set),
+        baseline_proven=baseline_proven,
+    )
 
 
-def _is_effective_options_none(directive: ApacheDirectiveNode) -> bool:
-    return _is_effective_options_none_args(directive.args)
+def _is_effective_options_none(
+    evaluated: _EvaluatedOptionsDirective,
+) -> bool:
+    return (
+        evaluated.baseline_proven
+        and _is_effective_options_none_args(evaluated.directive.args)
+    )
 
 
-def _is_effective_options_none_args(args: list[str] | list[list[str]]) -> bool:
+def _is_effective_options_none_args(args: list[str]) -> bool:
     return len(args) == 0
+
+
+def _is_empty_options_baseline(state: _MergedOptionsState) -> bool:
+    return state.baseline_proven and _is_effective_options_none_args(state.tokens)
+
+
+def _iter_top_level_directives(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+) -> list[ApacheDirectiveNode]:
+    directives: list[ApacheDirectiveNode] = []
+    for node in nodes:
+        if isinstance(node, ApacheDirectiveNode):
+            directives.append(node)
+        elif node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
+            directives.extend(_iter_top_level_directives(node.children))
+    return directives
 
 
 def _expanded_option_token(token: str) -> frozenset[str]:
