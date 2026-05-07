@@ -411,6 +411,36 @@ def test_analyze_nginx_config_does_not_report_server_tokens_off(tmp_path: Path) 
     assert result.findings == []
 
 
+def test_analyze_nginx_config_reports_merge_slashes_off(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text("http {\n    merge_slashes off;\n}\n", encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert len(result.findings) == 1
+
+    finding = result.findings[0]
+    assert finding.rule_id == "nginx.merge_slashes_off"
+    assert finding.severity == "low"
+    assert finding.title == "Merge slashes disabled"
+    assert finding.location is not None
+    assert finding.location.file_path == str(config_path)
+    assert finding.location.line == 2
+
+
+def test_analyze_nginx_config_does_not_report_merge_slashes_on(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text("http {\n    merge_slashes on;\n}\n", encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert isinstance(result, AnalysisResult)
+    assert result.issues == []
+    assert result.findings == []
+
+
 def test_analyze_nginx_config_reports_autoindex_on(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_path.write_text("location /listing/ {\n    autoindex on;\n}\n", encoding="utf-8")

@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **343**
+Total rules: **345**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (247), external (83), universal (13) |
-| Severity | high (17), medium (120), low (195), info (11) |
-| Input kind | ast (150), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
+| Category | local (249), external (83), universal (13) |
+| Severity | high (17), medium (121), low (196), info (11) |
+| Input kind | ast (152), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -114,7 +114,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 77
+Count: 79
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -167,6 +167,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.limit_req_zone_invalid_rate` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
 | `nginx.limit_req_zone_not_per_ip` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.5 |
 | `nginx.log_format_missing_fields` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: validates recommended field presence) |
+| `nginx.merge_slashes_off` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | Nginx core module reference: `merge_slashes` (detects explicit disabled slash compression) |
 | `nginx.missing_log_format` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.1 (partial: named custom log_format references; does not validate detailed log fields) |
 | `nginx.missing_permissions_policy` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.permissions_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 (related: wildcard / ineffective policy quality) | - |
@@ -185,6 +186,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.missing_x_frame_options` | low | ast | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `nginx.missing_x_xss_protection` | low | ast | headers | - | - | - | - |
 | `nginx.proxy_missing_source_ip_headers` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.4 (partial: `proxy_pass` source header forwarding) |
+| `nginx.public_autoindex_rate_limit_policy_weak` | medium | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 §5.2.4 / §5.2.5 (partial: effective public autoindex rate-limit scope and conservative value policy) |
 | `nginx.referrer_policy_unsafe` | low | ast | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.5 (partial: value and `always` checks) | CIS NGINX v3.0.0 §5.3.3 (partial: policy value and `always`) |
 | `nginx.ssl_session_cache_missing` | low | ast | tls | - | - | - | CIS NGINX v3.0.0 §4.1.10 (partial: local `ssl_session_cache` presence / disabled-state check) |
 | `nginx.ssl_session_timeout_missing_or_invalid` | low | ast | tls | - | - | - | CIS NGINX v3.0.0 §4.1.9 (partial: explicit non-zero timeout of 10 minutes or less) |
@@ -253,6 +255,7 @@ Mapping rationale (nginx rules):
   reason.
 - `missing_client_max_body_size`, `missing_limit_conn`, `missing_limit_conn_zone`,
   `missing_limit_req`, `missing_limit_req_zone`,
+  `public_autoindex_rate_limit_policy_weak`,
   `client_max_body_size_unlimited`, `client_max_body_size_too_large`,
   `client_header_buffer_size_too_large`, `large_client_header_buffers_too_large`,
   `limit_conn_invalid_limit`, `limit_conn_zone_not_per_ip`,
@@ -260,6 +263,9 @@ Mapping rationale (nginx rules):
   `limit_req_zone_not_per_ip` -- no upper
   bound / rate limit on bodies, connections, or requests: CWE-770 (allocation
   without limits or throttling). OWASP cells empty for the same reason.
+  The public-autoindex rule is intentionally scoped to directory-listing
+  surfaces where sibling or overly loose limits can leave the exposed listing
+  outside the effective request/connection policy.
 - `missing_content_security_policy`, `content_security_policy_unsafe`,
   `content_security_policy_missing_reporting_endpoint`,
   `missing_x_content_type_options`, `missing_permissions_policy` --
@@ -276,6 +282,10 @@ Mapping rationale (nginx rules):
 - `missing_referrer_policy`, `referrer_policy_unsafe` -- as in the universal
   table, no clean CWE maps to "policy not set" or to every unsafe policy
   value; we only keep OWASP A05.
+- `merge_slashes_off` -- disabling URI slash compression can make location
+  matching and upstream path assumptions depend on repeated slashes. This is
+  best treated as OWASP A05 hardening / normalization policy; no precise CWE
+  is claimed.
 - `missing_ssl_certificate`, `missing_ssl_certificate_key` -- listening on
   443 with `ssl` but no cert / key configured leaves the listener unable to
   establish TLS, so HTTPS to it fails: CWE-319, OWASP A02. As with the
@@ -1449,7 +1459,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (13)
-- [x] Nginx local rules (77) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (79) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (72) — CWE/OWASP filled; CIS existing-rule reference
   pass complete

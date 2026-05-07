@@ -70,6 +70,7 @@ Nginx fixtures cover:
 - autoindex enabled
 - server token disclosure
 - unsafe default server behavior
+- disabled URI slash compression via `merge_slashes off`
 - sensitive locations missing access restrictions or IP filtering
 - missing request rate/connection limits
 - missing browser security headers
@@ -105,7 +106,6 @@ dedicated local rules for them:
 - Nginx CRLF/HTTP response splitting via `return ... $uri`
 - user-controlled `proxy_pass` SSRF patterns
 - Host header spoofing in local Nginx config
-- `merge_slashes off`
 - raw backend response reading
 - the exact classic Gixy alias traversal shape where `location /static` maps to
   `alias /path/`
