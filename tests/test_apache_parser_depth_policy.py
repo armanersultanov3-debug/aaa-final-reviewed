@@ -4,6 +4,11 @@ from tests.apache_helpers import (
     analyze_apache_config,
     parse_apache_config,
 )
+from webconf_audit.local.apache.rules._modsecurity_inventory_utils import (
+    InventorySource,
+    find_crs_inventory_source,
+    find_modsecurity_inventory_source,
+)
 from webconf_audit.local.apache.rules._policy_semantics_utils import (
     explicit_module_inventory,
 )
@@ -497,6 +502,46 @@ def test_analyze_apache_config_accepts_modsecurity_static_inventory_without_load
     )
 
     assert "apache.modsecurity_module_missing" not in _rule_ids(findings)
+
+
+def test_find_modsecurity_inventory_source_returns_inventory_source_for_loadmodule() -> None:
+    ast = parse_apache_config(
+        "\n".join(
+            [
+                "LoadModule security2_module modules/mod_security2.so",
+                "ServerName app.example.test",
+            ]
+        )
+    )
+
+    source = find_modsecurity_inventory_source(
+        ast.nodes,
+        explicit_module_inventory(ast),
+    )
+
+    assert isinstance(source, InventorySource)
+    assert source is not None
+    assert source.line == 1
+
+
+def test_find_crs_inventory_source_returns_inventory_source_for_include() -> None:
+    ast = parse_apache_config(
+        "\n".join(
+            [
+                "LoadModule security2_module modules/mod_security2.so",
+                "IncludeOptional conf/owasp-crs/crs-setup.conf",
+            ]
+        )
+    )
+
+    source = find_crs_inventory_source(
+        ast.nodes,
+        explicit_module_inventory(ast),
+    )
+
+    assert isinstance(source, InventorySource)
+    assert source is not None
+    assert source.line == 2
 
 
 def test_analyze_apache_config_reports_missing_crs_when_modsecurity_present(

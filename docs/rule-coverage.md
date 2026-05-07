@@ -1478,7 +1478,7 @@ Progress:
 - [x] Universal rules (13)
 - [x] Nginx local rules (79) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (75) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (77) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (47)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference

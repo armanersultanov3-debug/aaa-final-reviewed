@@ -23,6 +23,7 @@ _MODSECURITY_DIRECTIVE_NAMES = frozenset(
     }
 )
 _MODSECURITY_INCLUDE_MARKERS = ("modsecurity", "security2", "mod_security")
+_MODSECURITY_MODULE_MARKERS = ("security2_module", "mod_security2", "security2")
 _CRS_INCLUDE_MARKERS = (
     "owasp-crs",
     "owasp_crs",
@@ -42,17 +43,17 @@ class InventorySource:
 def find_modsecurity_inventory_source(
     nodes,
     modules: frozenset[str],
-):
+) -> InventorySource | None:
     for directive in iter_enabled_scoped_directives(nodes, modules):
-        if _is_modsecurity_loadmodule(directive, modules):
-            return directive.source
+        if _is_modsecurity_loadmodule(directive):
+            return _inventory_source_from_directive(directive)
         if directive.name.lower() in _MODSECURITY_DIRECTIVE_NAMES:
-            return directive.source
+            return _inventory_source_from_directive(directive)
         if _directive_args_contain_marker(
             directive,
             markers=_MODSECURITY_INCLUDE_MARKERS,
         ):
-            return directive.source
+            return _inventory_source_from_directive(directive)
     return _find_raw_inventory_source(nodes, kind="modsecurity")
 
 
@@ -68,14 +69,14 @@ def has_modsecurity_inventory(
 def find_crs_inventory_source(
     nodes,
     modules: frozenset[str],
-):
+) -> InventorySource | None:
     for directive in iter_enabled_scoped_directives(nodes, modules):
         if not _directive_args_contain_marker(
             directive,
             markers=_CRS_INCLUDE_MARKERS,
         ):
             continue
-        return directive.source
+        return _inventory_source_from_directive(directive)
     return _find_raw_inventory_source(nodes, kind="crs")
 
 
@@ -88,14 +89,11 @@ def has_crs_inventory(
 
 def _is_modsecurity_loadmodule(
     directive: ApacheDirectiveNode,
-    modules: frozenset[str],
 ) -> bool:
     if directive.name.lower() != "loadmodule":
         return False
-    return any(
-        module_explicitly_loaded(modules, arg)
-        for arg in directive.args
-    )
+    rendered_args = " ".join(arg.lower() for arg in directive.args)
+    return any(marker in rendered_args for marker in _MODSECURITY_MODULE_MARKERS)
 
 
 def _directive_args_contain_marker(
@@ -107,6 +105,15 @@ def _directive_args_contain_marker(
         return False
     rendered_args = " ".join(arg.lower() for arg in directive.args)
     return any(marker in rendered_args for marker in markers)
+
+
+def _inventory_source_from_directive(
+    directive: ApacheDirectiveNode,
+) -> InventorySource:
+    return InventorySource(
+        file_path=directive.source.file_path,
+        line=directive.source.line,
+    )
 
 
 def _find_raw_inventory_source(
@@ -186,6 +193,7 @@ def _directive_name_and_args(raw_line: str) -> tuple[str | None, str]:
 
 
 __all__ = [
+    "InventorySource",
     "find_crs_inventory_source",
     "find_modsecurity_inventory_source",
     "has_crs_inventory",
