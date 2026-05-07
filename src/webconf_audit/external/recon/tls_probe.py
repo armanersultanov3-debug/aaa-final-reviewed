@@ -28,6 +28,9 @@ _logger = logging.getLogger(__name__)
 DEFAULT_PROBE_TIMEOUT_SECONDS: float = 2.0
 _CIPHER_PREFERENCE_ORDER_A = "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256"
 _CIPHER_PREFERENCE_ORDER_B = "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+_CIPHER_PREFERENCE_INDETERMINATE = (
+    "TLS 1.2 cipher preference probe was indeterminate."
+)
 
 # --- Protocol definitions ---------------------------------------------------
 
@@ -208,8 +211,20 @@ def probe_server_cipher_preference(
             server_order=None,
             first_cipher=first_cipher,
             reversed_cipher=reversed_cipher,
-            error_message="TLS 1.2 cipher preference probe was indeterminate.",
+            error_message=_CIPHER_PREFERENCE_INDETERMINATE,
         )
+
+    if first_cipher == reversed_cipher:
+        cipher_a, cipher_b = _CIPHER_PREFERENCE_ORDER_A.split(":")
+        cipher_a_result = _probe_tls12_cipher(host, port, cipher_a, timeout)
+        cipher_b_result = _probe_tls12_cipher(host, port, cipher_b, timeout)
+        if cipher_a_result != cipher_a or cipher_b_result != cipher_b:
+            return CipherPreferenceProbeResult(
+                server_order=None,
+                first_cipher=first_cipher,
+                reversed_cipher=reversed_cipher,
+                error_message=_CIPHER_PREFERENCE_INDETERMINATE,
+            )
 
     return CipherPreferenceProbeResult(
         server_order=first_cipher == reversed_cipher,

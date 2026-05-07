@@ -815,6 +815,7 @@ def _enrich_tls_with_version_probe(
 ) -> ProbeAttempt:
     """Run active TLS probing (version scan + chain verification) and merge results."""
     from webconf_audit.external.recon.tls_probe import (  # noqa: PLC0415
+        CipherPreferenceProbeResult,
         probe_chain_depth,
         probe_ocsp_stapling,
         probe_server_cipher_preference,
@@ -839,10 +840,15 @@ def _enrich_tls_with_version_probe(
         probe_target.port,
     )
 
-    preference_result = probe_server_cipher_preference(
-        probe_target.host,
-        probe_target.port,
+    preference_result = CipherPreferenceProbeResult(
+        server_order=None,
+        error_message="TLS 1.2 is not supported by the endpoint.",
     )
+    if "TLSv1.2" in protocols:
+        preference_result = probe_server_cipher_preference(
+            probe_target.host,
+            probe_target.port,
+        )
 
     ocsp_result = probe_ocsp_stapling(
         probe_target.host,

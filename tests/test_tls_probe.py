@@ -246,6 +246,8 @@ class TestServerCipherPreferenceProbe:
 
         def fake_probe(host, port, ciphers, timeout):
             calls.append(ciphers)
+            if ciphers == "AES128-GCM-SHA256":
+                return "AES128-GCM-SHA256"
             return "ECDHE-RSA-AES128-GCM-SHA256"
 
         monkeypatch.setattr(
@@ -260,7 +262,42 @@ class TestServerCipherPreferenceProbe:
             first_cipher="ECDHE-RSA-AES128-GCM-SHA256",
             reversed_cipher="ECDHE-RSA-AES128-GCM-SHA256",
         )
-        assert len(calls) == 2
+        assert calls == [
+            "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256",
+            "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+            "ECDHE-RSA-AES128-GCM-SHA256",
+            "AES128-GCM-SHA256",
+        ]
+
+    def test_reports_indeterminate_when_same_cipher_is_only_supported_suite(
+        self,
+        monkeypatch,
+    ) -> None:
+        calls: list[str] = []
+
+        def fake_probe(host, port, ciphers, timeout):
+            calls.append(ciphers)
+            if ciphers == "AES128-GCM-SHA256":
+                return None
+            return "ECDHE-RSA-AES128-GCM-SHA256"
+
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe._probe_tls12_cipher",
+            fake_probe,
+        )
+
+        result = probe_server_cipher_preference("example.com", 443)
+
+        assert result.server_order is None
+        assert result.first_cipher == "ECDHE-RSA-AES128-GCM-SHA256"
+        assert result.reversed_cipher == "ECDHE-RSA-AES128-GCM-SHA256"
+        assert result.error_message == "TLS 1.2 cipher preference probe was indeterminate."
+        assert calls == [
+            "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256",
+            "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+            "ECDHE-RSA-AES128-GCM-SHA256",
+            "AES128-GCM-SHA256",
+        ]
 
     def test_reports_client_order_when_cipher_choice_changes(self, monkeypatch) -> None:
         calls: list[str] = []
@@ -578,6 +615,46 @@ class TestTlsProbeIntegration:
         result = analyze_external_target("example.com")
         tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
         assert tls_meta["supported_protocols"] == []
+
+    def test_tls12_cipher_preference_probe_skipped_when_tls12_unsupported(
+        self,
+        monkeypatch,
+    ) -> None:
+        attempt = _make_https_attempt()
+        ocsp_calls: list[tuple[str, int]] = []
+        _setup_enrichment_mocks(
+            monkeypatch,
+            attempt,
+            tls_version_results=[
+                TLSVersionProbeResult(label="TLSv1.2", supported=False),
+                TLSVersionProbeResult(label="TLSv1.3", supported=True),
+            ],
+        )
+
+        def fail_preference_probe(*_args, **_kwargs):
+            raise AssertionError("TLS 1.2 preference probe should be skipped.")
+
+        def tracking_ocsp_probe(host, port, **_kwargs):
+            ocsp_calls.append((host, port))
+            return OCSPStaplingProbeResult(stapled=True)
+
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.probe_server_cipher_preference",
+            fail_preference_probe,
+        )
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.probe_ocsp_stapling",
+            tracking_ocsp_probe,
+        )
+
+        result = analyze_external_target("example.com")
+        tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
+        assert tls_meta["server_cipher_preference"] is None
+        assert tls_meta["cipher_preference_error"] == (
+            "TLS 1.2 is not supported by the endpoint."
+        )
+        assert tls_meta["ocsp_stapled"] is True
+        assert ocsp_calls == [("example.com", 443)]
 
     def test_cipher_preference_and_ocsp_in_metadata(self, monkeypatch) -> None:
         attempt = _make_https_attempt()
