@@ -77,19 +77,22 @@ def _has_whole_scope_require_all_denied(
         if name in TRANSPARENT_WRAPPER_BLOCKS:
             if _has_whole_scope_require_all_denied(node, modules):
                 return True
-        elif _is_whole_request_scope(node) and _has_require_all_denied(node):
+        elif _is_whole_request_scope(node) and _has_require_all_denied(node, modules):
             return True
     return False
 
 
-def _has_require_all_denied(block: ApacheBlockNode) -> bool:
-    for node in block.children:
+def _has_require_all_denied(
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+) -> bool:
+    for node in _iter_guarded_nodes(block.children, modules):
         if isinstance(node, ApacheDirectiveNode):
             if _is_require_all_denied(node):
                 return True
             continue
         if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
-            if _has_require_all_denied(node):
+            if _has_require_all_denied(node, modules):
                 return True
     return False
 

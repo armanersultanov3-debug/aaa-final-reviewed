@@ -246,6 +246,31 @@ def test_analyze_apache_config_ignores_negated_ifmodule_rewrite_when_module_is_l
     assert "apache.default_tls_vhost_not_rejecting_unknown_hosts" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_ignores_negated_ifmodule_require_when_module_is_loaded(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "LoadModule authz_core_module modules/mod_authz_core.so",
+            "Listen 127.0.0.1:443 https",
+            "<VirtualHost *:443>",
+            "    ServerName _",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            '    <Location "/">',
+            "        <IfModule !mod_authz_core.c>",
+            "            Require all denied",
+            "        </IfModule>",
+            "    </Location>",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.default_tls_vhost_not_rejecting_unknown_hosts" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_accepts_ifmodule_rewriteengine_for_following_rule(
     tmp_path: Path,
 ) -> None:

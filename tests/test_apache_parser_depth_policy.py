@@ -1,4 +1,30 @@
-from tests.apache_helpers import Path, _safe_apache_config, analyze_apache_config
+from tests.apache_helpers import (
+    Path,
+    _safe_apache_config,
+    analyze_apache_config,
+    parse_apache_config,
+)
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    explicit_module_inventory,
+)
+
+
+def test_explicit_module_inventory_ignores_disabled_ifmodule_loadmodule() -> None:
+    ast = parse_apache_config(
+        "\n".join(
+            [
+                "LoadModule proxy_module modules/mod_proxy.so",
+                "<IfModule !mod_proxy.c>",
+                "    LoadModule ssl_module modules/mod_ssl.so",
+                "</IfModule>",
+            ]
+        )
+    )
+
+    modules = explicit_module_inventory(ast)
+
+    assert "proxy_module" in modules
+    assert "ssl_module" not in modules
 
 
 def test_analyze_apache_config_reports_missing_sitewide_method_policy_for_proxy_vhost(
@@ -66,22 +92,32 @@ def test_analyze_apache_config_reports_main_server_sitewide_method_policy_with_v
     assert "apache.sitewide_http_method_policy_missing" in _rule_ids(findings)
 
 
-def test_analyze_apache_config_ignores_disabled_location_for_sitewide_policy(
+def test_analyze_apache_config_ignores_disabled_location_policy_for_sitewide_policy(
     tmp_path: Path,
 ) -> None:
     findings = _analyze_config(
         tmp_path,
         _safe_apache_config(
             "LoadModule proxy_module modules/mod_proxy.so",
-            "<IfModule !mod_proxy.c>",
-            '    <Location "/api">',
-            "        Require all granted",
-            "    </Location>",
-            "</IfModule>",
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProxyEngine On",
+            "    ProxyPass / https://backend.internal/",
+            "    <IfModule !mod_proxy.c>",
+            '        <Location "/">',
+            "            <LimitExcept GET HEAD POST OPTIONS>",
+            "                Require all denied",
+            "            </LimitExcept>",
+            "        </Location>",
+            "    </IfModule>",
+            "</VirtualHost>",
         ),
     )
 
-    assert "apache.sitewide_http_method_policy_missing" not in _rule_ids(findings)
+    assert "apache.sitewide_http_method_policy_missing" in _rule_ids(findings)
 
 
 def test_analyze_apache_config_skips_unknown_negated_ifmodule_location_for_sitewide_policy(
@@ -90,15 +126,25 @@ def test_analyze_apache_config_skips_unknown_negated_ifmodule_location_for_sitew
     findings = _analyze_config(
         tmp_path,
         _safe_apache_config(
-            "<IfModule !mod_proxy.c>",
-            '    <Location "/uploads">',
-            "        Require all granted",
-            "    </Location>",
-            "</IfModule>",
+            "<VirtualHost *:443>",
+            "    ServerName app.example.test",
+            "    SSLEngine On",
+            "    SSLCertificateFile conf/server.crt",
+            "    SSLCertificateKeyFile conf/server.key",
+            "    SSLProxyEngine On",
+            "    ProxyPass / https://backend.internal/",
+            "    <IfModule !mod_missing.c>",
+            '        <Location "/">',
+            "            <LimitExcept GET HEAD POST OPTIONS>",
+            "                Require all denied",
+            "            </LimitExcept>",
+            "        </Location>",
+            "    </IfModule>",
+            "</VirtualHost>",
         ),
     )
 
-    assert "apache.sitewide_http_method_policy_missing" not in _rule_ids(findings)
+    assert "apache.sitewide_http_method_policy_missing" in _rule_ids(findings)
 
 
 def test_analyze_apache_config_reports_vhost_permissive_location_overriding_global_policy(

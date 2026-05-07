@@ -15,7 +15,6 @@ TRANSPARENT_WRAPPER_BLOCKS = frozenset(
 )
 AUTHZ_CONTAINER_BLOCKS = frozenset({"requireall", "requireany", "requirenone"})
 METHOD_RESTRICTION_BLOCKS = frozenset({"limit", "limitexcept"})
-ALL_WRAPPER_BLOCKS = TRANSPARENT_WRAPPER_BLOCKS | frozenset({"ifmodule"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,13 +28,36 @@ def explicit_module_inventory(
     config_ast: ApacheConfigAst,
 ) -> frozenset[str]:
     modules: set[str] = set()
-    for directive in _iter_loadmodule_directives(config_ast.nodes):
-        if len(directive.args) < 1:
-            continue
-        modules.update(_module_aliases(directive.args[0]))
-        if len(directive.args) >= 2:
-            modules.update(_module_aliases(directive.args[1]))
+
+    def walk(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> None:
+        for node in nodes:
+            if isinstance(node, ApacheDirectiveNode):
+                if node.name.lower() == "loadmodule":
+                    _add_loadmodule_aliases(node, modules)
+                continue
+
+            name = node.name.lower()
+            if name == "ifmodule":
+                if ifmodule_matches(node.args, frozenset(modules)) is True:
+                    walk(node.children)
+                continue
+
+            if name in TRANSPARENT_WRAPPER_BLOCKS:
+                walk(node.children)
+
+    walk(config_ast.nodes)
     return frozenset(modules)
+
+
+def _add_loadmodule_aliases(
+    directive: ApacheDirectiveNode,
+    modules: set[str],
+) -> None:
+    if len(directive.args) < 1:
+        return
+    modules.update(_module_aliases(directive.args[0]))
+    if len(directive.args) >= 2:
+        modules.update(_module_aliases(directive.args[1]))
 
 
 def module_explicitly_loaded(
@@ -164,22 +186,6 @@ def has_https_upstream_proxy(
 
 def _is_https_proxy_target(raw_value: str) -> bool:
     return raw_value.strip().strip('"').strip("'").lower().startswith("https://")
-
-
-def _iter_loadmodule_directives(
-    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
-) -> list[ApacheDirectiveNode]:
-    directives: list[ApacheDirectiveNode] = []
-    for node in nodes:
-        if isinstance(node, ApacheDirectiveNode):
-            if node.name.lower() == "loadmodule":
-                directives.append(node)
-            continue
-
-        child_name = node.name.lower()
-        if child_name in ALL_WRAPPER_BLOCKS:
-            directives.extend(_iter_loadmodule_directives(node.children))
-    return directives
 
 
 def _module_aliases(raw_value: str) -> set[str]:
