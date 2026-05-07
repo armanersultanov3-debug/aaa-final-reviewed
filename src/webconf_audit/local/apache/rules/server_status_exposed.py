@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules.location_endpoint_utils import (
-    effective_location_has_require_ip,
+    effective_location_has_require_ip_for_ast,
     find_effective_location_evaluations,
     virtualhost_label,
 )
@@ -34,7 +34,10 @@ def find_server_status_exposed(config_ast: ApacheConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
     for evaluation in find_effective_location_evaluations(config_ast, TARGET_PATH):
-        if effective_location_has_require_ip(evaluation.effective_config):
+        if effective_location_has_require_ip_for_ast(
+            config_ast,
+            evaluation.effective_config,
+        ):
             continue
 
         description = (

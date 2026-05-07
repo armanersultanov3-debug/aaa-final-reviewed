@@ -5,6 +5,10 @@ from webconf_audit.local.apache.parser import (
     ApacheConfigAst,
     ApacheDirectiveNode,
 )
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    block_has_unapproved_allowed_methods,
+    explicit_module_inventory,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
@@ -26,9 +30,6 @@ REQUIRE_METHOD_WRAPPER_BLOCKS = TRANSPARENT_WRAPPER_BLOCKS | frozenset(
     {"requireall"}
 )
 REQUIRE_METHOD_SUPPRESSED_BLOCKS = frozenset({"requireany", "requirenone"})
-DENY_WRAPPER_BLOCKS = REQUIRE_METHOD_WRAPPER_BLOCKS | frozenset(
-    {"limit", "limitexcept"}
-)
 
 
 @rule(
@@ -42,18 +43,21 @@ DENY_WRAPPER_BLOCKS = REQUIRE_METHOD_WRAPPER_BLOCKS | frozenset(
     order=341,
 )
 def find_http_method_policy_unsafe(config_ast: ApacheConfigAst) -> list[Finding]:
-    return _policy_findings(config_ast.nodes)
+    modules = explicit_module_inventory(config_ast)
+    return _policy_findings(config_ast.nodes, modules=modules)
 
 
 def _policy_findings(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     *,
+    modules: frozenset[str],
     require_method_active: bool = True,
 ) -> list[Finding]:
     findings: list[Finding] = []
     for node in nodes:
         finding = _unsafe_method_policy_finding(
             node,
+            modules=modules,
             require_method_active=require_method_active,
         )
         if finding is not None:
@@ -63,6 +67,7 @@ def _policy_findings(
             findings.extend(
                 _policy_findings(
                     node.children,
+                    modules=modules,
                     require_method_active=_child_require_method_active(
                         node,
                         require_method_active,
@@ -75,24 +80,19 @@ def _policy_findings(
 def _unsafe_method_policy_finding(
     node: ApacheDirectiveNode | ApacheBlockNode,
     *,
+    modules: frozenset[str],
     require_method_active: bool,
 ) -> Finding | None:
-    unapproved_methods: set[str]
     source = node.source
 
-    if isinstance(node, ApacheDirectiveNode):
-        if not require_method_active or not _is_require_method(node):
-            return None
-        unapproved_methods = _unapproved_methods(node.args[1:])
-    elif (
-        require_method_active
-        and node.name.lower() == "limitexcept"
-        and _block_denies_access(node)
-    ):
-        unapproved_methods = _unapproved_methods(node.args)
-    else:
+    if isinstance(node, ApacheDirectiveNode) or not require_method_active:
         return None
 
+    unapproved_methods = block_has_unapproved_allowed_methods(
+        node,
+        modules,
+        APPROVED_METHODS,
+    )
     if not unapproved_methods:
         return None
 
@@ -124,53 +124,6 @@ def _child_require_method_active(
     if name in REQUIRE_METHOD_WRAPPER_BLOCKS:
         return parent_active
     return parent_active
-
-
-def _is_require_method(directive: ApacheDirectiveNode) -> bool:
-    return (
-        directive.name.lower() == "require"
-        and len(directive.args) >= 2
-        and directive.args[0].lower() == "method"
-    )
-
-
-def _unapproved_methods(methods: list[str]) -> set[str]:
-    return {
-        method.upper()
-        for method in methods
-        if method.upper() not in APPROVED_METHODS
-    }
-
-
-def _block_denies_access(block: ApacheBlockNode) -> bool:
-    for child in block.children:
-        if isinstance(child, ApacheDirectiveNode):
-            if _is_require_all_denied(child) or _is_legacy_deny_all(child):
-                return True
-            continue
-        if child.name.lower() in DENY_WRAPPER_BLOCKS and _block_denies_access(
-            child
-        ):
-            return True
-    return False
-
-
-def _is_require_all_denied(directive: ApacheDirectiveNode) -> bool:
-    return (
-        directive.name.lower() == "require"
-        and len(directive.args) >= 2
-        and directive.args[0].lower() == "all"
-        and directive.args[1].lower() in {"denied", "deny"}
-    )
-
-
-def _is_legacy_deny_all(directive: ApacheDirectiveNode) -> bool:
-    return (
-        directive.name.lower() == "deny"
-        and len(directive.args) >= 2
-        and directive.args[0].lower() == "from"
-        and directive.args[1].lower() == "all"
-    )
 
 
 __all__ = ["find_http_method_policy_unsafe"]

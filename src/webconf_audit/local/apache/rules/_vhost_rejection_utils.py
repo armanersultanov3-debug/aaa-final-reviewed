@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext
 from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    module_explicitly_loaded,
+)
 
 TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"ifdefine", "ifmodule", "ifversion", "requireall"}
@@ -30,8 +33,14 @@ def listen_keys(context: ApacheVirtualHostContext) -> list[str]:
     return list(dict.fromkeys(_normalize_listen_key(address) for address in addresses))
 
 
-def rejects_unknown_hosts(block: ApacheBlockNode) -> bool:
-    return _has_whole_scope_require_all_denied(block) or _has_forbidden_rewrite(block)
+def rejects_unknown_hosts(
+    block: ApacheBlockNode,
+    modules: frozenset[str] = frozenset(),
+) -> bool:
+    return _has_whole_scope_require_all_denied(block, modules) or _has_forbidden_rewrite(
+        block,
+        modules=modules,
+    )
 
 
 def _normalize_listen_key(value: str) -> str:
@@ -57,13 +66,16 @@ def _normalize_host(value: str) -> str:
     return normalized
 
 
-def _has_whole_scope_require_all_denied(block: ApacheBlockNode) -> bool:
-    for node in block.children:
+def _has_whole_scope_require_all_denied(
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+) -> bool:
+    for node in _iter_guarded_nodes(block.children, modules):
         if isinstance(node, ApacheDirectiveNode):
             continue
         name = node.name.lower()
         if name in TRANSPARENT_WRAPPER_BLOCKS:
-            if _has_whole_scope_require_all_denied(node):
+            if _has_whole_scope_require_all_denied(node, modules):
                 return True
         elif _is_whole_request_scope(node) and _has_require_all_denied(node):
             return True
@@ -104,23 +116,31 @@ def _is_whole_request_scope(block: ApacheBlockNode) -> bool:
 
 
 def _has_forbidden_rewrite(
-    block: ApacheBlockNode, *, rewrite_engine_enabled: bool = False
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+    *,
+    rewrite_engine_enabled: bool = False,
 ) -> bool:
     found, _ = _scan_forbidden_rewrite(
         block,
+        modules=modules,
         rewrite_engine_enabled=rewrite_engine_enabled,
     )
     return found
 
 
 def _scan_forbidden_rewrite(
-    block: ApacheBlockNode, *, rewrite_engine_enabled: bool
+    block: ApacheBlockNode,
+    modules: frozenset[str],
+    *,
+    rewrite_engine_enabled: bool,
 ) -> tuple[bool, bool]:
-    for node in block.children:
+    for node in _iter_guarded_nodes(block.children, modules):
         if isinstance(node, ApacheBlockNode):
             if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
                 found, rewrite_engine_enabled = _scan_forbidden_rewrite(
                     node,
+                    modules=modules,
                     rewrite_engine_enabled=rewrite_engine_enabled,
                 )
                 if found:
@@ -135,6 +155,45 @@ def _scan_forbidden_rewrite(
         if rewrite_engine_enabled and _is_forbidden_rewrite_rule(node):
             return True, rewrite_engine_enabled
     return False, rewrite_engine_enabled
+
+
+def _iter_guarded_nodes(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
+) -> list[ApacheDirectiveNode | ApacheBlockNode]:
+    guarded: list[ApacheDirectiveNode | ApacheBlockNode] = []
+    for node in nodes:
+        if isinstance(node, ApacheDirectiveNode):
+            guarded.append(node)
+            continue
+
+        name = node.name.lower()
+        if name == "ifmodule":
+            if _ifmodule_matches(node.args, modules):
+                guarded.extend(_iter_guarded_nodes(node.children, modules))
+            continue
+        if name in {"ifdefine", "ifversion"}:
+            guarded.extend(_iter_guarded_nodes(node.children, modules))
+            continue
+
+        guarded.append(node)
+    return guarded
+
+
+def _ifmodule_matches(
+    args: list[str],
+    modules: frozenset[str],
+) -> bool:
+    if not args:
+        return False
+
+    token = args[0].strip().strip('"').strip("'")
+    negated = token.startswith("!")
+    module_token = token[1:] if negated else token
+    loaded = module_explicitly_loaded(modules, module_token)
+    if not loaded and not negated:
+        return True
+    return not loaded if negated else loaded
 
 
 def _is_forbidden_rewrite_rule(directive: ApacheDirectiveNode) -> bool:

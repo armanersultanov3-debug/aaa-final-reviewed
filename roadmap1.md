@@ -100,11 +100,12 @@ Status: implemented.
 - `AllowOverride` baseline checks, OS-root `Options None` baseline checks,
   timeout/keepalive value checks, redirect precision, and default TLS plus
   non-TLS VirtualHost unknown-host rejection are present.
-- Broader site-wide approved-method policy, rewrite-module inventory, and
-  deployment-specific exceptions now live in the Apache standards backlog
-  rather than this roadmap slice.
-- Deeper `Require` / module-inventory / ModSecurity semantics stay
-  `parser-depth` and should not be forced into string-only checks.
+- The standards-backlog follow-up that used to sit here is now closed:
+  site-wide request-policy coverage, rewrite-module inventory, upstream TLS
+  proxy-trust checks, and the needed `RequireAll` / `RequireAny` semantics now
+  live in `STD-GAP-006` / `STD-GAP-007` and are implemented.
+- Broader ModSecurity / CRS semantics still stay `parser-depth` and should not
+  be forced into string-only checks.
 
 ## PR Slice 8: IIS XML Policy Completeness
 

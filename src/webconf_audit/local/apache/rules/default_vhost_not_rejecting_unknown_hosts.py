@@ -6,6 +6,9 @@ from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
     extract_virtualhost_contexts,
 )
+from webconf_audit.local.apache.rules._policy_semantics_utils import (
+    explicit_module_inventory,
+)
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules._redirect_scope_utils import (
     is_redirect_only_virtualhost,
@@ -61,6 +64,7 @@ def find_default_vhost_not_rejecting_unknown_hosts(
 ) -> list[Finding]:
     findings: list[Finding] = []
     seen_contexts: set[int] = set()
+    modules = explicit_module_inventory(config_ast)
 
     for contexts in _non_tls_contexts_by_listen_key(config_ast).values():
         shared_listen_address = len(contexts) > 1
@@ -70,7 +74,10 @@ def find_default_vhost_not_rejecting_unknown_hosts(
             continue
         seen_contexts.add(context_id)
 
-        if rejects_unknown_hosts(context.node) or is_redirect_only_virtualhost(context):
+        if rejects_unknown_hosts(context.node, modules) or is_redirect_only_virtualhost(
+            context,
+            modules,
+        ):
             continue
         findings.append(
             _finding(context, shared_listen_address=shared_listen_address)
