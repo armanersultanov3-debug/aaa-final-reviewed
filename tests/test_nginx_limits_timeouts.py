@@ -1366,6 +1366,7 @@ def test_analyze_nginx_config_reports_public_autoindex_with_sibling_rate_limits(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
     assert finding.location is not None
     assert finding.location.line == 12
@@ -1395,6 +1396,7 @@ def test_analyze_nginx_config_reports_public_autoindex_weak_rate_limit_values(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert result.issues == []
     finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
     assert finding.location is not None
     assert finding.location.line == 9
@@ -1424,7 +1426,38 @@ def test_analyze_nginx_config_accepts_public_autoindex_moderate_rate_limits(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert result.issues == []
     assert not any(
         finding.rule_id == "nginx.public_autoindex_rate_limit_policy_weak"
         for finding in result.findings
     )
+
+
+def test_analyze_nginx_config_reports_public_autoindex_invalid_rate_limits_as_not_effective(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=perip:10m rate=30r/m;\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        limit_req zone=missing burst=10;\n"
+        "        limit_conn addr nope;\n"
+        "        location /downloads/ {\n"
+        "            autoindex on;\n"
+        "            root /srv/www;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    finding = _finding_by_rule_id(result, "nginx.public_autoindex_rate_limit_policy_weak")
+    assert finding.location is not None
+    assert finding.location.line == 9
+    assert finding.metadata["weaknesses"] == "limit_req_not_effective,limit_conn_not_effective"

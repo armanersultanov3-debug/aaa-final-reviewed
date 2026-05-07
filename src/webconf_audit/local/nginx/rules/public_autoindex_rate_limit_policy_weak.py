@@ -133,15 +133,17 @@ def _scope_weaknesses(
         inherited_directives,
         "limit_conn",
     )
+    limit_req_rates = _valid_limit_req_rates(limit_req, zone_rates)
+    limit_conn_limits = _valid_limit_conn_limits(limit_conn)
 
-    if not limit_req and configured_limits["limit_req"]:
+    if configured_limits["limit_req"] and not limit_req_rates:
         weaknesses.append("limit_req_not_effective")
-    elif _limit_req_values_too_high(limit_req, zone_rates):
+    elif _limit_req_values_too_high(limit_req_rates):
         weaknesses.append("limit_req_rate_too_high")
 
-    if not limit_conn and configured_limits["limit_conn"]:
+    if configured_limits["limit_conn"] and not limit_conn_limits:
         weaknesses.append("limit_conn_not_effective")
-    elif _limit_conn_values_too_high(limit_conn):
+    elif _limit_conn_values_too_high(limit_conn_limits):
         weaknesses.append("limit_conn_limit_too_high")
 
     return weaknesses
@@ -178,29 +180,37 @@ def _has_configured_limit(
 
 
 def _limit_req_values_too_high(
-    directives: list[DirectiveNode],
-    zone_rates: dict[str, float],
+    rates: list[float],
 ) -> bool:
-    rates = [
-        zone_rates[zone_name]
-        for directive in directives
-        if (zone_name := find_zone_name(directive.args)) in zone_rates
-    ]
     return bool(rates) and all(
         rate > _MAX_PUBLIC_AUTOINDEX_REQUEST_RATE_PER_SECOND for rate in rates
     )
 
 
-def _limit_conn_values_too_high(directives: list[DirectiveNode]) -> bool:
-    limits = [
+def _valid_limit_req_rates(
+    directives: list[DirectiveNode],
+    zone_rates: dict[str, float],
+) -> list[float]:
+    return [
+        zone_rates[zone_name]
+        for directive in directives
+        if (zone_name := find_zone_name(directive.args)) in zone_rates
+    ]
+
+
+def _limit_conn_values_too_high(limits: list[int]) -> bool:
+    return bool(limits) and all(
+        limit > _MAX_PUBLIC_AUTOINDEX_CONNECTIONS for limit in limits
+    )
+
+
+def _valid_limit_conn_limits(directives: list[DirectiveNode]) -> list[int]:
+    return [
         parsed
         for directive in directives
         if len(directive.args) >= 2
         if (parsed := parse_positive_integer(directive.args[1])) is not None
     ]
-    return bool(limits) and all(
-        limit > _MAX_PUBLIC_AUTOINDEX_CONNECTIONS for limit in limits
-    )
 
 
 def _location_is_internal_or_named(location: BlockNode) -> bool:
