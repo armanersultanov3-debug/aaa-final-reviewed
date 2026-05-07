@@ -19,6 +19,7 @@ _REDIRECT_METADATA_DIRECTIVES = frozenset(
         "customlog",
         "errorlog",
         "loglevel",
+        "rewritecond",
         "rewriteengine",
         "serveradmin",
         "serveralias",
@@ -103,7 +104,7 @@ def _directive_redirects_all_to_https(
     if name == "rewriterule":
         return _rewrite_rule_targets_whole_https(directive)
     if name == "rewritecond":
-        return False
+        return None
     return None
 
 

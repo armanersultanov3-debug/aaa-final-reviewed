@@ -483,6 +483,31 @@ def test_analyze_apache_config_reports_virtualhost_sensitive_location_without_me
     assert matching[0].location.line == 13
 
 
+def test_analyze_apache_config_ignores_sensitive_location_in_disabled_ifmodule(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _safe_apache_config(
+            "LoadModule status_module modules/mod_status.so",
+            "<IfModule !mod_status.c>",
+            '    <Location "/admin">',
+            "        Require all granted",
+            "    </Location>",
+            "</IfModule>",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "apache.missing_http_method_restrictions"
+        for finding in result.findings
+    )
+
+
 def test_analyze_apache_config_does_not_report_server_info_when_require_ip_is_present(
     tmp_path: Path,
 ) -> None:

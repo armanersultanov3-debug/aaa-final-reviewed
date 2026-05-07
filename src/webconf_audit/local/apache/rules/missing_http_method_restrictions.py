@@ -7,6 +7,7 @@ from webconf_audit.local.apache.parser import (
 )
 from webconf_audit.local.apache.rules._policy_semantics_utils import (
     explicit_module_inventory,
+    iter_enabled_nodes,
     nodes_guarantee_method_restriction,
 )
 from webconf_audit.models import Finding, SourceLocation
@@ -41,7 +42,7 @@ def find_missing_http_method_restrictions(
 ) -> list[Finding]:
     findings: list[Finding] = []
     modules = explicit_module_inventory(config_ast)
-    for location in _iter_location_blocks(config_ast.nodes):
+    for location in _iter_location_blocks(config_ast.nodes, modules):
         if not _is_sensitive_location(location):
             continue
         if _location_has_method_restriction(location, modules):
@@ -66,14 +67,15 @@ def find_missing_http_method_restrictions(
 
 def _iter_location_blocks(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
 ) -> list[ApacheBlockNode]:
     blocks: list[ApacheBlockNode] = []
-    for node in nodes:
+    for node in iter_enabled_nodes(nodes, modules):
         if isinstance(node, ApacheDirectiveNode):
             continue
         if node.name.lower() in LOCATION_BLOCK_NAMES:
             blocks.append(node)
-        blocks.extend(_iter_location_blocks(node.children))
+        blocks.extend(_iter_location_blocks(node.children, modules))
     return blocks
 
 

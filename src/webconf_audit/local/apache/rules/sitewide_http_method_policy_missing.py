@@ -12,7 +12,9 @@ from webconf_audit.local.apache.parser import (
 from webconf_audit.local.apache.rules._policy_semantics_utils import (
     explicit_module_inventory,
     has_https_upstream_proxy,
+    iter_enabled_nodes,
     matching_location_scopes_for_path,
+    nodes_define_method_policy,
     nodes_guarantee_method_restriction,
 )
 from webconf_audit.local.apache.rules._redirect_scope_utils import (
@@ -55,13 +57,14 @@ def find_sitewide_http_method_policy_missing(
     findings: list[Finding] = []
     contexts = extract_virtualhost_contexts(config_ast)
 
+    if _scope_requires_request_policy(config_ast.nodes, modules) and not _context_has_whole_scope_policy(
+        config_ast,
+        None,
+        modules,
+    ):
+        findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
+
     if not contexts:
-        if _scope_requires_request_policy(config_ast.nodes, modules) and not _context_has_whole_scope_policy(
-            config_ast,
-            None,
-            modules,
-        ):
-            findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
         return findings
 
     for context in contexts:
@@ -80,18 +83,22 @@ def _scope_requires_request_policy(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     modules: frozenset[str],
 ) -> bool:
-    return _has_any_location_block(nodes) or _has_any_proxy_routing(nodes, modules)
+    return _has_any_location_block(nodes, modules) or _has_any_proxy_routing(nodes, modules)
 
 
 def _has_any_location_block(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
 ) -> bool:
-    for node in nodes:
+    for node in iter_enabled_nodes(nodes, modules):
         if not isinstance(node, ApacheBlockNode):
             continue
-        if node.name.lower() in {"location", "locationmatch"} and _is_request_policy_location(node):
+        node_name = node.name.lower()
+        if node_name == "virtualhost":
+            continue
+        if node_name in {"location", "locationmatch"} and _is_request_policy_location(node):
             return True
-        if _has_any_location_block(node.children):
+        if _has_any_location_block(node.children, modules):
             return True
     return False
 
@@ -127,19 +134,22 @@ def _context_has_whole_scope_policy(
     context: ApacheVirtualHostContext | None,
     modules: frozenset[str],
 ) -> bool:
+    effective_policy: bool | None = None
     for scope in matching_location_scopes_for_path(
         config_ast,
         "/",
         virtualhost_context=context,
+        modules=modules,
     ):
         if not scope.args:
             continue
         raw = scope.args[0].strip().strip('"').strip("'")
         if raw not in _WHOLE_SCOPE_LOCATION_PATTERNS:
             continue
-        if nodes_guarantee_method_restriction(scope.children, modules):
-            return True
-    return False
+        if not nodes_define_method_policy(scope.children, modules):
+            continue
+        effective_policy = nodes_guarantee_method_restriction(scope.children, modules)
+    return effective_policy is True
 
 
 def _finding_from_source(source) -> Finding:

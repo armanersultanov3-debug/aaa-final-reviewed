@@ -125,6 +125,7 @@ def effective_location_has_require_ip_for_ast(
         config_ast,
         effective_config.location_path,
         virtualhost_context=effective_config.virtualhost,
+        modules=explicit_module_inventory(config_ast),
     )
     if not scopes:
         return False

@@ -41,11 +41,12 @@ def find_ssl_proxy_verify_not_required(
     findings: list[Finding] = []
     contexts = extract_virtualhost_contexts(config_ast)
 
-    if not contexts and _scope_has_https_upstream_proxy(config_ast.nodes, modules):
+    if _scope_has_https_upstream_proxy(config_ast.nodes, modules):
         effective = build_server_effective_config(config_ast)
-        if _verify_is_required(effective.directives):
-            return []
-        findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
+        if not _verify_is_required(effective.directives):
+            findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
+
+    if not contexts:
         return findings
 
     for context in contexts:

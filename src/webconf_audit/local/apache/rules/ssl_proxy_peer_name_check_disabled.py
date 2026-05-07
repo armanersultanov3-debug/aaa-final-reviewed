@@ -40,11 +40,13 @@ def find_ssl_proxy_peer_name_check_disabled(
     findings: list[Finding] = []
     contexts = extract_virtualhost_contexts(config_ast)
 
-    if not contexts and has_https_upstream_proxy(config_ast.nodes, modules):
+    if has_https_upstream_proxy(config_ast.nodes, modules):
         effective = build_server_effective_config(config_ast)
-        if not _peer_name_check_explicitly_disabled(effective.directives):
-            return []
-        findings.append(_finding_from_source(config_ast.nodes[0].source if config_ast.nodes else None))
+        disabled_source = _disabled_peer_name_source(effective.directives)
+        if disabled_source is not None:
+            findings.append(_finding_from_source(disabled_source))
+
+    if not contexts:
         return findings
 
     for context in contexts:
@@ -54,15 +56,20 @@ def find_ssl_proxy_peer_name_check_disabled(
             continue
 
         effective = build_server_effective_config(config_ast, virtualhost_context=context)
-        if not _peer_name_check_explicitly_disabled(effective.directives):
+        disabled_source = _disabled_peer_name_source(effective.directives)
+        if disabled_source is None:
             continue
 
-        findings.append(_finding_from_source(context.node.source))
+        findings.append(_finding_from_source(disabled_source))
 
     return findings
 
 
 def _peer_name_check_explicitly_disabled(directives) -> bool:
+    return _disabled_peer_name_source(directives) is not None
+
+
+def _disabled_peer_name_source(directives):
     for name in ("sslproxycheckpeername", "sslproxycheckpeercn"):
         directive = directives.get(name)
         if directive is None or not directive.args:
@@ -71,8 +78,8 @@ def _peer_name_check_explicitly_disabled(directives) -> bool:
         if isinstance(first_arg, list):
             continue
         if first_arg.lower() == "off":
-            return True
-    return False
+            return directive.origin.source
+    return None
 
 
 def _finding_from_source(source) -> Finding:

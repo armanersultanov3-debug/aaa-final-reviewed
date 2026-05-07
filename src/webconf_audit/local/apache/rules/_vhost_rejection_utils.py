@@ -3,7 +3,7 @@ from __future__ import annotations
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext
 from webconf_audit.local.apache.parser import ApacheBlockNode, ApacheDirectiveNode
 from webconf_audit.local.apache.rules._policy_semantics_utils import (
-    module_explicitly_loaded,
+    ifmodule_matches,
 )
 
 TRANSPARENT_WRAPPER_BLOCKS = frozenset(
@@ -169,7 +169,7 @@ def _iter_guarded_nodes(
 
         name = node.name.lower()
         if name == "ifmodule":
-            if _ifmodule_matches(node.args, modules):
+            if ifmodule_matches(node.args, modules):
                 guarded.extend(_iter_guarded_nodes(node.children, modules))
             continue
         if name in {"ifdefine", "ifversion"}:
@@ -178,22 +178,6 @@ def _iter_guarded_nodes(
 
         guarded.append(node)
     return guarded
-
-
-def _ifmodule_matches(
-    args: list[str],
-    modules: frozenset[str],
-) -> bool:
-    if not args:
-        return False
-
-    token = args[0].strip().strip('"').strip("'")
-    negated = token.startswith("!")
-    module_token = token[1:] if negated else token
-    loaded = module_explicitly_loaded(modules, module_token)
-    if not loaded and not negated:
-        return True
-    return not loaded if negated else loaded
 
 
 def _is_forbidden_rewrite_rule(directive: ApacheDirectiveNode) -> bool:

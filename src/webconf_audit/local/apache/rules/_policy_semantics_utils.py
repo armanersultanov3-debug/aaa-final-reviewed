@@ -45,6 +45,13 @@ def module_explicitly_loaded(
     return any(alias in modules for alias in aliases)
 
 
+def ifmodule_matches(
+    args: list[str],
+    modules: frozenset[str],
+) -> bool:
+    return _ifmodule_matches(args, modules)
+
+
 def block_guarantees_ip_restriction(
     block: ApacheBlockNode,
     modules: frozenset[str],
@@ -57,6 +64,13 @@ def nodes_guarantee_method_restriction(
     modules: frozenset[str],
 ) -> bool:
     return _nodes_guarantee_method_restriction(nodes, modules)
+
+
+def nodes_define_method_policy(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    modules: frozenset[str],
+) -> bool:
+    return bool(_relevant_method_nodes(nodes, modules))
 
 
 def block_has_unapproved_allowed_methods(
@@ -79,12 +93,14 @@ def matching_location_scopes_for_path(
     target_path: str,
     *,
     virtualhost_context: ApacheVirtualHostContext | None = None,
+    modules: frozenset[str] = frozenset(),
 ) -> list[ApacheBlockNode]:
     return [
         block
         for block, _priority in _iter_location_blocks_for_context(
             config_ast.nodes,
             virtualhost_context=virtualhost_context,
+            modules=modules,
         )
         if _location_block_matches(block, target_path)
     ]
@@ -529,11 +545,12 @@ def _iter_location_blocks_for_context(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     *,
     virtualhost_context: ApacheVirtualHostContext | None,
+    modules: frozenset[str],
     source_priority: int = 0,
 ) -> list[tuple[ApacheBlockNode, int]]:
     blocks: list[tuple[ApacheBlockNode, int]] = []
 
-    for node in nodes:
+    for node in iter_enabled_nodes(nodes, modules):
         if not isinstance(node, ApacheBlockNode):
             continue
 
@@ -544,6 +561,7 @@ def _iter_location_blocks_for_context(
                     _iter_location_blocks_for_context(
                         node.children,
                         virtualhost_context=virtualhost_context,
+                        modules=modules,
                         source_priority=1,
                     )
                 )
@@ -556,6 +574,7 @@ def _iter_location_blocks_for_context(
             _iter_location_blocks_for_context(
                 node.children,
                 virtualhost_context=virtualhost_context,
+                modules=modules,
                 source_priority=source_priority,
             )
         )
@@ -620,10 +639,12 @@ __all__ = [
     "effective_location_guarantees_ip_restriction",
     "explicit_module_inventory",
     "has_https_upstream_proxy",
+    "ifmodule_matches",
     "iter_enabled_directives",
     "iter_enabled_nodes",
     "iter_enabled_scoped_directives",
     "matching_location_scopes_for_path",
     "module_explicitly_loaded",
+    "nodes_define_method_policy",
     "nodes_guarantee_method_restriction",
 ]
