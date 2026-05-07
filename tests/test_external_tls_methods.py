@@ -152,6 +152,27 @@ def test_deep_tls_probe_results_in_diagnostics(monkeypatch) -> None:
     )
 
 
+def test_tls_probe_errors_in_diagnostics(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.3",
+        cipher_preference_error="TLS 1.2 cipher preference probe failed",
+        ocsp_stapling_error="OCSP client request support is unavailable.",
+    )
+    probe_attempts = [
+        _https_probe_with_headers(tls_info=tls),
+        _http_redirect_probe(),
+    ]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert any(
+        "cipher_preference_error: TLS 1.2 cipher preference probe failed" in d
+        for d in result.diagnostics
+    )
+    assert any(
+        "ocsp_stapling_error: OCSP client request support is unavailable." in d
+        for d in result.diagnostics
+    )
+
+
 # --- _extract_san unit test ---
 
 
@@ -1042,6 +1063,104 @@ def test_weak_cipher_description_lists_matched_keywords(monkeypatch) -> None:
     assert "RC4" in finding.description
     assert "EXP" in finding.description
     assert "MD5" in finding.description
+
+
+# ---------------------------------------------------------------------------
+# --- Deeper TLS runtime posture rules ---
+# ---------------------------------------------------------------------------
+
+
+def test_forward_secrecy_not_observed_fires_for_tls12_static_rsa_cipher(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.2", cipher_name="AES128-GCM-SHA256")
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_forward_secrecy_not_observed" in {f.rule_id for f in result.findings}
+
+
+def test_forward_secrecy_not_observed_skips_ecdhe_cipher(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.2", cipher_name="ECDHE-RSA-AES128-GCM-SHA256")
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_forward_secrecy_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_forward_secrecy_not_observed_skips_tls13_cipher(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.3", cipher_name="TLS_AES_256_GCM_SHA384")
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_forward_secrecy_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_server_cipher_preference_not_observed_fires(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.2",
+        cipher_name="ECDHE-RSA-AES128-GCM-SHA256",
+        server_cipher_preference=False,
+        cipher_preference_first_cipher="ECDHE-RSA-AES128-GCM-SHA256",
+        cipher_preference_reversed_cipher="AES128-GCM-SHA256",
+    )
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_server_cipher_preference_not_observed" in {f.rule_id for f in result.findings}
+
+
+def test_server_cipher_preference_not_observed_skips_when_server_order(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.2",
+        cipher_name="ECDHE-RSA-AES128-GCM-SHA256",
+        server_cipher_preference=True,
+        cipher_preference_first_cipher="ECDHE-RSA-AES128-GCM-SHA256",
+        cipher_preference_reversed_cipher="ECDHE-RSA-AES128-GCM-SHA256",
+    )
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_server_cipher_preference_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_server_cipher_preference_not_observed_skips_indeterminate(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.3", server_cipher_preference=None)
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.tls_server_cipher_preference_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_ocsp_stapling_not_observed_fires(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.3", ocsp_stapled=False)
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.ocsp_stapling_not_observed" in {f.rule_id for f in result.findings}
+
+
+def test_ocsp_stapling_not_observed_skips_when_stapled(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.3", ocsp_stapled=True)
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.ocsp_stapling_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_ocsp_stapling_not_observed_skips_indeterminate(monkeypatch) -> None:
+    tls = TLSInfo(protocol_version="TLSv1.3", ocsp_stapled=None)
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert "external.ocsp_stapling_not_observed" not in {f.rule_id for f in result.findings}
+
+
+def test_tls_runtime_depth_info_in_metadata(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.2",
+        cipher_name="ECDHE-RSA-AES128-GCM-SHA256",
+        server_cipher_preference=True,
+        cipher_preference_first_cipher="ECDHE-RSA-AES128-GCM-SHA256",
+        cipher_preference_reversed_cipher="ECDHE-RSA-AES128-GCM-SHA256",
+        ocsp_stapled=True,
+    )
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
+    assert tls_meta["server_cipher_preference"] is True
+    assert tls_meta["cipher_preference_first_cipher"] == "ECDHE-RSA-AES128-GCM-SHA256"
+    assert tls_meta["cipher_preference_reversed_cipher"] == "ECDHE-RSA-AES128-GCM-SHA256"
+    assert tls_meta["ocsp_stapled"] is True
 
 
 # ---------------------------------------------------------------------------

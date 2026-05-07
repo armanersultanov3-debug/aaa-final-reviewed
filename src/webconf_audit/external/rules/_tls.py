@@ -294,6 +294,141 @@ def _find_weak_cipher_suite(
     return findings
 
 
+def _find_tls_forward_secrecy_not_observed(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        if attempt.tls_info is None:
+            continue
+        cipher_name = attempt.tls_info.cipher_name
+        if cipher_name is None:
+            continue
+        if _cipher_provides_forward_secrecy(
+            cipher_name,
+            attempt.tls_info.protocol_version,
+        ):
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.tls_forward_secrecy_not_observed",
+                title="TLS forward secrecy not observed",
+                severity="medium",
+                description=(
+                    f"The negotiated TLS cipher suite '{cipher_name}' does not "
+                    "indicate ephemeral key exchange. This can prevent forward "
+                    "secrecy for captured traffic if the server private key is "
+                    "later compromised."
+                ),
+                recommendation=(
+                    "Prefer TLS 1.3 or TLS 1.2 cipher suites with ECDHE/DHE "
+                    "ephemeral key exchange."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="tls",
+                    target=attempt.target.url,
+                    details=f"cipher: {cipher_name}",
+                ),
+            )
+        )
+
+    return findings
+
+
+def _cipher_provides_forward_secrecy(
+    cipher_name: str,
+    protocol_version: str | None,
+) -> bool:
+    upper_cipher = cipher_name.upper()
+    if protocol_version == "TLSv1.3" or upper_cipher.startswith("TLS_"):
+        return True
+    return "ECDHE" in upper_cipher or "DHE" in upper_cipher
+
+
+def _find_tls_server_cipher_preference_not_observed(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        if attempt.tls_info is None:
+            continue
+        if attempt.tls_info.server_cipher_preference is not False:
+            continue
+
+        first_cipher = attempt.tls_info.cipher_preference_first_cipher or "unknown"
+        reversed_cipher = attempt.tls_info.cipher_preference_reversed_cipher or "unknown"
+
+        findings.append(
+            Finding(
+                rule_id="external.tls_server_cipher_preference_not_observed",
+                title="TLS server cipher preference not observed",
+                severity="low",
+                description=(
+                    "A bounded TLS 1.2 probe selected different cipher suites "
+                    "when the client cipher order was reversed. This indicates "
+                    "the server may be following client preference instead of "
+                    "enforcing its own cipher order."
+                ),
+                recommendation=(
+                    "Configure the TLS endpoint to prefer the server cipher "
+                    "order when TLS 1.2 is enabled."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="tls",
+                    target=attempt.target.url,
+                    details=(
+                        f"first_order: {first_cipher}, reversed_order: {reversed_cipher}"
+                    ),
+                ),
+            )
+        )
+
+    return findings
+
+
+def _find_ocsp_stapling_not_observed(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        if attempt.tls_info is None:
+            continue
+        if attempt.tls_info.ocsp_stapled is not False:
+            continue
+
+        findings.append(
+            Finding(
+                rule_id="external.ocsp_stapling_not_observed",
+                title="OCSP stapling not observed",
+                severity="low",
+                description=(
+                    "The TLS endpoint did not staple an OCSP response during "
+                    "the handshake when requested by the probe. Clients may "
+                    "need to contact the certificate authority responder "
+                    "directly for revocation status."
+                ),
+                recommendation=(
+                    "Enable OCSP stapling for public HTTPS certificates where "
+                    "supported by the web server and certificate authority."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="tls",
+                    target=attempt.target.url,
+                    details="ocsp_stapled: False",
+                ),
+            )
+        )
+
+    return findings
+
+
 def _find_cert_chain_incomplete(
     probe_attempts: list["ProbeAttempt"],
 ) -> list[Finding]:
@@ -498,6 +633,9 @@ def collect_tls_findings(
     findings.extend(_find_tls_1_1_supported(probe_attempts))
     findings.extend(_find_tls_1_3_not_supported(probe_attempts))
     findings.extend(_find_weak_cipher_suite(probe_attempts))
+    findings.extend(_find_tls_forward_secrecy_not_observed(probe_attempts))
+    findings.extend(_find_tls_server_cipher_preference_not_observed(probe_attempts))
+    findings.extend(_find_ocsp_stapling_not_observed(probe_attempts))
     findings.extend(_find_cert_chain_incomplete(probe_attempts))
     findings.extend(_find_cert_chain_length_unusual(probe_attempts))
     findings.extend(_find_cert_san_mismatch(probe_attempts, target))

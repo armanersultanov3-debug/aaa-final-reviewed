@@ -1,10 +1,14 @@
-"""Active TLS version probing and certificate-chain depth measurement.
+"""Active TLS version probing and TLS runtime signal collection.
 
 For each TLS/SSL protocol version the Python ``ssl`` module can express,
 attempts a constrained handshake against the target to determine whether
 the server supports that version.  The result is a tuple of human-readable
 protocol labels (e.g. ``("TLSv1.2", "TLSv1.3")``) suitable for storing
 in :pyattr:`TLSInfo.supported_protocols`.
+
+:func:`probe_server_cipher_preference` performs a bounded TLS 1.2 cipher-order
+check, while :func:`probe_ocsp_stapling` observes whether the server staples an
+OCSP response during the handshake.
 
 :func:`probe_chain_depth` uses ``pyOpenSSL`` (``OpenSSL.SSL``) to retrieve
 the full intermediate-certificate chain supplied by the server, which the
@@ -26,6 +30,11 @@ _logger = logging.getLogger(__name__)
 # Own timeout constant — avoids coupling to recon.py and circular-import
 # fragility.  Kept in sync with recon.DEFAULT_TIMEOUT_SECONDS by convention.
 DEFAULT_PROBE_TIMEOUT_SECONDS: float = 2.0
+_CIPHER_PREFERENCE_ORDER_A = "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256"
+_CIPHER_PREFERENCE_ORDER_B = "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+_CIPHER_PREFERENCE_INDETERMINATE = (
+    "TLS 1.2 cipher preference probe was indeterminate."
+)
 
 # --- Protocol definitions ---------------------------------------------------
 
@@ -127,6 +136,168 @@ def supported_protocol_labels(
 ) -> tuple[str, ...]:
     """Extract the labels of supported versions from probe results."""
     return tuple(r.label for r in results if r.supported)
+
+
+# --- Cipher preference ------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CipherPreferenceProbeResult:
+    """Outcome of a bounded TLS 1.2 server cipher-preference probe.
+
+    ``server_order`` is *True* when two handshakes with opposite client
+    cipher order select the same suite, *False* when the selected suite
+    follows the client order, and *None* when either handshake could not
+    produce a comparable cipher.
+    """
+
+    server_order: bool | None
+    first_cipher: str | None = None
+    reversed_cipher: str | None = None
+    error_message: str | None = None
+
+
+def _build_tls12_cipher_context(ciphers: str) -> ssl.SSLContext:
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.maximum_version = ssl.TLSVersion.TLSv1_2
+    ctx.set_ciphers(ciphers)
+    return ctx
+
+
+def _probe_tls12_cipher(
+    host: str,
+    port: int,
+    ciphers: str,
+    timeout: float,
+) -> str | None:
+    try:
+        ctx = _build_tls12_cipher_context(ciphers)
+        with socket.create_connection((host, port), timeout=timeout) as raw_sock:
+            with ctx.wrap_socket(raw_sock, server_hostname=host) as tls_sock:
+                cipher_tuple = tls_sock.cipher()
+    except (OSError, ssl.SSLError, ValueError):
+        return None
+
+    if cipher_tuple is None:
+        return None
+    return cipher_tuple[0]
+
+
+def probe_server_cipher_preference(
+    host: str,
+    port: int,
+    timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+) -> CipherPreferenceProbeResult:
+    """Infer whether a TLS 1.2 endpoint prefers server-side cipher order.
+
+    This deliberately uses only two fixed safe handshakes. It is not a
+    full cipher-suite inventory and returns indeterminate when either
+    suite pair is unsupported.
+    """
+    first_cipher = _probe_tls12_cipher(
+        host,
+        port,
+        _CIPHER_PREFERENCE_ORDER_A,
+        timeout,
+    )
+    reversed_cipher = _probe_tls12_cipher(
+        host,
+        port,
+        _CIPHER_PREFERENCE_ORDER_B,
+        timeout,
+    )
+
+    if first_cipher is None or reversed_cipher is None:
+        return CipherPreferenceProbeResult(
+            server_order=None,
+            first_cipher=first_cipher,
+            reversed_cipher=reversed_cipher,
+            error_message=_CIPHER_PREFERENCE_INDETERMINATE,
+        )
+
+    if first_cipher == reversed_cipher:
+        cipher_a, cipher_b = _CIPHER_PREFERENCE_ORDER_A.split(":")
+        cipher_a_result = _probe_tls12_cipher(host, port, cipher_a, timeout)
+        cipher_b_result = _probe_tls12_cipher(host, port, cipher_b, timeout)
+        if cipher_a_result != cipher_a or cipher_b_result != cipher_b:
+            return CipherPreferenceProbeResult(
+                server_order=None,
+                first_cipher=first_cipher,
+                reversed_cipher=reversed_cipher,
+                error_message=_CIPHER_PREFERENCE_INDETERMINATE,
+            )
+
+    return CipherPreferenceProbeResult(
+        server_order=first_cipher == reversed_cipher,
+        first_cipher=first_cipher,
+        reversed_cipher=reversed_cipher,
+    )
+
+
+# --- OCSP stapling ----------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class OCSPStaplingProbeResult:
+    """Outcome of requesting an OCSP stapled response during TLS handshake."""
+
+    stapled: bool | None
+    error_message: str | None = None
+
+
+def probe_ocsp_stapling(
+    host: str,
+    port: int,
+    timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+) -> OCSPStaplingProbeResult:
+    """Request OCSP stapling support and report whether a response was stapled.
+
+    The check is intentionally passive after a single TLS handshake. It
+    does not contact OCSP responders or validate OCSP response freshness.
+    """
+    if not hasattr(_OSSL.Connection, "request_ocsp"):
+        return OCSPStaplingProbeResult(
+            stapled=None,
+            error_message="OCSP client request support is unavailable.",
+        )
+
+    raw_sock: socket.socket | None = None
+    conn: _OSSL.Connection | None = None
+    ocsp_response: dict[str, bytes | None] = {"value": None}
+
+    def _capture_ocsp_response(_conn, response, _data) -> bool:
+        ocsp_response["value"] = response
+        return True
+
+    try:
+        ctx = _OSSL.Context(_OSSL.TLS_METHOD)
+        ctx.set_verify(_OSSL.VERIFY_NONE, lambda *_: True)
+        ctx.set_ocsp_client_callback(_capture_ocsp_response)
+
+        raw_sock = socket.create_connection((host, port), timeout=timeout)
+        conn = _OSSL.Connection(ctx, raw_sock)
+        conn.set_tlsext_host_name(host.encode("idna"))
+        conn.request_ocsp()
+        conn.set_connect_state()
+        conn.do_handshake()
+
+        return OCSPStaplingProbeResult(stapled=ocsp_response["value"] is not None)
+    except (OSError, _OSSL.Error, Exception) as exc:  # noqa: BLE001
+        return OCSPStaplingProbeResult(stapled=None, error_message=str(exc))
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                _logger.debug("Failed to close OCSP probe connection.", exc_info=True)
+        if raw_sock is not None:
+            try:
+                raw_sock.close()
+            except Exception:  # noqa: BLE001
+                _logger.debug("Failed to close OCSP probe raw socket.", exc_info=True)
 
 
 # --- Certificate chain verification ----------------------------------------
@@ -262,8 +433,12 @@ def probe_chain_depth(
 __all__ = [
     "ChainDepthResult",
     "ChainVerificationResult",
+    "CipherPreferenceProbeResult",
+    "OCSPStaplingProbeResult",
     "TLSVersionProbeResult",
     "probe_chain_depth",
+    "probe_ocsp_stapling",
+    "probe_server_cipher_preference",
     "probe_tls_versions",
     "supported_protocol_labels",
     "verify_certificate_chain",

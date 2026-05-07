@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 339 rules (synchronized with
+The current project inventory is 342 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -47,7 +47,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 71
 - Lighttpd local: 47
 - IIS local: 51
-- External probes: 80
+- External probes: 83
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -325,13 +325,14 @@ until the listed follow-up exists:
   prove anti-forgery controls.
 - `v5.0.0-3.5.8` - CORP is observable and `external.corp_missing` exists, but
   the rule cannot know whether the response is an authenticated resource.
-- `v5.0.0-12.1.2` - forward secrecy and preference order require richer cipher
-  evaluation than simple weak-pattern detection.
-- `v5.0.0-12.1.4` - OCSP stapling is only partly represented for Nginx. Add
-  cross-server local checks and/or external stapling probes before claiming
-  general coverage.
-- `v5.0.0-12.1.5` - ECH is not checked. Treat as `probe-depth` and likely low
-  priority until server support is common enough for useful findings.
+- `v5.0.0-12.1.2` - forward secrecy and preference order now have partial
+  runtime coverage through negotiated-cipher and bounded TLS 1.2 preference
+  probes. This is not a full SSL Labs / testssl.sh cipher inventory.
+- `v5.0.0-12.1.4` - OCSP stapling now has local Nginx/Apache coverage and
+  partial external runtime evidence through `external.ocsp_stapling_not_observed`.
+- `v5.0.0-12.1.5` - ECH stays documented as a probe limitation. The current
+  safe external probe stack does not evaluate ECH portably, and the project
+  should not invent a noisy "ECH missing" finding.
 - `v5.0.0-13.4.7` - extension allowlisting is broader than current sensitive
   path probes. Existing rules cover common leaks, not a full allowlist model.
 - `v5.0.0-16.1.1` through `v5.0.0-16.4.3` - application security logging
@@ -357,10 +358,10 @@ standard section before implementation.
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy is out of scope. |
 | STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, and requestFiltering default/absence policy are now covered where the current effective XML model exposes the signal. Remaining follow-up work is runtime native-header verification, deeper application-pool shared-hosting exceptions, and parser/effective-depth only where the current model cannot materialize defaults. |
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
-| STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper probe work remains in `STD-GAP-014`. |
+| STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper TLS probe work is tracked in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
 | STD-GAP-013 | ASVS 5.0.0 | direct-rule | P2 | CSP reporting endpoint coverage is now present across local Nginx, Apache, Lighttpd, IIS, and external probes. Remaining CSP quality work focuses on nonce/hash posture and per-response policy after deciding the desired strictness. External `frame-ancestors`, `object-src`, and `base-uri` coverage is already present. |
-| STD-GAP-014 | ASVS 5.0.0 | probe-depth | P3 | Extend TLS probing for forward secrecy, cipher preference, OCSP stapling, and ECH before claiming deeper V12 coverage. |
+| STD-GAP-014 | ASVS 5.0.0 | covered | P3 | Deeper external TLS runtime evidence now covers negotiated forward secrecy posture, bounded TLS 1.2 server cipher preference, and OCSP stapling observation. ECH remains a documented limitation rather than a rule because the current safe probe stack cannot evaluate it portably. |
 | STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Next, expand the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 
 ## PR Slicing

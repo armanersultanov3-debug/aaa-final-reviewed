@@ -71,6 +71,14 @@ class TLSInfo:
     cert_chain_error: str | None = None
     # Number of certificates the server supplied in the handshake (filled by probe_chain_depth)
     cert_chain_depth: int | None = None
+    # TLS 1.2 cipher-order probe (filled by probe_server_cipher_preference)
+    server_cipher_preference: bool | None = None
+    cipher_preference_first_cipher: str | None = None
+    cipher_preference_reversed_cipher: str | None = None
+    cipher_preference_error: str | None = None
+    # OCSP stapling request result (filled by probe_ocsp_stapling)
+    ocsp_stapled: bool | None = None
+    ocsp_stapling_error: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -807,7 +815,10 @@ def _enrich_tls_with_version_probe(
 ) -> ProbeAttempt:
     """Run active TLS probing (version scan + chain verification) and merge results."""
     from webconf_audit.external.recon.tls_probe import (  # noqa: PLC0415
+        CipherPreferenceProbeResult,
         probe_chain_depth,
+        probe_ocsp_stapling,
+        probe_server_cipher_preference,
         probe_tls_versions,
         supported_protocol_labels,
         verify_certificate_chain,
@@ -829,6 +840,23 @@ def _enrich_tls_with_version_probe(
         probe_target.port,
     )
 
+    preference_result = CipherPreferenceProbeResult(
+        server_order=None,
+        error_message="TLS 1.2 is not supported by the endpoint.",
+    )
+    if "TLSv1.2" in protocols:
+        preference_result = probe_server_cipher_preference(
+            probe_target.host,
+            probe_target.port,
+        )
+
+    # OCSP stapling is not tied to the TLS 1.2-only cipher-order probe, so
+    # keep observing it for TLS 1.3-only endpoints as well.
+    ocsp_result = probe_ocsp_stapling(
+        probe_target.host,
+        probe_target.port,
+    )
+
     if attempt.tls_info is None:
         return attempt
     enriched_tls = replace(
@@ -837,6 +865,12 @@ def _enrich_tls_with_version_probe(
         cert_chain_complete=chain_result.verified,
         cert_chain_error=chain_result.error_message,
         cert_chain_depth=depth_result.depth,
+        server_cipher_preference=preference_result.server_order,
+        cipher_preference_first_cipher=preference_result.first_cipher,
+        cipher_preference_reversed_cipher=preference_result.reversed_cipher,
+        cipher_preference_error=preference_result.error_message,
+        ocsp_stapled=ocsp_result.stapled,
+        ocsp_stapling_error=ocsp_result.error_message,
     )
     return replace(attempt, tls_info=enriched_tls)
 
@@ -1525,6 +1559,27 @@ def _attempt_tls_diagnostics(tls_info: TLSInfo | None) -> list[str]:
             diagnostics.append(f"cert_chain_error: {tls_info.cert_chain_error}")
     if tls_info.cert_chain_depth is not None:
         diagnostics.append(f"cert_chain_depth: {tls_info.cert_chain_depth}")
+    if tls_info.server_cipher_preference is not None:
+        diagnostics.append(
+            f"server_cipher_preference: {tls_info.server_cipher_preference}"
+        )
+    if tls_info.cipher_preference_first_cipher is not None:
+        diagnostics.append(
+            f"cipher_preference_first_cipher: {tls_info.cipher_preference_first_cipher}"
+        )
+    if tls_info.cipher_preference_reversed_cipher is not None:
+        diagnostics.append(
+            "cipher_preference_reversed_cipher: "
+            f"{tls_info.cipher_preference_reversed_cipher}"
+        )
+    if tls_info.cipher_preference_error is not None:
+        diagnostics.append(
+            f"cipher_preference_error: {tls_info.cipher_preference_error}"
+        )
+    if tls_info.ocsp_stapled is not None:
+        diagnostics.append(f"ocsp_stapled: {tls_info.ocsp_stapled}")
+    if tls_info.ocsp_stapling_error is not None:
+        diagnostics.append(f"ocsp_stapling_error: {tls_info.ocsp_stapling_error}")
     return diagnostics
 
 
@@ -1675,6 +1730,12 @@ def _tls_info_to_metadata(tls_info: TLSInfo | None) -> dict[str, object] | None:
         "cert_chain_complete": tls_info.cert_chain_complete,
         "cert_chain_error": tls_info.cert_chain_error,
         "cert_chain_depth": tls_info.cert_chain_depth,
+        "server_cipher_preference": tls_info.server_cipher_preference,
+        "cipher_preference_first_cipher": tls_info.cipher_preference_first_cipher,
+        "cipher_preference_reversed_cipher": tls_info.cipher_preference_reversed_cipher,
+        "cipher_preference_error": tls_info.cipher_preference_error,
+        "ocsp_stapled": tls_info.ocsp_stapled,
+        "ocsp_stapling_error": tls_info.ocsp_stapling_error,
     }
 
 
