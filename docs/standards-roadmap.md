@@ -37,14 +37,14 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 342 rules (synchronized with
+The current project inventory is 343 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 13
 - Nginx local: 77
-- Apache local: 71
+- Apache local: 72
 - Lighttpd local: 47
 - IIS local: 51
 - External probes: 83

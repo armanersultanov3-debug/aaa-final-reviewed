@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **342**
+Total rules: **343**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (246), external (83), universal (13) |
-| Severity | high (17), medium (119), low (195), info (11) |
-| Input kind | ast (149), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
+| Category | local (247), external (83), universal (13) |
+| Severity | high (17), medium (120), low (195), info (11) |
+| Input kind | ast (150), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -348,7 +348,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 71
+Count: 72
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -397,6 +397,7 @@ rather than to ".htaccess" itself.
 | `apache.options_includes_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: effective `Includes` token coverage, including `Options All`) |
 | `apache.options_indexes` | medium | ast | - | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.3 | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: effective `Indexes` token coverage, including `Options All`) |
 | `apache.options_multiviews_enabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: specific `Options MultiViews` token only) |
+| `apache.options_not_none_in_root_directory` | medium | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.1/§5.2/§5.3 (partial: validates an empty OS-root `Options` baseline, preferably via `<Directory />` with `Options None`) |
 | `apache.server_info_exposed` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §2.8 (partial: detects exposed `/server-info`, not loaded-module inventory) |
 | `apache.server_signature_not_off` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS Apache HTTP Server 2.4 v2.3.0 §8.2 |
 | `apache.server_status_exposed` | low | ast | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.5 | CIS Apache HTTP Server 2.4 v2.3.0 §2.4 (partial: detects exposed `/server-status`, not loaded-module inventory) |
@@ -585,7 +586,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §3.1-§3.13 | `out-of-scope` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata, which is outside the tool scope. |
 | §4.1-§4.2 | `parser-depth` | General access-control posture needs richer effective `Require`/legacy access semantics before broad claims are safe. |
 | §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
-| §5.1-§5.3 | `direct-rule` | Existing `Options` rules cover risky tokens individually and expand `Options All` with ordered subtractive modifiers; full coverage still needs an allowed-options policy per directory class. |
+| §5.1-§5.3 | `direct-rule` | `apache.options_not_none_in_root_directory` now validates an empty OS-root `Options` baseline, while the existing `Options` rules cover effective `ExecCGI` / `Includes` / `Indexes`, specific `MultiViews`, and ordered `Options All` subtractive semantics. Remaining deployment-specific exceptions are backlog tuning, not a missing CIS baseline rule. |
 | §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
 | §5.7 | `direct-rule` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, and `apache.http_method_policy_allows_unapproved` catches explicit allowlists that still permit unapproved methods; a full site-wide approved-method policy model remains future work. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
@@ -1450,7 +1451,7 @@ Progress:
 - [x] Universal rules (13)
 - [x] Nginx local rules (77) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (71) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (72) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (47)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference

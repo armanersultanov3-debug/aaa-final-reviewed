@@ -226,7 +226,7 @@ Server notes:
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
 | Nginx | Partially covered | Protocol policy, session cache, and session timeout checks have targeted local regression coverage. | Remaining high-value local work is OCSP stapling completeness and default TLS host handling; deeper runtime TLS posture is now covered by external probes. |
-| Apache | Partially covered | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, session cache timeout, and default TLS VirtualHost unknown-host rejection. | Remaining high-value local work is `Options` policy precision per directory class and any documented deployment-specific exceptions that can be modeled safely; deeper runtime TLS posture is now covered by external probes. |
+| Apache | Covered for current model | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, session cache timeout, and default TLS VirtualHost unknown-host rejection. | Remaining local follow-up is limited to deployment-specific exceptions that can be modeled safely; deeper runtime TLS posture is now covered by external probes. |
 | Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
 | IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown, while runtime certificate, protocol, cipher-preference, and OCSP evidence now come from external probes. |
 
@@ -252,10 +252,8 @@ Current execution order after the report-grouping merge:
 1. Validate `--group-repeated` against the real noisy Nginx evidence captured
    in `roadmap1.md`, comparing the current output with the saved prototype
    report.
-2. Close the remaining Apache local-precision tail that still fits the current
-   analyzer model, especially `Options` policy per directory class.
-3. Continue CIS/standards coverage expansion and curated safe-probe growth on
-   top of the now-implemented TLS runtime evidence layer.
+2. Continue CIS/standards coverage expansion and curated safe-probe growth on
+   top of the now-implemented Apache precision and TLS runtime evidence work.
 
 ### External safe probe catalog
 
@@ -286,7 +284,8 @@ hardcoded finder per path.
 ## Current Priority
 
 The immediate priority has moved from broad local/static rule additions to
-standards-driven coverage growth plus a small remaining local-precision tail.
+standards-driven coverage growth now that the small local-precision tail that
+fit the current analyzer model is closed.
 The high-value local work that did not require parser or analyzer rewrites is
 mostly implemented: report-noise grouping, redirect-only scope handling,
 severity calibration, request/body/header limit quality, logging quality,
@@ -299,9 +298,9 @@ ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
 v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
-Current step: finish the remaining Apache precision tail that still belongs in
-the current analyzer model, especially `Options` policy per directory class,
-then continue standards mapping and curated safe external probe additions.
+Current step: continue standards mapping and curated safe external probe
+additions on top of the now-implemented Apache precision and TLS/runtime
+evidence slices.
 
 The TLS runtime-evidence slice of the external-safe track is implemented:
 certificate-chain/trust probing, negotiated forward secrecy posture, bounded
