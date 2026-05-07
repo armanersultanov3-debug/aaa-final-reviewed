@@ -84,6 +84,23 @@ def test_analyze_apache_config_ignores_disabled_location_for_sitewide_policy(
     assert "apache.sitewide_http_method_policy_missing" not in _rule_ids(findings)
 
 
+def test_analyze_apache_config_skips_unknown_negated_ifmodule_location_for_sitewide_policy(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<IfModule !mod_proxy.c>",
+            '    <Location "/uploads">',
+            "        Require all granted",
+            "    </Location>",
+            "</IfModule>",
+        ),
+    )
+
+    assert "apache.sitewide_http_method_policy_missing" not in _rule_ids(findings)
+
+
 def test_analyze_apache_config_reports_vhost_permissive_location_overriding_global_policy(
     tmp_path: Path,
 ) -> None:
@@ -303,6 +320,42 @@ def test_analyze_apache_config_reports_main_server_proxy_peer_name_check_disable
     assert "apache.ssl_proxy_peer_name_check_disabled" in _rule_ids(findings)
     finding = _first_finding(findings, "apache.ssl_proxy_peer_name_check_disabled")
     assert finding.location.line == _line_number(config, "SSLProxyCheckPeerName off")
+
+
+def test_analyze_apache_config_accepts_unsatisfiable_requireall_method_policy(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            '<Location "/api">',
+            "    <RequireAll>",
+            "        Require method GET",
+            "        Require method TRACE",
+            "    </RequireAll>",
+            "</Location>",
+        ),
+    )
+
+    assert "apache.http_method_policy_allows_unapproved" not in _rule_ids(findings)
+
+
+def test_analyze_apache_config_accepts_requireall_deny_all_with_unapproved_method(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            '<Location "/api">',
+            "    <RequireAll>",
+            "        Require all denied",
+            "        Require method TRACE",
+            "    </RequireAll>",
+            "</Location>",
+        ),
+    )
+
+    assert "apache.http_method_policy_allows_unapproved" not in _rule_ids(findings)
 
 
 def _analyze_config(tmp_path: Path, config: str):

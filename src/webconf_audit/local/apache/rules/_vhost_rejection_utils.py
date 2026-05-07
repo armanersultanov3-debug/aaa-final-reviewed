@@ -169,7 +169,7 @@ def _iter_guarded_nodes(
 
         name = node.name.lower()
         if name == "ifmodule":
-            if ifmodule_matches(node.args, modules):
+            if ifmodule_matches(node.args, modules) is True:
                 guarded.extend(_iter_guarded_nodes(node.children, modules))
             continue
         if name in {"ifdefine", "ifversion"}:

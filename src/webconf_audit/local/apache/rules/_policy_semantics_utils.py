@@ -21,6 +21,7 @@ ALL_WRAPPER_BLOCKS = TRANSPARENT_WRAPPER_BLOCKS | frozenset({"ifmodule"})
 @dataclass(frozen=True, slots=True)
 class MethodPolicyResult:
     has_policy: bool
+    allowed_methods: frozenset[str] | None = None
     unapproved_methods: frozenset[str] = frozenset()
 
 
@@ -48,7 +49,7 @@ def module_explicitly_loaded(
 def ifmodule_matches(
     args: list[str],
     modules: frozenset[str],
-) -> bool:
+) -> bool | None:
     return _ifmodule_matches(args, modules)
 
 
@@ -78,10 +79,14 @@ def block_has_unapproved_allowed_methods(
     modules: frozenset[str],
     approved_methods: frozenset[str],
 ) -> set[str]:
+    container_name = block.name.lower()
     result = _nodes_method_policy(
         block.children,
         modules,
         approved_methods,
+        container_name=(
+            container_name if container_name in AUTHZ_CONTAINER_BLOCKS else "requireany"
+        ),
     )
     if not result.has_policy:
         return set()
@@ -222,7 +227,7 @@ def iter_enabled_nodes(
 
         name = node.name.lower()
         if name == "ifmodule":
-            if _ifmodule_matches(node.args, modules):
+            if _ifmodule_matches(node.args, modules) is True:
                 enabled.extend(iter_enabled_nodes(node.children, modules))
             continue
 
@@ -237,22 +242,31 @@ def iter_enabled_nodes(
 def _ifmodule_matches(
     args: list[str],
     modules: frozenset[str],
-) -> bool:
+) -> bool | None:
     if not args:
         return False
 
     token = args[0].strip().strip('"').strip("'")
     negated = token.startswith("!")
     module_token = token[1:] if negated else token
-    loaded = module_explicitly_loaded(modules, module_token)
+    loaded = _module_load_state(modules, module_token)
 
-    # When we do not have explicit inventory for a module, keep positive
-    # IfModule branches enabled to avoid false negatives on statically-built
-    # Apache modules.
-    if not loaded and not negated:
-        return True
+    if loaded is None:
+        # Positive unknown branches may cover statically built modules that do
+        # not appear in LoadModule inventory. Negated unknown branches cannot
+        # be proven active and would otherwise make both sides apply.
+        return None if negated else True
 
     return not loaded if negated else loaded
+
+
+def _module_load_state(
+    modules: frozenset[str],
+    module_token: str,
+) -> bool | None:
+    if module_explicitly_loaded(modules, module_token):
+        return True
+    return None
 
 
 def _nodes_guarantee_ip_restriction(
@@ -389,28 +403,31 @@ def _nodes_method_policy(
     ]
 
     if container_name == "requireall":
-        policy_children = [result for result in child_results if result.has_policy]
+        policy_children = [
+            result
+            for result in child_results
+            if result.has_policy and result.allowed_methods is not None
+        ]
         if not policy_children:
             return MethodPolicyResult(has_policy=False)
-        return MethodPolicyResult(
-            has_policy=True,
-            unapproved_methods=frozenset(
-                method
-                for result in policy_children
-                for method in result.unapproved_methods
-            ),
+        allowed_methods = set(policy_children[0].allowed_methods or frozenset())
+        for result in policy_children[1:]:
+            allowed_methods.intersection_update(result.allowed_methods or frozenset())
+        return _method_policy_from_allowed_methods(
+            frozenset(allowed_methods),
+            approved_methods,
         )
 
     if container_name == "requirenone" or any(not result.has_policy for result in child_results):
         return MethodPolicyResult(has_policy=False)
 
-    return MethodPolicyResult(
-        has_policy=True,
-        unapproved_methods=frozenset(
+    return _method_policy_from_allowed_methods(
+        frozenset(
             method
             for result in child_results
-            for method in result.unapproved_methods
+            for method in result.allowed_methods or frozenset()
         ),
+        approved_methods,
     )
 
 
@@ -420,15 +437,16 @@ def _node_method_policy(
     approved_methods: frozenset[str],
 ) -> MethodPolicyResult:
     if isinstance(node, ApacheDirectiveNode):
+        if _is_require_all_denied(node) or _is_legacy_deny_all(node):
+            return _method_policy_from_allowed_methods(frozenset(), approved_methods)
         if not _is_require_method(node):
             return MethodPolicyResult(has_policy=False)
-        return MethodPolicyResult(
-            has_policy=True,
-            unapproved_methods=frozenset(
+        return _method_policy_from_allowed_methods(
+            frozenset(
                 method.upper()
                 for method in node.args[1:]
-                if method.upper() not in approved_methods
             ),
+            approved_methods,
         )
 
     name = node.name.lower()
@@ -440,15 +458,27 @@ def _node_method_policy(
             container_name=name,
         )
     if name == "limitexcept" and _nodes_guarantee_deny_all(node.children, modules):
-        return MethodPolicyResult(
-            has_policy=True,
-            unapproved_methods=frozenset(
+        return _method_policy_from_allowed_methods(
+            frozenset(
                 method.upper()
                 for method in node.args
-                if method.upper() not in approved_methods
             ),
+            approved_methods,
         )
     return MethodPolicyResult(has_policy=False)
+
+
+def _method_policy_from_allowed_methods(
+    allowed_methods: frozenset[str],
+    approved_methods: frozenset[str],
+) -> MethodPolicyResult:
+    return MethodPolicyResult(
+        has_policy=True,
+        allowed_methods=allowed_methods,
+        unapproved_methods=frozenset(
+            method for method in allowed_methods if method not in approved_methods
+        ),
+    )
 
 
 def _method_block_guarantees_restriction(
@@ -504,7 +534,12 @@ def _relevant_method_nodes(
     relevant: list[ApacheDirectiveNode | ApacheBlockNode] = []
     for node in iter_enabled_nodes(nodes, modules):
         if isinstance(node, ApacheDirectiveNode):
-            if _is_require_method(node) or _is_require_all_granted(node):
+            if (
+                _is_require_method(node)
+                or _is_require_all_granted(node)
+                or _is_require_all_denied(node)
+                or _is_legacy_deny_all(node)
+            ):
                 relevant.append(node)
             continue
 
