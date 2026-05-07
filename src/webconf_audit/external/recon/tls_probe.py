@@ -1,10 +1,14 @@
-"""Active TLS version probing and certificate-chain depth measurement.
+"""Active TLS version probing and TLS runtime signal collection.
 
 For each TLS/SSL protocol version the Python ``ssl`` module can express,
 attempts a constrained handshake against the target to determine whether
 the server supports that version.  The result is a tuple of human-readable
 protocol labels (e.g. ``("TLSv1.2", "TLSv1.3")``) suitable for storing
 in :pyattr:`TLSInfo.supported_protocols`.
+
+:func:`probe_server_cipher_preference` performs a bounded TLS 1.2 cipher-order
+check, while :func:`probe_ocsp_stapling` observes whether the server staples an
+OCSP response during the handshake.
 
 :func:`probe_chain_depth` uses ``pyOpenSSL`` (``OpenSSL.SSL``) to retrieve
 the full intermediate-certificate chain supplied by the server, which the

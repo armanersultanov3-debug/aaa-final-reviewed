@@ -850,6 +850,8 @@ def _enrich_tls_with_version_probe(
             probe_target.port,
         )
 
+    # OCSP stapling is not tied to the TLS 1.2-only cipher-order probe, so
+    # keep observing it for TLS 1.3-only endpoints as well.
     ocsp_result = probe_ocsp_stapling(
         probe_target.host,
         probe_target.port,

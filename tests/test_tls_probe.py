@@ -616,7 +616,7 @@ class TestTlsProbeIntegration:
         tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
         assert tls_meta["supported_protocols"] == []
 
-    def test_tls12_cipher_preference_probe_skipped_when_tls12_unsupported(
+    def test_tls12_cipher_preference_probe_skipped_when_tls12_unsupported_but_ocsp_still_runs(
         self,
         monkeypatch,
     ) -> None:
