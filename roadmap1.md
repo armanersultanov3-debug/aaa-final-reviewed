@@ -2,10 +2,12 @@
 
 ## Scope
 
-This is the current first-priority local-analysis roadmap. It covers rule
-coverage that can be added with the existing parsers, AST/effective-config
-models, and safe local fixtures. It intentionally avoids new external probing,
-host-inspection, package/service checks, and parser rewrites.
+This started as the first-priority local-analysis roadmap. Most slices are now
+implemented; the document remains because PR Slice 7 still has a narrow Apache
+follow-up. It covers rule coverage that can be added with the existing parsers,
+AST/effective-config models, and safe local fixtures. It intentionally avoids
+new external probing, host-inspection, package/service checks, and parser
+rewrites.
 
 ## PR Slice 1: Cross-Server Request/Auth/Header Policy
 
@@ -94,12 +96,16 @@ Status: implemented.
 
 ## PR Slice 7: Apache Precision Without Parser Changes
 
-Status: partially implemented; remaining work is a focused follow-up.
+Status: partially implemented; remaining work is now a focused Apache
+`Options` follow-up.
 
 - `AllowOverride` baseline checks, timeout/keepalive value checks, redirect
-  precision, and default TLS VirtualHost unknown-host rejection are present.
+  precision, and default TLS plus non-TLS VirtualHost unknown-host rejection
+  are present.
 - Remaining direct-rule work: improve `Options` policy precision per directory
-  class and refine broader non-TLS VirtualHost allowed-host precision.
+  class. Broader site-wide approved-method policy, rewrite-module inventory,
+  and deployment-specific exceptions now live in the Apache standards backlog
+  rather than this roadmap slice.
 - Deeper `Require` / module-inventory / ModSecurity semantics stay
   `parser-depth` and should not be forced into string-only checks.
 

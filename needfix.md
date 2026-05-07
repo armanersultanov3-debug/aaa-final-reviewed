@@ -6,7 +6,8 @@ quality bugs in static configuration analysis.
 
 ## Resolution Status
 
-Implemented in `codex/fix-effective-scope-semantics`:
+Implemented in the repository (originally tracked on
+`codex/fix-effective-scope-semantics`):
 
 - Fixed the confirmed Nginx inherited/effective directive bugs for access logs,
   error logs, rate/connection limits, inherited security headers, and inherited
@@ -24,9 +25,9 @@ Implemented in `codex/fix-effective-scope-semantics`:
 Remaining backlog:
 
 - Generic report-level grouping of repeated same-rule advice across many scopes
-  is still a separate reporting feature. This branch reduces the known Nginx
-  noise at its root by honoring inherited/effective settings, but it does not add
-  a new formatter-level grouping model.
+  is still a separate reporting feature. This work reduces the known Nginx
+  noise at its root by honoring inherited/effective settings, but it does not
+  add a new formatter-level grouping model.
 
 ## Nginx Effective Configuration
 
