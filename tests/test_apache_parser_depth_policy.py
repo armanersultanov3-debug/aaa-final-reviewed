@@ -524,6 +524,20 @@ def test_find_modsecurity_inventory_source_returns_inventory_source_for_loadmodu
     assert source.line == 1
 
 
+def test_analyze_apache_config_ignores_non_modsecurity_loadmodule_with_security2_path(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "LoadModule headers_module modules/security2_helpers/mod_headers.so",
+            include_cis_modsecurity=False,
+        ),
+    )
+
+    assert "apache.modsecurity_module_missing" in _rule_ids(findings)
+
+
 def test_find_crs_inventory_source_returns_inventory_source_for_include() -> None:
     ast = parse_apache_config(
         "\n".join(

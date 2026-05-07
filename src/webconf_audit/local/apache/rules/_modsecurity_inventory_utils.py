@@ -23,7 +23,8 @@ _MODSECURITY_DIRECTIVE_NAMES = frozenset(
     }
 )
 _MODSECURITY_INCLUDE_MARKERS = ("modsecurity", "security2", "mod_security")
-_MODSECURITY_MODULE_MARKERS = ("security2_module", "mod_security2", "security2")
+_MODSECURITY_LOADMODULE_NAMES = frozenset({"security2_module"})
+_MODSECURITY_LOADMODULE_PATH_MARKERS = ("mod_security2",)
 _CRS_INCLUDE_MARKERS = (
     "owasp-crs",
     "owasp_crs",
@@ -92,8 +93,11 @@ def _is_modsecurity_loadmodule(
 ) -> bool:
     if directive.name.lower() != "loadmodule":
         return False
-    rendered_args = " ".join(arg.lower() for arg in directive.args)
-    return any(marker in rendered_args for marker in _MODSECURITY_MODULE_MARKERS)
+    module_name, module_path = _loadmodule_parts(directive.args)
+    return _is_modsecurity_loadmodule_target(
+        module_name=module_name,
+        module_path=module_path,
+    )
 
 
 def _directive_args_contain_marker(
@@ -162,11 +166,13 @@ def _raw_line_has_modsecurity_inventory(raw_line: str) -> bool:
     if directive_name is None:
         return False
 
-    if directive_name == "loadmodule" and any(
-        marker in rendered_args
-        for marker in ("security2_module", "mod_security2", "security2")
-    ):
-        return True
+    if directive_name == "loadmodule":
+        module_name, module_path = _loadmodule_parts(rendered_args.split())
+        if _is_modsecurity_loadmodule_target(
+            module_name=module_name,
+            module_path=module_path,
+        ):
+            return True
     if directive_name in _MODSECURITY_DIRECTIVE_NAMES:
         return True
     if directive_name in _INCLUDE_DIRECTIVES:
@@ -190,6 +196,28 @@ def _directive_name_and_args(raw_line: str) -> tuple[str | None, str]:
     directive_name = parts[0].lower()
     rendered_args = parts[1].lower() if len(parts) > 1 else ""
     return directive_name, rendered_args
+
+
+def _loadmodule_parts(args: list[str]) -> tuple[str, str]:
+    if not args:
+        return "", ""
+    module_name = args[0].strip().strip('"').strip("'").lower()
+    module_path = " ".join(
+        arg.strip().strip('"').strip("'").lower()
+        for arg in args[1:]
+    )
+    return module_name, module_path
+
+
+def _is_modsecurity_loadmodule_target(
+    *,
+    module_name: str,
+    module_path: str,
+) -> bool:
+    return (
+        module_name in _MODSECURITY_LOADMODULE_NAMES
+        or any(marker in module_path for marker in _MODSECURITY_LOADMODULE_PATH_MARKERS)
+    )
 
 
 __all__ = [
