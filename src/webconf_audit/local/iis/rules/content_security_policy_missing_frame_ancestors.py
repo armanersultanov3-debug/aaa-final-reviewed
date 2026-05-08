@@ -59,9 +59,8 @@ def _effective_findings(effective_config: IISEffectiveConfig) -> list[Finding]:
         if is_pure_inheritance(section):
             continue
         values = _active_csp_values(section.children)
-        if any(
-            not content_security_policy_has_frame_ancestors(value)
-            for value in values
+        if values and not any(
+            content_security_policy_has_frame_ancestors(value) for value in values
         ):
             findings.append(_effective_finding(section))
     return findings
@@ -73,9 +72,8 @@ def _raw_findings(doc: IISConfigDocument) -> list[Finding]:
         if section.tag != "customHeaders":
             continue
         values = _active_csp_values(section.children)
-        if any(
-            not content_security_policy_has_frame_ancestors(value)
-            for value in values
+        if values and not any(
+            content_security_policy_has_frame_ancestors(value) for value in values
         ):
             findings.append(_raw_finding(section))
     return findings

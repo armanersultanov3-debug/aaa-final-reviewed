@@ -115,3 +115,9 @@ def test_rfc_rejects_invalid_numbers(number: int) -> None:
 def test_rfc_rejects_empty_section(section: str) -> None:
     with pytest.raises(ValueError, match="section must be a non-empty string"):
         rfc(8996, section=section)
+
+
+@pytest.mark.parametrize("section", [1, 1.5, object()])
+def test_rfc_rejects_non_string_section(section: object) -> None:
+    with pytest.raises(ValueError, match="section must be a non-empty string"):
+        rfc(8996, section=section)  # type: ignore[arg-type]

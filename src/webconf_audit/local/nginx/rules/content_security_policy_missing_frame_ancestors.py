@@ -42,34 +42,41 @@ def find_content_security_policy_missing_frame_ancestors(
     ):
         if skips_content_response_checks(server_block):
             continue
-        for directive in find_server_add_headers(server_block, inherited_directives):
-            if not directive.args or directive.args[0].lower() != "content-security-policy":
-                continue
-            policy = _header_value(directive.args)
-            if content_security_policy_has_frame_ancestors(policy):
-                continue
-            findings.append(
-                Finding(
-                    rule_id=RULE_ID,
-                    title="Content-Security-Policy missing frame-ancestors",
-                    severity="low",
-                    description=(
-                        "Content-Security-Policy is configured without a "
-                        "frame-ancestors directive, so clickjacking restrictions "
-                        "still depend on legacy X-Frame-Options behavior."
-                    ),
-                    recommendation=(
-                        "Add a restrictive frame-ancestors directive such as "
-                        "'none' or 'self' to Content-Security-Policy."
-                    ),
-                    location=SourceLocation(
-                        mode="local",
-                        kind="file",
-                        file_path=directive.source.file_path,
-                        line=directive.source.line,
-                    ),
-                )
+        csp_directives = [
+            directive
+            for directive in find_server_add_headers(server_block, inherited_directives)
+            if directive.args and directive.args[0].lower() == "content-security-policy"
+        ]
+        if not csp_directives:
+            continue
+        if any(
+            content_security_policy_has_frame_ancestors(_header_value(directive.args))
+            for directive in csp_directives
+        ):
+            continue
+        directive = csp_directives[0]
+        findings.append(
+            Finding(
+                rule_id=RULE_ID,
+                title="Content-Security-Policy missing frame-ancestors",
+                severity="low",
+                description=(
+                    "Content-Security-Policy is configured without a "
+                    "frame-ancestors directive, so clickjacking restrictions "
+                    "still depend on legacy X-Frame-Options behavior."
+                ),
+                recommendation=(
+                    "Add a restrictive frame-ancestors directive such as "
+                    "'none' or 'self' to Content-Security-Policy."
+                ),
+                location=SourceLocation(
+                    mode="local",
+                    kind="file",
+                    file_path=directive.source.file_path,
+                    line=directive.source.line,
+                ),
             )
+        )
 
     return findings
 

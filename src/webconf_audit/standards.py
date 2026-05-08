@@ -84,6 +84,8 @@ def rfc(
     if isinstance(number, bool) or not isinstance(number, int) or number < 1:
         raise ValueError(f"Unsupported RFC number: {number}. Expected a positive integer.")
 
+    if section is not None and not isinstance(section, str):
+        raise ValueError("rfc: section must be a non-empty string when provided.")
     normalized_section = section.strip() if section is not None else None
     if normalized_section == "":
         raise ValueError("rfc: section must be a non-empty string when provided.")

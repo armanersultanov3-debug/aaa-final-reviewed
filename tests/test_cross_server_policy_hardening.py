@@ -479,6 +479,24 @@ def test_nginx_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
     assert "nginx.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
 
 
+def test_nginx_accepts_multi_header_csp_when_one_sets_frame_ancestors(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        '    add_header Content-Security-Policy "default-src \'self\'" always;\n'
+        '    add_header Content-Security-Policy "frame-ancestors \'self\'" always;\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert "nginx.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
 def test_apache_reports_csp_missing_frame_ancestors(tmp_path: Path) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
@@ -595,6 +613,31 @@ def test_iis_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
     <httpProtocol>
       <customHeaders>
         <add name="Content-Security-Policy" value="default-src 'self'; frame-ancestors 'self'" />
+      </customHeaders>
+    </httpProtocol>
+  </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert "iis.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_iis_accepts_multi_header_csp_when_one_sets_frame_ancestors(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Content-Security-Policy" value="default-src 'self'" />
+        <add name="Content-Security-Policy" value="frame-ancestors 'self'" />
       </customHeaders>
     </httpProtocol>
   </system.webServer>
