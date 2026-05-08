@@ -13,6 +13,7 @@ from webconf_audit.local.apache.rules._log_policy_utils import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import cwe, owasp_top10_2021
 
 RULE_ID = "apache.log_format_missing_fields"
 
@@ -47,6 +48,10 @@ _TLS_FIELD_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
     category="local",
     server_type="apache",
+    standards=(
+        cwe(778),
+        owasp_top10_2021("A09:2021"),
+    ),
     order=348,
 )
 def find_log_format_missing_fields(config_ast: ApacheConfigAst) -> list[Finding]:

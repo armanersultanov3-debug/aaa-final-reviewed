@@ -1349,6 +1349,58 @@ def test_analyze_nginx_config_reports_nested_generated_artifact_deny(
     }
 
 
+def test_analyze_nginx_config_reports_missing_sensitive_config_file_restriction(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        root /srv/www;\n"
+        "    }\n"
+        "    location ~ \\.(bak|old|backup|orig|save)$ {\n"
+        "        deny all;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.sensitive_config_files_not_restricted"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_missing_sensitive_config_file_restriction_when_present(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        root /srv/www;\n"
+        "    }\n"
+        "    location ~* \\.(conf|env|ini|log|orig|save|sql|tmp)$ {\n"
+        "        deny all;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sensitive_config_files_not_restricted"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_http_method_policy_allows_unapproved_method(
     tmp_path: Path,
 ) -> None:
@@ -1453,6 +1505,142 @@ def test_analyze_nginx_config_normalizes_http_method_policy_with_quoted_methods(
     assert result.issues == []
     assert not any(
         finding.rule_id == "nginx.http_method_policy_allows_unapproved"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_missing_sitewide_http_method_policy_for_root_proxy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.sitewide_http_method_policy_missing"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sitewide_http_method_policy_when_root_location_has_approved_limit_except(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "        limit_except GET HEAD POST OPTIONS {\n"
+        "            deny all;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sitewide_http_method_policy_missing"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sitewide_http_method_policy_when_root_location_uses_request_method_if_allowlist(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "        if ($request_method !~ ^(GET|HEAD|POST|OPTIONS)$) {\n"
+        "            return 405;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sitewide_http_method_policy_missing"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_does_not_report_sitewide_http_method_policy_when_root_location_uses_request_method_map(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    map $request_method $method_blocked {\n"
+        "        default 1;\n"
+        "        GET 0;\n"
+        "        HEAD 0;\n"
+        "        POST 0;\n"
+        "        OPTIONS 0;\n"
+        "    }\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        location / {\n"
+        "            proxy_pass http://backend;\n"
+        "            if ($method_blocked) {\n"
+        "                return 405;\n"
+        "            }\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.sitewide_http_method_policy_missing"
+        for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_missing_sitewide_http_method_policy_for_single_method_ban(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "        if ($request_method = POST) {\n"
+        "            return 405;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert any(
+        finding.rule_id == "nginx.sitewide_http_method_policy_missing"
         for finding in result.findings
     )
 
