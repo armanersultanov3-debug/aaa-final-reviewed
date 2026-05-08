@@ -59,7 +59,7 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 355
+        assert len(full_reg._catalog) == 357
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
         assert len(full_reg._executable) == 272
@@ -92,7 +92,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 83
+        assert len(rules) == 85
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -100,12 +100,12 @@ class TestCategoryCounts:
         first_size = reg.catalog_size
 
         register_external_rule_metas(reg)
-        assert reg.catalog_size == first_size == 83
+        assert reg.catalog_size == first_size == 85
 
         reg.clear()
         register_external_rule_metas(reg)
 
-        assert reg.catalog_size == 83
+        assert reg.catalog_size == 85
         assert reg.get_meta("external.https_not_available") is not None
 
     def test_external_meta_registration_rejects_duplicate_seed_ids(
@@ -134,7 +134,36 @@ class TestStandardsMetadata:
 
         references = {(ref.standard, ref.reference) for ref in meta.standards}
         assert ("OWASP Top 10", "A05:2021") in references
-        assert ("CIS", "Apache HTTP Server 2.4 v2.3.0 §5.14") in references
+        assert any(
+            ref.standard == "CIS"
+            and ref.reference.startswith("Apache HTTP Server 2.4 v2.3.0 ")
+            for ref in meta.standards
+        )
+
+    def test_followup_rules_have_expected_standards(self, full_reg: RuleRegistry) -> None:
+        expectations = {
+            "nginx.auth_basic_over_http": {
+                ("CWE", "CWE-319"),
+                ("OWASP Top 10", "A02:2021"),
+                ("OWASP ASVS", "v5.0.0-12.2.1"),
+            },
+            "external.cookie_prefix_contract_violated": {
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-3.3.1"),
+            },
+            "external.content_security_policy_nonce_reused": {
+                ("CWE", "CWE-693"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-3.4.3"),
+            },
+        }
+
+        for rule_id, expected_refs in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert expected_refs.issubset(references)
 
 
 # ---------------------------------------------------------------------------

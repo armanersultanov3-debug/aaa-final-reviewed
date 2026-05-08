@@ -12,6 +12,8 @@ class ParsedCookie:
     has_secure: bool
     has_httponly: bool
     samesite_value: str | None
+    domain_value: str | None
+    path_value: str | None
 
 
 def parse_cookie(raw_header: str) -> ParsedCookie:
@@ -22,6 +24,8 @@ def parse_cookie(raw_header: str) -> ParsedCookie:
     has_secure = False
     has_httponly = False
     samesite_value: str | None = None
+    domain_value: str | None = None
+    path_value: str | None = None
 
     for part in parts[1:]:
         attr = part.strip()
@@ -33,12 +37,18 @@ def parse_cookie(raw_header: str) -> ParsedCookie:
             has_httponly = True
         elif attr_lower.startswith("samesite="):
             samesite_value = attr.split("=", 1)[1].strip()
+        elif attr_lower.startswith("domain="):
+            domain_value = attr.split("=", 1)[1].strip()
+        elif attr_lower.startswith("path="):
+            path_value = attr.split("=", 1)[1].strip()
 
     return ParsedCookie(
         name=name,
         has_secure=has_secure,
         has_httponly=has_httponly,
         samesite_value=samesite_value,
+        domain_value=domain_value,
+        path_value=path_value,
     )
 
 

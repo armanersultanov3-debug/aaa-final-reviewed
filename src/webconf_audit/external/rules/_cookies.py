@@ -31,6 +31,7 @@ def _findings_for_session_cookie(
 ) -> list[Finding]:
     findings: list[Finding] = []
     cookie = parse_cookie(raw_cookie)
+    findings.extend(_cookie_prefix_findings(attempt, cookie))
     if not is_session_like_cookie(cookie.name):
         return findings
 
@@ -46,6 +47,87 @@ def _findings_for_session_cookie(
         findings.append(_samesite_none_without_secure_finding(attempt, cookie))
 
     return findings
+
+
+def _cookie_prefix_findings(
+    attempt: "ProbeAttempt",
+    cookie: ParsedCookie,
+) -> list[Finding]:
+    if cookie.name.startswith("__Host-"):
+        problems = _host_prefix_problems(attempt, cookie)
+        if problems:
+            return [
+                _cookie_finding(
+                    attempt,
+                    cookie,
+                    rule_id="external.cookie_prefix_contract_violated",
+                    title="Cookie prefix contract violated",
+                    description=(
+                        f"Response sets the '{cookie.name}' cookie with the "
+                        f"`__Host-` prefix but does not satisfy the required "
+                        f"browser contract: {', '.join(problems)}."
+                    ),
+                    recommendation=(
+                        f"Serve the '{cookie.name}' cookie over HTTPS, keep "
+                        "the Secure attribute, omit the Domain attribute, and "
+                        "set Path=/ when using the `__Host-` prefix."
+                    ),
+                )
+            ]
+        return []
+
+    if cookie.name.startswith("__Secure-"):
+        problems = _secure_prefix_problems(attempt, cookie)
+        if problems:
+            return [
+                _cookie_finding(
+                    attempt,
+                    cookie,
+                    rule_id="external.cookie_prefix_contract_violated",
+                    title="Cookie prefix contract violated",
+                    description=(
+                        f"Response sets the '{cookie.name}' cookie with the "
+                        f"`__Secure-` prefix but does not satisfy the required "
+                        f"browser contract: {', '.join(problems)}."
+                    ),
+                    recommendation=(
+                        f"Serve the '{cookie.name}' cookie over HTTPS and keep "
+                        "the Secure attribute when using the `__Secure-` prefix."
+                    ),
+                )
+            ]
+        return []
+
+    return []
+
+
+def _host_prefix_problems(
+    attempt: "ProbeAttempt",
+    cookie: ParsedCookie,
+) -> list[str]:
+    problems = _secure_prefix_problems(attempt, cookie)
+    if cookie.domain_value is not None:
+        if cookie.domain_value:
+            problems.append(f"Domain={cookie.domain_value!r} is present")
+        else:
+            problems.append("the Domain attribute is present")
+    if cookie.path_value is None:
+        problems.append("Path=/ is missing")
+    elif cookie.path_value != "/":
+        problems.append(f"Path={cookie.path_value!r} is not '/'")
+    return problems
+
+
+def _secure_prefix_problems(
+    attempt: "ProbeAttempt",
+    cookie: ParsedCookie,
+) -> list[str]:
+    problems: list[str] = []
+    if attempt.target.scheme != "https":
+        problems.append("the response was observed over HTTP")
+    if not cookie.has_secure:
+        problems.append("the Secure attribute is missing")
+    return problems
 
 
 def _cookie_finding(

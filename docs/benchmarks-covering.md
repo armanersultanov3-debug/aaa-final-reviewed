@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 355-rule inventory plus the rule-level work needed to cover the
+existing 357-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -119,7 +119,7 @@ Russian sources verified on the same date:
 | --- | --- | --- |
 | CWE | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:cwe()` | Complete across all five rule families. |
 | OWASP Top 10 2021 | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:owasp_top10_2021()` | Complete across all five rule families. |
-| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; follow-up backlog in `STD-GAP-013`/`STD-GAP-014`. |
+| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; direct-rule follow-up from `STD-GAP-013` is now folded into the current mapping, with deeper TLS/runtime follow-up still tracked in `STD-GAP-014`. |
 | CIS NGINX Benchmark v3.0.0 | `docs/rule-coverage.md` (`CIS / Vendor` column) plus the Nginx gap table in the same file | Existing-rule reference pass complete. |
 | CIS Apache HTTP Server 2.4 v2.3.0 | `docs/rule-coverage.md` plus the Apache gap table in the same file | Existing-rule reference pass complete. |
 | CIS Microsoft IIS 10 v1.2.1 (incl. SChannel) | `docs/rule-coverage.md` plus the IIS/SChannel gap table in the same file | Existing-rule reference pass complete. |
@@ -156,7 +156,7 @@ external / per-server TLS rules already in the registry.
 | §3.6 | TLS compression disabled | `apache.ssl_compression_enabled`, `nginx.ssl_conf_command_tls_compression_enabled`, `lighttpd.ssl_compression_enabled` | — | `probe-depth`: negotiated compression evidence remains separate; local coverage is explicit-directive only. |
 | §4.2.4 | HSTS strongly recommended | `universal.missing_hsts`, `nginx.missing_hsts_header`, `apache.missing_hsts_header`, `apache.hsts_header_unsafe`, `lighttpd.missing_strict_transport_security`, `iis.missing_hsts_header`, `external.hsts_header_missing`, `external.hsts_header_invalid`, `external.hsts_max_age_too_short`, `external.hsts_missing_include_subdomains` | — | `direct-rule`: explicit max-age ≥ 31536000 + `includeSubDomains` policy check on local rules where currently presence-only. |
 | §4.2 / §4.3 | OCSP stapling | `nginx.ssl_stapling_disabled`, `nginx.ssl_stapling_missing_resolver`, `nginx.ssl_stapling_without_verify`, `apache.ssl_use_stapling_not_on`, `apache.ssl_stapling_cache_missing` | — | `probe-depth`: external OCSP-response probe (must-staple). Already in `STD-GAP-014`. |
-| Top-level "no plaintext fallback" | Reject HTTP for sensitive endpoints | `universal.tls_intent_without_config`, `nginx.missing_ssl_certificate`, `nginx.missing_ssl_certificate_key`, `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `external.https_not_available`, `external.http_not_redirected_to_https`, `nginx.missing_http_to_https_redirect`, `apache.missing_http_to_https_redirect` | `iis.ssl_not_required`, `iis.basic_auth_without_ssl`, `iis.forms_auth_require_ssl_missing` | — |
+| Top-level "no plaintext fallback" | Reject HTTP for sensitive endpoints | `universal.tls_intent_without_config`, `nginx.missing_ssl_certificate`, `nginx.missing_ssl_certificate_key`, `nginx.missing_http_to_https_redirect`, `nginx.auth_basic_over_http`, `apache.missing_http_to_https_redirect`, `apache.basic_auth_over_http`, `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.basic_auth_over_http`, `iis.ssl_not_required`, `iis.basic_auth_without_ssl`, `iis.forms_auth_require_ssl_missing`, `external.https_not_available`, `external.http_not_redirected_to_https` | — | — |
 
 ### 5.2 NIST SP 800-53 Rev. 5 — Security Controls
 
@@ -169,14 +169,14 @@ Authentication), and SI (System and Information Integrity).
 | --- | --- | --- | --- |
 | SC-8 / SC-8(1) | Transmission confidentiality and integrity | All TLS-presence and HTTP→HTTPS rules from §5.1 above. | `parser-depth`: a `tls_required_for_authenticated_routes` rule using effective-config when an auth-requiring location lacks `ssl` listener selection. |
 | SC-13 | Cryptographic protection | All weak-protocol / weak-cipher / cipher-order rules from §5.1 above. | — |
-| SC-23 / SC-23(3) | Session authenticity | `external.cookie_missing_secure_on_https`, `external.cookie_missing_httponly`, `external.cookie_missing_samesite`, `external.cookie_samesite_none_without_secure`, `iis.http_cookies_http_only_disabled`, `iis.session_state_cookieless`, `iis.forms_auth_protection_unsafe` | `direct-rule`: `cookie_prefix_missing` for `__Host-` / `__Secure-` (already in `STD-GAP-013` orbit). |
+| SC-23 / SC-23(3) | Session authenticity | `external.cookie_missing_secure_on_https`, `external.cookie_missing_httponly`, `external.cookie_missing_samesite`, `external.cookie_samesite_none_without_secure`, `external.cookie_prefix_contract_violated`, `iis.http_cookies_http_only_disabled`, `iis.session_state_cookieless`, `iis.forms_auth_protection_unsafe` | — |
 | AC-3 / AC-3(7) | Access enforcement | `nginx.allow_all_with_deny_all`, `nginx.missing_access_restrictions_on_sensitive_locations`, `nginx.sensitive_location_missing_ip_filter`, `lighttpd.url_access_deny_missing`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_enabled`, `apache.allowoverride_all_in_directory`, `apache.allowoverride_not_none`, `apache.htaccess_*` family | `parser-depth`: Apache inherited/effective authorization coverage now includes `Require local` plus legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults for the current status/info and request-method rules; broader application-specific authorization matrices still need deployment context. |
 | AC-4 | Information flow enforcement | `nginx.proxy_missing_source_ip_headers` | `parser-depth`: outbound proxy / upstream TLS trust modelling. |
 | AU-2 / AU-3 / AU-12 | Event logging, content of audit records, audit record generation | `nginx.missing_access_log`, `nginx.missing_error_log`, `nginx.missing_log_format`, `nginx.error_log_too_restrictive`, `nginx.log_format_missing_fields`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `apache.log_level_too_restrictive`, `apache.log_format_missing_fields`, `apache.missing_log_format`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured` | `direct-rule`: extend `log_format_missing_fields` to require `request-id`, `x-forwarded-for` chain, and TLS-version fields per AU-3(1). |
 | AU-9 | Protection of audit information | none direct — `out-of-scope` | Log-file ownership / mode requires filesystem inspection outside this tool. |
 | CM-6 | Configuration settings | catch-all for every misconfig rule (`server_tokens_*`, `*.options_*`, `*.directory_*`, `*.autoindex_*`, etc.). | — |
 | CM-7 / CM-7(1) | Least functionality | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `iis.cgi_handler_enabled`, `iis.handler_write_script_execute_enabled`, `apache.options_execcgi_enabled`, `apache.options_includes_enabled`, `apache.options_multiviews_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.allow_header_dangerous_methods`, `external.webdav_methods_exposed`, `apache.server_status_exposed`, `apache.server_info_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public` | `parser-depth`: Apache module minimization still needs build/package context, but visible ModSecurity / CRS inventory is now covered by direct local rules in addition to the existing module-aware foundation from `STD-GAP-007`. |
-| IA-2 / IA-5 / IA-5(1) | Identification and authentication | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.machine_key_validation_weak`, `iis.machine_key_legacy_validation_weak`, `external.htpasswd_exposed` | `direct-rule`: detect `auth_basic` over plain HTTP for Nginx (mirrors `iis.basic_auth_without_ssl`). |
+| IA-2 / IA-5 / IA-5(1) | Identification and authentication | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.machine_key_validation_weak`, `iis.machine_key_legacy_validation_weak`, `external.htpasswd_exposed` | — |
 | SI-10 / SI-10(2) | Information input validation | `iis.request_filtering_allow_double_escaping`, `iis.request_filtering_allow_high_bit`, `iis.file_extensions_allow_unlisted`, `iis.isapi_cgi_restrictions_allow_unlisted`, `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high` | `direct-rule`: equivalent header-byte limits for Apache (`LimitRequestFieldSize`) — already covered; cross-server extension allowlist for Nginx / Apache. |
 | SI-11 | Error handling | `iis.http_errors_detailed`, `iis.custom_errors_off`, `iis.asp_script_error_sent_to_browser`, `iis.deployment_retail_not_enabled`, `iis.compilation_debug_enabled`, `iis.trace_enabled`, `apache.error_document_404_missing`, `apache.error_document_500_missing`, `external.iis.detailed_error_page`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.phpinfo_exposed` | — |
 | SC-5 / SC-5(1) | Resource availability / DoS | All `*.missing_limit_*`, `*.missing_client_*_timeout`, `*.timeout_too_high`, `*.keepalive_*`, `*.client_max_body_size_*`, `apache.limit_request_*`, `iis.max_allowed_content_length_missing` | — |
@@ -209,8 +209,8 @@ parts:
 
 | 800-63B section | Topic | Already-covered rules (candidate `partial`) | Gap follow-up |
 | --- | --- | --- | --- |
-| §5.1.1.2 | Memorized secret transport over authenticated protected channel | `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `external.htpasswd_exposed` | `direct-rule`: Nginx `auth_basic` without `ssl` listener selection. |
-| §7.1 | Session bindings (cookie attributes) | All cookie-attribute rules from §5.2 / SC-23 above. | `direct-rule`: cookie prefix policy (`__Host-`, `__Secure-`) — overlaps `STD-GAP-013`. |
+| §5.1.1.2 | Memorized secret transport over authenticated protected channel | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `external.htpasswd_exposed` | — |
+| §7.1 | Session bindings (cookie attributes) | All cookie-attribute rules from §5.2 / SC-23 above, plus `external.cookie_prefix_contract_violated`. | — |
 | §10.4 | Reauthentication | out-of-scope (application). | — |
 
 ### 5.5 NIST CSF 2.0 — Cybersecurity Framework
@@ -242,9 +242,9 @@ already aligned with the relevant requirements.
 | 2.2.6 | System security parameters configured to prevent misuse | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.htpasswd_exposed`, `external.env_file_exposed` | `direct-rule`: backup file probe pattern broader than `.bak` / `.old` / `.swp`. |
 | 4.2.1 | Strong cryptography for transmissions over open public networks | All TLS / HSTS / redirect rules from §5.1. | — |
 | 6.2.4 | Common attack vectors / hardening | `nginx.executable_scripts_allowed_in_uploads`, `iis.handler_write_script_execute_enabled`, `iis.cgi_handler_enabled`, `iis.request_filtering_*` family, `apache.htaccess_enables_cgi`, `apache.htaccess_enables_directory_listing`, `apache.htaccess_disables_security_headers`, `apache.htaccess_weakens_security` | — |
-| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.content_security_policy_*` family | `probe-depth`: SRI/CSP nonce/hash policy validation (overlaps `STD-GAP-013`). |
-| 8.3.1 | Strong authentication for users / administrators | `iis.basic_auth_without_ssl`, `nginx.missing_auth_basic_user_file`, `external.htpasswd_exposed`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config` | `direct-rule`: Nginx `auth_basic` without TLS listener. |
-| 8.3.2 | Strong cryptography during transmission of all auth factors | `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`, all cookie `Secure` / `SameSite=None+Secure` rules. | — |
+| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.content_security_policy_*` family, including `external.content_security_policy_nonce_reused` for repeated nonce detection. | `probe-depth`: SRI and body-aware inline-script inventory remain outside the current safe header-only probe. |
+| 8.3.1 | Strong authentication for users / administrators | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `external.htpasswd_exposed`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config` | — |
+| 8.3.2 | Strong cryptography during transmission of all auth factors | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`, all cookie `Secure` / `SameSite=None+Secure` rules, `external.cookie_prefix_contract_violated`. | — |
 | 10.2.1 | Audit logs enabled and active | `nginx.missing_access_log`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured`, `nginx.missing_error_log`, `nginx.error_log_too_restrictive`, `apache.log_level_too_restrictive` | — |
 | 10.2.2 | Audit logs record specific items | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`, `nginx.missing_log_format`, `apache.missing_log_format` | `direct-rule`: cross-server `log_format_missing_user_agent_or_request_id` rule (currently Nginx-only). |
 | 10.5 | Audit log retention / protection | none — `out-of-scope`. | — |
@@ -315,7 +315,7 @@ control numbers apply.
 | APP.3.2.A2 | Sichere Konfiguration eines Web-Servers | catch-all hardening. | — |
 | APP.3.2.A3 | Sicheres Hochfahren | `out-of-scope`. | — |
 | APP.3.2.A4 | Protokollierung | All AU-2 rules. | — |
-| APP.3.2.A5 | Authentisierung über HTTP | `iis.basic_auth_without_ssl`, planned Nginx equivalent. | `direct-rule` on Nginx. |
+| APP.3.2.A5 | Authentisierung über HTTP | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`. | — |
 | APP.3.2.A11 | Verschlüsselung über TLS | All §5.1 rules. | — |
 | APP.3.2.A12 | Sichere Erhebung von Konfigurationsdaten | `out-of-scope`. | — |
 | APP.3.2.A14 | Schutz von Web-Anwendungen und Web-Services über Reverse-Proxy | `nginx.proxy_missing_source_ip_headers` (partial). | `parser-depth`: full reverse-proxy upstream-TLS modelling remains broader than today's Nginx rule, but the Apache-side foundation closed in `STD-GAP-007` is now implemented. |
@@ -351,10 +351,10 @@ companion but does not cite per-rule.
 | HTTP Strict Transport Security | All HSTS rules. |
 | Transport Layer Security | All §5.1 rules. |
 | Content Security Policy | `external.content_security_policy_*`, `nginx.content_security_policy_unsafe`, `nginx.missing_content_security_policy`, `apache.htaccess_disables_security_headers` (partial). |
-| Cross-Site Request Forgery Prevention | All `cookie_missing_samesite` / `cookie_samesite_none_without_secure` rules. |
-| Session Management | Cookie + IIS forms-auth rules. |
+| Cross-Site Request Forgery Prevention | All `cookie_missing_samesite` / `cookie_samesite_none_without_secure` rules plus `external.cookie_prefix_contract_violated`. |
+| Session Management | Cookie rules (including `external.cookie_prefix_contract_violated`) + IIS forms-auth rules. |
 | Logging | All AU-2 rules. |
-| Authentication | `iis.basic_auth_without_ssl`, `nginx.missing_auth_basic_user_file`, `external.htpasswd_exposed`. |
+| Authentication | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `external.htpasswd_exposed`. |
 | Web Service Security | partial via `external.allow_header_dangerous_methods`, `external.dangerous_http_methods_enabled`. |
 | Secure Cookie Attributes | All cookie rules. |
 
@@ -441,8 +441,8 @@ authoritative in Russian.
 
 | Класс | Мера | Уже покрыто правилами (кандидат `covered` / `partial`) | Gap follow-up |
 | --- | --- | --- | --- |
-| ИАФ.1 | Идентификация и аутентификация субъектов доступа | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_uses_specific_user`. | `direct-rule`: Nginx `auth_basic` без TLS-listener. |
-| ИАФ.6 | Защита аутентификационной информации | `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.forms_auth_protection_unsafe`, `external.htpasswd_exposed`, `iis.basic_auth_without_ssl`. | — |
+| ИАФ.1 | Идентификация и аутентификация субъектов доступа | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_uses_specific_user`. | — |
+| ИАФ.6 | Защита аутентификационной информации | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.forms_auth_protection_unsafe`, `external.htpasswd_exposed`, `iis.basic_auth_without_ssl`. | — |
 | УПД.5 | Управление доступом субъектов | `nginx.allow_all_with_deny_all`, `nginx.missing_access_restrictions_on_sensitive_locations`, `nginx.sensitive_location_missing_ip_filter`, `lighttpd.url_access_deny_missing`, `iis.authorization_allows_anonymous_users`, `apache.allowoverride_*`. | `parser-depth`: эффективная политика `Require` для Apache. |
 | УПД.13 | Защищённый удалённый доступ | Все правила §5.1 (TLS / HSTS / redirect). | — |
 | ОПС.3 | Идентификация и аутентификация компонентов | `nginx.proxy_missing_source_ip_headers`. | `parser-depth`: моделирование upstream TLS trust. |
@@ -598,8 +598,8 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 355 правил (Nginx 79, Apache 82, Lighttpd 47, IIS 51,
-  External 83, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
+  обновлён до 357 правил (Nginx 79, Apache 82, Lighttpd 47, IIS 51,
+  External 85, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
   содержат finding-level `standards` и top-level `standards` summary, а text
@@ -659,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (355 правил: Nginx 79, Apache 82, Lighttpd 47, IIS 51, External 83, Universal 13). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (357 правил: Nginx 79, Apache 82, Lighttpd 47, IIS 51, External 85, Universal 13). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 

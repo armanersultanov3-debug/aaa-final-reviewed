@@ -167,6 +167,30 @@ def _content_security_policy_source_tokens(source_list: str | None) -> set[str]:
     return {token.lower() for token in source_list.split() if token.strip()}
 
 
+def _content_security_policy_nonce_tokens(header_value: str | None) -> set[str]:
+    if header_value is None:
+        return set()
+
+    directives = _content_security_policy_directives(header_value)
+    tokens: set[str] = set()
+    for directive_name in (
+        "script-src",
+        "script-src-elem",
+        "script-src-attr",
+        "style-src",
+        "style-src-elem",
+        "style-src-attr",
+    ):
+        source_list = directives.get(directive_name)
+        if source_list is None:
+            continue
+        for token in source_list.split():
+            stripped = token.strip()
+            if stripped.startswith("'nonce-") and stripped.endswith("'") and len(stripped) > 8:
+                tokens.add(stripped)
+    return tokens
+
+
 def _content_security_policy_source_list_is_none(source_list: str | None) -> bool:
     return _content_security_policy_source_tokens(source_list) == {"'none'"}
 
@@ -417,6 +441,51 @@ def _find_content_security_policy_unsafe_eval(
     return findings
 
 
+def _find_content_security_policy_nonce_reused(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    attempts_by_nonce: dict[str, list["ProbeAttempt"]] = {}
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        nonces = _content_security_policy_nonce_tokens(
+            attempt.content_security_policy_header
+        )
+        for nonce in nonces:
+            attempts_by_nonce.setdefault(nonce, []).append(attempt)
+
+    for nonce, attempts in attempts_by_nonce.items():
+        if len(attempts) < 2:
+            continue
+        observed_targets = ", ".join(attempt.target.url for attempt in attempts[:3])
+        if len(attempts) > 3:
+            observed_targets += ", ..."
+        findings.append(
+            Finding(
+                rule_id="external.content_security_policy_nonce_reused",
+                title="Content-Security-Policy nonce reused across responses",
+                severity="medium",
+                description=(
+                    "HTTPS responses reused the same Content-Security-Policy "
+                    f"nonce token {nonce}. Nonce-based allowlists should be "
+                    "unpredictable and unique per response."
+                ),
+                recommendation=(
+                    "Generate a fresh CSP nonce for every response, or use "
+                    "hash-based allowlisting for static inline assets."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="header",
+                    target=attempts[0].target.url,
+                    details=f"Observed CSP nonce {nonce} on: {observed_targets}",
+                ),
+            )
+        )
+
+    return findings
+
+
 def _find_referrer_policy_missing(probe_attempts: list["ProbeAttempt"]) -> list[Finding]:
     findings: list[Finding] = []
 
@@ -618,6 +687,7 @@ def collect_header_findings(probe_attempts: list["ProbeAttempt"]) -> list[Findin
     findings.extend(_find_content_security_policy_missing_reporting_endpoint(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_inline(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_eval(probe_attempts))
+    findings.extend(_find_content_security_policy_nonce_reused(probe_attempts))
     findings.extend(_find_referrer_policy_missing(probe_attempts))
     findings.extend(_find_referrer_policy_unsafe(probe_attempts))
     findings.extend(_find_permissions_policy_missing(probe_attempts))

@@ -7,6 +7,7 @@ from webconf_audit.local.apache.parser import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "apache.basic_auth_over_http"
 TITLE = "Basic authentication is enabled on plain HTTP"
@@ -29,6 +30,11 @@ RECOMMENDATION = (
     category="local",
     server_type="apache",
     tags=("auth", "tls"),
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.2.1"),
+    ),
     order=367,
 )
 def find_basic_auth_over_http(config_ast: ApacheConfigAst) -> list[Finding]:

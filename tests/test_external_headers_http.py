@@ -456,6 +456,101 @@ def test_content_security_policy_missing_does_not_fire_minimum_quality_rules(
     assert "external.content_security_policy_base_uri_not_restricted" not in rule_ids
 
 
+def test_content_security_policy_nonce_reused_fires(monkeypatch) -> None:
+    shared_nonce = "'nonce-static123'"
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=(
+                f"default-src 'self'; script-src 'self' {shared_nonce}"
+            ),
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=(
+                f"default-src 'self'; script-src 'self' {shared_nonce}"
+            ),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.content_security_policy_nonce_reused"
+    ]
+    assert len(findings) == 1
+    assert shared_nonce in findings[0].description
+    assert findings[0].location.details is not None
+    assert "/account" in findings[0].location.details
+
+
+def test_content_security_policy_nonce_reused_does_not_fire_for_distinct_nonces(
+    monkeypatch,
+) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=(
+                "default-src 'self'; script-src 'self' 'nonce-first123'"
+            ),
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=(
+                "default-src 'self'; script-src 'self' 'nonce-second456'"
+            ),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    assert "external.content_security_policy_nonce_reused" not in {
+        finding.rule_id for finding in result.findings
+    }
+
+
+def test_content_security_policy_nonce_reused_does_not_fire_for_hash_policy(
+    monkeypatch,
+) -> None:
+    hash_policy = (
+        "default-src 'self'; script-src 'self' "
+        "'sha256-Z3VhcmQtbWUtd2l0aC1hLWhhc2g='"
+    )
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=hash_policy,
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=hash_policy,
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    assert "external.content_security_policy_nonce_reused" not in {
+        finding.rule_id for finding in result.findings
+    }
+
+
 def test_referrer_policy_missing_fires_when_header_absent(monkeypatch) -> None:
     probe_attempts = [
         _https_probe_with_headers(referrer_policy_header=None),
@@ -1361,15 +1456,18 @@ def test_parse_cookie_extracts_name_and_attributes() -> None:
     assert cookie.has_secure is True
     assert cookie.has_httponly is True
     assert cookie.samesite_value == "Lax"
+    assert cookie.domain_value is None
+    assert cookie.path_value == "/"
 
 
 def test_parse_cookie_case_insensitive_attributes() -> None:
     from webconf_audit.external.recon._cookie import parse_cookie
 
-    cookie = parse_cookie("sid=x; secure; HTTPONLY; samesite=Strict")
+    cookie = parse_cookie("sid=x; secure; HTTPONLY; samesite=Strict; domain=example.com")
     assert cookie.has_secure is True
     assert cookie.has_httponly is True
     assert cookie.samesite_value == "Strict"
+    assert cookie.domain_value == "example.com"
 
 
 def test_parse_cookie_missing_attributes() -> None:
@@ -1380,6 +1478,8 @@ def test_parse_cookie_missing_attributes() -> None:
     assert cookie.has_secure is False
     assert cookie.has_httponly is False
     assert cookie.samesite_value is None
+    assert cookie.domain_value is None
+    assert cookie.path_value == "/"
 
 
 def test_is_session_like_cookie_matches() -> None:
@@ -1560,6 +1660,83 @@ def test_no_cookie_findings_for_non_session_cookie(monkeypatch) -> None:
         "external.cookie_missing_samesite",
     }
     assert not cookie_rules.intersection({f.rule_id for f in result.findings})
+
+
+# --- Cookie prefix contracts ---
+
+
+def test_cookie_prefix_contract_fires_for_invalid_host_cookie(monkeypatch) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            set_cookie_headers=(
+                "__Host-session=abc; Secure; HttpOnly; SameSite=Lax; Domain=example.com; Path=/app",
+            ),
+        ),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.cookie_prefix_contract_violated"
+    ]
+    assert len(findings) == 1
+    assert "__Host-session" in findings[0].description
+    assert "Domain='example.com'" in findings[0].description
+    assert "Path='/app'" in findings[0].description
+
+
+def test_cookie_prefix_contract_fires_for_secure_prefix_on_http(monkeypatch) -> None:
+    probe_attempts = [
+        _http_probe_with_headers(
+            set_cookie_headers=("__Secure-auth=abc; Secure; HttpOnly; SameSite=Lax",),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.cookie_prefix_contract_violated"
+    ]
+    assert len(findings) == 1
+    assert "__Secure-auth" in findings[0].description
+    assert "observed over HTTP" in findings[0].description
+
+
+def test_cookie_prefix_contract_does_not_fire_for_valid_host_cookie(monkeypatch) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            set_cookie_headers=(
+                "__Host-session=abc; Secure; HttpOnly; SameSite=Lax; Path=/",
+            ),
+        ),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    assert "external.cookie_prefix_contract_violated" not in {
+        finding.rule_id for finding in result.findings
+    }
+
+
+def test_cookie_prefix_contract_applies_to_non_session_cookie(monkeypatch) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            set_cookie_headers=("__Host-csrf=abc; Secure; Domain=example.com; Path=/",),
+        ),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    assert "external.cookie_prefix_contract_violated" in {
+        finding.rule_id for finding in result.findings
+    }
 
 
 # --- Multiple cookies with mixed posture ---
