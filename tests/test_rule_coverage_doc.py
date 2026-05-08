@@ -97,6 +97,23 @@ def test_total_rules_summary_matches_registry() -> None:
     assert int(match.group(1)) == expected_total
 
 
+def test_summary_severity_counts_match_registry() -> None:
+    _ensure_all_rules_loaded()
+    rules = registry.list_rules()
+    counts = Counter(meta.severity for meta in rules)
+    match = re.search(
+        r"\|\s*Severity\s*\|\s*high\s*\((\d+)\),\s*medium\s*\((\d+)\),\s*low\s*\((\d+)\),\s*info\s*\((\d+)\)\s*\|",
+        _document_text(),
+    )
+    assert match is not None, "Could not find Severity summary row in docs/rule-coverage.md"
+    assert tuple(int(group) for group in match.groups()) == (
+        counts["high"],
+        counts["medium"],
+        counts["low"],
+        counts["info"],
+    )
+
+
 def test_per_group_counts_match_registry() -> None:
     _ensure_all_rules_loaded()
     rules = registry.list_rules()

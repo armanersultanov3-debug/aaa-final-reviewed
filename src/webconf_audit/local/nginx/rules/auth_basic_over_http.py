@@ -11,6 +11,7 @@ from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "nginx.auth_basic_over_http"
 TITLE = "Basic authentication is enabled on plain HTTP"
@@ -33,6 +34,11 @@ RECOMMENDATION = (
     category="local",
     server_type="nginx",
     tags=("auth", "tls"),
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.2.1"),
+    ),
     order=264,
 )
 def find_auth_basic_over_http(config_ast: ConfigAst) -> list[Finding]:

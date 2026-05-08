@@ -22,6 +22,7 @@ from webconf_audit.local.lighttpd.rules.rule_utils import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "lighttpd.basic_auth_over_http"
 _BASIC_AUTH_RE = re.compile(
@@ -46,6 +47,11 @@ _BASIC_AUTH_RE = re.compile(
     server_type="lighttpd",
     input_kind="effective",
     tags=("auth", "tls"),
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.2.1"),
+    ),
     order=416,
 )
 def find_basic_auth_over_http(

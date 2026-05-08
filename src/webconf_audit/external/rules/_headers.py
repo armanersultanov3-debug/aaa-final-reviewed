@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING
 
 from webconf_audit.csp import (
@@ -165,6 +166,69 @@ def _content_security_policy_source_tokens(source_list: str | None) -> set[str]:
     if source_list is None:
         return set()
     return {token.lower() for token in source_list.split() if token.strip()}
+
+
+def _first_non_empty_source_list(*source_lists: str | None) -> str | None:
+    for source_list in source_lists:
+        if source_list is not None and source_list.strip():
+            return source_list
+    return None
+
+
+def _content_security_policy_nonce_fingerprint(nonce: str) -> str:
+    return hashlib.sha256(nonce.encode("utf-8")).hexdigest()[:12]
+
+
+def _content_security_policy_effective_source_lists(
+    directives: dict[str, str],
+) -> tuple[str | None, ...]:
+    return (
+        _first_non_empty_source_list(
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("script-src-elem"),
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("script-src-attr"),
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src-elem"),
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src-attr"),
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+    )
+
+
+def _content_security_policy_nonce_tokens(header_value: str | None) -> set[str]:
+    if header_value is None:
+        return set()
+
+    directives = _content_security_policy_directives(header_value)
+    tokens: set[str] = set()
+    source_lists = _content_security_policy_effective_source_lists(directives)
+    for source_list in source_lists:
+        if source_list is None:
+            continue
+        for token in source_list.split():
+            stripped = token.strip()
+            if stripped.startswith("'nonce-") and stripped.endswith("'") and len(stripped) > 8:
+                tokens.add(stripped)
+    return tokens
 
 
 def _content_security_policy_source_list_is_none(source_list: str | None) -> bool:
@@ -417,6 +481,60 @@ def _find_content_security_policy_unsafe_eval(
     return findings
 
 
+def _find_content_security_policy_nonce_reused(
+    probe_attempts: list["ProbeAttempt"],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    attempts_by_nonce: dict[str, list["ProbeAttempt"]] = {}
+
+    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+        nonces = _content_security_policy_nonce_tokens(
+            attempt.content_security_policy_header
+        )
+        for nonce in sorted(nonces):
+            attempts_by_nonce.setdefault(nonce, []).append(attempt)
+
+    for nonce in sorted(
+        attempts_by_nonce,
+        key=_content_security_policy_nonce_fingerprint,
+    ):
+        attempts = attempts_by_nonce[nonce]
+        if len(attempts) < 2:
+            continue
+        nonce_fingerprint = _content_security_policy_nonce_fingerprint(nonce)
+        observed_targets = ", ".join(attempt.target.url for attempt in attempts[:3])
+        if len(attempts) > 3:
+            observed_targets += ", ..."
+        findings.append(
+            Finding(
+                rule_id="external.content_security_policy_nonce_reused",
+                title="Content-Security-Policy nonce reused across responses",
+                severity="medium",
+                description=(
+                    "HTTPS responses reused the same Content-Security-Policy "
+                    f"nonce token (sha256:{nonce_fingerprint}). Nonce-based "
+                    "allowlists should be "
+                    "unpredictable and unique per response."
+                ),
+                recommendation=(
+                    "Generate a fresh CSP nonce for every response, or use "
+                    "hash-based allowlisting for static inline assets."
+                ),
+                location=SourceLocation(
+                    mode="external",
+                    kind="header",
+                    target=attempts[0].target.url,
+                    details=(
+                        "Observed reused CSP nonce "
+                        f"(sha256:{nonce_fingerprint}) on: {observed_targets}"
+                    ),
+                ),
+            )
+        )
+
+    return findings
+
+
 def _find_referrer_policy_missing(probe_attempts: list["ProbeAttempt"]) -> list[Finding]:
     findings: list[Finding] = []
 
@@ -618,6 +736,7 @@ def collect_header_findings(probe_attempts: list["ProbeAttempt"]) -> list[Findin
     findings.extend(_find_content_security_policy_missing_reporting_endpoint(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_inline(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_eval(probe_attempts))
+    findings.extend(_find_content_security_policy_nonce_reused(probe_attempts))
     findings.extend(_find_referrer_policy_missing(probe_attempts))
     findings.extend(_find_referrer_policy_unsafe(probe_attempts))
     findings.extend(_find_permissions_policy_missing(probe_attempts))
