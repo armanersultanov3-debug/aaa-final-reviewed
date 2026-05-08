@@ -105,6 +105,22 @@ from tests.nginx_helpers import (
         pytest.param(
             "server {\n"
             "    listen 80;\n"
+            "    add_header Content-Security-Policy \"default-src *\";\n"
+            "}\n",
+            "nginx.content_security_policy_unsafe",
+            id="wildcard-default-src-without-script-src",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    add_header Content-Security-Policy \"default-src 'unsafe-inline'\";\n"
+            "}\n",
+            "nginx.content_security_policy_unsafe",
+            id="unsafe-inline-default-src-without-script-src",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
             "    add_header Content-Security-Policy \"default-src-elem 'self'; frame-ancestors 'self'\" always;\n"
             "}\n",
             "nginx.content_security_policy_unsafe",

@@ -74,16 +74,15 @@ def _header_value(args: list[str]) -> str:
 
 
 def _policy_is_baseline_safe(policy: str) -> bool:
-    directive_names = {
-        parts[0]
-        for directive in policy.split(";")
-        if (parts := directive.strip().split(maxsplit=1))
-    }
-    if "default-src" not in directive_names:
+    default_src = _directive_value(policy, "default-src")
+    if default_src is None:
+        return False
+    default_tokens = set(default_src.split())
+    if not default_tokens or "*" in default_tokens:
         return False
     script_src = _directive_value(policy, "script-src")
     if script_src is None:
-        return True
+        return not any(token in default_tokens for token in _UNSAFE_SCRIPT_TOKENS)
     return not any(token in script_src.split() for token in _UNSAFE_SCRIPT_TOKENS)
 
 
