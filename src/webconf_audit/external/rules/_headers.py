@@ -491,10 +491,11 @@ def _find_content_security_policy_nonce_reused(
         nonces = _content_security_policy_nonce_tokens(
             attempt.content_security_policy_header
         )
-        for nonce in nonces:
+        for nonce in sorted(nonces):
             attempts_by_nonce.setdefault(nonce, []).append(attempt)
 
-    for nonce, attempts in attempts_by_nonce.items():
+    for nonce in sorted(attempts_by_nonce):
+        attempts = attempts_by_nonce[nonce]
         if len(attempts) < 2:
             continue
         nonce_fingerprint = _content_security_policy_nonce_fingerprint(nonce)

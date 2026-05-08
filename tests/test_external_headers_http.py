@@ -567,6 +567,50 @@ def test_content_security_policy_nonce_reused_does_not_use_default_src_when_expl
     }
 
 
+def test_content_security_policy_nonce_reused_findings_are_stably_sorted(
+    monkeypatch,
+) -> None:
+    first_nonce = "'nonce-alpha123'"
+    second_nonce = "'nonce-zulu789'"
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=(
+                f"default-src 'self'; script-src 'self' {second_nonce} {first_nonce}"
+            ),
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=(
+                f"default-src 'self'; script-src 'self' {second_nonce} {first_nonce}"
+            ),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.content_security_policy_nonce_reused"
+    ]
+    expected_fingerprints = [
+        hashlib.sha256(nonce.encode("utf-8")).hexdigest()[:12]
+        for nonce in sorted((first_nonce, second_nonce))
+    ]
+
+    assert len(findings) == 2
+    assert [
+        finding.description.split("sha256:")[1].split(")")[0]
+        for finding in findings
+    ] == expected_fingerprints
+
+
 def test_content_security_policy_nonce_reused_does_not_fire_for_distinct_nonces(
     monkeypatch,
 ) -> None:
