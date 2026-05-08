@@ -494,7 +494,10 @@ def _find_content_security_policy_nonce_reused(
         for nonce in sorted(nonces):
             attempts_by_nonce.setdefault(nonce, []).append(attempt)
 
-    for nonce in sorted(attempts_by_nonce):
+    for nonce in sorted(
+        attempts_by_nonce,
+        key=_content_security_policy_nonce_fingerprint,
+    ):
         attempts = attempts_by_nonce[nonce]
         if len(attempts) < 2:
             continue

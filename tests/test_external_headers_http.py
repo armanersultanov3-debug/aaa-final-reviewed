@@ -599,10 +599,10 @@ def test_content_security_policy_nonce_reused_findings_are_stably_sorted(
         for finding in result.findings
         if finding.rule_id == "external.content_security_policy_nonce_reused"
     ]
-    expected_fingerprints = [
+    expected_fingerprints = sorted(
         hashlib.sha256(nonce.encode("utf-8")).hexdigest()[:12]
-        for nonce in sorted((first_nonce, second_nonce))
-    ]
+        for nonce in (first_nonce, second_nonce)
+    )
 
     assert len(findings) == 2
     assert [
