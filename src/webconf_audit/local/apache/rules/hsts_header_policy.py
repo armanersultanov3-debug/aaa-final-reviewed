@@ -10,6 +10,7 @@ from webconf_audit.local.apache.rules.security_header_utils import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 MISSING_RULE_ID = "apache.missing_hsts_header"
 UNSAFE_RULE_ID = "apache.hsts_header_unsafe"
@@ -74,6 +75,15 @@ def find_missing_hsts_header(config_ast: ApacheConfigAst) -> list[Finding]:
     ),
     category="local",
     server_type="apache",
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A05:2021"),
+        asvs_5(
+            "3.4.1",
+            coverage="partial",
+            note="Local max-age and includeSubDomains policy validation.",
+        ),
+    ),
     order=359,
     tags=("headers", "tls"),
 )

@@ -74,4 +74,33 @@ def asvs_5(
     )
 
 
-__all__ = ["asvs_5", "cwe", "owasp_top10_2021"]
+def rfc(
+    number: int,
+    *,
+    section: str | None = None,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    if isinstance(number, bool) or not isinstance(number, int) or number < 1:
+        raise ValueError(f"Unsupported RFC number: {number}. Expected a positive integer.")
+
+    normalized_section = section.strip() if section is not None else None
+    if normalized_section == "":
+        raise ValueError("rfc: section must be a non-empty string when provided.")
+
+    reference = f"RFC {number}"
+    url = f"https://datatracker.ietf.org/doc/html/rfc{number}"
+    if normalized_section is not None:
+        reference = f"{reference} §{normalized_section}"
+        url = f"{url}#section-{normalized_section}"
+
+    return StandardReference(
+        standard="IETF RFC",
+        reference=reference,
+        url=url,
+        coverage=coverage,
+        note=note,
+    )
+
+
+__all__ = ["asvs_5", "cwe", "owasp_top10_2021", "rfc"]

@@ -5,6 +5,7 @@ from webconf_audit.local.iis.parser import IISConfigDocument
 from webconf_audit.local.iis.registry import IISRegistryTLS
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
 
 TLS12_RULE_ID = "iis.schannel_tls12_not_enabled"
 WEAK_PROTOCOL_RULE_ID = "iis.schannel_weak_protocol_enabled"
@@ -77,6 +78,16 @@ def find_schannel_tls12_not_enabled(
     server_type="iis",
     tags=("tls",),
     input_kind="mixed",
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1"),
+        rfc(
+            8996,
+            coverage="partial",
+            note="Flags RFC 8996-deprecated TLS 1.0 / 1.1 alongside adjacent legacy SSLv2/SSLv3 posture.",
+        ),
+    ),
     order=535,
 )
 def find_schannel_weak_protocol_enabled(

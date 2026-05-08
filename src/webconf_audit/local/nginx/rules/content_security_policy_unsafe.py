@@ -17,7 +17,7 @@ _UNSAFE_SCRIPT_TOKENS = {"'unsafe-inline'", "'unsafe-eval'", "unsafe-inline", "u
     severity="low",
     description="Content-Security-Policy is present but lacks baseline protections.",
     recommendation=(
-        "Include at least default-src and frame-ancestors directives, and avoid "
+        "Include at least a restrictive default-src directive and avoid "
         "'unsafe-inline' / 'unsafe-eval' in script-src."
     ),
     category="local",
@@ -45,11 +45,11 @@ def find_content_security_policy_unsafe(config_ast: ConfigAst) -> list[Finding]:
                     severity="low",
                     description=(
                         "Content-Security-Policy is present but lacks a restrictive "
-                        "default-src, frame-ancestors, or safe script-src posture."
+                        "default-src or safe script-src posture."
                     ),
                     recommendation=(
-                        "Use a baseline such as default-src 'self'; frame-ancestors "
-                        "'self'; form-action 'self'; and remove unsafe script tokens."
+                        "Use a baseline such as default-src 'self'; form-action "
+                        "'self'; and remove unsafe script tokens."
                     ),
                     location=SourceLocation(
                         mode="local",
@@ -76,7 +76,7 @@ def _policy_is_baseline_safe(policy: str) -> bool:
         for directive in policy.split(";")
         if (parts := directive.strip().split(maxsplit=1))
     }
-    if "default-src" not in directive_names or "frame-ancestors" not in directive_names:
+    if "default-src" not in directive_names:
         return False
     script_src = _directive_value(policy, "script-src")
     if script_src is None:

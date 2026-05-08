@@ -13,6 +13,7 @@ from webconf_audit.local.nginx.rules._value_utils import (
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
 
 RULE_ID = "nginx.weak_ssl_protocols"
 WEAK_PROTOCOLS = {"SSLv2", "SSLv3", "TLSv1", "TLSv1.1"}
@@ -26,6 +27,16 @@ WEAK_PROTOCOLS = {"SSLv2", "SSLv3", "TLSv1", "TLSv1.1"}
     recommendation="Remove SSLv2, SSLv3, TLSv1, and TLSv1.1 from the ssl_protocols directive.",
     category="local",
     server_type="nginx",
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1"),
+        rfc(
+            8996,
+            coverage="partial",
+            note="Flags RFC 8996-deprecated TLS 1.0 / 1.1 alongside adjacent legacy SSLv2/SSLv3 posture.",
+        ),
+    ),
     order=240,
 )
 def find_weak_ssl_protocols(config_ast: ConfigAst) -> list[Finding]:

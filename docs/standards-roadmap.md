@@ -37,16 +37,16 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 357 rules (synchronized with
+The current project inventory is 363 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 13
-- Nginx local: 79
-- Apache local: 82
-- Lighttpd local: 47
-- IIS local: 51
+- Nginx local: 80
+- Apache local: 84
+- Lighttpd local: 49
+- IIS local: 52
 - External probes: 85
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
@@ -320,8 +320,10 @@ until the listed follow-up exists:
   responses when nonce-based allowlisting is observed; body-aware inline
   script inventory and SRI remain outside the current safe header-only probe.
 - `v5.0.0-3.4.6` - ASVS prefers CSP `frame-ancestors`; the external probe
-  now checks observed CSP responses, while local config rules still need
-  follow-up before claiming full coverage across server families.
+  checks observed CSP responses, and dedicated local Nginx, Apache,
+  Lighttpd, and IIS rules now cover missing `frame-ancestors` directives.
+  Remaining CSP gaps are limited to body-aware inline-script inventory and
+  SRI, not another header-only direct rule.
 - `v5.0.0-3.5.1` through `v5.0.0-3.5.3` - CSRF and safe-method semantics are
   application behavior. Existing dangerous-method probes help, but they do not
   prove anti-forgery controls.
@@ -362,7 +364,7 @@ standard section before implementation.
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper TLS probe work is tracked in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
-| STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; external runtime coverage now also includes `__Host-` / `__Secure-` cookie prefix validation plus repeated CSP nonce detection for per-response allowlisting. Remaining CSP honesty notes are limited to HTML/body-aware inline-script inventory and SRI, not another header-only direct rule. |
+| STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation plus repeated CSP nonce detection for per-response allowlisting. Remaining CSP honesty notes are limited to HTML/body-aware inline-script inventory and SRI, not another header-only direct rule. |
 | STD-GAP-014 | ASVS 5.0.0 | covered | P3 | Deeper external TLS runtime evidence now covers negotiated forward secrecy posture, bounded TLS 1.2 server cipher preference, and OCSP stapling observation. ECH remains a documented limitation rather than a rule because the current safe probe stack cannot evaluate it portably. |
 | STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Next, expand the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 
