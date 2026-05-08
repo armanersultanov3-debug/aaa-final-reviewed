@@ -172,6 +172,7 @@ def _content_security_policy_nonce_tokens(header_value: str | None) -> set[str]:
         return set()
 
     directives = _content_security_policy_directives(header_value)
+    default_source_list = directives.get("default-src")
     tokens: set[str] = set()
     for directive_name in (
         "script-src",
@@ -182,6 +183,8 @@ def _content_security_policy_nonce_tokens(header_value: str | None) -> set[str]:
         "style-src-attr",
     ):
         source_list = directives.get(directive_name)
+        if source_list is None or not source_list.strip():
+            source_list = default_source_list
         if source_list is None:
             continue
         for token in source_list.split():

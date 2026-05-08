@@ -34,7 +34,7 @@ Total rules: **357**
 | Dimension | Counts |
 | --- | --- |
 | Category | local (259), external (85), universal (13) |
-| Severity | high (17), medium (125), low (202), info (11) |
+| Severity | high (17), medium (126), low (203), info (11) |
 | Input kind | ast (162), effective (85), probe (85), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables

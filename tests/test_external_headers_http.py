@@ -491,6 +491,41 @@ def test_content_security_policy_nonce_reused_fires(monkeypatch) -> None:
     assert "/account" in findings[0].location.details
 
 
+def test_content_security_policy_nonce_reused_fires_for_default_src_fallback(
+    monkeypatch,
+) -> None:
+    shared_nonce = "'nonce-default123'"
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=(
+                f"default-src 'self' {shared_nonce}; object-src 'none'"
+            ),
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=(
+                f"default-src 'self' {shared_nonce}; object-src 'none'"
+            ),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.content_security_policy_nonce_reused"
+    ]
+    assert len(findings) == 1
+    assert shared_nonce in findings[0].description
+
+
 def test_content_security_policy_nonce_reused_does_not_fire_for_distinct_nonces(
     monkeypatch,
 ) -> None:
