@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 357
+        assert len(full_reg._catalog) == 363
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 272
+        assert len(full_reg._executable) == 278
 
 
 # ---------------------------------------------------------------------------
@@ -76,19 +76,19 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 79
+        assert len(rules) == 80
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
-        assert len(rules) == 82
+        assert len(rules) == 84
 
     def test_lighttpd(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="lighttpd")
-        assert len(rules) == 47
+        assert len(rules) == 49
 
     def test_iis(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="iis")
-        assert len(rules) == 51
+        assert len(rules) == 52
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
@@ -176,6 +176,80 @@ class TestStandardsMetadata:
         ]
         assert len(asvs_refs) == 1
         assert asvs_refs[0].coverage == "partial"
+
+    def test_csp_frame_ancestors_local_rules_have_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for rule_id in (
+            "nginx.content_security_policy_missing_frame_ancestors",
+            "apache.content_security_policy_missing_frame_ancestors",
+            "lighttpd.content_security_policy_missing_frame_ancestors",
+            "iis.content_security_policy_missing_frame_ancestors",
+        ):
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert {
+                ("CWE", "CWE-1021"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-3.4.6"),
+            }.issubset(references)
+
+    def test_tls_legacy_direct_rules_have_rfc_8996_mapping(self, full_reg: RuleRegistry) -> None:
+        for rule_id in (
+            "nginx.weak_ssl_protocols",
+            "apache.tls_legacy_versions_explicitly_enabled",
+            "lighttpd.tls_legacy_versions_explicitly_enabled",
+            "iis.schannel_weak_protocol_enabled",
+        ):
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert {
+                ("CWE", "CWE-327"),
+                ("OWASP Top 10", "A02:2021"),
+                ("OWASP ASVS", "v5.0.0-12.1.1"),
+                ("IETF RFC", "RFC 8996"),
+            }.issubset(references)
+
+            rfc_refs = [
+                ref
+                for ref in meta.standards
+                if ref.standard == "IETF RFC" and ref.reference == "RFC 8996"
+            ]
+            assert len(rfc_refs) == 1
+            assert rfc_refs[0].coverage == "partial"
+
+    def test_local_hsts_policy_rules_have_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for rule_id in (
+            "nginx.hsts_header_unsafe",
+            "apache.hsts_header_unsafe",
+            "lighttpd.strict_transport_security_unsafe",
+            "iis.hsts_header_unsafe",
+        ):
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert {
+                ("CWE", "CWE-319"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-3.4.1"),
+            }.issubset(references)
+
+            asvs_refs = [
+                ref
+                for ref in meta.standards
+                if ref.standard == "OWASP ASVS" and ref.reference == "v5.0.0-3.4.1"
+            ]
+            assert len(asvs_refs) == 1
+            assert asvs_refs[0].coverage == "partial"
 
 
 # ---------------------------------------------------------------------------

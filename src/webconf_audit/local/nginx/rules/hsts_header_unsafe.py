@@ -7,6 +7,7 @@ from webconf_audit.local.nginx.rules.header_utils import find_server_add_headers
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "nginx.hsts_header_unsafe"
 TITLE = "Strict-Transport-Security header is weak"
@@ -26,6 +27,15 @@ RECOMMENDATION = (
     category="local",
     server_type="nginx",
     tags=("headers", "tls"),
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A05:2021"),
+        asvs_5(
+            "3.4.1",
+            coverage="partial",
+            note="Local max-age and includeSubDomains policy validation.",
+        ),
+    ),
     order=265,
 )
 def find_hsts_header_unsafe(config_ast: ConfigAst) -> list[Finding]:

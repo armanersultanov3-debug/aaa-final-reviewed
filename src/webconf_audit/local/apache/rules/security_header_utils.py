@@ -728,7 +728,13 @@ def _canonicalized_header_setting(
 def _canonical_header_value(value: str | None) -> str | None:
     if value is None:
         return None
-    return value.strip().strip('"').strip("'").lower()
+    return _strip_matching_outer_quotes(value.strip()).lower()
+
+
+def _strip_matching_outer_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1].strip()
+    return value
 
 
 def _sorted_settings(
@@ -861,7 +867,7 @@ def _header_value(args: list[str], *, expects_value: bool) -> _HeaderValue:
     if not value_args:
         return _HeaderValue(None, dynamic=dynamic, conditional=conditional)
     return _HeaderValue(
-        " ".join(value_args).strip().strip('"').strip("'"),
+        _strip_matching_outer_quotes(" ".join(value_args).strip()),
         dynamic=dynamic,
         conditional=conditional,
     )

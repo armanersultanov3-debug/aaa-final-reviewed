@@ -9,8 +9,10 @@ from webconf_audit.local.apache.rules._tls_policy_utils import (
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
 
 RULE_ID = "apache.ssl_protocol_missing_or_weak"
+LEGACY_RULE_ID = "apache.tls_legacy_versions_explicitly_enabled"
 TITLE = "Apache TLS protocol policy is missing or weak"
 _DEFAULT_ALL_WEAK = frozenset({"SSLv3", "TLSv1", "TLSv1.1"})
 _WEAK_ALIASES = {
@@ -36,6 +38,11 @@ _WEAK_ALIASES = {
     ),
     category="local",
     server_type="apache",
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1", coverage="partial", note="Missing policy and legacy-version checks."),
+    ),
     order=349,
     tags=("tls",),
 )
@@ -65,6 +72,63 @@ def find_ssl_protocol_policy(config_ast: ApacheConfigAst) -> list[Finding]:
                     directive=directive,
                 )
             )
+    return findings
+
+
+@rule(
+    rule_id=LEGACY_RULE_ID,
+    title="Apache explicitly enables legacy TLS versions",
+    severity="medium",
+    description="Apache explicitly enables legacy TLS protocol versions.",
+    recommendation=(
+        "Remove SSLv3, TLSv1, and TLSv1.1 from SSLProtocol and require "
+        "TLSv1.2 or TLSv1.3 only."
+    ),
+    category="local",
+    server_type="apache",
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1"),
+        rfc(
+            8996,
+            coverage="partial",
+            note="Directly covers TLS 1.0 / 1.1 deprecation and also flags adjacent SSLv3 enablement.",
+        ),
+    ),
+    order=349,
+    tags=("tls",),
+)
+def find_tls_legacy_versions_explicitly_enabled(
+    config_ast: ApacheConfigAst,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for scope in iter_tls_scopes(config_ast):
+        directive = scope.directives.get("sslprotocol")
+        if directive is None or not directive_args(directive):
+            continue
+
+        legacy = _enabled_weak_protocols(directive_args(directive))
+        if not legacy:
+            continue
+
+        findings.append(
+            make_tls_finding(
+                scope,
+                rule_id=LEGACY_RULE_ID,
+                title="Apache explicitly enables legacy TLS versions",
+                severity="medium",
+                description=(
+                    f"TLS scope '{scope.label}' explicitly enables legacy "
+                    f"protocol versions: {', '.join(legacy)}."
+                ),
+                recommendation=(
+                    "Remove SSLv3, TLSv1, and TLSv1.1 from SSLProtocol and "
+                    "require TLSv1.2 or TLSv1.3 only."
+                ),
+                directive=directive,
+            )
+        )
     return findings
 
 
@@ -118,4 +182,7 @@ def _enabled_weak_protocols(args: list[str]) -> list[str]:
     return sorted(weak_protocols)
 
 
-__all__ = ["find_ssl_protocol_policy"]
+__all__ = [
+    "find_ssl_protocol_policy",
+    "find_tls_legacy_versions_explicitly_enabled",
+]

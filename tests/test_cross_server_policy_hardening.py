@@ -444,3 +444,284 @@ def test_iis_accepts_strong_hsts_policy(tmp_path: Path) -> None:
 
     assert "iis.hsts_header_unsafe" not in _rule_ids(result)
     assert "iis.missing_hsts_header" not in _rule_ids(result)
+
+
+def test_nginx_reports_csp_missing_frame_ancestors_without_broad_csp_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        '    add_header Content-Security-Policy "default-src \'self\'" always;\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert "nginx.content_security_policy_missing_frame_ancestors" in _rule_ids(result)
+    assert "nginx.content_security_policy_unsafe" not in _rule_ids(result)
+
+
+def test_nginx_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        '    add_header Content-Security-Policy "default-src \'self\'; frame-ancestors \'self\'" always;\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert "nginx.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_nginx_accepts_multi_header_csp_when_one_sets_frame_ancestors(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        '    add_header Content-Security-Policy "default-src \'self\'" always;\n'
+        '    add_header Content-Security-Policy "frame-ancestors \'self\'" always;\n'
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert "nginx.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_apache_reports_csp_missing_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 80\n"
+        "ServerSignature Off\n"
+        "TraceEnable Off\n"
+        "<VirtualHost *:80>\n"
+        "    ServerName app.example.test\n"
+        '    Header always set Content-Security-Policy "default-src \'self\'"\n'
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.content_security_policy_missing_frame_ancestors" in _rule_ids(result)
+
+
+def test_apache_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 80\n"
+        "ServerSignature Off\n"
+        "TraceEnable Off\n"
+        "<VirtualHost *:80>\n"
+        "    ServerName app.example.test\n"
+        '    Header always set Content-Security-Policy "default-src \'self\'; frame-ancestors \'self\'"\n'
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_apache_accepts_onsuccess_csp_with_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 80\n"
+        "ServerSignature Off\n"
+        "TraceEnable Off\n"
+        "<VirtualHost *:80>\n"
+        "    ServerName app.example.test\n"
+        '    Header set Content-Security-Policy "default-src \'self\'; frame-ancestors \'self\'"\n'
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_lighttpd_reports_csp_missing_frame_ancestors_without_broad_csp_unsafe(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'setenv.add-response-header = ( "Content-Security-Policy" => "default-src \'self\'" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.content_security_policy_missing_frame_ancestors" in _rule_ids(result)
+    assert "lighttpd.content_security_policy_unsafe" not in _rule_ids(result)
+
+
+def test_lighttpd_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'setenv.add-response-header = ( "Content-Security-Policy" => "default-src \'self\'; frame-ancestors \'self\'" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_iis_reports_csp_missing_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Content-Security-Policy" value="default-src 'self'" />
+      </customHeaders>
+    </httpProtocol>
+  </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert "iis.content_security_policy_missing_frame_ancestors" in _rule_ids(result)
+
+
+def test_iis_accepts_csp_with_frame_ancestors(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Content-Security-Policy" value="default-src 'self'; frame-ancestors 'self'" />
+      </customHeaders>
+    </httpProtocol>
+  </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert "iis.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_iis_accepts_multi_header_csp_when_one_sets_frame_ancestors(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <system.webServer>
+    <httpProtocol>
+      <customHeaders>
+        <add name="Content-Security-Policy" value="default-src 'self'" />
+        <add name="Content-Security-Policy" value="frame-ancestors 'self'" />
+      </customHeaders>
+    </httpProtocol>
+  </system.webServer>
+</configuration>
+""",
+        encoding="utf-8",
+    )
+
+    result = analyze_iis_config(str(config_path))
+
+    assert "iis.content_security_policy_missing_frame_ancestors" not in _rule_ids(result)
+
+
+def test_apache_reports_dedicated_legacy_tls_versions_rule(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 443 https\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName legacy.example.test\n"
+        "    SSLEngine On\n"
+        "    SSLCertificateFile cert.pem\n"
+        "    SSLCertificateKeyFile cert.key\n"
+        "    SSLProtocol all\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.tls_legacy_versions_explicitly_enabled" in _rule_ids(result)
+
+
+def test_apache_accepts_modern_tls_versions_without_dedicated_legacy_rule(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        "Listen 443 https\n"
+        "<VirtualHost *:443>\n"
+        "    ServerName modern.example.test\n"
+        "    SSLEngine On\n"
+        "    SSLCertificateFile cert.pem\n"
+        "    SSLCertificateKeyFile cert.key\n"
+        "    SSLProtocol -all +TLSv1.2 +TLSv1.3\n"
+        "</VirtualHost>\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert "apache.tls_legacy_versions_explicitly_enabled" not in _rule_ids(result)
+
+
+def test_lighttpd_reports_dedicated_legacy_tls_versions_rule(tmp_path: Path) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'ssl.engine = "enable"\n'
+        'ssl.pemfile = "/etc/lighttpd/cert.pem"\n'
+        'ssl.honor-cipher-order = "enable"\n'
+        'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.1" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.tls_legacy_versions_explicitly_enabled" in _rule_ids(result)
+
+
+def test_lighttpd_accepts_modern_tls_versions_without_dedicated_legacy_rule(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.tag = ""\n'
+        'server.errorlog = "/var/log/lighttpd/error.log"\n'
+        'ssl.engine = "enable"\n'
+        'ssl.pemfile = "/etc/lighttpd/cert.pem"\n'
+        'ssl.honor-cipher-order = "enable"\n'
+        'ssl.openssl.ssl-conf-cmd = ( "MinProtocol" => "TLSv1.2" )\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_lighttpd_config(str(config_path))
+
+    assert "lighttpd.tls_legacy_versions_explicitly_enabled" not in _rule_ids(result)

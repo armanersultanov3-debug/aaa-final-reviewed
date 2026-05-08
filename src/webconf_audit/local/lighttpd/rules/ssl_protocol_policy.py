@@ -21,8 +21,10 @@ from webconf_audit.local.lighttpd.rules.ssl_conf_cmd_utils import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
 
 RULE_ID = "lighttpd.ssl_protocol_policy_missing_or_weak"
+LEGACY_RULE_ID = "lighttpd.tls_legacy_versions_explicitly_enabled"
 
 _SSL_CONF_CMD = "ssl.openssl.ssl-conf-cmd"
 _LEGACY_PROTOCOL_FLAGS = {
@@ -59,6 +61,11 @@ _TOKEN_SPLIT_RE = re.compile(r"[\s,:]+")
     server_type="lighttpd",
     input_kind="effective",
     tags=("tls",),
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1", coverage="partial", note="Missing policy and legacy-version checks."),
+    ),
     order=415,
 )
 def find_ssl_protocol_policy_missing_or_weak(
@@ -75,6 +82,47 @@ def find_ssl_protocol_policy_missing_or_weak(
         return _find_from_effective(effective_config)
 
     return _find_from_effective(build_effective_config(config_ast))
+
+
+@rule(
+    rule_id=LEGACY_RULE_ID,
+    title="Lighttpd explicitly enables legacy TLS versions",
+    severity="medium",
+    description="Lighttpd explicitly enables legacy TLS protocol versions.",
+    recommendation=(
+        "Set MinProtocol to TLSv1.2 or TLSv1.3 and remove explicit legacy "
+        "Protocol tokens or ssl.use-sslv3 flags."
+    ),
+    category="local",
+    server_type="lighttpd",
+    input_kind="effective",
+    tags=("tls",),
+    standards=(
+        cwe(327),
+        owasp_top10_2021("A02:2021"),
+        asvs_5("12.1.1"),
+        rfc(
+            8996,
+            coverage="partial",
+            note="Directly covers TLS 1.0 / 1.1 deprecation and also flags adjacent SSLv3 enablement.",
+        ),
+    ),
+    order=415,
+)
+def find_tls_legacy_versions_explicitly_enabled(
+    config_ast: LighttpdConfigAst,
+    *,
+    effective_config: LighttpdEffectiveConfig | None = None,
+    merged_directives: dict[str, LighttpdEffectiveDirective] | None = None,
+    request_context: LighttpdRequestContext | None = None,
+) -> list[Finding]:
+    if merged_directives is not None and request_context is not None:
+        return _find_legacy_from_merged(merged_directives)
+
+    if effective_config is not None:
+        return _find_legacy_from_effective(effective_config)
+
+    return _find_legacy_from_effective(build_effective_config(config_ast))
 
 
 def _find_from_merged(
@@ -111,6 +159,49 @@ def _find_from_effective(
 
         findings.extend(
             _evaluate_directives(
+                _effective_scope_directives(effective_config, scope),
+                ssl_engine,
+                label=scope.header or "conditional",
+            )
+        )
+
+    return findings
+
+
+def _find_legacy_from_merged(
+    merged_directives: dict[str, LighttpdEffectiveDirective],
+) -> list[Finding]:
+    ssl_engine = merged_directives.get("ssl.engine")
+    if not _is_enabled(ssl_engine):
+        return []
+    return _evaluate_legacy_directives(merged_directives, ssl_engine, label="merged")
+
+
+def _find_legacy_from_effective(
+    effective_config: LighttpdEffectiveConfig,
+) -> list[Finding]:
+    findings: list[Finding] = []
+
+    global_ssl_engine = effective_config.get_global("ssl.engine")
+    if _is_enabled(global_ssl_engine):
+        findings.extend(
+            _evaluate_legacy_directives(
+                effective_config.global_directives,
+                global_ssl_engine,
+                label="global",
+            )
+        )
+
+    for scope in effective_config.conditional_scopes:
+        if not _scope_has_tls_protocol_interest(scope):
+            continue
+
+        ssl_engine = effective_directive_for_scope(effective_config, scope, "ssl.engine")
+        if not _is_enabled(ssl_engine):
+            continue
+
+        findings.extend(
+            _evaluate_legacy_directives(
                 _effective_scope_directives(effective_config, scope),
                 ssl_engine,
                 label=scope.header or "conditional",
@@ -165,6 +256,27 @@ def _evaluate_directives(
             description=(
                 f"Lighttpd TLS scope '{label}' does not define an explicit "
                 "ssl.openssl.ssl-conf-cmd protocol policy."
+            ),
+        )
+    ]
+
+
+def _evaluate_legacy_directives(
+    directives: dict[str, LighttpdEffectiveDirective],
+    ssl_engine: LighttpdEffectiveDirective,
+    *,
+    label: str,
+) -> list[Finding]:
+    policy = _protocol_policy(directives)
+    legacy_protocols = [protocol for protocol in policy.weak_protocols if protocol != "SSLv2"]
+    if not legacy_protocols:
+        return []
+    return [
+        _make_legacy_finding(
+            policy.source or ssl_engine,
+            description=(
+                f"Lighttpd TLS scope '{label}' explicitly enables legacy protocol "
+                f"versions: {', '.join(legacy_protocols)}."
             ),
         )
     ]
@@ -376,4 +488,19 @@ def _make_finding(
     )
 
 
-__all__ = ["find_ssl_protocol_policy_missing_or_weak"]
+def _make_legacy_finding(
+    directive: LighttpdEffectiveDirective,
+    *,
+    description: str,
+) -> Finding:
+    return finding_from_rule(
+        find_tls_legacy_versions_explicitly_enabled,
+        description=description,
+        location=_source_location(directive),
+    )
+
+
+__all__ = [
+    "find_ssl_protocol_policy_missing_or_weak",
+    "find_tls_legacy_versions_explicitly_enabled",
+]

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
 
 
 def test_cwe_uses_canonical_reference_and_url() -> None:
@@ -81,3 +81,43 @@ def test_asvs_5_strips_requirement_and_propagates_coverage_and_note() -> None:
 def test_asvs_5_rejects_empty_requirement(requirement: str) -> None:
     with pytest.raises(ValueError, match="requirement must be a non-empty string"):
         asvs_5(requirement)
+
+
+def test_rfc_uses_canonical_reference_and_url() -> None:
+    ref = rfc(8996)
+
+    assert ref.standard == "IETF RFC"
+    assert ref.reference == "RFC 8996"
+    assert ref.url == "https://datatracker.ietf.org/doc/html/rfc8996"
+
+
+def test_rfc_accepts_section_and_propagates_metadata() -> None:
+    ref = rfc(
+        8996,
+        section="1",
+        coverage="partial",
+        note="TLS 1.0 and 1.1 are deprecated.",
+    )
+
+    assert ref.reference == "RFC 8996 §1"
+    assert ref.url == "https://datatracker.ietf.org/doc/html/rfc8996#section-1"
+    assert ref.coverage == "partial"
+    assert ref.note == "TLS 1.0 and 1.1 are deprecated."
+
+
+@pytest.mark.parametrize("number", [0, -1, True])
+def test_rfc_rejects_invalid_numbers(number: int) -> None:
+    with pytest.raises(ValueError, match="Unsupported RFC number"):
+        rfc(number)
+
+
+@pytest.mark.parametrize("section", ["", "   "])
+def test_rfc_rejects_empty_section(section: str) -> None:
+    with pytest.raises(ValueError, match="section must be a non-empty string"):
+        rfc(8996, section=section)
+
+
+@pytest.mark.parametrize("section", [1, 1.5, object()])
+def test_rfc_rejects_non_string_section(section: object) -> None:
+    with pytest.raises(ValueError, match="section must be a non-empty string"):
+        rfc(8996, section=section)  # type: ignore[arg-type]

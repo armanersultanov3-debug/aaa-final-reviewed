@@ -10,6 +10,7 @@ from webconf_audit.local.iis.rules.rule_utils import (
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "iis.hsts_header_unsafe"
 TITLE = "Strict-Transport-Security header is weak"
@@ -29,6 +30,15 @@ RECOMMENDATION = (
     server_type="iis",
     input_kind="effective",
     tags=("headers", "tls"),
+    standards=(
+        cwe(319),
+        owasp_top10_2021("A05:2021"),
+        asvs_5(
+            "3.4.1",
+            coverage="partial",
+            note="Local max-age and includeSubDomains policy validation.",
+        ),
+    ),
     order=543,
 )
 def find_hsts_header_unsafe(
