@@ -42,7 +42,7 @@ _METHOD_ALLOWLIST_RE = re.compile(r"\^\((?P<methods>[A-Za-z|]+)\)\$", re.IGNOREC
     tags=("access",),
 )
 def find_sitewide_http_method_policy_missing(config_ast: ConfigAst) -> list[Finding]:
-    request_method_map_variables = _request_method_map_variables(config_ast)
+    request_method_map_variables = _valid_request_method_map_variables(config_ast)
     findings: list[Finding] = []
 
     for node in iter_nodes(config_ast.nodes):
@@ -146,7 +146,11 @@ def _if_is_approved_method_allowlist(if_block: BlockNode) -> bool:
     if "!~" not in condition:
         return False
     allowed_methods = _extract_allowed_methods_from_if_condition(condition)
-    return allowed_methods == APPROVED_METHODS and _if_returns_restrictive_code(if_block)
+    return (
+        bool(allowed_methods)
+        and allowed_methods <= APPROVED_METHODS
+        and _if_returns_restrictive_code(if_block)
+    )
 
 
 def _if_returns_restrictive_code(if_block: BlockNode) -> bool:
@@ -185,7 +189,7 @@ def _is_root_location(location_block: BlockNode) -> bool:
     return " ".join(location_block.args) in _ROOT_LOCATION_PATTERNS
 
 
-def _request_method_map_variables(config_ast: ConfigAst) -> set[str]:
+def _valid_request_method_map_variables(config_ast: ConfigAst) -> set[str]:
     return {
         _normalize_variable(node.args[1])
         for node in iter_nodes(config_ast.nodes)
@@ -194,6 +198,7 @@ def _request_method_map_variables(config_ast: ConfigAst) -> set[str]:
         and len(node.args) >= 2
         and _normalize_variable(node.args[0]) == "$request_method"
         and _normalize_variable(node.args[1])
+        and _map_block_is_approved_method_allowlist(node)
     }
 
 
@@ -244,6 +249,47 @@ def _block_has_restrictive_action(block: BlockNode) -> bool:
 
 def _normalize_variable(value: str) -> str:
     return _strip_matching_quotes(value).lower()
+
+
+def _map_block_is_approved_method_allowlist(map_block: BlockNode) -> bool:
+    default_value: str | None = None
+    allowed_methods: set[str] = set()
+
+    for child in map_block.children:
+        if not isinstance(child, DirectiveNode) or not child.args:
+            return False
+
+        if child.name.lower() == "default":
+            default_value = _normalize_map_value(child.args[0])
+            continue
+
+        method = _normalize_method(child.name)
+        if not method.isalpha():
+            return False
+
+        mapped_value = _normalize_map_value(child.args[0])
+        if _map_value_is_permissive(mapped_value):
+            if method not in APPROVED_METHODS:
+                return False
+            allowed_methods.add(method)
+
+    return (
+        default_value is not None
+        and _map_value_is_restrictive(default_value)
+        and bool(allowed_methods)
+    )
+
+
+def _normalize_map_value(value: str) -> str:
+    return _strip_matching_quotes(value).strip().lower()
+
+
+def _map_value_is_permissive(value: str) -> bool:
+    return value in {"", "0"}
+
+
+def _map_value_is_restrictive(value: str) -> bool:
+    return not _map_value_is_permissive(value)
 
 
 __all__ = ["find_sitewide_http_method_policy_missing"]

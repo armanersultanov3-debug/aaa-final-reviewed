@@ -91,7 +91,7 @@ def _missing_extensions(server_block: BlockNode) -> tuple[str, ...]:
 def _covered_extensions(server_block: BlockNode) -> set[str]:
     covered: set[str] = set()
 
-    for node in iter_nodes(server_block.children):
+    for node in server_block.children:
         if not isinstance(node, BlockNode) or node.name != "location":
             continue
         if not _looks_like_extension_location(node):

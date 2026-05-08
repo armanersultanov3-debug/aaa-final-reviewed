@@ -930,7 +930,14 @@ def test_backup_file_rule_matches_on_accessible_paths(
         sensitive_path_probes=[sp],
     )
 
-    assert "external.backup_file_exposed" in {f.rule_id for f in result.findings}
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.backup_file_exposed"
+    ]
+    assert len(findings) == 1
+    assert findings[0].location.target == f"https://example.com{path}"
+    assert findings[0].location.details == path
 
 
 def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch) -> None:
