@@ -1588,6 +1588,7 @@ def test_parse_cookie_case_insensitive_attributes() -> None:
     assert cookie.has_httponly is True
     assert cookie.samesite_value == "Strict"
     assert cookie.domain_value == "example.com"
+    assert cookie.path_value is None
 
 
 def test_parse_cookie_missing_attributes() -> None:
@@ -1806,6 +1807,28 @@ def test_cookie_prefix_contract_fires_for_invalid_host_cookie(monkeypatch) -> No
     assert "__Host-session" in findings[0].description
     assert "Domain='example.com'" in findings[0].description
     assert "Path='/app'" in findings[0].description
+
+
+def test_cookie_prefix_contract_fires_for_host_cookie_without_explicit_path(
+    monkeypatch,
+) -> None:
+    probe_attempts = [
+        _https_probe_with_headers(
+            set_cookie_headers=("__Host-session=abc; Secure; HttpOnly; SameSite=Lax",),
+        ),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.cookie_prefix_contract_violated"
+    ]
+    assert len(findings) == 1
+    assert "__Host-session" in findings[0].description
+    assert "Path=/ is missing" in findings[0].description
 
 
 def test_cookie_prefix_contract_fires_for_secure_prefix_on_http(monkeypatch) -> None:
