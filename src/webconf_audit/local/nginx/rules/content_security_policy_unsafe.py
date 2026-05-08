@@ -67,7 +67,10 @@ def _header_value(args: list[str]) -> str:
     value_args = args[1:]
     if value_args and value_args[-1].lower() == "always":
         value_args = value_args[:-1]
-    return " ".join(value_args).strip().strip('"').strip("'").lower()
+    value = " ".join(value_args).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        value = value[1:-1].strip()
+    return value.lower()
 
 
 def _policy_is_baseline_safe(policy: str) -> bool:
