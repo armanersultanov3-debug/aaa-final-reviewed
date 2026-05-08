@@ -12,6 +12,7 @@ from webconf_audit.local.nginx.parser.ast import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import cwe, owasp_top10_2021
 
 RULE_ID = "nginx.log_format_missing_fields"
 _NGINX_VARIABLE_RE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z0-9_]+)\}|(?P<plain>[A-Za-z0-9_]+))")
@@ -81,6 +82,10 @@ class _FormatUsage:
     ),
     category="local",
     server_type="nginx",
+    standards=(
+        cwe(778),
+        owasp_top10_2021("A09:2021"),
+    ),
     order=257,
 )
 def find_log_format_missing_fields(config_ast: ConfigAst) -> list[Finding]:

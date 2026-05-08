@@ -38,6 +38,14 @@ def test_sensitive_paths_phase_1_4_1_set() -> None:
         "/backup.tar.gz",
         "/site.zip",
         "/www.zip",
+        "/index.php.bak",
+        "/index.php.old",
+        "/index.php.backup",
+        "/index.php.orig",
+        "/index.php.save",
+        "/index.php.swp",
+        "/index.php.tmp",
+        "/index.php~",
         "/backup.sql",
         "/db.sql",
         "/dump.sql",
@@ -833,6 +841,14 @@ def test_expanded_sensitive_path_rules_fire_on_accessible_match(
         ("/robots.txt", "external.robots_txt_exposed"),
         ("/sitemap.xml", "external.sitemap_xml_exposed"),
         ("/.svn/entries", "external.svn_metadata_exposed"),
+        ("/index.php.bak", "external.backup_file_exposed"),
+        ("/index.php.old", "external.backup_file_exposed"),
+        ("/index.php.backup", "external.backup_file_exposed"),
+        ("/index.php.orig", "external.backup_file_exposed"),
+        ("/index.php.save", "external.backup_file_exposed"),
+        ("/index.php.swp", "external.backup_file_exposed"),
+        ("/index.php.tmp", "external.backup_file_exposed"),
+        ("/index.php~", "external.backup_file_exposed"),
     ],
 )
 def test_expanded_sensitive_path_rules_do_not_fire_on_404(
@@ -885,6 +901,45 @@ def test_body_matched_sensitive_path_rules_require_expected_content(
     assert rule_id not in {f.rule_id for f in result.findings}
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/index.php.bak",
+        "/index.php.old",
+        "/index.php.backup",
+        "/index.php.orig",
+        "/index.php.save",
+        "/index.php.swp",
+        "/index.php.tmp",
+        "/index.php~",
+    ],
+)
+def test_backup_file_rule_matches_on_accessible_paths(
+    monkeypatch,
+    path: str,
+) -> None:
+    sp = _sensitive_path_probe(path, status_code=200, body_snippet="<html>backup</html>")
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    findings = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "external.backup_file_exposed"
+    ]
+    assert len(findings) == 1
+    assert findings[0].location.target == f"https://example.com{path}"
+    assert findings[0].location.details == path
+
+
 def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch) -> None:
     sp = _sensitive_path_probe(
         "/backup.zip",
@@ -934,6 +989,7 @@ def test_no_sensitive_path_findings_on_baseline_probe(monkeypatch) -> None:
         "external.sitemap_xml_exposed",
         "external.svn_metadata_exposed",
         "external.backup_archive_exposed",
+        "external.backup_file_exposed",
         "external.database_dump_exposed",
         "external.dependency_manifest_exposed",
         "external.npmrc_exposed",
@@ -960,6 +1016,7 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         SensitivePathProbe(url="https://example.com/sitemap.xml", path="/sitemap.xml", status_code=500),
         SensitivePathProbe(url="https://example.com/.svn/entries", path="/.svn/entries", status_code=404),
         SensitivePathProbe(url="https://example.com/backup.zip", path="/backup.zip", status_code=404),
+        SensitivePathProbe(url="https://example.com/index.php.bak", path="/index.php.bak", status_code=404),
         SensitivePathProbe(url="https://example.com/dump.sql", path="/dump.sql", status_code=403),
         SensitivePathProbe(url="https://example.com/package.json", path="/package.json", status_code=500),
         SensitivePathProbe(url="https://example.com/.npmrc", path="/.npmrc", status_code=404),
@@ -986,6 +1043,7 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         "external.sitemap_xml_exposed",
         "external.svn_metadata_exposed",
         "external.backup_archive_exposed",
+        "external.backup_file_exposed",
         "external.database_dump_exposed",
         "external.dependency_manifest_exposed",
         "external.npmrc_exposed",

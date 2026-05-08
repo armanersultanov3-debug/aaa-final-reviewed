@@ -6,6 +6,7 @@ from typing import Literal
 
 from webconf_audit.models import Severity
 from webconf_audit.rule_registry import RuleMeta, StandardReference
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 SafeProbeMethod = Literal["GET", "HEAD", "OPTIONS"]
 BodyMatcherKind = Literal["contains", "regex"]
@@ -354,6 +355,41 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         metadata_recommendation="Remove backup archives from the web root.",
     ),
     SafePathRule(
+        rule_id="external.backup_file_exposed",
+        title="Backup file exposed",
+        severity="medium",
+        description=(
+            "A common backup or temporary file path is externally accessible. "
+            "These files can disclose source code, configuration, or build-time "
+            "artifacts."
+        ),
+        recommendation=(
+            "Remove backup and temporary files from the web root and block "
+            "public access to backup file extensions."
+        ),
+        paths=(
+            "/index.php.bak",
+            "/index.php.old",
+            "/index.php.backup",
+            "/index.php.orig",
+            "/index.php.save",
+            "/index.php.swp",
+            "/index.php.tmp",
+            "/index.php~",
+        ),
+        order=696,
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Backup/temp file exposure only.",
+            ),
+        ),
+        metadata_recommendation="Remove backup and temporary files from the web root.",
+    ),
+    SafePathRule(
         rule_id="external.database_dump_exposed",
         title="Database dump exposed",
         severity="high",
@@ -377,7 +413,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
                 r"(?im)\b(?:create\s+table|insert\s+into|mysql\s+dump|begin\s+transaction)\b",
             ),
         ),
-        order=696,
+        order=697,
         metadata_recommendation="Remove database dumps from the web root.",
     ),
     SafePathRule(
@@ -406,7 +442,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
                 r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:)""",
             ),
         ),
-        order=697,
+        order=698,
         metadata_recommendation="Block public access to dependency manifests.",
     ),
     SafePathRule(
@@ -429,7 +465,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
                 r"(?im)^(?:(?:@[^=\s:]+:)?registry|always-auth|_authToken|//[^=\s]+:_authToken)\s*=",
             ),
         ),
-        order=698,
+        order=699,
         metadata_recommendation="Block public access to .npmrc files.",
     ),
 )

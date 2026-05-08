@@ -8,6 +8,7 @@ from webconf_audit.local.apache.rules._block_policy_utils import (
 from webconf_audit.local.sensitive_artifact_policy import CONFIG_DATA_EXTENSIONS
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "apache.sensitive_config_files_not_restricted"
 TARGET_EXTENSIONS = CONFIG_DATA_EXTENSIONS + ("orig", "save", "tmp")
@@ -28,6 +29,15 @@ _RESTRICTION_BLOCKS = frozenset({"files", "filesmatch"})
     ),
     category="local",
     server_type="apache",
+    standards=(
+        cwe(538),
+        owasp_top10_2021("A05:2021"),
+        asvs_5(
+            "13.4.7",
+            coverage="partial",
+            note="Sensitive config/data extension deny-list coverage only.",
+        ),
+    ),
     order=343,
 )
 def find_sensitive_config_files_restricted(config_ast: ApacheConfigAst) -> list[Finding]:

@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 363
+        assert len(full_reg._catalog) == 366
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 278
+        assert len(full_reg._executable) == 280
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 80
+        assert len(rules) == 82
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
@@ -92,7 +92,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 85
+        assert len(rules) == 86
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -100,12 +100,12 @@ class TestCategoryCounts:
         first_size = reg.catalog_size
 
         register_external_rule_metas(reg)
-        assert reg.catalog_size == first_size == 85
+        assert reg.catalog_size == first_size == 86
 
         reg.clear()
         register_external_rule_metas(reg)
 
-        assert reg.catalog_size == 85
+        assert reg.catalog_size == 86
         assert reg.get_meta("external.https_not_available") is not None
 
     def test_external_meta_registration_rejects_duplicate_seed_ids(
@@ -155,6 +155,44 @@ class TestStandardsMetadata:
                 ("CWE", "CWE-693"),
                 ("OWASP Top 10", "A05:2021"),
                 ("OWASP ASVS", "v5.0.0-3.4.3"),
+            },
+        }
+
+        for rule_id, expected_refs in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert expected_refs.issubset(references)
+
+    def test_new_mapping_rules_have_expected_standards(self, full_reg: RuleRegistry) -> None:
+        expectations = {
+            "nginx.log_format_missing_fields": {
+                ("CWE", "CWE-778"),
+                ("OWASP Top 10", "A09:2021"),
+            },
+            "apache.log_format_missing_fields": {
+                ("CWE", "CWE-778"),
+                ("OWASP Top 10", "A09:2021"),
+            },
+            "nginx.sensitive_config_files_not_restricted": {
+                ("CWE", "CWE-538"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.7"),
+            },
+            "apache.sensitive_config_files_not_restricted": {
+                ("CWE", "CWE-538"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.7"),
+            },
+            "nginx.sitewide_http_method_policy_missing": {
+                ("CWE", "CWE-650"),
+                ("OWASP Top 10", "A05:2021"),
+            },
+            "external.backup_file_exposed": {
+                ("CWE", "CWE-538"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.7"),
             },
         }
 
