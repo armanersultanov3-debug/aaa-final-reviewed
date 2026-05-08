@@ -5,7 +5,7 @@ import re
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, iter_nodes
 from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
 from webconf_audit.standards import cwe, owasp_top10_2021
 
 RULE_ID = "nginx.sitewide_http_method_policy_missing"
@@ -37,6 +37,16 @@ _METHOD_ALLOWLIST_RE = re.compile(r"\^\((?P<methods>[A-Za-z|]+)\)\$", re.IGNOREC
     standards=(
         cwe(650),
         owasp_top10_2021("A05:2021"),
+        StandardReference(
+            standard="CIS",
+            reference="NGINX v3.0.0 §5.1.2",
+            url="https://www.cisecurity.org/benchmark/nginx",
+            coverage="partial",
+            note=(
+                "Whole-scope approved-method policy when root request handling is "
+                "exposed via proxy, if/map/return, or limit_except."
+            ),
+        ),
     ),
     order=221,
     tags=("access",),

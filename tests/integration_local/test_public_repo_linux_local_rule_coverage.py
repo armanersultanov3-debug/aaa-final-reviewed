@@ -522,6 +522,31 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         ),
         native_validation_should_pass=False,
     )
+    default_tls_host_handling = Scenario(
+        service="nginx",
+        name="default_tls_host_handling",
+        config_filename="nginx.conf",
+        config_text=_nginx_http_config(
+            _nginx_server_block(
+                "listen 443 ssl;",
+                "server_name app.example.test;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+            ),
+            _nginx_server_block(
+                "listen 443 ssl;",
+                "server_name api.example.test;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+            ),
+        ),
+        expected_rule_ids=frozenset(
+            {
+                "nginx.default_tls_server_not_rejecting_unknown_hosts",
+            }
+        ),
+        native_validation_should_pass=False,
+    )
     hardening_edges = Scenario(
         service="nginx",
         name="hardening_edges",
@@ -580,6 +605,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         log_format_missing_fields,
         policy_controls,
         tls_intent,
+        default_tls_host_handling,
         hardening_edges,
     )
 

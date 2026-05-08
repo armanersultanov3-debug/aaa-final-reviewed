@@ -11,7 +11,15 @@ from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_
 from webconf_audit.local.nginx.rules.tls_listener_utils import server_uses_tls
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
-from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
+from webconf_audit.standards import (
+    asvs_5,
+    bsi_app_3_2,
+    cwe,
+    fstec_gis,
+    nist_sp_800_53_rev5,
+    owasp_top10_2021,
+    pci_dss_4,
+)
 
 RULE_ID = "nginx.auth_basic_over_http"
 TITLE = "Basic authentication is enabled on plain HTTP"
@@ -38,6 +46,14 @@ RECOMMENDATION = (
         cwe(319),
         owasp_top10_2021("A02:2021"),
         asvs_5("12.2.1"),
+        nist_sp_800_53_rev5("IA-2"),
+        pci_dss_4("8.3.1"),
+        bsi_app_3_2("A5"),
+        fstec_gis(
+            "ИАФ.1",
+            coverage="partial",
+            note="Transport protection for HTTP Basic subject authentication only.",
+        ),
     ),
     order=264,
 )

@@ -59,10 +59,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 366
+        assert len(full_reg._catalog) == 367
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 280
+        assert len(full_reg._executable) == 281
 
 
 # ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 82
+        assert len(rules) == 83
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
@@ -146,6 +146,10 @@ class TestStandardsMetadata:
                 ("CWE", "CWE-319"),
                 ("OWASP Top 10", "A02:2021"),
                 ("OWASP ASVS", "v5.0.0-12.2.1"),
+                ("NIST SP 800-53 Rev. 5", "IA-2"),
+                ("PCI DSS v4.0.1", "Req. 8.3.1"),
+                ("BSI IT-Grundschutz", "APP.3.2.A5"),
+                ('ФСТЭК "Меры защиты информации в ГИС"', "ИАФ.1"),
             },
             "external.cookie_prefix_contract_violated": {
                 ("OWASP Top 10", "A05:2021"),
@@ -188,11 +192,16 @@ class TestStandardsMetadata:
             "nginx.sitewide_http_method_policy_missing": {
                 ("CWE", "CWE-650"),
                 ("OWASP Top 10", "A05:2021"),
+                ("CIS", "NGINX v3.0.0 §5.1.2"),
             },
             "external.backup_file_exposed": {
                 ("CWE", "CWE-538"),
                 ("OWASP Top 10", "A05:2021"),
                 ("OWASP ASVS", "v5.0.0-13.4.7"),
+            },
+            "nginx.default_tls_server_not_rejecting_unknown_hosts": {
+                ("OWASP Top 10", "A05:2021"),
+                ("CIS", "NGINX v3.0.0 §2.4.2"),
             },
         }
 
@@ -202,6 +211,44 @@ class TestStandardsMetadata:
 
             references = {(ref.standard, ref.reference) for ref in meta.standards}
             assert expected_refs.issubset(references)
+
+    def test_nginx_ocsp_stapling_rules_have_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "nginx.ssl_stapling_disabled": {
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-12.1.4"),
+                ("CIS", "NGINX v3.0.0 §4.1.7"),
+            },
+            "nginx.ssl_stapling_missing_resolver": {
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-12.1.4"),
+                ("CIS", "NGINX v3.0.0 §4.1.7"),
+            },
+            "nginx.ssl_stapling_without_verify": {
+                ("CWE", "CWE-295"),
+                ("OWASP Top 10", "A02:2021"),
+                ("OWASP ASVS", "v5.0.0-12.1.4"),
+                ("CIS", "NGINX v3.0.0 §4.1.7"),
+            },
+        }
+
+        for rule_id, expected_refs in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert expected_refs.issubset(references)
+
+            asvs_refs = [
+                ref
+                for ref in meta.standards
+                if ref.standard == "OWASP ASVS" and ref.reference == "v5.0.0-12.1.4"
+            ]
+            assert len(asvs_refs) == 1
+            assert asvs_refs[0].coverage == "partial"
 
     def test_cookie_prefix_contract_mapping_is_partial(self, full_reg: RuleRegistry) -> None:
         meta = full_reg.get_meta("external.cookie_prefix_contract_violated")

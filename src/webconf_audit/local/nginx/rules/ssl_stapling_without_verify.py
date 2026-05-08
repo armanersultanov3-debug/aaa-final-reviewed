@@ -12,7 +12,8 @@ from webconf_audit.local.nginx.rules._value_utils import (
     last_directive_is_on,
 )
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
 
 RULE_ID = "nginx.ssl_stapling_without_verify"
 
@@ -25,7 +26,24 @@ RULE_ID = "nginx.ssl_stapling_without_verify"
     recommendation="Set 'ssl_stapling_verify on;' in this server block.",
     category="local",
     server_type="nginx",
+    standards=(
+        cwe(295),
+        owasp_top10_2021("A02:2021"),
+        asvs_5(
+            "12.1.4",
+            coverage="partial",
+            note="Local OCSP stapling verification completeness only.",
+        ),
+        StandardReference(
+            standard="CIS",
+            reference="NGINX v3.0.0 §4.1.7",
+            url="https://www.cisecurity.org/benchmark/nginx",
+            coverage="partial",
+            note="Stapling verification requirement only.",
+        ),
+    ),
     order=239,
+    tags=("tls",),
 )
 def find_ssl_stapling_without_verify(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []

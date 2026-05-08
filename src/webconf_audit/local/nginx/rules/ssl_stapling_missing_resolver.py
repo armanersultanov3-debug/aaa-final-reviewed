@@ -12,7 +12,8 @@ from webconf_audit.local.nginx.rules._value_utils import (
     last_directive_is_on,
 )
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import asvs_5, owasp_top10_2021
 
 RULE_ID = "nginx.ssl_stapling_missing_resolver"
 
@@ -25,7 +26,23 @@ RULE_ID = "nginx.ssl_stapling_missing_resolver"
     recommendation="Add a 'resolver' directive to this server block.",
     category="local",
     server_type="nginx",
+    standards=(
+        owasp_top10_2021("A05:2021"),
+        asvs_5(
+            "12.1.4",
+            coverage="partial",
+            note="Local OCSP stapling resolver completeness only.",
+        ),
+        StandardReference(
+            standard="CIS",
+            reference="NGINX v3.0.0 §4.1.7",
+            url="https://www.cisecurity.org/benchmark/nginx",
+            coverage="partial",
+            note="Resolver presence requirement only when stapling is enabled.",
+        ),
+    ),
     order=238,
+    tags=("tls",),
 )
 def find_ssl_stapling_missing_resolver(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []

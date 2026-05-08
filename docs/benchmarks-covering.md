@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 366-rule inventory plus the rule-level work needed to cover the
+existing 367-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -293,7 +293,7 @@ Annex A** controls.
 
 | 27002:2022 control | Topic | Already-covered rules (candidate `covered`) |
 | --- | --- | --- |
-| 8.20 | Networks security | All TLS rules + `apache.listen_requires_explicit_address`, `iis.binding_without_host_header`, `universal.listen_on_all_interfaces`. |
+| 8.20 | Networks security | All TLS rules + `nginx.default_server_not_rejecting_unknown_hosts`, `nginx.default_tls_server_not_rejecting_unknown_hosts`, `apache.listen_requires_explicit_address`, `iis.binding_without_host_header`, `universal.listen_on_all_interfaces`. |
 | 8.21 | Security of network services | All TLS / HSTS / cipher / cookie rules. |
 | 8.23 | Web filtering | out-of-scope. |
 | 8.24 | Use of cryptography | All TLS / cipher / SChannel rules. |
@@ -441,7 +441,7 @@ authoritative in Russian.
 
 | Класс | Мера | Уже покрыто правилами (кандидат `covered` / `partial`) | Gap follow-up |
 | --- | --- | --- | --- |
-| ИАФ.1 | Идентификация и аутентификация субъектов доступа | `nginx.missing_auth_basic_user_file`, `iis.basic_auth_without_ssl`, `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_uses_specific_user`. | — |
+| ИАФ.1 | Идентификация и аутентификация субъектов доступа | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http` (partial: HTTP Basic transport protection only), `iis.basic_auth_without_ssl`, `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.anonymous_auth_uses_specific_user`. | — |
 | ИАФ.6 | Защита аутентификационной информации | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config`, `iis.forms_auth_require_ssl_missing`, `iis.forms_auth_protection_unsafe`, `external.htpasswd_exposed`, `iis.basic_auth_without_ssl`. | — |
 | УПД.5 | Управление доступом субъектов | `nginx.allow_all_with_deny_all`, `nginx.missing_access_restrictions_on_sensitive_locations`, `nginx.sensitive_location_missing_ip_filter`, `lighttpd.url_access_deny_missing`, `iis.authorization_allows_anonymous_users`, `apache.allowoverride_*`. | `parser-depth`: эффективная политика `Require` для Apache. |
 | УПД.13 | Защищённый удалённый доступ | Все правила §5.1 (TLS / HSTS / redirect). | — |
@@ -451,7 +451,7 @@ authoritative in Russian.
 | РСБ.7 | Защита информации о событиях | `out-of-scope` — права на лог-файлы вне web-server config. | — |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | Все external probes по version-disclosure / sensitive paths / debug endpoints. | — |
 | АНЗ.2 | Контроль установки обновлений ПО | `out-of-scope`. | — |
-| ЗИС.3 | Защита от внутренних и внешних угроз с использованием технологий межсетевого экранирования | `apache.listen_requires_explicit_address`, `iis.binding_without_host_header`, `universal.listen_on_all_interfaces`. | — |
+| ЗИС.3 | Защита от внутренних и внешних угроз с использованием технологий межсетевого экранирования | `nginx.default_server_not_rejecting_unknown_hosts`, `nginx.default_tls_server_not_rejecting_unknown_hosts`, `apache.listen_requires_explicit_address`, `iis.binding_without_host_header`, `universal.listen_on_all_interfaces`. | — |
 | ЗИС.20 | Защита каналов связи | Все правила §5.1. | — |
 | ЗИС.32 | Защита веб-серверов | Catch-all для всех hardening-правил. | — |
 
@@ -598,7 +598,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 366 правил (Nginx 82, Apache 84, Lighttpd 49, IIS 52,
+  обновлён до 367 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
   External 86, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -659,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (366 правил: Nginx 82, Apache 84, Lighttpd 49, IIS 52, External 86, Universal 13). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (367 правил: Nginx 83, Apache 84, Lighttpd 49, IIS 52, External 86, Universal 13). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
 
