@@ -1,3 +1,5 @@
+import hashlib
+
 from tests.external_helpers import (
     ProbeAttempt,
     ProbeTarget,
@@ -458,6 +460,7 @@ def test_content_security_policy_missing_does_not_fire_minimum_quality_rules(
 
 def test_content_security_policy_nonce_reused_fires(monkeypatch) -> None:
     shared_nonce = "'nonce-static123'"
+    nonce_fingerprint = hashlib.sha256(shared_nonce.encode("utf-8")).hexdigest()[:12]
     probe_attempts = [
         _https_probe_with_headers(
             target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
@@ -486,8 +489,11 @@ def test_content_security_policy_nonce_reused_fires(monkeypatch) -> None:
         if finding.rule_id == "external.content_security_policy_nonce_reused"
     ]
     assert len(findings) == 1
-    assert shared_nonce in findings[0].description
+    assert shared_nonce not in findings[0].description
+    assert f"sha256:{nonce_fingerprint}" in findings[0].description
     assert findings[0].location.details is not None
+    assert shared_nonce not in findings[0].location.details
+    assert f"sha256:{nonce_fingerprint}" in findings[0].location.details
     assert "/account" in findings[0].location.details
 
 
@@ -495,6 +501,7 @@ def test_content_security_policy_nonce_reused_fires_for_default_src_fallback(
     monkeypatch,
 ) -> None:
     shared_nonce = "'nonce-default123'"
+    nonce_fingerprint = hashlib.sha256(shared_nonce.encode("utf-8")).hexdigest()[:12]
     probe_attempts = [
         _https_probe_with_headers(
             target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
@@ -523,7 +530,41 @@ def test_content_security_policy_nonce_reused_fires_for_default_src_fallback(
         if finding.rule_id == "external.content_security_policy_nonce_reused"
     ]
     assert len(findings) == 1
-    assert shared_nonce in findings[0].description
+    assert shared_nonce not in findings[0].description
+    assert f"sha256:{nonce_fingerprint}" in findings[0].description
+
+
+def test_content_security_policy_nonce_reused_does_not_use_default_src_when_explicit_script_and_style_src_present(
+    monkeypatch,
+) -> None:
+    shared_nonce = "'nonce-default123'"
+    probe_attempts = [
+        _https_probe_with_headers(
+            target=ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+            content_security_policy_header=(
+                f"default-src 'self' {shared_nonce}; "
+                "script-src 'self'; style-src 'self'; object-src 'none'"
+            ),
+        ),
+        _https_probe_with_headers(
+            target=ProbeTarget(
+                scheme="https",
+                host="example.com",
+                port=443,
+                path="/account",
+            ),
+            content_security_policy_header=(
+                f"default-src 'self' {shared_nonce}; "
+                "script-src 'self'; style-src 'self'; object-src 'none'"
+            ),
+        ),
+    ]
+
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+
+    assert "external.content_security_policy_nonce_reused" not in {
+        finding.rule_id for finding in result.findings
+    }
 
 
 def test_content_security_policy_nonce_reused_does_not_fire_for_distinct_nonces(

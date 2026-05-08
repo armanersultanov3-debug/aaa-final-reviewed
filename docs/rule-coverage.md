@@ -1037,7 +1037,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.cookie_missing_httponly` | low | probe | - | [CWE-1004](https://cwe.mitre.org/data/definitions/1004.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.2 | - |
 | `external.cookie_missing_samesite` | low | probe | - | [CWE-1275](https://cwe.mitre.org/data/definitions/1275.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.4 (partial: attribute only) | - |
 | `external.cookie_samesite_none_without_secure` | low | probe | - | [CWE-614](https://cwe.mitre.org/data/definitions/614.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.4 (partial: SameSite=None Secure coupling only) | - |
-| `external.cookie_prefix_contract_violated` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.1 | - |
+| `external.cookie_prefix_contract_violated` | low | probe | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.3.1 (partial: only cookies opting into `__Host-` / `__Secure-` prefix semantics) | - |
 | `external.cors_wildcard_origin` | low | probe | - | [CWE-942](https://cwe.mitre.org/data/definitions/942.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.2 (partial: runtime wildcard detection only) | - |
 | `external.cors_wildcard_with_credentials` | medium | probe | - | [CWE-942](https://cwe.mitre.org/data/definitions/942.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.2 (partial: runtime wildcard detection only) | - |
 | `external.server_version_disclosed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | - |
@@ -1138,7 +1138,7 @@ Mapping rationale (external probes), grouped by pattern:
   (sensitive cookie in HTTPS session without Secure attribute);
   (`cookie_missing_httponly`) -- CWE-1004; (`cookie_missing_samesite`) --
   CWE-1275. `cookie_prefix_contract_violated` is tracked under OWASP A05 and
-  ASVS 3.3.1 without a precise CWE because the `__Host-` / `__Secure-`
+  ASVS 3.3.1 partially, without a precise CWE, because the `__Host-` / `__Secure-`
   browser prefix contract spans Secure, Path, Domain, and HTTPS origin
   semantics rather than a single weakness class. Cookie hardening also lives
   in OWASP A07 conceptually, but A05 is the more honest fit because the rules

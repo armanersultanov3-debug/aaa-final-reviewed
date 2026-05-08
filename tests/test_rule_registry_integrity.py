@@ -165,6 +165,18 @@ class TestStandardsMetadata:
             references = {(ref.standard, ref.reference) for ref in meta.standards}
             assert expected_refs.issubset(references)
 
+    def test_cookie_prefix_contract_mapping_is_partial(self, full_reg: RuleRegistry) -> None:
+        meta = full_reg.get_meta("external.cookie_prefix_contract_violated")
+        assert meta is not None
+
+        asvs_refs = [
+            ref
+            for ref in meta.standards
+            if ref.standard == "OWASP ASVS" and ref.reference == "v5.0.0-3.3.1"
+        ]
+        assert len(asvs_refs) == 1
+        assert asvs_refs[0].coverage == "partial"
+
 
 # ---------------------------------------------------------------------------
 # No duplicate rule IDs

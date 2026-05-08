@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING
 
 from webconf_audit.csp import (
@@ -167,24 +168,60 @@ def _content_security_policy_source_tokens(source_list: str | None) -> set[str]:
     return {token.lower() for token in source_list.split() if token.strip()}
 
 
+def _first_non_empty_source_list(*source_lists: str | None) -> str | None:
+    for source_list in source_lists:
+        if source_list is not None and source_list.strip():
+            return source_list
+    return None
+
+
+def _content_security_policy_nonce_fingerprint(nonce: str) -> str:
+    return hashlib.sha256(nonce.encode("utf-8")).hexdigest()[:12]
+
+
+def _content_security_policy_effective_source_lists(
+    directives: dict[str, str],
+) -> tuple[str | None, ...]:
+    return (
+        _first_non_empty_source_list(
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("script-src-elem"),
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("script-src-attr"),
+            directives.get("script-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src-elem"),
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+        _first_non_empty_source_list(
+            directives.get("style-src-attr"),
+            directives.get("style-src"),
+            directives.get("default-src"),
+        ),
+    )
+
+
 def _content_security_policy_nonce_tokens(header_value: str | None) -> set[str]:
     if header_value is None:
         return set()
 
     directives = _content_security_policy_directives(header_value)
-    default_source_list = directives.get("default-src")
     tokens: set[str] = set()
-    for directive_name in (
-        "script-src",
-        "script-src-elem",
-        "script-src-attr",
-        "style-src",
-        "style-src-elem",
-        "style-src-attr",
-    ):
-        source_list = directives.get(directive_name)
-        if source_list is None or not source_list.strip():
-            source_list = default_source_list
+    source_lists = _content_security_policy_effective_source_lists(directives)
+    for source_list in source_lists:
         if source_list is None:
             continue
         for token in source_list.split():
@@ -460,6 +497,7 @@ def _find_content_security_policy_nonce_reused(
     for nonce, attempts in attempts_by_nonce.items():
         if len(attempts) < 2:
             continue
+        nonce_fingerprint = _content_security_policy_nonce_fingerprint(nonce)
         observed_targets = ", ".join(attempt.target.url for attempt in attempts[:3])
         if len(attempts) > 3:
             observed_targets += ", ..."
@@ -470,7 +508,8 @@ def _find_content_security_policy_nonce_reused(
                 severity="medium",
                 description=(
                     "HTTPS responses reused the same Content-Security-Policy "
-                    f"nonce token {nonce}. Nonce-based allowlists should be "
+                    f"nonce token (sha256:{nonce_fingerprint}). Nonce-based "
+                    "allowlists should be "
                     "unpredictable and unique per response."
                 ),
                 recommendation=(
@@ -481,7 +520,10 @@ def _find_content_security_policy_nonce_reused(
                     mode="external",
                     kind="header",
                     target=attempts[0].target.url,
-                    details=f"Observed CSP nonce {nonce} on: {observed_targets}",
+                    details=(
+                        "Observed reused CSP nonce "
+                        f"(sha256:{nonce_fingerprint}) on: {observed_targets}"
+                    ),
                 ),
             )
         )
