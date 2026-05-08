@@ -37,14 +37,14 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 350 rules (synchronized with
+The current project inventory is 355 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 13
 - Nginx local: 79
-- Apache local: 77
+- Apache local: 82
 - Lighttpd local: 47
 - IIS local: 51
 - External probes: 83
@@ -353,7 +353,7 @@ standard section before implementation.
 | STD-GAP-003 | Nginx CIS | direct-rule | P2 | Unknown-host default-server rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, and unsafe explicit method allowlists are now present. Remaining work focuses on deeper cipher/TLS posture, site-wide or equivalent access-method policy, and context-specific runtime/probe checks. |
 | STD-GAP-004 | Nginx CIS | out-of-scope | P3 | Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations require OS/package/filesystem inspection, which is outside this web-server config / safe external analysis tool. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
-| STD-GAP-006 | Apache CIS | covered | P2 | Apache direct-rule coverage now includes site-wide request-scope method policy, explicit unsafe method allowlists, `AllowOverride None` and OS-root `Options None` baselines, sensitive-file deny lists, IP-based request denial, default TLS and non-TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, primary security headers, TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and conservative weak cipher / FS / AEAD posture. Remaining deployment-specific path exceptions and runtime corroboration are documented as operator context or external-probe evidence rather than missing local rules. |
+| STD-GAP-006 | Apache CIS | covered | P2 | Apache direct-rule coverage now includes site-wide request-scope method policy, explicit unsafe method allowlists, `AllowOverride None` and OS-root `Options None` baselines, sensitive-file and environment-specific path deny rules, DocumentRoot default-content probing, IP-based request denial, default TLS and non-TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, primary security headers including runtime-safe `Permissions-Policy`, timeout/keepalive default pinning, `RequestReadTimeout` module semantics, TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and conservative weak cipher / FS / AEAD posture. Remaining runtime corroboration is documented as operator context or external-probe evidence rather than a missing local rule. |
 | STD-GAP-007 | Apache CIS | covered | P2 | Explicit `LoadModule` inventory, `IfModule`-aware traversal, HTTPS upstream proxy/TLS directive modeling, request-scope `Location` matching, richer effective `RequireAll` / `RequireAny` IP+method semantics, legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults, and visible ModSecurity / CRS inventory now back the Apache standards rules, including upstream TLS trust checks and current authorization-location coverage. Remaining benchmark follow-up is broader module minimization or deployment-specific authorization context, not an unresolved parser-depth blocker. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy is out of scope. |
 | STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, and requestFiltering default/absence policy are now covered where the current effective XML model exposes the signal. Remaining follow-up work is runtime native-header verification, deeper application-pool shared-hosting exceptions, and parser/effective-depth only where the current model cannot materialize defaults. |

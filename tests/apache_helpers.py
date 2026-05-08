@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import pytest
 
@@ -55,6 +56,12 @@ _SAFE_SECURITY_HEADER_BASELINE_LINES = [
 _SAFE_APACHE_CIS_LOG_LINES = [
     "LogLevel notice",
 ]
+_SAFE_APACHE_CIS_TIMEOUT_KEEPALIVE_LINES = [
+    "Timeout 10",
+    "KeepAlive On",
+    "MaxKeepAliveRequests 100",
+    "KeepAliveTimeout 15",
+]
 _SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES = [
     "HttpProtocolOptions Strict Require1.0",
 ]
@@ -89,6 +96,7 @@ _SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
 ]
 _SAFE_APACHE_CIS_BASELINE_LINES = [
     *_SAFE_APACHE_CIS_LOG_LINES,
+    *_SAFE_APACHE_CIS_TIMEOUT_KEEPALIVE_LINES,
     *_SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES,
     *_SAFE_APACHE_CIS_MODSECURITY_LINES,
     "<Directory />",
@@ -124,8 +132,14 @@ def _with_backup_files_restriction(
     elif include_cis_root_options:
         global_options_lines.extend(["Options None"])
 
+    timeout_keepalive_lines = [
+        line
+        for line in _SAFE_APACHE_CIS_TIMEOUT_KEEPALIVE_LINES
+        if not _config_contains_directive(config_text, line.split()[0])
+    ]
     cis_lines = [
         *_SAFE_APACHE_CIS_LOG_LINES,
+        *timeout_keepalive_lines,
         *(
             _SAFE_APACHE_CIS_HTTP_PROTOCOL_LINES
             if include_cis_http_protocol
@@ -146,6 +160,13 @@ def _with_backup_files_restriction(
         "</FilesMatch>\n"
         + "\n".join(cis_lines)
     )
+
+
+def _config_contains_directive(config_text: str, directive_name: str) -> bool:
+    return re.search(
+        rf"(?im)^\s*{re.escape(directive_name)}\b",
+        config_text,
+    ) is not None
 
 
 def _safe_apache_config(

@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **350**
+Total rules: **355**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (254), external (83), universal (13) |
-| Severity | high (17), medium (123), low (199), info (11) |
-| Input kind | ast (157), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
+| Category | local (259), external (83), universal (13) |
+| Severity | high (17), medium (125), low (202), info (11) |
+| Input kind | ast (162), effective (85), probe (83), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -358,7 +358,7 @@ Nginx CIS v3.0.0 gap table:
 
 ### Apache (Local)
 
-Count: 77
+Count: 82
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -453,6 +453,11 @@ rather than to ".htaccess" itself.
 | `apache.ssl_proxy_peer_name_check_disabled` | medium | ast | tls, proxy | [CWE-297](https://cwe.mitre.org/data/definitions/297.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §7.2 (partial: HTTPS upstream proxy hostname verification when Apache acts as a TLS client) |
 | `apache.modsecurity_module_missing` | low | ast | waf | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.6 (partial: visible ModSecurity module/package inventory only) |
 | `apache.modsecurity_crs_not_configured` | low | ast | waf | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.7 (partial: visible CRS include inventory only; does not validate rule tuning or enforcement mode) |
+| `apache.default_content_probe` | medium | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.4-§5.6/§8.3 (partial: filesystem sample-content markers under the active `DocumentRoot` only) |
+| `apache.request_read_timeout_semantics` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.5-§9.6 (partial: visible `mod_reqtimeout` load state plus explicit header/body policy completeness only) |
+| `apache.timeout_keepalive_default_policy` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS Apache HTTP Server 2.4 v2.3.0 §9.1-§9.4 (partial: explicit presence across global and `VirtualHost` scopes; value thresholds remain separate rules) |
+| `apache.permissions_policy_runtime_quality` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.18 (partial: validates `Header always` runtime durability for safe policies; feature allowlists remain application-specific) |
+| `apache.sensitive_path_environment_policy` | medium | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (partial: deny-all coverage for named private/backup/staging/tmp/cache/demo paths) |
 
 Mapping rationale (apache rules):
 
@@ -482,6 +487,10 @@ Mapping rationale (apache rules):
   custom `ErrorDocument`, Apache renders the default page that may include
   build / module details: CWE-209 (information exposure through an error
   message), OWASP A05.
+- `default_content_probe` -- stock default HTML pages and CGI sample content
+  under the active `DocumentRoot` indicate leftover vendor/demo content rather
+  than intentional application assets. This is a hardening misconfiguration, so
+  CWE stays empty and OWASP A05 carries the mapping.
 - `htaccess_auth_without_require` -- declaring `AuthType` / `AuthName`
   without a matching `Require` leaves the realm effectively open: CWE-287
   (improper authentication), OWASP A07.
@@ -494,10 +503,11 @@ Mapping rationale (apache rules):
 - `missing_referrer_policy_header`, `referrer_policy_unsafe` -- Referrer-Policy
   is a hardening header with nuanced privacy tradeoffs, so CWE stays empty and
   OWASP A05 covers the configuration weakness.
-- `missing_permissions_policy_header`, `permissions_policy_unsafe` -- absent
-  or overly broad Permissions-Policy leaves browser feature access governed by
-  defaults or wildcard grants rather than explicit least-privilege policy:
-  CWE-693, OWASP A05.
+- `missing_permissions_policy_header`, `permissions_policy_unsafe`,
+  `permissions_policy_runtime_quality` -- absent, overly broad, or
+  success-only Permissions-Policy handling leaves browser feature access
+  governed by defaults, wildcard grants, or response paths that drop the
+  header: CWE-693, OWASP A05.
 - `missing_http_method_restrictions`, `http_method_policy_allows_unapproved`,
   `sitewide_http_method_policy_missing` -- missing or unsafe request-method
   policy on sensitive or whole-scope request paths increases the attack
@@ -574,11 +584,16 @@ Mapping rationale (apache rules):
   CWE-650, OWASP A05.
 - `file_etag_inodes` -- inode-derived ETag values expose filesystem metadata:
   CWE-200, OWASP A05.
+- `sensitive_path_environment_policy` -- exposing named private, backup,
+  staging, tmp, cache, sample, or demo paths without a deny-all block can leak
+  non-public deployment content: CWE-538, OWASP A05.
 - `timeout_too_high`, `keepalive_disabled`,
-  `max_keepalive_requests_too_low`, `keepalive_timeout_too_high` -- Apache
-  timeout / connection reuse values outside the CIS posture increase DoS
-  exposure: CWE-400. OWASP empty for the same DoS-hardening reason used by the
-  Nginx timeout rules.
+  `max_keepalive_requests_too_low`, `keepalive_timeout_too_high`,
+  `timeout_keepalive_default_policy`, `request_read_timeout_semantics` --
+  Apache timeout / connection reuse values outside the CIS posture, missing
+  explicit keepalive pinning, or incomplete `mod_reqtimeout` semantics increase
+  DoS exposure: CWE-400. OWASP empty for the same DoS-hardening reason used by
+  the Nginx timeout rules.
 - `limit_request_line_too_high`, `limit_request_field_size_too_high` -- overly
   large request line or header field limits can pass oversized input to
   downstream applications: CWE-770.
@@ -614,22 +629,22 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §4.1-§4.2 | `parser-depth` | Effective `RequireAll` / `RequireAny` IP+method semantics, `Require local`, and legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults now back the current status/info and method-policy rules. Broader server-wide authorization posture still needs deployment context before benchmark-wide claims are safe. |
 | §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
 | §5.1-§5.3 | `direct-rule` | `apache.options_not_none_in_root_directory` now validates an empty OS-root `Options` baseline, while the existing `Options` rules cover effective `ExecCGI` / `Includes` / `Indexes`, specific `MultiViews`, and ordered `Options All` subtractive semantics. Remaining deployment-specific exceptions are backlog tuning, not a missing CIS baseline rule. |
-| §5.4-§5.6 | `probe-depth` | Default HTML and default CGI sample content require response-body probing or filesystem-content inspection. |
+| §5.4-§5.6 | `direct-rule` | `apache.default_content_probe` now inspects active `DocumentRoot` targets for stock default HTML and CGI sample markers. Broader runtime-only body variants remain external welcome-page evidence rather than a missing Apache local rule. |
 | §5.7 | `covered` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, `apache.http_method_policy_allows_unapproved` catches explicit unapproved allowlists, and `apache.sitewide_http_method_policy_missing` adds a conservative whole-scope request-policy signal when Apache exposes request-scope `Location` handling or proxy routing. |
 | §5.9 | `covered` | `apache.http_protocol_options_unsafe` validates effective `HttpProtocolOptions Strict Require1.0` across global and VirtualHost scopes. |
-| §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, and broader sensitive extension deny-list checks are now present; remaining precision work is environment-specific path policy. |
+| §5.10-§5.13 | `direct-rule` | Backup/temp, `.ht*`, `.git` / `.svn`, broader sensitive extension deny-list checks, and `apache.sensitive_path_environment_policy` for named private/backup/staging/tmp/cache/demo paths are now present. Operator-specific path naming beyond those patterns remains deployment context rather than a missing CIS baseline rule. |
 | §5.14-§5.15 | `covered` | `apache.ip_based_requests_allowed` checks named top-level server contexts for the expected rewrite-based IP request denial signal, the default TLS and non-TLS VirtualHost rules check first/default catch-all rejection, `apache.listen_requires_explicit_address` flags risky `Listen` bindings, and explicit `LoadModule` / `IfModule` handling now underpins rewrite-backed signals. Deliberate internal-only listener or host-routing exceptions remain operator context rather than missing static rules. |
-| §5.16-§5.18 | `manual-context` | Primary frame, Referrer-Policy, and Permissions-Policy header checks are present for server and VirtualHost scopes. Permissions-Policy wildcard grants are flagged; application-specific allowlist choices and deeper per-directory / runtime response validation remain operator/runtime review rather than an honest static baseline rule. |
+| §5.16-§5.18 | `direct-rule` | Primary frame, Referrer-Policy, and Permissions-Policy header checks now cover presence, unsafe values, and runtime-safe `Header always` emission on auditable scopes via `apache.permissions_policy_runtime_quality`. Application-specific feature allowlists remain operator context rather than a missing CIS baseline rule. |
 | §6.1, §6.3 | `direct-rule` | Log coverage now includes `ErrorLog` / `CustomLog` presence, `/dev/null` destinations, restrictive `LogLevel`, undefined named formats, and required fields for used `LogFormat` definitions; syslog/storage policy is out of scope. |
 | §6.2, §6.4-§6.5 | `out-of-scope` | Syslog facility, rotation/storage, and patch posture need host/package/log-management context, which is outside the tool scope. |
 | §6.6-§6.7 | `direct-rule` | `apache.modsecurity_module_missing` and `apache.modsecurity_crs_not_configured` now require visible ModSecurity and CRS inventory in Apache config. Package installation state, CRS tuning depth, and runtime enforcement remain outside what static config alone can prove. |
 | §7.1, §7.4-§7.12 | `covered` | Apache TLS directive coverage includes `SSLProtocol`, `SSLCipherSuite`, conservative weak cipher / FS / AEAD posture, `SSLHonorCipherOrder`, `SSLCompression`, `SSLInsecureRenegotiation`, `SSLUseStapling`, `SSLStaplingCache`, `SSLSessionCache`, `SSLSessionCacheTimeout`, local HSTS policy, matching-vhost HTTP redirects, and external runtime corroboration for negotiated TLS posture, OCSP stapling, and chain behavior. |
 | §7.2 | `covered` | Runtime certificate validity, SAN, and chain verification are covered by external certificate probes, while `apache.ssl_proxy_verify_not_required` and `apache.ssl_proxy_peer_name_check_disabled` cover HTTPS upstream proxy trust when Apache acts as a TLS client. |
 | §7.3 | `out-of-scope` | Private-key protection needs filesystem ownership and permission metadata, which is outside web-server config / safe external analysis. |
-| §8.3 | `probe-depth` | Default Apache content removal needs response-body probing or filesystem-content inspection. |
+| §8.3 | `direct-rule` | `apache.default_content_probe` adds local filesystem inspection for default Apache HTML and CGI sample content under active `DocumentRoot` paths. Runtime-only welcome-page corroboration still belongs to the external probes. |
 | §8.4 | `covered` | `apache.file_etag_inodes` detects explicit `FileETag` values that include inode data. |
-| §9.1-§9.4 | `direct-rule` | Apache timeout and keepalive value checks now cover explicit `Timeout`, `KeepAlive`, `MaxKeepAliveRequests`, and `KeepAliveTimeout` directives; missing/default policy remains a future precision decision. |
-| §9.5-§9.6 | `parser-depth` | `RequestReadTimeout` header/body validation depends on module/default semantics and needs richer module inventory before broad findings are safe. |
+| §9.1-§9.4 | `covered` | Apache timeout and keepalive coverage now combines explicit threshold checks with `apache.timeout_keepalive_default_policy`, which requires `Timeout`, `KeepAlive`, `MaxKeepAliveRequests`, and `KeepAliveTimeout` to be pinned in active global and `VirtualHost` scopes. |
+| §9.5-§9.6 | `direct-rule` | `apache.request_read_timeout_semantics` now models visible `mod_reqtimeout` load state plus explicit `RequestReadTimeout` header/body completeness. Deeper tuning beyond that explicit policy remains a documented limitation, not a missing Apache CIS rule. |
 | §10.1-§10.4 | `direct-rule` | Request-limit threshold checks now cover `LimitRequestLine`, `LimitRequestFields`, `LimitRequestFieldSize`, and `LimitRequestBody`, with explicit-value limitations documented in the rule rows. |
 | §11.1-§11.4, §12.1-§12.3 | `out-of-scope` | SELinux and AppArmor posture require host security-framework inspection, which is outside the tool scope. |
 
@@ -1478,7 +1493,7 @@ Progress:
 - [x] Universal rules (13)
 - [x] Nginx local rules (79) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
-- [x] Apache local rules (77) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Apache local rules (82) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Lighttpd local rules (47)
 - [x] IIS local rules (51) — CWE/OWASP/ASVS filled; CIS existing-rule reference
