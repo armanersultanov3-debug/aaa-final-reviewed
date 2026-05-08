@@ -6,12 +6,14 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
     iter_nodes,
 )
+from webconf_audit.local.nginx.rules._default_server_rejection_utils import (
+    rejects_unknown_hosts,
+)
+from webconf_audit.local.nginx.rules.tls_listener_utils import listen_is_default_server
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.default_server_not_rejecting_unknown_hosts"
-
-_REJECT_STATUS_CODES = {"400", "403", "404", "444"}
 
 
 @rule(
@@ -30,7 +32,7 @@ def find_default_server_not_rejecting_unknown_hosts(config_ast: ConfigAst) -> li
     for node in iter_nodes(config_ast.nodes):
         if not isinstance(node, BlockNode) or node.name != "server":
             continue
-        if not _is_default_server(node) or _rejects_unknown_hosts(node):
+        if not _is_default_server(node) or rejects_unknown_hosts(node):
             continue
         findings.append(
             Finding(
@@ -59,21 +61,9 @@ def find_default_server_not_rejecting_unknown_hosts(config_ast: ConfigAst) -> li
 
 def _is_default_server(server_block: BlockNode) -> bool:
     return any(
-        "default_server" in directive.args
+        listen_is_default_server(directive)
         for directive in find_child_directives(server_block, "listen")
     )
-
-
-def _rejects_unknown_hosts(server_block: BlockNode) -> bool:
-    for directive in find_child_directives(server_block, "ssl_reject_handshake"):
-        if directive.args and directive.args[0].lower() == "on":
-            return True
-
-    for directive in find_child_directives(server_block, "return"):
-        if directive.args and directive.args[0] in _REJECT_STATUS_CODES:
-            return True
-
-    return False
 
 
 __all__ = ["find_default_server_not_rejecting_unknown_hosts"]

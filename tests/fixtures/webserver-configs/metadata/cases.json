@@ -209,6 +209,7 @@
       "expected_findings": [],
       "expected_absent_rule_ids": [
         "nginx.weak_ssl_protocols",
+        "nginx.default_tls_server_not_rejecting_unknown_hosts",
         "nginx.default_server_not_rejecting_unknown_hosts",
         "nginx.server_tokens_on",
         "nginx.autoindex_on"

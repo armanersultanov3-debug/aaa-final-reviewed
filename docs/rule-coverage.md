@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **366**
+Total rules: **367**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (267), external (86), universal (13) |
-| Severity | high (17), medium (129), low (209), info (11) |
-| Input kind | ast (167), effective (88), probe (86), normalized (13), htaccess (6), mixed (6) |
+| Category | local (268), external (86), universal (13) |
+| Severity | high (17), medium (129), low (210), info (11) |
+| Input kind | ast (168), effective (88), probe (86), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -114,7 +114,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 82
+Count: 83
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -135,6 +135,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.content_security_policy_missing_frame_ancestors` | low | ast | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 | CIS NGINX v3.0.0 §5.3.2 (partial: local CSP frame-ancestors directive only) |
 | `nginx.content_security_policy_unsafe` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.3 (partial: baseline directives and unsafe script tokens only) | CIS NGINX v3.0.0 §5.3.2 (partial: baseline policy quality checks) |
 | `nginx.default_server_not_rejecting_unknown_hosts` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.4.2 (partial: validates configured `default_server` rejection behavior) |
+| `nginx.default_tls_server_not_rejecting_unknown_hosts` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §2.4.2 (partial: implicit first/default TLS server catch-all rejection only) |
 | `nginx.duplicate_listen` | low | ast | - | - | - | - | - |
 | `nginx.error_log_too_restrictive` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS NGINX v3.0.0 §3.3 (partial: detects `/dev/null` and overly restrictive levels) |
 | `nginx.executable_scripts_allowed_in_uploads` | medium | ast | - | [CWE-434](https://cwe.mitre.org/data/definitions/434.html) | [A04:2021](https://owasp.org/Top10/A04_2021-Insecure_Design/) | - | - |
@@ -195,8 +196,8 @@ the benchmark covers but webconf-audit does not.
 | `nginx.sensitive_location_missing_ip_filter` | low | ast | - | [CWE-284](https://cwe.mitre.org/data/definitions/284.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | CIS NGINX v3.0.0 §5.1.1 (partial: validates restrictive `allow`/`deny` IP filters on sensitive paths that already have an access control, including `satisfy any` auth bypasses) |
 | `nginx.server_tokens_on` | low | ast | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-13.4.6 | CIS NGINX v3.0.0 §2.5.1 |
 | `nginx.sitewide_http_method_policy_missing` | low | ast | access | [CWE-650](https://cwe.mitre.org/data/definitions/650.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §5.1.2 (partial: whole-scope approved-method policy when root request handling is exposed via proxy/if/limit_except) |
-| `nginx.ssl_stapling_missing_resolver` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: resolver presence requirement only) |
-| `nginx.ssl_stapling_without_verify` | low | ast | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | CIS NGINX v3.0.0 §4.1.7 (partial: stapling verification requirement) |
+| `nginx.ssl_stapling_missing_resolver` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local resolver completeness only) | CIS NGINX v3.0.0 §4.1.7 (partial: resolver presence requirement only) |
+| `nginx.ssl_stapling_without_verify` | low | ast | tls | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.4 (partial: local verification completeness only) | CIS NGINX v3.0.0 §4.1.7 (partial: stapling verification requirement) |
 | `nginx.weak_ssl_protocols` | medium | ast | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.1.1 | CIS NGINX v3.0.0 §4.1.4 |
 | `nginx.client_body_timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §5.2.1 (partial: validates global/server timeout values; scoped upload-location exceptions remain operator policy) |
 | `nginx.client_header_timeout_too_high` | low | ast | - | [CWE-400](https://cwe.mitre.org/data/definitions/400.html) | - | - | CIS NGINX v3.0.0 §5.2.1 |
@@ -208,7 +209,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.ssl_session_tickets_disabled` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §4.1.11 |
 | `nginx.large_client_header_buffers_too_restrictive` | low | ast | - | - | - | - | CIS NGINX v3.0.0 §5.2.3 (partial: detects values below the default 4 8k; documented lower limits remain operator policy) |
 | `nginx.large_client_header_buffers_too_large` | low | ast | - | [CWE-770](https://cwe.mitre.org/data/definitions/770.html) | - | - | CIS NGINX v3.0.0 section 5.2.3 (partial: conservative count / size / total allocation thresholds) |
-| `nginx.ssl_stapling_disabled` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS NGINX v3.0.0 §4.1.7 (detects missing or off `ssl_stapling` in TLS server blocks) |
+| `nginx.ssl_stapling_disabled` | low | ast | tls | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-12.1.4 (partial: local stapling enablement only) | CIS NGINX v3.0.0 §4.1.7 (detects missing or off `ssl_stapling` in TLS server blocks) |
 
 Mapping rationale (nginx rules):
 
@@ -225,6 +226,11 @@ Mapping rationale (nginx rules):
 - `default_server_not_rejecting_unknown_hosts` -- a default virtual host that
   serves unknown names can expose the wrong application or default content.
   This is best represented as OWASP A05 hardening rather than a precise CWE.
+- `default_tls_server_not_rejecting_unknown_hosts` -- when multiple TLS
+  virtual hosts share a listen key and there is no explicit catch-all, the
+  implicit first/default TLS server can answer unexpected host names during
+  TLS handshakes and fall back to the wrong application. This is likewise an
+  OWASP A05 hardening signal rather than a precise CWE mapping.
 - `executable_scripts_allowed_in_uploads` -- upload directories that also
   serve PHP/CGI are the textbook CWE-434 (unrestricted upload of dangerous
   file types). Categorised as OWASP A04 (insecure design): the issue is the
@@ -312,12 +318,16 @@ Mapping rationale (nginx rules):
 - `ssl_stapling_disabled` -- a TLS server block without `ssl_stapling on`
   silently skips OCSP stapling, leaving clients to fetch revocation status
   themselves; the CIS guidance treats this as a hardening misconfig, so CWE
-  stays empty and OWASP A05 covers it.
+  stays empty, OWASP A05 covers it, and ASVS 12.1.4 is partial because the
+  rule only sees local enablement.
 - `ssl_stapling_missing_resolver` -- enabling `ssl_stapling` without a
   resolver silently disables stapling, but it is a configuration mistake
-  rather than a vulnerability class; CWE empty, OWASP A05 (misconfig).
+  rather than a vulnerability class; CWE empty, OWASP A05 (misconfig), and
+  ASVS 12.1.4 stays partial because the rule checks only local resolver
+  completeness.
 - `ssl_stapling_without_verify` -- accepting OCSP responses without
-  validation is CWE-295 (improper certificate validation), OWASP A02.
+  validation is CWE-295 (improper certificate validation), OWASP A02, and
+  partial ASVS 12.1.4 coverage for local verification completeness.
 - `weak_ssl_protocols` -- SSLv2 / SSLv3 / TLSv1.0 / TLSv1.1 are textbook CWE-327,
   OWASP A02 (matches the universal `weak_tls_protocol` rule).
 - `large_client_header_buffers_too_restrictive` -- values below the
@@ -343,7 +353,7 @@ Nginx CIS v3.0.0 gap table:
 | §2.2.1-§2.2.3 | `out-of-scope` | Service-account user, lock state, and shell require OS account inspection, which is outside the tool scope. |
 | §2.3.1-§2.3.3 | `out-of-scope` | Ownership, permissions, and PID-file checks require filesystem metadata, which is outside the tool scope. |
 | §2.4.1 | `research` | Authorized listening ports require an environment-specific approved-port policy. |
-| §2.4.2 | `manual-context` | Current coverage validates configured `default_server` rejection behavior through `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on`; absent-default-server policy and runtime invalid-Host behavior remain environment-specific. |
+| §2.4.2 | `direct-rule` | Current coverage validates configured `default_server` rejection behavior through `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on`, and `nginx.default_tls_server_not_rejecting_unknown_hosts` covers the first/default TLS catch-all case for each listen key. First/default non-TLS behavior without an explicit `default_server` remains environment-specific. |
 | §2.5.2 | `probe-depth` | Default error and index page content needs response-body probing or filesystem content inspection. |
 | §2.5.4 | `parser-depth` | Reverse-proxy disclosure checks need proxy-header semantics beyond the current generic header rules. |
 | §3.1 | `manual-context` | Current coverage validates named custom `log_format` references and recommended request/source/status/user-agent fields on referenced formats. Plain `access_log` entries that use Nginx's default format are not flagged; organisation-specific JSON/escape policy remains manual. |
@@ -1341,7 +1351,7 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 
 | Мера | Класс | Aligned rules |
 | --- | --- | --- |
-| ИАФ.1 | Идентификация и аутентификация субъектов доступа | nginx: `missing_auth_basic_user_file`; iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users` |
+| ИАФ.1 | Идентификация и аутентификация субъектов доступа | nginx: `missing_auth_basic_user_file`, `auth_basic_over_http` (partial: HTTP Basic transport protection only); iis: `basic_auth_without_ssl`, `anonymous_auth_enabled`, `anonymous_auth_uses_specific_user`, `authorization_allows_anonymous_users` |
 | ИАФ.6 | Защита аутентификационной информации | nginx: `auth_basic_over_http`; apache: `basic_auth_over_http`; lighttpd: `basic_auth_over_http`; iis: `credentials_password_format_clear`, `credentials_stored_in_config`, `forms_auth_require_ssl_missing`, `forms_auth_protection_unsafe`, `basic_auth_without_ssl`, `machine_key_validation_weak`, `machine_key_legacy_validation_weak`; external: `htpasswd_exposed` |
 | УПД.5 | Управление доступом субъектов доступа к объектам доступа | nginx: `allow_all_with_deny_all`, `missing_access_restrictions_on_sensitive_locations`, `sensitive_location_missing_ip_filter`, `alias_without_trailing_slash`; apache: `allowoverride_*` family, `htaccess_*` family, `missing_http_method_restrictions`, `http_method_policy_allows_unapproved`; lighttpd: `url_access_deny_missing`; iis: `authorization_allows_anonymous_users`, `anonymous_auth_enabled`; external: `wordpress_admin_panel_exposed` |
 | УПД.13 | Реализация защищённого удалённого доступа субъектов доступа | universal: `tls_intent_without_config`, `weak_tls_protocol`, `weak_tls_ciphers`, `missing_hsts`; nginx + apache + lighttpd + iis: same set as in PCI Req. 4.2.1 above; external: same set as in PCI Req. 4.2.1 above |
@@ -1351,7 +1361,7 @@ Per `STD-GAP-031` from `docs/benchmarks-covering.md`. Источник: ФСТЭ
 | РСБ.7 | Защита информации о событиях безопасности | none — `out-of-scope` (права на лог-файлы / ротация / целостность вне web-server config) |
 | АНЗ.1 | Выявление, анализ уязвимостей информационной системы | external: все probes по version-disclosure (`*.version_disclosed_in_server_header`, `server_version_disclosed`, `x_powered_by_header_present`, `x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.apache.etag_inode_disclosure`), debug endpoints (`phpinfo_exposed`, `elmah_axd_exposed`, `trace_axd_exposed`, `external.iis.detailed_error_page`), VCS metadata (`git_metadata_exposed`, `svn_metadata_exposed`), exposed configs (`web_config_exposed`, `htaccess_exposed`, `env_file_exposed`, `htpasswd_exposed`, `backup_archive_exposed`, `backup_file_exposed`, `database_dump_exposed`, `dependency_manifest_exposed`, `npmrc_exposed`), status endpoints (`server_status_exposed`, `server_info_exposed`, `nginx_status_exposed`, `external.apache.mod_status_public`, `lighttpd.mod_status_public`); local: `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server` |
 | АНЗ.2 | Контроль установки обновлений ПО | none — `out-of-scope` |
-| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
+| ЗИС.3 | Защита от внешних и внутренних угроз | universal: `listen_on_all_interfaces`; nginx: `default_server_not_rejecting_unknown_hosts`, `default_tls_server_not_rejecting_unknown_hosts`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | ЗИС.20 | Защита каналов связи | same set as `УПД.13` (TLS / HSTS / redirect rules) |
 | ЗИС.32 | Защита веб-серверов / веб-приложений | catch-all для всех hardening rules (response headers, CSP, sensitive paths, request limits, timeout, request filtering) |
 
@@ -1427,7 +1437,7 @@ Per `STD-GAP-024` from `docs/benchmarks-covering.md`. ГОСТ Р ИСО/МЭК
 | 8.15 | Logging | same set as ФСТЭК `РСБ.1` / `РСБ.3` above |
 | 8.16 | Monitoring activities | partial via the same logging rules; full monitoring is application/SOC concern |
 | 8.18 | Use of privileged utility programs | apache: `options_execcgi_enabled`, `options_includes_enabled`, `options_multiviews_enabled`; lighttpd: `mod_cgi_enabled`; iis: `webdav_module_enabled`, `cgi_handler_enabled`, `handler_write_script_execute_enabled` |
-| 8.20 | Networks security | universal: `listen_on_all_interfaces`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
+| 8.20 | Networks security | universal: `listen_on_all_interfaces`; nginx: `default_server_not_rejecting_unknown_hosts`, `default_tls_server_not_rejecting_unknown_hosts`; apache: `listen_requires_explicit_address`, `ip_based_requests_allowed`, `default_vhost_not_rejecting_unknown_hosts`, `default_tls_vhost_not_rejecting_unknown_hosts`; iis: `binding_without_host_header` |
 | 8.21 | Security of network services | same set as ФСТЭК `УПД.13` (TLS / HSTS / redirect family) |
 | 8.23 | Web filtering | `out-of-scope` |
 | 8.24 | Use of cryptography | same set as NIST SP 800-52 Rev. 2 §3.x sections above |

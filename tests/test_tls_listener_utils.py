@@ -2,6 +2,8 @@ import pytest
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, DirectiveNode, SourceSpan
 from webconf_audit.local.nginx.rules.tls_listener_utils import (
+    listen_is_default_server,
+    listen_key,
     listen_uses_tls,
     listen_uses_tls_on_port_443,
     server_uses_tls,
@@ -67,3 +69,30 @@ def test_listen_uses_tls_on_port_443(directive: DirectiveNode, expected: bool) -
 )
 def test_server_uses_tls(server_block: BlockNode, expected: bool) -> None:
     assert server_uses_tls(server_block) is expected
+
+
+@pytest.mark.parametrize(
+    ("directive", "expected"),
+    [
+        (_listen_directive("443", "ssl"), "*:443"),
+        (_listen_directive("443", "ssl", "default_server"), "*:443"),
+        (_listen_directive("127.0.0.1:443", "ssl"), "127.0.0.1:443"),
+        (_listen_directive("[::]:443", "ssl"), "[::]:443"),
+        (_listen_directive("*:8443", "ssl"), "*:8443"),
+        (_listen_directive("ssl", "http2"), None),
+    ],
+)
+def test_listen_key(directive: DirectiveNode, expected: str | None) -> None:
+    assert listen_key(directive) == expected
+
+
+@pytest.mark.parametrize(
+    ("directive", "expected"),
+    [
+        (_listen_directive("443", "ssl", "default_server"), True),
+        (_listen_directive("127.0.0.1:443", "ssl", "default_server"), True),
+        (_listen_directive("443", "ssl"), False),
+    ],
+)
+def test_listen_is_default_server(directive: DirectiveNode, expected: bool) -> None:
+    assert listen_is_default_server(directive) is expected

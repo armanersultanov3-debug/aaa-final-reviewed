@@ -215,17 +215,16 @@ Planned checks:
   `ssl_session_timeout` or Apache `SSLSessionCache` /
   `SSLSessionCacheTimeout`. Status: covered for Nginx and Apache local
   analysis with inherited/effective-scope regression tests.
-- OCSP stapling not enabled at all, complementing existing checks for
-  incomplete stapling configuration.
-- Default TLS virtual host behavior, such as Nginx `listen 443 default_server
-  ssl` or the first/default Apache TLS virtual host serving unexpected host
-  names without a deliberate catch-all.
+- OCSP stapling completeness across local TLS server-family rules.
+- Default TLS virtual host behavior, such as a deliberate Nginx
+  `listen 443 ssl default_server` catch-all or the first/default Apache TLS
+  virtual host rejecting unexpected host names.
 
 Server notes:
 
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
-| Nginx | Partially covered | Protocol policy, session cache, and session timeout checks have targeted local regression coverage. | Remaining high-value local work is OCSP stapling completeness and default TLS host handling; deeper runtime TLS posture is now covered by external probes. |
+| Nginx | Covered for current model | Protocol policy, session cache, session timeout, OCSP stapling completeness, and default TLS catch-all handling all have targeted local regression coverage. | No mandatory Nginx-local TLS baseline tail remains in the current model; deeper runtime TLS posture is covered by external probes, while deployment-specific exceptions stay operator context. |
 | Apache | Covered for current model | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, session cache timeout, default TLS VirtualHost unknown-host rejection, and the Apache CIS precision tail around request-policy and upstream proxy trust. | No mandatory Apache-local CIS baseline tail remains in the current model; deployment-specific exceptions stay documentation/operator context, while deeper runtime TLS posture is covered by external probes. |
 | Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
 | IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown, while runtime certificate, protocol, cipher-preference, and OCSP evidence now come from external probes. |

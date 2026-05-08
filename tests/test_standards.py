@@ -4,7 +4,16 @@ from __future__ import annotations
 
 import pytest
 
-from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
+from webconf_audit.standards import (
+    asvs_5,
+    bsi_app_3_2,
+    cwe,
+    fstec_gis,
+    nist_sp_800_53_rev5,
+    owasp_top10_2021,
+    pci_dss_4,
+    rfc,
+)
 
 
 def test_cwe_uses_canonical_reference_and_url() -> None:
@@ -121,3 +130,105 @@ def test_rfc_rejects_empty_section(section: str) -> None:
 def test_rfc_rejects_non_string_section(section: object) -> None:
     with pytest.raises(ValueError, match="section must be a non-empty string"):
         rfc(8996, section=section)  # type: ignore[arg-type]
+
+
+def test_nist_sp_800_53_rev5_uses_canonical_reference_and_url() -> None:
+    ref = nist_sp_800_53_rev5("IA-2")
+
+    assert ref.standard == "NIST SP 800-53 Rev. 5"
+    assert ref.reference == "IA-2"
+    assert ref.url == "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final"
+
+
+def test_nist_sp_800_53_rev5_strips_control_and_propagates_metadata() -> None:
+    ref = nist_sp_800_53_rev5(
+        " IA-5(1) ",
+        coverage="partial",
+        note="Authentication-factor transport only.",
+    )
+
+    assert ref.reference == "IA-5(1)"
+    assert ref.coverage == "partial"
+    assert ref.note == "Authentication-factor transport only."
+
+
+@pytest.mark.parametrize("control", ["", "   "])
+def test_nist_sp_800_53_rev5_rejects_empty_control(control: str) -> None:
+    with pytest.raises(ValueError, match="control must be a non-empty string"):
+        nist_sp_800_53_rev5(control)
+
+
+def test_pci_dss_4_uses_canonical_reference_and_url() -> None:
+    ref = pci_dss_4("8.3.1")
+
+    assert ref.standard == "PCI DSS v4.0.1"
+    assert ref.reference == "Req. 8.3.1"
+    assert (
+        ref.url
+        == "https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf"
+    )
+
+
+def test_pci_dss_4_accepts_requirement_with_prefix() -> None:
+    ref = pci_dss_4("Req. 4.2.1")
+
+    assert ref.reference == "Req. 4.2.1"
+
+
+@pytest.mark.parametrize("requirement", ["", "   "])
+def test_pci_dss_4_rejects_empty_requirement(requirement: str) -> None:
+    with pytest.raises(ValueError, match="requirement must be a non-empty string"):
+        pci_dss_4(requirement)
+
+
+def test_bsi_app_3_2_uses_canonical_reference_and_url() -> None:
+    ref = bsi_app_3_2("A5")
+
+    assert ref.standard == "BSI IT-Grundschutz"
+    assert ref.reference == "APP.3.2.A5"
+    assert (
+        ref.url
+        == "https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/Standards-und-Zertifizierung/IT-Grundschutz/IT-Grundschutz-Kompendium/it-grundschutz-kompendium_node.html"
+    )
+
+
+def test_bsi_app_3_2_accepts_fully_qualified_requirement() -> None:
+    ref = bsi_app_3_2("APP.3.2.A14", coverage="partial")
+
+    assert ref.reference == "APP.3.2.A14"
+    assert ref.coverage == "partial"
+
+
+@pytest.mark.parametrize("requirement", ["", "   "])
+def test_bsi_app_3_2_rejects_empty_requirement(requirement: str) -> None:
+    with pytest.raises(ValueError, match="requirement must be a non-empty string"):
+        bsi_app_3_2(requirement)
+
+
+def test_fstec_gis_uses_canonical_reference_and_url() -> None:
+    ref = fstec_gis("ИАФ.1")
+
+    assert ref.standard == 'ФСТЭК "Меры защиты информации в ГИС"'
+    assert ref.reference == "ИАФ.1"
+    assert (
+        ref.url
+        == "https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17"
+    )
+
+
+def test_fstec_gis_strips_measure_and_propagates_metadata() -> None:
+    ref = fstec_gis(
+        " ИАФ.6 ",
+        coverage="partial",
+        note="Transport protection signal only.",
+    )
+
+    assert ref.reference == "ИАФ.6"
+    assert ref.coverage == "partial"
+    assert ref.note == "Transport protection signal only."
+
+
+@pytest.mark.parametrize("measure", ["", "   "])
+def test_fstec_gis_rejects_empty_measure(measure: str) -> None:
+    with pytest.raises(ValueError, match="measure must be a non-empty string"):
+        fstec_gis(measure)

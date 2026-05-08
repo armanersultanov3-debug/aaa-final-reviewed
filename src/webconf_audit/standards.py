@@ -74,6 +74,86 @@ def asvs_5(
     )
 
 
+def nist_sp_800_53_rev5(
+    control: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_control = control.strip().upper()
+    if not normalized_control:
+        raise ValueError("nist_sp_800_53_rev5: control must be a non-empty string.")
+    return StandardReference(
+        standard="NIST SP 800-53 Rev. 5",
+        reference=normalized_control,
+        url="https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final",
+        coverage=coverage,
+        note=note,
+    )
+
+
+def pci_dss_4(
+    requirement: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_requirement = requirement.strip()
+    if not normalized_requirement:
+        raise ValueError("pci_dss_4: requirement must be a non-empty string.")
+    if not normalized_requirement.lower().startswith("req."):
+        normalized_requirement = f"Req. {normalized_requirement}"
+    return StandardReference(
+        standard="PCI DSS v4.0.1",
+        reference=normalized_requirement,
+        url="https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf",
+        coverage=coverage,
+        note=note,
+    )
+
+
+def bsi_app_3_2(
+    requirement: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_requirement = requirement.strip().upper()
+    if not normalized_requirement:
+        raise ValueError("bsi_app_3_2: requirement must be a non-empty string.")
+    if not normalized_requirement.startswith("APP.3.2."):
+        normalized_requirement = f"APP.3.2.{normalized_requirement}"
+    return StandardReference(
+        standard="BSI IT-Grundschutz",
+        reference=normalized_requirement,
+        url=(
+            "https://www.bsi.bund.de/EN/Themen/Unternehmen-und-Organisationen/"
+            "Standards-und-Zertifizierung/IT-Grundschutz/"
+            "IT-Grundschutz-Kompendium/it-grundschutz-kompendium_node.html"
+        ),
+        coverage=coverage,
+        note=note,
+    )
+
+
+def fstec_gis(
+    measure: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_measure = measure.strip().upper()
+    if not normalized_measure:
+        raise ValueError("fstec_gis: measure must be a non-empty string.")
+    return StandardReference(
+        standard='ФСТЭК "Меры защиты информации в ГИС"',
+        reference=normalized_measure,
+        url="https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17",
+        coverage=coverage,
+        note=note,
+    )
+
+
 def rfc(
     number: int,
     *,
@@ -105,4 +185,13 @@ def rfc(
     )
 
 
-__all__ = ["asvs_5", "cwe", "owasp_top10_2021", "rfc"]
+__all__ = [
+    "asvs_5",
+    "bsi_app_3_2",
+    "cwe",
+    "fstec_gis",
+    "nist_sp_800_53_rev5",
+    "owasp_top10_2021",
+    "pci_dss_4",
+    "rfc",
+]
