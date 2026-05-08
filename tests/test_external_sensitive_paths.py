@@ -842,6 +842,13 @@ def test_expanded_sensitive_path_rules_fire_on_accessible_match(
         ("/sitemap.xml", "external.sitemap_xml_exposed"),
         ("/.svn/entries", "external.svn_metadata_exposed"),
         ("/index.php.bak", "external.backup_file_exposed"),
+        ("/index.php.old", "external.backup_file_exposed"),
+        ("/index.php.backup", "external.backup_file_exposed"),
+        ("/index.php.orig", "external.backup_file_exposed"),
+        ("/index.php.save", "external.backup_file_exposed"),
+        ("/index.php.swp", "external.backup_file_exposed"),
+        ("/index.php.tmp", "external.backup_file_exposed"),
+        ("/index.php~", "external.backup_file_exposed"),
     ],
 )
 def test_expanded_sensitive_path_rules_do_not_fire_on_404(

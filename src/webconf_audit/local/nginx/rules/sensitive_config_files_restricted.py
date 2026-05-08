@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, iter_nodes
 from webconf_audit.local.nginx.rules._scope_utils import skips_content_response_checks
 from webconf_audit.local.sensitive_artifact_policy import CONFIG_DATA_EXTENSIONS
@@ -132,15 +134,11 @@ def _location_blocks_sensitive_files(location_block: BlockNode) -> bool:
 
 
 def _pattern_mentions_extension(pattern: str, extension: str) -> bool:
-    explicit_markers = (
-        f"\\.{extension}",
-        f".{extension}",
-        f"({extension}",
-        f"|{extension}",
-        f"{extension}|",
-        f"{extension})",
-    )
-    return any(marker in pattern for marker in explicit_markers)
+    candidate_path = f"/probe.{extension}"
+    try:
+        return re.search(pattern, candidate_path) is not None
+    except re.error:
+        return False
 
 
 def _is_root_location(location_block: BlockNode) -> bool:
