@@ -78,6 +78,7 @@ def find_default_tls_server_not_rejecting_unknown_hosts(
 
 def _default_tls_servers_by_listen_key(config_ast: ConfigAst) -> dict[str, BlockNode]:
     servers_by_key: dict[str, list[BlockNode]] = defaultdict(list)
+    seen_server_ids_by_key: dict[str, set[int]] = defaultdict(set)
     explicit_defaults: dict[str, BlockNode] = {}
 
     for node in iter_nodes(config_ast.nodes):
@@ -89,7 +90,10 @@ def _default_tls_servers_by_listen_key(config_ast: ConfigAst) -> dict[str, Block
             key = listen_key(directive)
             if key is None:
                 continue
-            servers_by_key[key].append(node)
+            node_id = id(node)
+            if node_id not in seen_server_ids_by_key[key]:
+                servers_by_key[key].append(node)
+                seen_server_ids_by_key[key].add(node_id)
             if listen_is_default_server(directive):
                 explicit_defaults.setdefault(key, node)
 

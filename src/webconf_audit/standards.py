@@ -74,15 +74,26 @@ def asvs_5(
     )
 
 
+def _normalize_non_empty_text(value: str, *, fn_name: str, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{fn_name}: {field_name} must be a non-empty string.")
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError(f"{fn_name}: {field_name} must be a non-empty string.")
+    return normalized
+
+
 def nist_sp_800_53_rev5(
     control: str,
     *,
     coverage: StandardCoverage = "direct",
     note: str | None = None,
 ) -> StandardReference:
-    normalized_control = control.strip().upper()
-    if not normalized_control:
-        raise ValueError("nist_sp_800_53_rev5: control must be a non-empty string.")
+    normalized_control = _normalize_non_empty_text(
+        control,
+        fn_name="nist_sp_800_53_rev5",
+        field_name="control",
+    ).upper()
     return StandardReference(
         standard="NIST SP 800-53 Rev. 5",
         reference=normalized_control,
@@ -98,9 +109,11 @@ def pci_dss_4(
     coverage: StandardCoverage = "direct",
     note: str | None = None,
 ) -> StandardReference:
-    normalized_requirement = requirement.strip()
-    if not normalized_requirement:
-        raise ValueError("pci_dss_4: requirement must be a non-empty string.")
+    normalized_requirement = _normalize_non_empty_text(
+        requirement,
+        fn_name="pci_dss_4",
+        field_name="requirement",
+    )
     if not normalized_requirement.lower().startswith("req."):
         normalized_requirement = f"Req. {normalized_requirement}"
     return StandardReference(
@@ -118,9 +131,11 @@ def bsi_app_3_2(
     coverage: StandardCoverage = "direct",
     note: str | None = None,
 ) -> StandardReference:
-    normalized_requirement = requirement.strip().upper()
-    if not normalized_requirement:
-        raise ValueError("bsi_app_3_2: requirement must be a non-empty string.")
+    normalized_requirement = _normalize_non_empty_text(
+        requirement,
+        fn_name="bsi_app_3_2",
+        field_name="requirement",
+    ).upper()
     if not normalized_requirement.startswith("APP.3.2."):
         normalized_requirement = f"APP.3.2.{normalized_requirement}"
     return StandardReference(
@@ -142,9 +157,11 @@ def fstec_gis(
     coverage: StandardCoverage = "direct",
     note: str | None = None,
 ) -> StandardReference:
-    normalized_measure = measure.strip().upper()
-    if not normalized_measure:
-        raise ValueError("fstec_gis: measure must be a non-empty string.")
+    normalized_measure = _normalize_non_empty_text(
+        measure,
+        fn_name="fstec_gis",
+        field_name="measure",
+    ).upper()
     return StandardReference(
         standard='ФСТЭК "Меры защиты информации в ГИС"',
         reference=normalized_measure,

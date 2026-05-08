@@ -235,6 +235,7 @@ def test_analyze_nginx_config_reports_first_tls_server_without_catch_all_reject(
 
     result = analyze_nginx_config(str(config_path))
 
+    assert result.issues == []
     matching = [
         finding
         for finding in result.findings
@@ -243,6 +244,35 @@ def test_analyze_nginx_config_reports_first_tls_server_without_catch_all_reject(
     assert len(matching) == 1
     assert matching[0].location is not None
     assert matching[0].location.file_path == str(config_path)
+
+
+def test_analyze_nginx_config_does_not_treat_equivalent_tls_listens_in_one_server_as_multiple_servers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _http_block(
+            _safe_server_block(
+                "listen 443 ssl;",
+                "listen *:443 ssl;",
+                "server_name app.example.test;",
+                "ssl_certificate cert.pem;",
+                "ssl_certificate_key cert.key;",
+                "location / {",
+                "    proxy_pass http://backend;",
+                "}",
+            ),
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.default_tls_server_not_rejecting_unknown_hosts"
+        for finding in result.findings
+    )
 
 
 def test_analyze_nginx_config_accepts_explicit_default_tls_catch_all_reject(

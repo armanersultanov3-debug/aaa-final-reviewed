@@ -158,6 +158,12 @@ def test_nist_sp_800_53_rev5_rejects_empty_control(control: str) -> None:
         nist_sp_800_53_rev5(control)
 
 
+@pytest.mark.parametrize("control", [None, 1, object()])
+def test_nist_sp_800_53_rev5_rejects_non_string_control(control: object) -> None:
+    with pytest.raises(ValueError, match="control must be a non-empty string"):
+        nist_sp_800_53_rev5(control)  # type: ignore[arg-type]
+
+
 def test_pci_dss_4_uses_canonical_reference_and_url() -> None:
     ref = pci_dss_4("8.3.1")
 
@@ -179,6 +185,12 @@ def test_pci_dss_4_accepts_requirement_with_prefix() -> None:
 def test_pci_dss_4_rejects_empty_requirement(requirement: str) -> None:
     with pytest.raises(ValueError, match="requirement must be a non-empty string"):
         pci_dss_4(requirement)
+
+
+@pytest.mark.parametrize("requirement", [None, 1, object()])
+def test_pci_dss_4_rejects_non_string_requirement(requirement: object) -> None:
+    with pytest.raises(ValueError, match="requirement must be a non-empty string"):
+        pci_dss_4(requirement)  # type: ignore[arg-type]
 
 
 def test_bsi_app_3_2_uses_canonical_reference_and_url() -> None:
@@ -203,6 +215,12 @@ def test_bsi_app_3_2_accepts_fully_qualified_requirement() -> None:
 def test_bsi_app_3_2_rejects_empty_requirement(requirement: str) -> None:
     with pytest.raises(ValueError, match="requirement must be a non-empty string"):
         bsi_app_3_2(requirement)
+
+
+@pytest.mark.parametrize("requirement", [None, 1, object()])
+def test_bsi_app_3_2_rejects_non_string_requirement(requirement: object) -> None:
+    with pytest.raises(ValueError, match="requirement must be a non-empty string"):
+        bsi_app_3_2(requirement)  # type: ignore[arg-type]
 
 
 def test_fstec_gis_uses_canonical_reference_and_url() -> None:
@@ -232,3 +250,9 @@ def test_fstec_gis_strips_measure_and_propagates_metadata() -> None:
 def test_fstec_gis_rejects_empty_measure(measure: str) -> None:
     with pytest.raises(ValueError, match="measure must be a non-empty string"):
         fstec_gis(measure)
+
+
+@pytest.mark.parametrize("measure", [None, 1, object()])
+def test_fstec_gis_rejects_non_string_measure(measure: object) -> None:
+    with pytest.raises(ValueError, match="measure must be a non-empty string"):
+        fstec_gis(measure)  # type: ignore[arg-type]

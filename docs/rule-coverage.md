@@ -1519,7 +1519,7 @@ only where the mapping is honest:
 Progress:
 
 - [x] Universal rules (13)
-- [x] Nginx local rules (82) — CWE/OWASP filled; CIS existing-rule reference
+- [x] Nginx local rules (83) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
 - [x] Apache local rules (84) — CWE/OWASP filled; CIS existing-rule reference
   pass complete
