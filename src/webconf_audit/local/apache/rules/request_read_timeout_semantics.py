@@ -154,12 +154,12 @@ def _request_timeout_value_is_valid(raw_value: str) -> bool:
         return False
 
     for param in parts[1:]:
-        key, separator, raw_value = param.partition("=")
+        key, separator, param_value = param.partition("=")
         if not separator:
             return False
         if key.strip().lower() != "minrate":
             return False
-        normalized_value = raw_value.strip()
+        normalized_value = param_value.strip()
         if not (normalized_value.isdigit() and int(normalized_value) > 0):
             return False
 
