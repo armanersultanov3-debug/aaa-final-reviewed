@@ -315,9 +315,9 @@ def extract_document_root(
     else:
         search_nodes = virtualhost_context.node.children
 
-    found = _find_scoped_directive(search_nodes, "documentroot")
+    found = find_scoped_directive(search_nodes, "documentroot")
     if found is None and virtualhost_context is not None:
-        found = _find_scoped_directive(config_ast.nodes, "documentroot")
+        found = find_scoped_directive(config_ast.nodes, "documentroot")
 
     if found is None or not found.args:
         return None
@@ -712,7 +712,7 @@ def _iter_scoped_directives(
     return directives
 
 
-def _find_scoped_directive(
+def find_scoped_directive(
     nodes: list[ApacheDirectiveNode | ApacheBlockNode],
     directive_name: str,
 ) -> ApacheDirectiveNode | None:
@@ -836,5 +836,6 @@ __all__ = [
     "extract_document_root",
     "extract_location_scopes",
     "extract_virtualhost_contexts",
+    "find_scoped_directive",
     "select_applicable_virtualhosts",
 ]

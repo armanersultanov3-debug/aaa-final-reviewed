@@ -59,7 +59,7 @@ def test_analyze_apache_config_reports_missing_top_level_error_log(tmp_path: Pat
     assert len(server_findings) == 1
     finding = server_findings[0]
     assert finding.rule_id == "apache.error_log_missing"
-    assert finding.title == "Missing top-level ErrorLog directive"
+    assert finding.title == "Missing ErrorLog directive"
 
 
 def test_analyze_apache_config_reports_missing_top_level_custom_log(tmp_path: Path) -> None:
@@ -86,7 +86,7 @@ def test_analyze_apache_config_reports_missing_top_level_custom_log(tmp_path: Pa
     assert len(server_findings) == 1
     finding = server_findings[0]
     assert finding.rule_id == "apache.custom_log_missing"
-    assert finding.title == "Missing top-level CustomLog directive"
+    assert finding.title == "Missing CustomLog directive"
 
 
 def test_analyze_apache_config_does_not_report_missing_top_level_error_documents_when_both_present(
