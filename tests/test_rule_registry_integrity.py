@@ -140,6 +140,29 @@ class TestStandardsMetadata:
             for ref in meta.standards
         )
 
+    def test_apache_allowoverride_rules_have_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "apache.allowoverride_not_none": {
+                ("CWE", "CWE-732"),
+                ("OWASP Top 10", "A05:2021"),
+                ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.3/§4.4"),
+            },
+            "apache.directory_without_allowoverride": {
+                ("OWASP Top 10", "A05:2021"),
+                ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.4"),
+            },
+        }
+
+        for rule_id, expected_refs in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert expected_refs.issubset(references)
+
     def test_followup_rules_have_expected_standards(self, full_reg: RuleRegistry) -> None:
         expectations = {
             "nginx.auth_basic_over_http": {
