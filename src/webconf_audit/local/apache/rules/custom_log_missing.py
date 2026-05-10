@@ -1,58 +1,79 @@
 from __future__ import annotations
 
-from webconf_audit.local.apache.parser import ApacheConfigAst, ApacheDirectiveNode
+from webconf_audit.local.apache.effective import (
+    ApacheVirtualHostContext,
+    build_server_effective_config,
+    extract_virtualhost_contexts,
+)
+from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.rules.effective_directive_check import (
+    iter_vhosts_missing_directive,
+)
+from webconf_audit.local.apache.rules.server_directive_utils import (
+    default_location,
+    virtualhost_label,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "apache.custom_log_missing"
+TITLE = "Missing CustomLog directive"
+DESCRIPTION = (
+    "Apache config does not define a 'CustomLog' directive for the applicable "
+    "server scope."
+)
+RECOMMENDATION = (
+    "Add a 'CustomLog' directive at the global server level or within each "
+    "affected VirtualHost to establish an access logging baseline."
+)
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Missing top-level CustomLog directive",
+    title=TITLE,
     severity="low",
-    description="Apache config does not define a top-level 'CustomLog' directive.",
-    recommendation="Add a top-level 'CustomLog' directive to establish an access logging baseline.",
+    description=DESCRIPTION,
+    recommendation=RECOMMENDATION,
     category="local",
     server_type="apache",
     order=302,
 )
 def find_custom_log_missing(config_ast: ApacheConfigAst) -> list[Finding]:
-    directive = _find_top_level_custom_log(config_ast)
-
-    if directive is not None:
-        return []
+    virtualhosts = extract_virtualhost_contexts(config_ast)
+    if not virtualhosts:
+        if build_server_effective_config(config_ast).directives.get("customlog") is not None:
+            return []
+        return [
+            Finding(
+                rule_id=RULE_ID,
+                title=TITLE,
+                severity="low",
+                description=DESCRIPTION,
+                recommendation=RECOMMENDATION,
+                location=default_location(config_ast),
+            )
+        ]
 
     return [
-        Finding(
-            rule_id=RULE_ID,
-            title="Missing top-level CustomLog directive",
-            severity="low",
-            description="Apache config does not define a top-level 'CustomLog' directive.",
-            recommendation="Add a top-level 'CustomLog' directive to establish an access logging baseline.",
-            location=_default_location(config_ast),
-        )
+        _build_virtualhost_finding(context)
+        for context in iter_vhosts_missing_directive(config_ast, "customlog")
     ]
 
 
-def _find_top_level_custom_log(config_ast: ApacheConfigAst) -> ApacheDirectiveNode | None:
-    for node in config_ast.nodes:
-        if isinstance(node, ApacheDirectiveNode) and node.name.lower() == "customlog":
-            return node
-
-    return None
-
-
-def _default_location(config_ast: ApacheConfigAst) -> SourceLocation | None:
-    if not config_ast.nodes:
-        return None
-
-    source = config_ast.nodes[0].source
-    return SourceLocation(
-        mode="local",
-        kind="file",
-        file_path=source.file_path,
-        line=source.line,
+def _build_virtualhost_finding(context: ApacheVirtualHostContext) -> Finding:
+    return Finding(
+        rule_id=RULE_ID,
+        title=TITLE,
+        severity="low",
+        description=DESCRIPTION,
+        recommendation=RECOMMENDATION,
+        location=SourceLocation(
+            mode="local",
+            kind="file",
+            file_path=context.node.source.file_path,
+            line=context.node.source.line,
+        ),
+        metadata={"scope_name": virtualhost_label(context)},
     )
 
 

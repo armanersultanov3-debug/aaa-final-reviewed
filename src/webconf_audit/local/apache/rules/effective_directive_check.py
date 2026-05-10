@@ -21,7 +21,7 @@ Usage::
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
 from webconf_audit.local.apache.effective import (
@@ -30,6 +30,7 @@ from webconf_audit.local.apache.effective import (
     build_effective_config,
     build_server_effective_config,
     extract_virtualhost_contexts,
+    find_scoped_directive,
 )
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
@@ -43,6 +44,24 @@ FindingBuilder = Callable[[EffectiveDirective, str], Finding]
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
+
+
+def iter_vhosts_missing_directive(
+    config_ast: ApacheConfigAst,
+    directive_name: str,
+) -> Iterable[ApacheVirtualHostContext]:
+    """Yield VirtualHosts where the directive is missing after server inheritance."""
+    virtualhosts = extract_virtualhost_contexts(config_ast)
+    if not virtualhosts:
+        return
+
+    lowered_name = directive_name.lower()
+    if build_server_effective_config(config_ast).directives.get(lowered_name) is not None:
+        return
+
+    for context in virtualhosts:
+        if find_scoped_directive(context.node.children, lowered_name) is None:
+            yield context
 
 
 def check_effective_directive_token(
@@ -306,4 +325,4 @@ def _directory_path(block: ApacheBlockNode) -> Path | None:
     return Path(raw)
 
 
-__all__ = ["check_effective_directive_token"]
+__all__ = ["check_effective_directive_token", "iter_vhosts_missing_directive"]
