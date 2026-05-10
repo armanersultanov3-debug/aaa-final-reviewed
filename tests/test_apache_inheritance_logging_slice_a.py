@@ -70,6 +70,54 @@ def test_error_log_missing_both_finding_on_vhost() -> None:
     assert finding.metadata["scope_name"] == "example.test"
 
 
+def test_error_log_missing_only_for_affected_vhosts_in_multi_vhost_config() -> None:
+    findings = find_error_log_missing(
+        _parse(
+            "<VirtualHost *:80>\n"
+            "    ServerName logged.example.test\n"
+            "    ErrorLog logs/logged-error.log\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName missing-one.example.test\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName missing-two.example.test\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName local.example.test\n"
+            "    ErrorLog logs/local-error.log\n"
+            "</VirtualHost>\n"
+        )
+    )
+
+    assert len(findings) == 2
+    assert [
+        (
+            finding.rule_id,
+            finding.title,
+            finding.location.file_path if finding.location else None,
+            finding.location.line if finding.location else None,
+            finding.metadata["scope_name"],
+        )
+        for finding in findings
+    ] == [
+        (
+            "apache.error_log_missing",
+            "Missing ErrorLog directive",
+            "httpd.conf",
+            5,
+            "missing-one.example.test",
+        ),
+        (
+            "apache.error_log_missing",
+            "Missing ErrorLog directive",
+            "httpd.conf",
+            8,
+            "missing-two.example.test",
+        ),
+    ]
+
+
 def test_custom_log_present_top_level_only_silent_when_vhost_has_none() -> None:
     findings = find_custom_log_missing(
         _parse(
@@ -127,6 +175,54 @@ def test_custom_log_missing_both_finding_on_vhost() -> None:
     assert finding.location.file_path == "httpd.conf"
     assert finding.location.line == 1
     assert finding.metadata["scope_name"] == "example.test"
+
+
+def test_custom_log_missing_only_for_affected_vhosts_in_multi_vhost_config() -> None:
+    findings = find_custom_log_missing(
+        _parse(
+            "<VirtualHost *:80>\n"
+            "    ServerName logged.example.test\n"
+            "    CustomLog logs/logged-access.log combined\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName missing-one.example.test\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName missing-two.example.test\n"
+            "</VirtualHost>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName local.example.test\n"
+            "    CustomLog logs/local-access.log combined\n"
+            "</VirtualHost>\n"
+        )
+    )
+
+    assert len(findings) == 2
+    assert [
+        (
+            finding.rule_id,
+            finding.title,
+            finding.location.file_path if finding.location else None,
+            finding.location.line if finding.location else None,
+            finding.metadata["scope_name"],
+        )
+        for finding in findings
+    ] == [
+        (
+            "apache.custom_log_missing",
+            "Missing CustomLog directive",
+            "httpd.conf",
+            5,
+            "missing-one.example.test",
+        ),
+        (
+            "apache.custom_log_missing",
+            "Missing CustomLog directive",
+            "httpd.conf",
+            8,
+            "missing-two.example.test",
+        ),
+    ]
 
 
 def test_error_log_missing_single_server_no_vhosts_top_level_finding() -> None:
