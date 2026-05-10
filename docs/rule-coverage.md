@@ -393,13 +393,13 @@ rather than to ".htaccess" itself.
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `apache.allowoverride_all_in_directory` | medium | ast | - | [CWE-732](https://cwe.mitre.org/data/definitions/732.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.4 (partial: detects broad or inherited `AllowOverride`, not full `AllowOverride None` policy for every directory) |
-| `apache.allowoverride_not_none` | medium | ast | - | [CWE-732](https://cwe.mitre.org/data/definitions/732.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.3/§4.4 (partial: validates OS-root baseline presence and explicit non-`None` Directory scopes) |
+| `apache.allowoverride_not_none` | medium | ast | - | [CWE-732](https://cwe.mitre.org/data/definitions/732.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.3/§4.4 (partial: validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; explicit non-root declarations are paired with `apache.directory_without_allowoverride`) |
 | `apache.basic_auth_over_http` | medium | ast | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | ASVS v5.0.0-12.2.1 | - |
 | `apache.backup_temp_files_not_restricted` | low | ast | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §5.13 (partial: common backup/temp file patterns only) |
 | `apache.content_security_policy_missing_reporting_endpoint` | low | ast | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.7 (partial: reporting endpoint directive only) | - |
 | `apache.content_security_policy_missing_frame_ancestors` | low | ast | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | ASVS v5.0.0-3.4.6 | - |
 | `apache.custom_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.3 (partial: `CustomLog` presence only; does not validate log format or destination policy) |
-| `apache.directory_without_allowoverride` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.4 (partial: explicitness heuristic; does not require `AllowOverride None`) |
+| `apache.directory_without_allowoverride` | low | ast | - | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §4.4 (non-root `Directory` scopes must declare `AllowOverride` explicitly; value policy is paired with `apache.allowoverride_not_none`) |
 | `apache.error_document_404_missing` | low | ast | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `apache.error_document_500_missing` | low | ast | - | [CWE-209](https://cwe.mitre.org/data/definitions/209.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - |
 | `apache.error_log_missing` | low | ast | - | [CWE-778](https://cwe.mitre.org/data/definitions/778.html) | [A09:2021](https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/) | - | CIS Apache HTTP Server 2.4 v2.3.0 §6.1 (partial: `ErrorLog` presence only; does not validate filename or severity level) |
@@ -496,11 +496,11 @@ Mapping rationale (apache rules):
   `log_format_missing_fields` -- absent, discarded, overly quiet, undefined,
   or low-detail logs defeat incident response: CWE-778 (insufficient logging),
   OWASP A09.
-- `directory_without_allowoverride` -- a `<Directory>` block without an
-  explicit `AllowOverride` makes the override behaviour depend on
-  inherited / default settings, which is a maintainability and review hazard
-  rather than a weakness class. CWE empty, OWASP A05 (best-practice
-  misconfig).
+- `directory_without_allowoverride` -- a non-root `<Directory>` block without
+  an explicit `AllowOverride` fails the benchmark's per-directory explicitness
+  expectation and leaves override policy review dependent on merge context.
+  CWE stays empty because this is governance / hardening posture rather than a
+  standalone weakness class; OWASP A05 applies.
 - `error_document_404_missing`, `error_document_500_missing` -- without a
   custom `ErrorDocument`, Apache renders the default page that may include
   build / module details: CWE-209 (information exposure through an error
@@ -645,7 +645,7 @@ CIS Apache HTTP Server 2.4 v2.3.0 gap table:
 | §2.1-§2.9 | `parser-depth` | Explicit `LoadModule` inventory now backs status/info, upstream-proxy, and ModSecurity / CRS inventory rules, but benchmark-wide module minimization still needs build/package data that the config alone cannot prove. |
 | §3.1-§3.13 | `out-of-scope` | Service account, shell/lock state, ownership, permissions, lock/PID/scoreboard files, and writable directory controls need OS/filesystem metadata, which is outside the tool scope. |
 | §4.1-§4.2 | `parser-depth` | Effective `RequireAll` / `RequireAny` IP+method semantics, `Require local`, and legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults now back the current status/info and method-policy rules. Broader server-wide authorization posture still needs deployment context before benchmark-wide claims are safe. |
-| §4.3-§4.4 | `direct-rule` | `apache.allowoverride_not_none` now validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes; `directory_without_allowoverride` still tracks non-root explicitness where default/inherited semantics remain ambiguous. |
+| §4.3-§4.4 | `covered` | `apache.allowoverride_not_none` validates the OS-root `AllowOverride None` baseline and explicit non-`None` Directory scopes, while `apache.directory_without_allowoverride` enforces explicit `AllowOverride` declarations on every non-root `Directory` block. |
 | §5.1-§5.3 | `direct-rule` | `apache.options_not_none_in_root_directory` now validates an empty OS-root `Options` baseline, while the existing `Options` rules cover effective `ExecCGI` / `Includes` / `Indexes`, specific `MultiViews`, and ordered `Options All` subtractive semantics. Remaining deployment-specific exceptions are backlog tuning, not a missing CIS baseline rule. |
 | §5.4-§5.6 | `direct-rule` | `apache.default_content_probe` now inspects active `DocumentRoot` targets for stock default HTML and CGI sample markers. Broader runtime-only body variants remain external welcome-page evidence rather than a missing Apache local rule. |
 | §5.7 | `covered` | `apache.missing_http_method_restrictions` covers missing method policy on sensitive `Location` / `LocationMatch` scopes, `apache.http_method_policy_allows_unapproved` catches explicit unapproved allowlists, and `apache.sitewide_http_method_policy_missing` adds a conservative whole-scope request-policy signal when Apache exposes request-scope `Location` handling or proxy routing. |

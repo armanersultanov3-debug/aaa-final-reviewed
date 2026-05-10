@@ -9,7 +9,8 @@ from webconf_audit.local.apache.parser import (
 )
 from webconf_audit.local.apache.rules._block_policy_utils import default_location, iter_blocks
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import cwe, owasp_top10_2021
 
 RULE_ID = "apache.allowoverride_not_none"
 
@@ -28,6 +29,21 @@ RULE_ID = "apache.allowoverride_not_none"
     ),
     category="local",
     server_type="apache",
+    standards=(
+        cwe(732),
+        owasp_top10_2021("A05:2021"),
+        StandardReference(
+            standard="CIS",
+            reference="Apache HTTP Server 2.4 v2.3.0 §4.3/§4.4",
+            url="https://www.cisecurity.org/benchmark/apache_http_server",
+            coverage="partial",
+            note=(
+                "Validates the OS-root AllowOverride None baseline and explicit "
+                "non-None Directory scopes; explicit non-root declarations are "
+                "paired with apache.directory_without_allowoverride."
+            ),
+        ),
+    ),
     order=341,
 )
 def find_allowoverride_not_none(config_ast: ApacheConfigAst) -> list[Finding]:
