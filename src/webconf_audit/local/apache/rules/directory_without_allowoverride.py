@@ -6,6 +6,9 @@ from webconf_audit.rule_registry import StandardReference, rule
 from webconf_audit.standards import owasp_top10_2021
 
 RULE_ID = "apache.directory_without_allowoverride"
+_ALLOWOVERRIDE_CONDITIONAL_BLOCKS = frozenset(
+    {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
+)
 
 
 @rule(
@@ -79,10 +82,16 @@ def find_directory_without_allowoverride(config_ast: ApacheConfigAst) -> list[Fi
 
 
 def _has_explicit_allowoverride(block: ApacheBlockNode) -> bool:
-    return any(
-        isinstance(child, ApacheDirectiveNode) and child.name.lower() == "allowoverride"
-        for child in block.children
-    )
+    for child in block.children:
+        if isinstance(child, ApacheDirectiveNode):
+            if child.name.lower() == "allowoverride":
+                return True
+            continue
+        if child.name.lower() in _ALLOWOVERRIDE_CONDITIONAL_BLOCKS and _has_explicit_allowoverride(
+            child
+        ):
+            return True
+    return False
 
 
 def _is_os_root_directory(block: ApacheBlockNode) -> bool:
