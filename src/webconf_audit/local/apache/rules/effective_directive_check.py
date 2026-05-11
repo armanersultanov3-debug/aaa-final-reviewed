@@ -39,6 +39,7 @@ from webconf_audit.local.apache.parser import (
 )
 from webconf_audit.local.apache.rules.server_directive_utils import (
     iter_effective_server_directives,
+    virtualhost_label,
 )
 from webconf_audit.models import Finding
 
@@ -98,6 +99,24 @@ def group_unsafe_effective_by_source(
         grouped[key][1].append(context)
 
     return list(grouped.values())
+
+
+def unsafe_effective_group_metadata(
+    directive: EffectiveDirective,
+    affected_contexts: list[ApacheVirtualHostContext],
+) -> dict[str, object]:
+    """Build metadata for an unsafe effective directive source group."""
+    assert affected_contexts, "Expected at least one affected context"
+
+    if directive.origin.layer == "global":
+        return {
+            "scope_name": virtualhost_label(None),
+            "affected_scopes": [
+                virtualhost_label(context) for context in affected_contexts
+            ],
+        }
+
+    return {"scope_name": virtualhost_label(affected_contexts[0])}
 
 
 def check_effective_directive_token(
@@ -365,4 +384,5 @@ __all__ = [
     "check_effective_directive_token",
     "group_unsafe_effective_by_source",
     "iter_vhosts_missing_directive",
+    "unsafe_effective_group_metadata",
 ]

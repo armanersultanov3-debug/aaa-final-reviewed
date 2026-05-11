@@ -1,18 +1,17 @@
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (
-    ApacheVirtualHostContext,
     EffectiveDirective,
     extract_virtualhost_contexts,
 )
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules.effective_directive_check import (
     group_unsafe_effective_by_source,
+    unsafe_effective_group_metadata,
 )
 from webconf_audit.local.apache.rules.server_directive_utils import (
     directive_location,
     iter_effective_server_directives,
-    virtualhost_label,
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
@@ -47,7 +46,10 @@ def find_log_level_too_restrictive(config_ast: ApacheConfigAst) -> list[Finding]
         findings.append(
             _build_finding(
                 directive,
-                metadata=_group_metadata(directive, affected_contexts),
+                metadata=unsafe_effective_group_metadata(
+                    directive,
+                    affected_contexts,
+                ),
             )
         )
 
@@ -82,21 +84,6 @@ def _build_finding(
         location=directive_location(directive),
         metadata=metadata,
     )
-
-
-def _group_metadata(
-    directive: EffectiveDirective,
-    affected_contexts: list[ApacheVirtualHostContext],
-) -> dict[str, object]:
-    if directive.origin.layer == "global":
-        return {
-            "scope_name": virtualhost_label(None),
-            "affected_scopes": [
-                virtualhost_label(context) for context in affected_contexts
-            ],
-        }
-
-    return {"scope_name": virtualhost_label(affected_contexts[0])}
 
 
 def _is_too_restrictive_log_level(directive: EffectiveDirective) -> bool:
