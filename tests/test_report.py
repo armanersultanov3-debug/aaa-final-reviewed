@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from webconf_audit.models import (
     AnalysisIssue,
     AnalysisResult,
     Finding,
     SourceLocation,
 )
+import webconf_audit.report as report_module
 from webconf_audit.report import JsonFormatter, ReportData, TextFormatter
-from webconf_audit.rule_registry import registry
+from webconf_audit.rule_registry import StandardReference, registry
 from webconf_audit.suppressions import SUPPRESSED_FINDINGS_METADATA_KEY
 
 
@@ -709,6 +712,55 @@ class TestJsonFormatter:
             "tier": "secondary",
             "finding_count": 1,
             "rule_ids": ["external.https_not_available"],
+        } in parsed["standards"]
+
+    def test_json_summary_keeps_primary_and_secondary_buckets_separate(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        shared_primary = StandardReference(
+            standard="Shared Standard",
+            reference="CTRL-1",
+            url="https://example.test/ctrl-1",
+        )
+        shared_secondary = StandardReference(
+            standard="Shared Standard",
+            reference="CTRL-1",
+            url="https://example.test/ctrl-1",
+            tier="secondary",
+        )
+
+        def fake_standards_for_rule(
+            rule_id: str,
+            *,
+            secondary: bool = False,
+        ) -> tuple[StandardReference, ...]:
+            if rule_id != "test.rule":
+                return ()
+            return (shared_secondary,) if secondary else (shared_primary,)
+
+        monkeypatch.setattr(report_module, "_standards_for_rule", fake_standards_for_rule)
+
+        parsed = json.loads(
+            JsonFormatter().format(ReportData(results=[_result(findings=[_finding()])]))
+        )
+
+        assert {
+            "standard": "Shared Standard",
+            "reference": "CTRL-1",
+            "url": "https://example.test/ctrl-1",
+            "coverage": "direct",
+            "finding_count": 1,
+            "rule_ids": ["test.rule"],
+        } in parsed["standards"]
+        assert {
+            "standard": "Shared Standard",
+            "reference": "CTRL-1",
+            "url": "https://example.test/ctrl-1",
+            "coverage": "direct",
+            "tier": "secondary",
+            "finding_count": 1,
+            "rule_ids": ["test.rule"],
         } in parsed["standards"]
 
     def test_json_formatter_reloads_external_metadata_after_registry_clear(self) -> None:
