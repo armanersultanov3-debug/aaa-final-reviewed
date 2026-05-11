@@ -1,0 +1,97 @@
+"""Tests for typed standards helper functions."""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from webconf_audit.standards import (
+    fstec_bdu,
+    fstec_mera,
+    iso_27002_2022,
+    mitre_attack,
+    nist_sp,
+    pci_dss_4,
+)
+
+
+def test_nist_sp_uses_known_publication_url() -> None:
+    ref = nist_sp("800-52 Rev. 2", "3.3.1")
+
+    assert ref.standard == "NIST SP 800-52 Rev. 2"
+    assert ref.reference == "3.3.1"
+    assert ref.url == "https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final"
+
+
+def test_nist_sp_round_trips_through_json() -> None:
+    ref = nist_sp("800-52 Rev. 2", "3.3.1")
+
+    payload = json.loads(json.dumps(ref.__dict__, ensure_ascii=False))
+
+    assert payload["standard"] == "NIST SP 800-52 Rev. 2"
+    assert payload["reference"] == "3.3.1"
+    assert payload["url"] == "https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final"
+
+
+@pytest.mark.parametrize(
+    ("publication", "url"),
+    [
+        ("800-53 Rev. 5", "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final"),
+        ("800-63B", "https://pages.nist.gov/800-63-3/sp800-63b.html"),
+        ("800-44 Rev. 2", "https://csrc.nist.gov/publications/detail/sp/800-44/ver-2/final"),
+    ],
+)
+def test_nist_sp_accepts_supported_publications(publication: str, url: str) -> None:
+    ref = nist_sp(publication, "x")
+
+    assert ref.standard == f"NIST SP {publication}"
+    assert ref.url == url
+
+
+def test_pci_dss_4_uses_canonical_reference_and_url() -> None:
+    ref = pci_dss_4("4.2.1")
+
+    assert ref.standard == "PCI DSS v4.0.1"
+    assert ref.reference == "Req. 4.2.1"
+    assert (
+        ref.url
+        == "https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf"
+    )
+
+
+def test_iso_27002_2022_uses_canonical_url() -> None:
+    ref = iso_27002_2022("8.24")
+
+    assert ref.standard == "ISO/IEC 27002:2022"
+    assert ref.reference == "8.24"
+    assert ref.url == "https://www.iso.org/standard/75652.html"
+
+
+def test_fstec_mera_uses_canonical_url() -> None:
+    ref = fstec_mera("ИАФ.1")
+
+    assert ref.standard == 'ФСТЭК "Меры защиты информации в ГИС"'
+    assert ref.reference == "ИАФ.1"
+    assert (
+        ref.url
+        == "https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17"
+    )
+
+
+def test_mitre_attack_marks_reference_as_secondary() -> None:
+    ref = mitre_attack("T1592.002")
+
+    assert ref.standard == "MITRE ATT&CK Enterprise v15"
+    assert ref.reference == "T1592.002"
+    assert ref.url == "https://attack.mitre.org/techniques/T1592/002/"
+    assert ref.tier == "secondary"
+
+
+def test_fstec_bdu_marks_reference_as_secondary() -> None:
+    ref = fstec_bdu("УБИ.044")
+
+    assert ref.standard == "ФСТЭК БДУ"
+    assert ref.reference == "УБИ.044"
+    assert ref.url == "https://bdu.fstec.ru/threat/ubi.044"
+    assert ref.tier == "secondary"
