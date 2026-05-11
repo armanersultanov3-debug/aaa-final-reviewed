@@ -723,6 +723,17 @@ def find_scoped_directive(
     return found
 
 
+def iter_directory_blocks_for_context(
+    config_ast: ApacheConfigAst,
+    virtualhost_context: ApacheVirtualHostContext | None = None,
+) -> list[tuple[ApacheBlockNode, int]]:
+    """Yield Directory blocks relevant to the global or VirtualHost context."""
+    return _iter_directory_blocks_for_context(
+        config_ast,
+        virtualhost_context=virtualhost_context,
+    )
+
+
 def _iter_directory_blocks_for_context(
     config_ast: ApacheConfigAst,
     virtualhost_context: ApacheVirtualHostContext | None = None,
@@ -837,5 +848,6 @@ __all__ = [
     "extract_location_scopes",
     "extract_virtualhost_contexts",
     "find_scoped_directive",
+    "iter_directory_blocks_for_context",
     "select_applicable_virtualhosts",
 ]

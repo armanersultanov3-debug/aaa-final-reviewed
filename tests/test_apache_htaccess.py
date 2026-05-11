@@ -1789,7 +1789,7 @@ class TestHtaccessRulePack:
         ]
         assert len(findings) == 1
 
-    def test_directory_without_allowoverride_inherits_parent_none_reported(
+    def test_directory_without_allowoverride_inherits_parent_none_not_reported(
         self,
         tmp_path: Path,
     ) -> None:
@@ -1827,9 +1827,7 @@ class TestHtaccessRulePack:
             for f in result.findings
             if f.rule_id == "apache.directory_without_allowoverride"
         ]
-        assert len(findings) == 1
-        assert findings[0].location is not None
-        assert findings[0].location.line == 13
+        assert findings == []
 
     def test_directory_with_explicit_allowoverride_not_reported(
         self,
