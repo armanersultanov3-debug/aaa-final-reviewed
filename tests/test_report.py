@@ -421,14 +421,21 @@ class TestTextFormatter:
             ReportData(results=[r])
         )
 
-        assert out.count("[universal.weak_tls_protocol] Weak TLS/SSL protocols enabled") == 3
-        assert out.count("findings: 2 repeated") == 3
+        meta = registry.get_meta("universal.weak_tls_protocol")
+        assert meta is not None
+        standards_count = len({ref.standard for ref in meta.standards}) + len(
+            {ref.standard for ref in meta.standards_secondary}
+        )
+
+        assert out.count("[universal.weak_tls_protocol] Weak TLS/SSL protocols enabled") == standards_count
+        assert out.count("findings: 2 repeated") == standards_count
         assert "=== STANDARD CWE (2) ===" in out
         assert "refs: CWE-327" in out
         assert "=== STANDARD OWASP TOP 10 (2) ===" in out
         assert "refs: A02:2021" in out
         assert "=== STANDARD OWASP ASVS (2) ===" in out
         assert "refs: v5.0.0-12.1.1" in out
+        assert "=== SECONDARY TAGS" in out
         assert "      - /sites/app.conf:3" in out
         assert "      - /sites/app.conf:27" in out
 
@@ -473,8 +480,10 @@ class TestJsonFormatter:
         assert findings[0]["rule_id"] == "x.rule"
         assert len(findings[0]["fingerprint"]) == 64
         assert findings[0]["standards"] == []
+        assert findings[0]["standards_secondary"] == []
         assert parsed["findings"][0]["fingerprint"] == findings[0]["fingerprint"]
         assert parsed["findings"][0]["standards"] == []
+        assert parsed["findings"][0]["standards_secondary"] == []
 
     def test_json_includes_repeated_finding_groups_with_locations(self) -> None:
         f1 = _finding(
@@ -669,6 +678,37 @@ class TestJsonFormatter:
             "coverage": "direct",
             "finding_count": 1,
             "rule_ids": ["universal.weak_tls_protocol"],
+        } in parsed["standards"]
+
+    def test_json_findings_include_secondary_standards_metadata(self) -> None:
+        r = _result(
+            findings=[
+                _finding(
+                    rule_id="external.https_not_available",
+                    severity="high",
+                    title="HTTPS unavailable",
+                )
+            ]
+        )
+
+        parsed = json.loads(JsonFormatter().format(ReportData(results=[r])))
+
+        finding = parsed["findings"][0]
+        assert {
+            "standard": "MITRE ATT&CK Enterprise v15",
+            "reference": "T1040",
+            "url": "https://attack.mitre.org/techniques/T1040/",
+            "coverage": "direct",
+            "tier": "secondary",
+        } in finding["standards_secondary"]
+        assert {
+            "standard": "MITRE ATT&CK Enterprise v15",
+            "reference": "T1040",
+            "url": "https://attack.mitre.org/techniques/T1040/",
+            "coverage": "direct",
+            "tier": "secondary",
+            "finding_count": 1,
+            "rule_ids": ["external.https_not_available"],
         } in parsed["standards"]
 
     def test_json_formatter_reloads_external_metadata_after_registry_clear(self) -> None:

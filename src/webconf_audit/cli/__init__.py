@@ -555,6 +555,20 @@ def _rule_meta_payload(meta: RuleMeta) -> dict[str, object]:
             }
             for ref in meta.standards
         ],
+        "standards_secondary": [
+            {
+                key: value
+                for key, value in {
+                    "standard": ref.standard,
+                    "reference": ref.reference,
+                    "url": ref.url,
+                    "coverage": ref.coverage,
+                    "note": ref.note,
+                }.items()
+                if value is not None
+            }
+            for ref in meta.standards_secondary
+        ],
         "condition": meta.condition,
         "order": meta.order,
     }
