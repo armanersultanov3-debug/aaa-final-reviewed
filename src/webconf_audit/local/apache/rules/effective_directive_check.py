@@ -37,6 +37,9 @@ from webconf_audit.local.apache.parser import (
     ApacheConfigAst,
     ApacheDirectiveNode,
 )
+from webconf_audit.local.apache.rules.server_directive_utils import (
+    iter_effective_server_directives,
+)
 from webconf_audit.models import Finding
 
 FindingBuilder = Callable[[EffectiveDirective, str], Finding]
@@ -62,6 +65,39 @@ def iter_vhosts_missing_directive(
     for context in virtualhosts:
         if find_scoped_directive(context.node.children, lowered_name) is None:
             yield context
+
+
+def group_unsafe_effective_by_source(
+    config_ast: ApacheConfigAst,
+    directive_name: str,
+    is_unsafe: Callable[[EffectiveDirective], bool],
+) -> list[tuple[EffectiveDirective, list[ApacheVirtualHostContext]]]:
+    """Group affected vhosts by the directive source that materialised the
+    unsafe effective value.
+
+    Returns a list of (source_directive, affected_contexts), one entry per
+    distinct (file_path, line) source of an unsafe effective value across all
+    vhost contexts. Affected contexts is the list of vhosts that inherit or
+    declare that exact source.
+    """
+    grouped: dict[
+        tuple[str | None, int | None],
+        tuple[EffectiveDirective, list[ApacheVirtualHostContext]],
+    ] = {}
+
+    for context, directive in iter_effective_server_directives(
+        config_ast,
+        directive_name,
+    ):
+        if context is None or directive is None or not is_unsafe(directive):
+            continue
+
+        key = (directive.origin.source.file_path, directive.origin.source.line)
+        if key not in grouped:
+            grouped[key] = (directive, [])
+        grouped[key][1].append(context)
+
+    return list(grouped.values())
 
 
 def check_effective_directive_token(
@@ -325,4 +361,8 @@ def _directory_path(block: ApacheBlockNode) -> Path | None:
     return Path(raw)
 
 
-__all__ = ["check_effective_directive_token", "iter_vhosts_missing_directive"]
+__all__ = [
+    "check_effective_directive_token",
+    "group_unsafe_effective_by_source",
+    "iter_vhosts_missing_directive",
+]
