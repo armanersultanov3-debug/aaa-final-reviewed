@@ -61,6 +61,42 @@ def test_non_root_directory_inherits_allowoverride_from_server_level_silent() ->
     assert findings == []
 
 
+def test_non_root_directory_inherits_allowoverride_from_parent_directory_silent() -> None:
+    findings = find_directory_without_allowoverride(
+        _parse(
+            '<Directory "/var/www">\n'
+            "    AllowOverride None\n"
+            "</Directory>\n"
+            '<Directory "/var/www/app">\n'
+            "    Options -Indexes\n"
+            "</Directory>\n"
+        )
+    )
+
+    assert findings == []
+
+
+def test_main_server_directory_missing_not_masked_by_vhost_override() -> None:
+    findings = find_directory_without_allowoverride(
+        _parse(
+            '<Directory "/srv/www">\n'
+            "    Options -Indexes\n"
+            "</Directory>\n"
+            "<VirtualHost *:80>\n"
+            "    ServerName app.test\n"
+            '    <Directory "/srv/www">\n'
+            "        AllowOverride None\n"
+            "    </Directory>\n"
+            "</VirtualHost>\n"
+        )
+    )
+
+    assert len(findings) == 1
+    finding = findings[0]
+    assert _location_tuple(finding) == ("httpd.conf", 1)
+    assert finding.metadata == {"directory_path": "/srv/www"}
+
+
 def test_non_root_directory_explicit_allowoverride_silent() -> None:
     findings = find_directory_without_allowoverride(
         _parse(

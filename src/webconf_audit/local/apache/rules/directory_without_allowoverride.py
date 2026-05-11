@@ -81,14 +81,14 @@ def find_directory_without_allowoverride(config_ast: ApacheConfigAst) -> list[Fi
         if _context_is_enabled(config_ast, context, modules)
     ]
 
+    findings: list[Finding] = _findings_for_context(
+        config_ast,
+        virtualhost_context=None,
+        modules=modules,
+    )
     if not contexts:
-        return _findings_for_context(
-            config_ast,
-            virtualhost_context=None,
-            modules=modules,
-        )
+        return findings
 
-    findings: list[Finding] = []
     for context in contexts:
         if _is_redirect_only_context(context, modules):
             continue
@@ -121,6 +121,8 @@ def _findings_for_context(
     )
 
     for scope in directory_scopes:
+        if virtualhost_context is not None and scope.source_priority == 0:
+            continue
         if _is_os_root_directory(scope.block):
             continue
         if _effective_directory_allowoverride_directive(
