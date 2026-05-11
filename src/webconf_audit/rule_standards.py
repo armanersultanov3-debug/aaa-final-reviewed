@@ -1,0 +1,1244 @@
+"""Rule-specific standards mappings migrated from documentation blocks."""
+
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+import re
+
+from webconf_audit.rule_registry import StandardCoverage, StandardReference
+from webconf_audit.standards import (
+    fstec_bdu,
+    fstec_mera,
+    iso_27002_2022,
+    mitre_attack,
+    nist_sp,
+    pci_dss_4,
+)
+
+_RULE_ID_PATTERN = re.compile(
+    r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
+)
+
+_HSTS_RULES = {
+    "universal.missing_hsts",
+    "nginx.missing_hsts_header",
+    "nginx.hsts_header_unsafe",
+    "apache.missing_hsts_header",
+    "apache.hsts_header_unsafe",
+    "lighttpd.missing_strict_transport_security",
+    "lighttpd.strict_transport_security_unsafe",
+    "iis.missing_hsts_header",
+    "iis.hsts_header_unsafe",
+    "external.hsts_header_missing",
+    "external.hsts_header_invalid",
+    "external.hsts_max_age_too_short",
+    "external.hsts_missing_include_subdomains",
+}
+
+_TLS_PROTOCOL_RULES = {
+    "universal.weak_tls_protocol",
+    "nginx.weak_ssl_protocols",
+    "nginx.missing_ssl_protocols",
+    "apache.tls_legacy_versions_explicitly_enabled",
+    "apache.ssl_protocol_missing_or_weak",
+    "lighttpd.tls_legacy_versions_explicitly_enabled",
+    "lighttpd.ssl_protocol_policy_missing_or_weak",
+    "iis.schannel_tls12_not_enabled",
+    "iis.schannel_weak_protocol_enabled",
+    "external.tls_1_0_supported",
+    "external.tls_1_1_supported",
+    "external.tls_1_3_not_supported",
+}
+
+_TLS_CIPHER_RULES = {
+    "universal.weak_tls_ciphers",
+    "nginx.missing_ssl_ciphers",
+    "nginx.ssl_ciphers_weak",
+    "apache.ssl_cipher_suite_missing",
+    "apache.ssl_cipher_suite_weak",
+    "lighttpd.weak_ssl_cipher_list",
+    "iis.schannel_aes128_enabled",
+    "iis.schannel_aes256_not_enabled",
+    "iis.ssl_weak_cipher_strength",
+    "external.weak_cipher_suite",
+    "external.tls_forward_secrecy_not_observed",
+}
+
+_TLS_SERVER_PREFERENCE_RULES = {
+    "nginx.missing_ssl_prefer_server_ciphers",
+    "apache.ssl_honor_cipher_order_not_on",
+    "lighttpd.ssl_honor_cipher_order_missing",
+    "iis.schannel_cipher_suite_order_not_preferred",
+    "external.tls_server_cipher_preference_not_observed",
+}
+
+_TLS_CERTIFICATE_RULES = {
+    "external.certificate_expired",
+    "external.certificate_expires_soon",
+    "external.tls_certificate_self_signed",
+    "external.cert_chain_incomplete",
+    "external.cert_san_mismatch",
+    "external.cert_chain_length_unusual",
+}
+
+_TLS_RENEGOTIATION_RULES = {
+    "apache.ssl_insecure_renegotiation_enabled",
+    "nginx.ssl_conf_command_unsafe_renegotiation_enabled",
+    "lighttpd.ssl_insecure_renegotiation_enabled",
+}
+
+_TLS_COMPRESSION_RULES = {
+    "apache.ssl_compression_enabled",
+    "nginx.ssl_conf_command_tls_compression_enabled",
+    "lighttpd.ssl_compression_enabled",
+}
+
+_TLS_STAPLING_RULES = {
+    "nginx.ssl_stapling_disabled",
+    "nginx.ssl_stapling_missing_resolver",
+    "nginx.ssl_stapling_without_verify",
+    "apache.ssl_use_stapling_not_on",
+    "apache.ssl_stapling_cache_missing",
+    "external.ocsp_stapling_not_observed",
+}
+
+_TLS_NO_PLAINTEXT_RULES = {
+    "universal.tls_intent_without_config",
+    "nginx.missing_ssl_certificate",
+    "nginx.missing_ssl_certificate_key",
+    "nginx.missing_http_to_https_redirect",
+    "nginx.auth_basic_over_http",
+    "apache.missing_http_to_https_redirect",
+    "apache.basic_auth_over_http",
+    "lighttpd.ssl_engine_not_enabled",
+    "lighttpd.ssl_pemfile_missing",
+    "lighttpd.basic_auth_over_http",
+    "iis.ssl_not_required",
+    "iis.basic_auth_without_ssl",
+    "iis.forms_auth_require_ssl_missing",
+    "external.https_not_available",
+    "external.http_not_redirected_to_https",
+}
+
+_TLS_421_RULES = (
+    _TLS_PROTOCOL_RULES
+    | _TLS_CIPHER_RULES
+    | _TLS_SERVER_PREFERENCE_RULES
+    | _TLS_RENEGOTIATION_RULES
+    | _TLS_COMPRESSION_RULES
+    | _TLS_STAPLING_RULES
+    | _TLS_NO_PLAINTEXT_RULES
+    | _HSTS_RULES
+    | {
+        "nginx.missing_http2_on_tls_listener",
+        "iis.ssl_weak_cipher_strength",
+    }
+)
+
+_AUTH_ADMIN_RULES = {
+    "nginx.missing_auth_basic_user_file",
+    "nginx.auth_basic_over_http",
+    "apache.basic_auth_over_http",
+    "lighttpd.basic_auth_over_http",
+    "iis.basic_auth_without_ssl",
+    "iis.anonymous_auth_enabled",
+    "iis.anonymous_auth_uses_specific_user",
+    "iis.authorization_allows_anonymous_users",
+    "iis.forms_auth_require_ssl_missing",
+    "external.htpasswd_exposed",
+}
+
+_AUTH_TRANSPORT_RULES = {
+    "nginx.auth_basic_over_http",
+    "apache.basic_auth_over_http",
+    "lighttpd.basic_auth_over_http",
+    "iis.forms_auth_require_ssl_missing",
+    "iis.basic_auth_without_ssl",
+    "iis.forms_auth_protection_unsafe",
+    "external.cookie_missing_secure_on_https",
+    "external.cookie_samesite_none_without_secure",
+}
+
+_AUTH_AT_REST_RULES = {
+    "iis.credentials_password_format_clear",
+    "iis.credentials_stored_in_config",
+    "iis.machine_key_validation_weak",
+    "iis.machine_key_legacy_validation_weak",
+    "external.htpasswd_exposed",
+}
+
+_LOG_ENABLE_RULES = {
+    "nginx.missing_access_log",
+    "nginx.missing_error_log",
+    "nginx.error_log_too_restrictive",
+    "apache.custom_log_missing",
+    "apache.error_log_missing",
+    "apache.error_log_unsafe_destination",
+    "apache.log_level_too_restrictive",
+    "lighttpd.access_log_missing",
+    "lighttpd.error_log_missing",
+    "iis.logging_not_configured",
+}
+
+_LOG_FIELD_RULES = {
+    "nginx.missing_log_format",
+    "nginx.log_format_missing_fields",
+    "nginx.proxy_missing_source_ip_headers",
+    "apache.missing_log_format",
+    "apache.log_format_missing_fields",
+    "lighttpd.access_log_format_missing_fields",
+}
+
+_ACCESS_CONTROL_RULES = {
+    "nginx.allow_all_with_deny_all",
+    "nginx.missing_access_restrictions_on_sensitive_locations",
+    "nginx.sensitive_location_missing_ip_filter",
+    "nginx.alias_without_trailing_slash",
+    "apache.missing_http_method_restrictions",
+    "apache.http_method_policy_allows_unapproved",
+    "lighttpd.url_access_deny_missing",
+    "iis.authorization_allows_anonymous_users",
+    "iis.anonymous_auth_enabled",
+    "external.wordpress_admin_panel_exposed",
+}
+
+_PRIVILEGED_UTILITY_RULES = {
+    "apache.options_execcgi_enabled",
+    "apache.options_includes_enabled",
+    "apache.options_multiviews_enabled",
+    "lighttpd.mod_cgi_enabled",
+    "iis.webdav_module_enabled",
+    "iis.cgi_handler_enabled",
+    "iis.handler_write_script_execute_enabled",
+}
+
+_NETWORK_SECURITY_RULES = {
+    "universal.listen_on_all_interfaces",
+    "nginx.default_server_not_rejecting_unknown_hosts",
+    "nginx.default_tls_server_not_rejecting_unknown_hosts",
+    "apache.listen_requires_explicit_address",
+    "apache.ip_based_requests_allowed",
+    "apache.default_vhost_not_rejecting_unknown_hosts",
+    "apache.default_tls_vhost_not_rejecting_unknown_hosts",
+    "iis.binding_without_host_header",
+}
+
+_RESPONSE_HEADER_RULES = {
+    "universal.missing_hsts",
+    "universal.missing_x_content_type_options",
+    "universal.missing_x_frame_options",
+    "universal.missing_content_security_policy",
+    "universal.missing_referrer_policy",
+    "nginx.missing_hsts_header",
+    "nginx.missing_x_content_type_options",
+    "nginx.missing_x_frame_options",
+    "nginx.missing_content_security_policy",
+    "nginx.content_security_policy_missing_frame_ancestors",
+    "nginx.content_security_policy_unsafe",
+    "nginx.referrer_policy_unsafe",
+    "apache.missing_hsts_header",
+    "apache.missing_x_frame_options_header",
+    "apache.x_frame_options_unsafe",
+    "apache.content_security_policy_missing_frame_ancestors",
+    "apache.htaccess_disables_security_headers",
+    "apache.hsts_header_unsafe",
+    "lighttpd.missing_strict_transport_security",
+    "lighttpd.strict_transport_security_unsafe",
+    "lighttpd.missing_x_content_type_options",
+    "lighttpd.missing_x_frame_options",
+    "lighttpd.x_frame_options_unsafe",
+    "lighttpd.missing_content_security_policy",
+    "lighttpd.content_security_policy_missing_frame_ancestors",
+    "lighttpd.content_security_policy_unsafe",
+    "lighttpd.missing_referrer_policy",
+    "lighttpd.referrer_policy_unsafe",
+    "lighttpd.missing_permissions_policy",
+    "lighttpd.permissions_policy_unsafe",
+    "iis.missing_hsts_header",
+    "iis.content_security_policy_missing_frame_ancestors",
+    "iis.custom_headers_expose_server",
+    "iis.request_filtering_remove_server_header_disabled",
+    "external.hsts_header_missing",
+    "external.hsts_header_invalid",
+    "external.hsts_max_age_too_short",
+    "external.hsts_missing_include_subdomains",
+    "external.x_frame_options_missing",
+    "external.x_frame_options_invalid",
+    "external.x_content_type_options_missing",
+    "external.x_content_type_options_invalid",
+    "external.content_security_policy_missing",
+    "external.content_security_policy_unsafe_inline",
+    "external.content_security_policy_unsafe_eval",
+    "external.content_security_policy_missing_frame_ancestors",
+    "external.content_security_policy_object_src_not_none",
+    "external.content_security_policy_base_uri_not_restricted",
+    "external.content_security_policy_missing_reporting_endpoint",
+    "external.content_security_policy_nonce_reused",
+    "external.coep_missing",
+    "external.coop_missing",
+    "external.corp_missing",
+    "external.permissions_policy_missing",
+    "external.referrer_policy_missing",
+    "external.referrer_policy_unsafe",
+}
+
+_CSP_RULES = {
+    "universal.missing_content_security_policy",
+    "nginx.missing_content_security_policy",
+    "nginx.content_security_policy_unsafe",
+    "nginx.content_security_policy_missing_frame_ancestors",
+    "apache.content_security_policy_missing_frame_ancestors",
+    "apache.htaccess_disables_security_headers",
+    "lighttpd.missing_content_security_policy",
+    "lighttpd.content_security_policy_missing_frame_ancestors",
+    "lighttpd.content_security_policy_unsafe",
+    "iis.content_security_policy_missing_frame_ancestors",
+    "external.content_security_policy_missing",
+    "external.content_security_policy_unsafe_inline",
+    "external.content_security_policy_unsafe_eval",
+    "external.content_security_policy_missing_frame_ancestors",
+    "external.content_security_policy_object_src_not_none",
+    "external.content_security_policy_base_uri_not_restricted",
+    "external.content_security_policy_nonce_reused",
+}
+
+_CLICKJACKING_RULES = {
+    "universal.missing_x_frame_options",
+    "nginx.missing_x_frame_options",
+    "nginx.content_security_policy_missing_frame_ancestors",
+    "apache.missing_x_frame_options_header",
+    "apache.x_frame_options_unsafe",
+    "apache.content_security_policy_missing_frame_ancestors",
+    "lighttpd.missing_x_frame_options",
+    "lighttpd.x_frame_options_unsafe",
+    "lighttpd.content_security_policy_missing_frame_ancestors",
+    "iis.content_security_policy_missing_frame_ancestors",
+    "external.x_frame_options_missing",
+    "external.x_frame_options_invalid",
+    "external.content_security_policy_missing_frame_ancestors",
+}
+
+_COOKIE_SESSION_RULES = {
+    "external.cookie_missing_secure_on_https",
+    "external.cookie_missing_httponly",
+    "external.cookie_missing_samesite",
+    "external.cookie_samesite_none_without_secure",
+    "external.cookie_prefix_contract_violated",
+}
+
+_SESSION_RULES = _COOKIE_SESSION_RULES | {
+    "iis.session_state_cookieless",
+    "iis.forms_auth_require_ssl_missing",
+    "iis.forms_auth_protection_unsafe",
+    "iis.http_cookies_http_only_disabled",
+}
+
+_SERVER_DISCLOSURE_RULES = {
+    "nginx.server_tokens_on",
+    "apache.server_tokens_not_prod",
+    "apache.server_signature_not_off",
+    "lighttpd.server_tag_not_blank",
+    "iis.custom_headers_expose_server",
+    "iis.request_filtering_remove_server_header_disabled",
+    "iis.http_runtime_version_header_enabled",
+    "external.server_version_disclosed",
+    "external.x_powered_by_header_present",
+    "external.x_aspnet_version_header_present",
+    "external.iis.aspnet_version_header_present",
+    "external.nginx.version_disclosed_in_server_header",
+    "external.apache.version_disclosed_in_server_header",
+    "external.lighttpd.version_in_server_header",
+    "external.apache.etag_inode_disclosure",
+}
+
+_WEB_SERVICE_SECURITY_RULES = {
+    "nginx.missing_http_method_restrictions",
+    "nginx.missing_allowed_methods_restriction_for_uploads",
+    "nginx.http_method_policy_allows_unapproved",
+    "nginx.sitewide_http_method_policy_missing",
+    "nginx.missing_client_max_body_size",
+    "nginx.client_max_body_size_unlimited",
+    "nginx.executable_scripts_allowed_in_uploads",
+    "apache.missing_http_method_restrictions",
+    "apache.http_method_policy_allows_unapproved",
+    "apache.sitewide_http_method_policy_missing",
+    "apache.trace_enable_not_off",
+    "apache.limit_request_body_missing_or_invalid",
+    "apache.limit_request_field_size_too_high",
+    "apache.limit_request_fields_missing_or_invalid",
+    "apache.limit_request_line_too_high",
+    "iis.request_filtering_allow_double_escaping",
+    "iis.request_filtering_allow_high_bit",
+    "iis.request_filtering_max_url_too_high",
+    "iis.request_filtering_max_query_string_too_high",
+    "iis.max_allowed_content_length_missing",
+    "iis.webdav_module_enabled",
+    "iis.cgi_handler_enabled",
+    "iis.handler_write_script_execute_enabled",
+    "iis.file_extensions_allow_unlisted",
+    "iis.isapi_cgi_restrictions_allow_unlisted",
+    "external.trace_method_allowed",
+    "external.trace_method_exposed_via_options",
+    "external.dangerous_http_methods_enabled",
+    "external.webdav_methods_exposed",
+    "external.allow_header_dangerous_methods",
+}
+
+_FILE_UPLOAD_RULES = {
+    "nginx.executable_scripts_allowed_in_uploads",
+    "nginx.missing_allowed_methods_restriction_for_uploads",
+    "iis.handler_write_script_execute_enabled",
+    "iis.cgi_handler_enabled",
+    "iis.isapi_cgi_restrictions_allow_unlisted",
+}
+
+_ERROR_HANDLING_RULES = {
+    "apache.error_document_404_missing",
+    "apache.error_document_500_missing",
+    "iis.http_errors_detailed",
+    "iis.custom_errors_off",
+    "iis.asp_script_error_sent_to_browser",
+    "iis.compilation_debug_enabled",
+    "iis.trace_enabled",
+    "iis.deployment_retail_not_enabled",
+    "external.iis.detailed_error_page",
+    "external.elmah_axd_exposed",
+    "external.trace_axd_exposed",
+    "external.phpinfo_exposed",
+}
+
+_MITRE_T1190_RULES = {
+    "external.git_metadata_exposed",
+    "external.svn_metadata_exposed",
+    "external.env_file_exposed",
+    "external.web_config_exposed",
+    "external.htaccess_exposed",
+    "external.backup_archive_exposed",
+    "external.backup_file_exposed",
+    "external.database_dump_exposed",
+    "external.phpinfo_exposed",
+    "external.elmah_axd_exposed",
+    "external.trace_axd_exposed",
+    "external.wordpress_admin_panel_exposed",
+    "external.iis.detailed_error_page",
+}
+
+_MITRE_T1592_004_RULES = {
+    "external.server_status_exposed",
+    "external.server_info_exposed",
+    "external.nginx_status_exposed",
+    "external.apache.mod_status_public",
+    "external.lighttpd.mod_status_public",
+    "apache.server_status_exposed",
+    "apache.server_info_exposed",
+    "lighttpd.mod_status_public",
+}
+
+_MITRE_T1213_003_RULES = {
+    "external.git_metadata_exposed",
+    "external.svn_metadata_exposed",
+    "external.dependency_manifest_exposed",
+    "nginx.missing_hidden_files_deny",
+    "apache.vcs_metadata_not_restricted",
+}
+
+_MITRE_T1078_RULES = {
+    "external.htpasswd_exposed",
+    "external.npmrc_exposed",
+    "iis.credentials_password_format_clear",
+    "iis.credentials_stored_in_config",
+}
+
+_MITRE_T1040_RULES = {
+    "external.https_not_available",
+    "external.http_not_redirected_to_https",
+    "iis.basic_auth_without_ssl",
+    "iis.forms_auth_require_ssl_missing",
+} | _HSTS_RULES
+
+_MITRE_T1505_003_RULES = {
+    "nginx.executable_scripts_allowed_in_uploads",
+    "iis.handler_write_script_execute_enabled",
+    "iis.cgi_handler_enabled",
+}
+
+_MITRE_T1557_RULES = (
+    {
+        "universal.weak_tls_protocol",
+        "universal.weak_tls_ciphers",
+        "external.tls_1_0_supported",
+        "external.tls_1_1_supported",
+        "external.weak_cipher_suite",
+    }
+    | _TLS_PROTOCOL_RULES
+    | _TLS_CIPHER_RULES
+)
+
+_MITRE_T1574_RULES = {
+    "iis.handler_write_script_execute_enabled",
+}
+
+
+def _cheat_sheet(
+    title: str,
+    url: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    return StandardReference(
+        standard="OWASP Cheat Sheet Series",
+        reference=title,
+        url=url,
+        coverage=coverage,
+        note=note,
+    )
+
+
+def _vendor_reference(
+    reference: str,
+    url: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    return StandardReference(
+        standard="Vendor",
+        reference=reference,
+        url=url,
+        coverage=coverage,
+        note=note,
+    )
+
+
+def _is_rule_id(rule_id: str) -> bool:
+    return rule_id in _known_rule_ids()
+
+
+@lru_cache(maxsize=1)
+def _known_rule_ids() -> frozenset[str]:
+    repo_root = Path(__file__).resolve().parents[2]
+    doc_path = repo_root / "docs" / "rule-coverage.md"
+    if not doc_path.exists():
+        return frozenset()
+    return frozenset(_RULE_ID_PATTERN.findall(doc_path.read_text(encoding="utf-8")))
+
+
+@lru_cache(maxsize=None)
+def lookup_rule_standards(
+    rule_id: str,
+) -> tuple[tuple[StandardReference, ...], tuple[StandardReference, ...]]:
+    if not _is_rule_id(rule_id):
+        return (), ()
+    primary: list[StandardReference] = []
+    secondary: list[StandardReference] = []
+    primary.extend(_pci_references(rule_id))
+    primary.extend(_nist_references(rule_id))
+    primary.extend(_fstec_references(rule_id))
+    primary.extend(_iso_references(rule_id))
+    primary.extend(_owasp_cheat_sheet_references(rule_id))
+    primary.extend(_lighttpd_vendor_references(rule_id))
+    secondary.extend(_secondary_references(rule_id))
+    return tuple(primary), tuple(secondary)
+
+
+def _pci_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = [pci_dss_4("2.2.1")]
+    if rule_id in {
+        "apache.trace_enable_not_off",
+        "apache.options_execcgi_enabled",
+        "apache.options_includes_enabled",
+        "apache.options_multiviews_enabled",
+        "lighttpd.mod_cgi_enabled",
+        "lighttpd.mod_status_public",
+        "iis.webdav_module_enabled",
+        "iis.cgi_handler_enabled",
+        "iis.handler_write_script_execute_enabled",
+        "external.trace_method_allowed",
+        "external.trace_method_exposed_via_options",
+        "external.dangerous_http_methods_enabled",
+        "external.webdav_methods_exposed",
+        "external.allow_header_dangerous_methods",
+        "external.apache.mod_status_public",
+        "external.lighttpd.mod_status_public",
+        "external.nginx_status_exposed",
+        "external.server_status_exposed",
+        "external.server_info_exposed",
+    } or rule_id in {
+        "nginx.server_tokens_on",
+        "apache.server_tokens_not_prod",
+        "apache.server_signature_not_off",
+        "apache.server_status_exposed",
+        "apache.server_info_exposed",
+        "apache.file_etag_inodes",
+        "lighttpd.server_tag_not_blank",
+        "iis.custom_headers_expose_server",
+        "iis.request_filtering_remove_server_header_disabled",
+        "iis.http_runtime_version_header_enabled",
+        "iis.http_errors_detailed",
+        "iis.custom_errors_off",
+        "iis.asp_script_error_sent_to_browser",
+        "iis.deployment_retail_not_enabled",
+        "iis.compilation_debug_enabled",
+        "iis.trace_enabled",
+        "external.phpinfo_exposed",
+        "external.elmah_axd_exposed",
+        "external.trace_axd_exposed",
+        "external.git_metadata_exposed",
+        "external.svn_metadata_exposed",
+        "external.web_config_exposed",
+        "external.htaccess_exposed",
+        "external.env_file_exposed",
+        "external.backup_archive_exposed",
+        "external.backup_file_exposed",
+        "external.database_dump_exposed",
+        "external.dependency_manifest_exposed",
+        "external.npmrc_exposed",
+        "external.iis.detailed_error_page",
+        "external.wordpress_admin_panel_exposed",
+        "external.x_powered_by_header_present",
+        "external.x_aspnet_version_header_present",
+        "external.iis.aspnet_version_header_present",
+        "external.apache.etag_inode_disclosure",
+        "external.nginx.version_disclosed_in_server_header",
+        "external.apache.version_disclosed_in_server_header",
+        "external.lighttpd.version_in_server_header",
+        "external.nginx.default_welcome_page",
+        "external.apache.default_welcome_page",
+        "external.iis.default_welcome_page",
+        "external.lighttpd.default_welcome_page",
+    }:
+        refs.append(pci_dss_4("2.2.5" if rule_id in {
+            "apache.trace_enable_not_off",
+            "apache.options_execcgi_enabled",
+            "apache.options_includes_enabled",
+            "apache.options_multiviews_enabled",
+            "lighttpd.mod_cgi_enabled",
+            "lighttpd.mod_status_public",
+            "iis.webdav_module_enabled",
+            "iis.cgi_handler_enabled",
+            "iis.handler_write_script_execute_enabled",
+            "external.trace_method_allowed",
+            "external.trace_method_exposed_via_options",
+            "external.dangerous_http_methods_enabled",
+            "external.webdav_methods_exposed",
+            "external.allow_header_dangerous_methods",
+            "external.apache.mod_status_public",
+            "external.lighttpd.mod_status_public",
+            "external.nginx_status_exposed",
+            "external.server_status_exposed",
+            "external.server_info_exposed",
+        } else "2.2.6"))
+    if rule_id in _TLS_421_RULES:
+        refs.append(pci_dss_4("4.2.1"))
+    if rule_id in {
+        "nginx.executable_scripts_allowed_in_uploads",
+        "nginx.missing_allowed_methods_restriction_for_uploads",
+        "apache.htaccess_enables_cgi",
+        "apache.htaccess_enables_directory_listing",
+        "apache.htaccess_disables_security_headers",
+        "apache.htaccess_weakens_security",
+        "apache.htaccess_contains_security_directive",
+        "apache.htaccess_rewrite_without_limit",
+        "apache.htaccess_auth_without_require",
+        "iis.file_extensions_allow_unlisted",
+        "iis.isapi_cgi_restrictions_allow_unlisted",
+        "iis.handler_write_script_execute_enabled",
+        "iis.cgi_handler_enabled",
+        "iis.request_filtering_allow_double_escaping",
+        "iis.request_filtering_allow_high_bit",
+        "iis.request_filtering_max_url_too_high",
+        "iis.request_filtering_max_query_string_too_high",
+        "iis.request_filtering_max_url_missing",
+        "iis.request_filtering_max_query_string_missing",
+    }:
+        refs.append(pci_dss_4("6.2.4"))
+    if rule_id in _CSP_RULES - {
+        "apache.content_security_policy_missing_frame_ancestors",
+        "lighttpd.content_security_policy_missing_frame_ancestors",
+        "iis.content_security_policy_missing_frame_ancestors",
+    }:
+        coverage = "partial" if rule_id.startswith("external.") or rule_id.startswith("universal.") else "direct"
+        note = (
+            "Presence, unsafe-token, and repeated-nonce detection only."
+            if rule_id == "external.content_security_policy_nonce_reused"
+            else None
+        )
+        refs.append(pci_dss_4("6.4.3", coverage=coverage, note=note))
+    if rule_id in _AUTH_ADMIN_RULES:
+        refs.append(pci_dss_4("8.3.1"))
+    if rule_id in _AUTH_TRANSPORT_RULES:
+        refs.append(pci_dss_4("8.3.2"))
+    if rule_id in _AUTH_AT_REST_RULES:
+        refs.append(pci_dss_4("8.3.5 / 8.3.6"))
+    if rule_id in _LOG_ENABLE_RULES:
+        refs.append(pci_dss_4("10.2.1"))
+    if rule_id in _LOG_FIELD_RULES:
+        refs.append(
+            pci_dss_4(
+                "10.2.2",
+                coverage="partial" if rule_id == "lighttpd.access_log_format_missing_fields" else "direct",
+                note=(
+                    "Presence and field-coverage validation only."
+                    if rule_id == "lighttpd.access_log_format_missing_fields"
+                    else None
+                ),
+            )
+        )
+    return refs
+
+
+def _nist_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id in _TLS_PROTOCOL_RULES:
+        refs.append(nist_sp("800-52 Rev. 2", "3.1.1 / 3.1.2"))
+    if rule_id in _TLS_CIPHER_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "3.3.1",
+                coverage="partial" if rule_id == "external.tls_forward_secrecy_not_observed" else "direct",
+                note=(
+                    "Observed negotiated cipher posture only."
+                    if rule_id == "external.tls_forward_secrecy_not_observed"
+                    else None
+                ),
+            )
+        )
+    if rule_id in _TLS_SERVER_PREFERENCE_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "3.3.2",
+                coverage="partial" if rule_id == "external.tls_server_cipher_preference_not_observed" else "direct",
+                note=(
+                    "Bounded TLS 1.2 probe only."
+                    if rule_id == "external.tls_server_cipher_preference_not_observed"
+                    else None
+                ),
+            )
+        )
+    if rule_id in _TLS_CERTIFICATE_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "3.4",
+                coverage="related" if rule_id == "external.cert_chain_length_unusual" else "direct",
+                note="Advisory certificate-chain depth signal." if rule_id == "external.cert_chain_length_unusual" else None,
+            )
+        )
+    if rule_id in _TLS_RENEGOTIATION_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "3.5",
+                coverage="partial" if rule_id.startswith("lighttpd.") else "direct",
+                note="Explicit local directive signal only." if rule_id.startswith("lighttpd.") else None,
+            )
+        )
+    if rule_id in _TLS_COMPRESSION_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "3.6",
+                coverage="partial" if rule_id.startswith("lighttpd.") else "direct",
+                note="Explicit local directive signal only." if rule_id.startswith("lighttpd.") else None,
+            )
+        )
+    if rule_id in _TLS_STAPLING_RULES:
+        refs.append(
+            nist_sp(
+                "800-52 Rev. 2",
+                "4.2 / 4.3",
+                coverage="partial" if rule_id == "external.ocsp_stapling_not_observed" else "direct",
+                note="Handshake observation only." if rule_id == "external.ocsp_stapling_not_observed" else None,
+            )
+        )
+    if rule_id in _HSTS_RULES:
+        refs.append(nist_sp("800-52 Rev. 2", "4.2.4"))
+    if rule_id in _TLS_NO_PLAINTEXT_RULES:
+        refs.append(nist_sp("800-52 Rev. 2", "no plaintext fallback"))
+    return refs
+
+
+def _fstec_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id in {
+        "nginx.missing_auth_basic_user_file",
+        "nginx.auth_basic_over_http",
+        "iis.basic_auth_without_ssl",
+        "iis.anonymous_auth_enabled",
+        "iis.anonymous_auth_uses_specific_user",
+        "iis.authorization_allows_anonymous_users",
+    }:
+        refs.append(
+            fstec_mera(
+                "ИАФ.1",
+                coverage="partial" if rule_id == "nginx.auth_basic_over_http" else "direct",
+                note="HTTP Basic transport protection only." if rule_id == "nginx.auth_basic_over_http" else None,
+            )
+        )
+    if rule_id in {
+        "nginx.auth_basic_over_http",
+        "apache.basic_auth_over_http",
+        "lighttpd.basic_auth_over_http",
+        "iis.credentials_password_format_clear",
+        "iis.credentials_stored_in_config",
+        "iis.forms_auth_require_ssl_missing",
+        "iis.forms_auth_protection_unsafe",
+        "iis.basic_auth_without_ssl",
+        "iis.machine_key_validation_weak",
+        "iis.machine_key_legacy_validation_weak",
+        "external.htpasswd_exposed",
+    }:
+        refs.append(fstec_mera("ИАФ.6"))
+    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+        refs.append(fstec_mera("УПД.5"))
+    if rule_id in _TLS_421_RULES:
+        refs.append(fstec_mera("УПД.13"))
+    if rule_id == "nginx.proxy_missing_source_ip_headers":
+        refs.append(
+            fstec_mera(
+                "ОПС.3",
+                coverage="partial",
+                note="Parser-depth follow-up required for full upstream-trust modelling.",
+            )
+        )
+    if rule_id in _LOG_ENABLE_RULES:
+        refs.append(fstec_mera("РСБ.1"))
+    if rule_id in _LOG_FIELD_RULES:
+        refs.append(fstec_mera("РСБ.3"))
+    if rule_id in (
+        {
+            "external.phpinfo_exposed",
+            "external.elmah_axd_exposed",
+            "external.trace_axd_exposed",
+            "external.git_metadata_exposed",
+            "external.svn_metadata_exposed",
+            "external.web_config_exposed",
+            "external.htaccess_exposed",
+            "external.env_file_exposed",
+            "external.htpasswd_exposed",
+            "external.backup_archive_exposed",
+            "external.backup_file_exposed",
+            "external.database_dump_exposed",
+            "external.dependency_manifest_exposed",
+            "external.npmrc_exposed",
+            "external.iis.detailed_error_page",
+            "external.server_status_exposed",
+            "external.server_info_exposed",
+            "external.nginx_status_exposed",
+            "external.apache.mod_status_public",
+            "external.lighttpd.mod_status_public",
+            "nginx.server_tokens_on",
+            "apache.server_tokens_not_prod",
+            "apache.server_signature_not_off",
+            "lighttpd.server_tag_not_blank",
+            "iis.custom_headers_expose_server",
+        }
+        | {
+            "external.server_version_disclosed",
+            "external.x_powered_by_header_present",
+            "external.x_aspnet_version_header_present",
+            "external.iis.aspnet_version_header_present",
+            "external.apache.etag_inode_disclosure",
+            "external.nginx.version_disclosed_in_server_header",
+            "external.apache.version_disclosed_in_server_header",
+            "external.lighttpd.version_in_server_header",
+        }
+    ):
+        refs.append(fstec_mera("АНЗ.1"))
+    if rule_id in _NETWORK_SECURITY_RULES:
+        refs.append(fstec_mera("ЗИС.3"))
+    if rule_id in _TLS_421_RULES:
+        refs.append(fstec_mera("ЗИС.20"))
+    refs.append(fstec_mera("ЗИС.32"))
+    return refs
+
+
+def _iso_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+        refs.append(iso_27002_2022("5.15"))
+    if rule_id in {
+        "nginx.missing_auth_basic_user_file",
+        "nginx.auth_basic_over_http",
+        "apache.basic_auth_over_http",
+        "lighttpd.basic_auth_over_http",
+        "iis.basic_auth_without_ssl",
+        "iis.anonymous_auth_enabled",
+        "iis.anonymous_auth_uses_specific_user",
+        "iis.authorization_allows_anonymous_users",
+        "iis.forms_auth_require_ssl_missing",
+        "iis.credentials_password_format_clear",
+        "iis.credentials_stored_in_config",
+        "iis.forms_auth_protection_unsafe",
+        "iis.machine_key_validation_weak",
+        "iis.machine_key_legacy_validation_weak",
+        "external.htpasswd_exposed",
+    }:
+        refs.append(iso_27002_2022("8.5"))
+    if rule_id in _LOG_ENABLE_RULES | _LOG_FIELD_RULES:
+        refs.append(iso_27002_2022("8.15"))
+        refs.append(
+            iso_27002_2022(
+                "8.16",
+                coverage="partial",
+                note="Full monitoring remains an application and SOC concern.",
+            )
+        )
+    if rule_id in _PRIVILEGED_UTILITY_RULES:
+        refs.append(iso_27002_2022("8.18"))
+    if rule_id in _NETWORK_SECURITY_RULES:
+        refs.append(iso_27002_2022("8.20"))
+    if rule_id in _TLS_421_RULES:
+        refs.append(iso_27002_2022("8.21"))
+    if rule_id in (
+        _TLS_PROTOCOL_RULES
+        | _TLS_CIPHER_RULES
+        | _TLS_SERVER_PREFERENCE_RULES
+        | _TLS_CERTIFICATE_RULES
+        | _TLS_RENEGOTIATION_RULES
+        | _TLS_COMPRESSION_RULES
+    ):
+        refs.append(iso_27002_2022("8.24"))
+    if rule_id in _RESPONSE_HEADER_RULES | _COOKIE_SESSION_RULES:
+        refs.append(
+            iso_27002_2022(
+                "8.26",
+                coverage="partial",
+                note="Header and cookie posture signal only.",
+            )
+        )
+    refs.append(iso_27002_2022("8.27"))
+    return refs
+
+
+def _owasp_cheat_sheet_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id in _RESPONSE_HEADER_RULES:
+        refs.append(
+            _cheat_sheet(
+                "HTTP Security Response Headers",
+                "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _HSTS_RULES:
+        refs.append(
+            _cheat_sheet(
+                "HTTP Strict Transport Security",
+                "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in (_TLS_421_RULES | _TLS_CERTIFICATE_RULES):
+        refs.append(
+            _cheat_sheet(
+                "Transport Layer Security",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _CSP_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Content Security Policy",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html",
+                coverage="partial" if rule_id == "apache.htaccess_disables_security_headers" else "direct",
+                note="Partial CSP signal via header weakening." if rule_id == "apache.htaccess_disables_security_headers" else None,
+            )
+        )
+    if rule_id in {
+        "external.cookie_missing_samesite",
+        "external.cookie_samesite_none_without_secure",
+        "external.cookie_prefix_contract_violated",
+    }:
+        refs.append(
+            _cheat_sheet(
+                "Cross-Site Request Forgery Prevention",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _SESSION_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Session Management",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _LOG_ENABLE_RULES | _LOG_FIELD_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Logging",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in {
+        "nginx.missing_auth_basic_user_file",
+        "nginx.auth_basic_over_http",
+        "apache.basic_auth_over_http",
+        "lighttpd.basic_auth_over_http",
+        "iis.basic_auth_without_ssl",
+        "iis.anonymous_auth_enabled",
+        "iis.anonymous_auth_uses_specific_user",
+        "iis.authorization_allows_anonymous_users",
+        "external.htpasswd_exposed",
+    }:
+        refs.append(
+            _cheat_sheet(
+                "Authentication",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in {
+        "iis.credentials_password_format_clear",
+        "iis.credentials_stored_in_config",
+    }:
+        refs.append(
+            _cheat_sheet(
+                "Credential Stuffing Prevention",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Credential_Stuffing_Prevention_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _CLICKJACKING_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Clickjacking Defense",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _SERVER_DISCLOSURE_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Server-Side Headers",
+                "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server",
+            )
+        )
+    if rule_id in _WEB_SERVICE_SECURITY_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Web Service Security",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Web_Service_Security_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _FILE_UPLOAD_RULES:
+        refs.append(
+            _cheat_sheet(
+                "File Upload",
+                "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+        refs.append(
+            _cheat_sheet(
+                "Access Control",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Access_Control_Cheat_Sheet.html",
+            )
+        )
+    if rule_id in _ERROR_HANDLING_RULES:
+        refs.append(
+            _cheat_sheet(
+                "Error Handling",
+                "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html",
+            )
+        )
+    return refs
+
+
+def _lighttpd_vendor_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id == "lighttpd.server_tag_not_blank":
+        refs.append(
+            _vendor_reference(
+                "DevSec lighttpd-baseline lighttpd-01",
+                "https://github.com/dev-sec/lighttpd-baseline",
+            )
+        )
+    if rule_id == "lighttpd.dir_listing_enabled":
+        refs.append(
+            _vendor_reference(
+                "DevSec lighttpd-baseline lighttpd-02",
+                "https://github.com/dev-sec/lighttpd-baseline",
+            )
+        )
+    if rule_id in {
+        "lighttpd.ssl_engine_not_enabled",
+        "lighttpd.ssl_pemfile_missing",
+        "lighttpd.ssl_protocol_policy_missing_or_weak",
+        "lighttpd.weak_ssl_cipher_list",
+        "lighttpd.ssl_honor_cipher_order_missing",
+    }:
+        refs.append(
+            _vendor_reference(
+                "DevSec lighttpd-baseline lighttpd-03",
+                "https://github.com/dev-sec/lighttpd-baseline",
+            )
+        )
+    if rule_id == "lighttpd.missing_http_method_restrictions":
+        refs.append(
+            _vendor_reference(
+                "DevSec lighttpd-baseline lighttpd-05",
+                "https://github.com/dev-sec/lighttpd-baseline",
+                coverage="partial",
+                note="Explicit dangerous-method deny policy signal.",
+            )
+        )
+    if rule_id == "lighttpd.mod_status_public":
+        refs.append(
+            _vendor_reference(
+                "lighttpd Security wiki - mod_status",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {
+        "lighttpd.mod_cgi_enabled",
+        "lighttpd.mod_webdav_enabled",
+        "lighttpd.webdav_write_access_enabled",
+    }:
+        refs.append(
+            _vendor_reference(
+                "lighttpd Security wiki - mod_cgi / mod_webdav",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {
+        "lighttpd.url_access_deny_missing",
+        "lighttpd.backup_temp_files_access_not_denied",
+        "lighttpd.config_data_files_access_not_denied",
+        "lighttpd.generated_artifacts_access_not_denied",
+        "lighttpd.vcs_metadata_access_not_denied",
+    }:
+        refs.append(
+            _vendor_reference(
+                "lighttpd Security wiki - url.access-deny",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {"lighttpd.access_log_missing", "lighttpd.access_log_format_missing_fields"}:
+        refs.append(
+            _vendor_reference(
+                "lighttpd mod_accesslog documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id == "lighttpd.error_log_missing":
+        refs.append(
+            _vendor_reference(
+                "lighttpd server.errorlog documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id == "lighttpd.max_connections_missing":
+        refs.append(
+            _vendor_reference(
+                "lighttpd server.max-connections documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {
+        "lighttpd.max_request_size_missing",
+        "lighttpd.max_request_size_unlimited",
+        "lighttpd.max_request_size_too_large",
+    }:
+        refs.append(
+            _vendor_reference(
+                "lighttpd server.max-request-size documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id == "lighttpd.max_request_field_size_too_large":
+        refs.append(
+            _vendor_reference(
+                "lighttpd server.max-request-field-size documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {
+        "lighttpd.max_keep_alive_idle_too_high",
+        "lighttpd.max_read_idle_too_high",
+        "lighttpd.max_write_idle_too_high",
+        "lighttpd.max_keep_alive_requests_unlimited",
+    }:
+        refs.append(
+            _vendor_reference(
+                "lighttpd idle / keep-alive timeout documentation",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    if rule_id in {
+        "lighttpd.missing_strict_transport_security",
+        "lighttpd.strict_transport_security_unsafe",
+        "lighttpd.missing_x_content_type_options",
+        "lighttpd.missing_x_frame_options",
+        "lighttpd.x_frame_options_unsafe",
+        "lighttpd.missing_content_security_policy",
+        "lighttpd.content_security_policy_missing_frame_ancestors",
+        "lighttpd.content_security_policy_unsafe",
+        "lighttpd.missing_referrer_policy",
+        "lighttpd.referrer_policy_unsafe",
+        "lighttpd.missing_permissions_policy",
+        "lighttpd.permissions_policy_unsafe",
+    }:
+        refs.append(
+            _vendor_reference(
+                "lighttpd Security wiki - security response headers via mod_setenv",
+                "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+            )
+        )
+    return refs
+
+
+def _secondary_references(rule_id: str) -> list[StandardReference]:
+    refs: list[StandardReference] = []
+    if rule_id in _MITRE_T1190_RULES:
+        refs.append(mitre_attack("T1190"))
+    if rule_id in _SERVER_DISCLOSURE_RULES:
+        refs.append(mitre_attack("T1592.002"))
+    if rule_id in _MITRE_T1592_004_RULES:
+        refs.append(mitre_attack("T1592.004"))
+    if rule_id in _MITRE_T1213_003_RULES:
+        refs.append(mitre_attack("T1213.003"))
+    if rule_id in _MITRE_T1078_RULES:
+        refs.append(mitre_attack("T1078"))
+    if rule_id in _MITRE_T1040_RULES:
+        refs.append(mitre_attack("T1040"))
+    if rule_id in _MITRE_T1505_003_RULES:
+        refs.append(mitre_attack("T1505.003"))
+    if rule_id in _MITRE_T1557_RULES:
+        refs.append(mitre_attack("T1557"))
+    if rule_id in _MITRE_T1574_RULES:
+        refs.append(mitre_attack("T1574"))
+    if rule_id in _MITRE_T1040_RULES:
+        refs.append(fstec_bdu("УБИ.044"))
+    if rule_id in _MITRE_T1190_RULES | {
+        "external.dependency_manifest_exposed",
+    }:
+        refs.append(fstec_bdu("УБИ.067"))
+    if rule_id in _MITRE_T1557_RULES:
+        refs.append(fstec_bdu("УБИ.072"))
+    if rule_id in {
+        "universal.missing_content_security_policy",
+        "universal.missing_x_frame_options",
+        "universal.missing_x_content_type_options",
+        "external.content_security_policy_missing",
+        "external.content_security_policy_unsafe_inline",
+        "external.content_security_policy_unsafe_eval",
+        "external.content_security_policy_missing_frame_ancestors",
+        "external.content_security_policy_object_src_not_none",
+        "external.content_security_policy_base_uri_not_restricted",
+        "external.content_security_policy_missing_reporting_endpoint",
+        "external.content_security_policy_nonce_reused",
+        "external.x_frame_options_missing",
+        "external.x_frame_options_invalid",
+        "external.x_content_type_options_missing",
+        "external.x_content_type_options_invalid",
+    }:
+        refs.append(fstec_bdu("УБИ.121"))
+    if rule_id in {
+        "external.htpasswd_exposed",
+        "external.npmrc_exposed",
+        "iis.credentials_password_format_clear",
+        "iis.credentials_stored_in_config",
+        "iis.basic_auth_without_ssl",
+    }:
+        refs.append(fstec_bdu("УБИ.184"))
+    return refs
