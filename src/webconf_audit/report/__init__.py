@@ -1017,7 +1017,7 @@ def _standards_summary_payload(
     return payload
 
 
-def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, str, str]:
+def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, int, str, str]:
     tier_order = 1 if entry.get("tier") == "secondary" else 0
     standard = str(entry.get("standard", ""))
     reference = str(entry.get("reference", ""))

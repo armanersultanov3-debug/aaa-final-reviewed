@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import logging
 from pathlib import Path
 import re
 
@@ -15,6 +16,8 @@ from webconf_audit.standards import (
     nist_sp,
     pci_dss_4,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 _RULE_ID_PATTERN = re.compile(
     r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
@@ -588,6 +591,10 @@ def _known_rule_ids() -> frozenset[str]:
     repo_root = Path(__file__).resolve().parents[2]
     doc_path = repo_root / "docs" / "rule-coverage.md"
     if not doc_path.exists():
+        _LOGGER.warning(
+            "Cannot load hardening rule IDs: %s is missing; standards catch-all mappings will be skipped.",
+            doc_path,
+        )
         return frozenset()
     return frozenset(_RULE_ID_PATTERN.findall(doc_path.read_text(encoding="utf-8")))
 
@@ -839,7 +846,9 @@ def _fstec_references(rule_id: str) -> list[StandardReference]:
         refs.append(fstec_mera("ЗИС.3"))
     if rule_id in _TLS_421_RULES:
         refs.append(fstec_mera("ЗИС.20"))
-    refs.append(fstec_mera("ЗИС.32"))
+    # ЗИС.32 is the catch-all web-server hardening control from the legacy mapping.
+    if _is_rule_id(rule_id):
+        refs.append(fstec_mera("ЗИС.32"))
     return refs
 
 
@@ -897,7 +906,9 @@ def _iso_references(rule_id: str) -> list[StandardReference]:
                 note="Header and cookie posture signal only.",
             )
         )
-    refs.append(iso_27002_2022("8.27"))
+    # 8.27 was documented as the broad engineering-principles catch-all for mapped rules.
+    if _is_rule_id(rule_id):
+        refs.append(iso_27002_2022("8.27"))
     return refs
 
 
