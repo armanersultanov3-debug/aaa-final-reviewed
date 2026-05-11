@@ -98,6 +98,26 @@ RULE_CASES = (
         expected_missing=("svn",),
     ),
     DenyListRuleCase(
+        name="vcs_metadata_locationmatch",
+        finder=find_vcs_metadata_restricted,
+        full_restrictions=(
+            '<LocationMatch "^/\\.(git|svn)(/|$)">',
+            "    Require all denied",
+            "</LocationMatch>",
+        ),
+        partial_global_restrictions=(
+            '<LocationMatch "^/\\.git(/|$)">',
+            "    Require all denied",
+            "</LocationMatch>",
+        ),
+        vhost_completion_restrictions=(
+            '<LocationMatch "^/\\.svn(/|$)">',
+            "    Require all denied",
+            "</LocationMatch>",
+        ),
+        expected_missing=("svn",),
+    ),
+    DenyListRuleCase(
         name="generated_artifacts",
         finder=find_generated_artifacts_restricted,
         full_restrictions=(
@@ -232,6 +252,9 @@ def test_single_server_no_vhost_global_finding(case: DenyListRuleCase) -> None:
 def test_document_root_directory_filesmatch_counts_for_that_vhost(
     case: DenyListRuleCase,
 ) -> None:
+    if case.name == "vcs_metadata_locationmatch":
+        pytest.skip("LocationMatch is a direct URL-path restriction, not a Directory child.")
+
     ast = _parse(
         _vhost_config(
             global_lines=case.partial_global_restrictions,
@@ -307,7 +330,7 @@ def _scope_names(findings: list[Finding]) -> list[str]:
 def _expected_all_missing(case: DenyListRuleCase) -> list[str]:
     if case.name == "backup_files":
         return ["bak", "old", "backup", "orig", "save", "swp", "tmp"]
-    if case.name == "vcs_metadata":
+    if case.name.startswith("vcs_metadata"):
         return ["git", "svn"]
     if case.name == "generated_artifacts":
         return [

@@ -224,6 +224,8 @@ def _iter_server_or_virtualhost_policy_blocks(
             continue
 
         if name in LOCATION_BLOCKS:
+            if name in block_names:
+                yield node
             continue
 
         if name == "directory":
