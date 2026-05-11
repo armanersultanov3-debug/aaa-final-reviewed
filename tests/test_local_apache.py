@@ -107,7 +107,9 @@ def test_analyze_apache_config_accepts_files_match_block(tmp_path: Path) -> None
     assert result.issues == []
 
 
-def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) -> None:
+def test_analyze_apache_config_reports_vhosts_missing_nested_files_match_scope(
+    tmp_path: Path,
+) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
         "\n".join(
@@ -149,7 +151,20 @@ def test_analyze_apache_config_accepts_nested_files_match_block(tmp_path: Path) 
     assert result.mode == "local"
     assert result.server_type == "apache"
     apache_findings = [f for f in result.findings if f.rule_id.startswith("apache.")]
-    assert apache_findings == []
+    assert [finding.rule_id for finding in apache_findings] == [
+        "apache.backup_temp_files_not_restricted",
+        "apache.backup_temp_files_not_restricted",
+    ]
+    assert [finding.metadata["scope_name"] for finding in apache_findings] == [
+        "_",
+        "example.test",
+    ]
+    assert [
+        finding.metadata["missing_extensions"] for finding in apache_findings
+    ] == [
+        ["bak", "old", "backup", "swp"],
+        ["bak", "old", "backup", "swp"],
+    ]
     assert result.issues == []
 
 
