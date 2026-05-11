@@ -1,11 +1,4 @@
-"""Verify that docs/rule-coverage.md stays in sync with the rule registry.
-
-The document is the standards-mapping source for Stage 2 work and contains
-both auto-generated columns (rule_id, severity, input_kind, tags, counts)
-and hand-curated columns (CWE, OWASP, CIS). These tests guard the
-auto-generated parts so a PR that adds, removes, or renames a rule cannot
-silently leave the doc out of date.
-"""
+"""Verify that docs/rule-coverage.md stays in sync with the rule registry."""
 
 from __future__ import annotations
 
@@ -208,3 +201,24 @@ def test_repeated_document_counters_match_registry() -> None:
                 pattern=pattern,
                 expected=counts[label],
             )
+
+
+def test_removed_topic_grouped_mapping_blocks_are_gone() -> None:
+    text = _document_text()
+    for heading in (
+        "## OWASP Cheat Sheet Series companions",
+        "## PCI DSS v4.0.1 mapping",
+        "## NIST SP 800-52 Rev. 2 mapping",
+        "## ФСТЭК «Меры защиты информации в ГИС» mapping",
+        "## Lighttpd vendor reference mapping",
+        "## ISO/IEC 27002:2022 / ГОСТ Р ИСО/МЭК 27002-2021 mapping",
+        "### MITRE ATT&CK Enterprise v15",
+        "### ФСТЭК БДУ — Банк данных угроз",
+    ):
+        assert heading not in text
+
+
+def test_inventory_tables_include_other_standards_column() -> None:
+    headers = re.findall(r"^\| Rule ID \| Severity \| Input \| Tags \| .* \|$", _document_text(), re.MULTILINE)
+    assert headers
+    assert all("Standards (other)" in header for header in headers)

@@ -359,6 +359,62 @@ class TestStandardsMetadata:
             assert len(asvs_refs) == 1
             assert asvs_refs[0].coverage == "partial"
 
+    def test_doc_migrated_rules_expose_primary_and_secondary_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "external.https_not_available": {
+                "primary": {
+                    ("PCI DSS v4.0.1", "Req. 4.2.1"),
+                    ("NIST SP 800-52 Rev. 2", "NO PLAINTEXT FALLBACK"),
+                    ('ФСТЭК "Меры защиты информации в ГИС"', "УПД.13"),
+                    ("ISO/IEC 27002:2022", "8.21"),
+                },
+                "secondary": {
+                    ("MITRE ATT&CK Enterprise v15", "T1040"),
+                    ("ФСТЭК БДУ", "УБИ.044"),
+                },
+            },
+            "lighttpd.missing_http_method_restrictions": {
+                "primary": {
+                    ("Vendor", "DevSec lighttpd-baseline lighttpd-05"),
+                },
+                "secondary": set(),
+            },
+            "nginx.missing_content_security_policy": {
+                "primary": {
+                    ("PCI DSS v4.0.1", "Req. 6.4.3"),
+                    ("OWASP Cheat Sheet Series", "Content Security Policy"),
+                },
+                "secondary": set(),
+            },
+        }
+
+        for rule_id, expected in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            primary_refs = {(ref.standard, ref.reference) for ref in meta.standards}
+            secondary_refs = {
+                (ref.standard, ref.reference)
+                for ref in meta.standards_secondary
+            }
+            assert expected["primary"].issubset(primary_refs)
+            assert expected["secondary"].issubset(secondary_refs)
+
+    def test_no_rule_duplicates_same_reference_across_primary_and_secondary(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for meta in full_reg.list_rules():
+            primary = {(ref.standard, ref.reference) for ref in meta.standards}
+            secondary = {
+                (ref.standard, ref.reference)
+                for ref in meta.standards_secondary
+            }
+            assert not primary & secondary, meta.rule_id
+
 
 # ---------------------------------------------------------------------------
 # No duplicate rule IDs
