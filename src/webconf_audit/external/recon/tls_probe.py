@@ -194,9 +194,9 @@ def parse_sct_list(serialized_list: bytes) -> tuple[SCTObservation, ...]:
         return ()
 
     total_length = int.from_bytes(serialized_list[:2], "big")
-    payload = serialized_list[2: 2 + total_length]
-    if len(payload) != total_length:
+    if len(serialized_list) != 2 + total_length:
         return ()
+    payload = serialized_list[2:]
 
     scts: list[SCTObservation] = []
     cursor = 0
@@ -237,13 +237,18 @@ def _parse_single_sct(serialized_sct: bytes) -> SCTObservation | None:
     if cursor + signature_length != len(serialized_sct):
         return None
 
+    try:
+        timestamp_text = datetime.fromtimestamp(
+            timestamp_ms / 1000,
+            tz=timezone.utc,
+        ).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
     return SCTObservation(
         version=_sct_version_name(version),
         log_id=log_id.hex(),
-        timestamp=datetime.fromtimestamp(
-            timestamp_ms / 1000,
-            tz=timezone.utc,
-        ).isoformat(),
+        timestamp=timestamp_text,
         entry_type="x509_certificate",
         signature_hash_algorithm=_sct_hash_algorithm_name(hash_algorithm),
         signature_algorithm=_sct_signature_algorithm_name(signature_algorithm),

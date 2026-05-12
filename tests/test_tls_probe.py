@@ -22,6 +22,7 @@ from webconf_audit.external.recon.tls_probe import (
     TLSVersionProbeResult,
     _build_tls_context,
     _probe_single_version,
+    parse_sct_list,
     probe_chain_depth,
     probe_ocsp_stapling,
     probe_server_cipher_preference,
@@ -210,6 +211,39 @@ class TestProbeTlsVersions:
         )
         probe_tls_versions("example.com", 443, timeout=5.0)
         assert all(t == 5.0 for t in captured_timeouts)
+
+
+class TestParseSctList:
+    @staticmethod
+    def _single_sct(*, timestamp_ms: int = 1_700_000_000_000) -> bytes:
+        return b"".join(
+            (
+                b"\x00",
+                b"\x01" * 32,
+                timestamp_ms.to_bytes(8, "big"),
+                b"\x00\x00",
+                b"\x04",
+                b"\x03",
+                b"\x00\x00",
+            )
+        )
+
+    def test_rejects_trailing_bytes_after_declared_length(self) -> None:
+        sct = self._single_sct()
+        serialized = (
+            len(sct).to_bytes(2, "big")
+            + len(sct).to_bytes(2, "big")
+            + sct
+            + b"\x00"
+        )
+
+        assert parse_sct_list(serialized) == ()
+
+    def test_rejects_out_of_range_timestamp(self) -> None:
+        sct = self._single_sct(timestamp_ms=2**63 - 1)
+        serialized = len(sct).to_bytes(2, "big") + len(sct).to_bytes(2, "big") + sct
+
+        assert parse_sct_list(serialized) == ()
 
 
 class TestSupportedProtocolLabels:
