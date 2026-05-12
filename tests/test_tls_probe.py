@@ -19,8 +19,10 @@ from webconf_audit.external.recon.tls_probe import (
     ChainVerificationResult,
     CipherPreferenceProbeResult,
     OCSPStaplingProbeResult,
+    TLSHandshakeObservation,
     TLSVersionProbeResult,
     _build_tls_context,
+    _load_libssl,
     _probe_single_version,
     parse_sct_list,
     probe_chain_depth,
@@ -272,6 +274,40 @@ class TestSupportedProtocolLabels:
 
     def test_empty_input(self) -> None:
         assert supported_protocol_labels([]) == ()
+
+
+class TestLoadLibssl:
+    def test_missing_optional_symbols_do_not_abort_library_loading(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeSymbol:
+            argtypes = None
+            restype = None
+
+        class FakeLibssl:
+            SSL_ctrl = FakeSymbol()
+            SSL_get_current_compression = FakeSymbol()
+            SSL_COMP_get_name = FakeSymbol()
+            SSL_get_current_cipher = FakeSymbol()
+
+        fake_libssl = FakeLibssl()
+        _load_libssl.cache_clear()
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe._candidate_libssl_paths",
+            lambda: ("libssl-test",),
+        )
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.ctypes.CDLL",
+            lambda _candidate: fake_libssl,
+        )
+
+        loaded = _load_libssl()
+
+        assert loaded is fake_libssl
+        assert fake_libssl.SSL_ctrl.argtypes is not None
+        assert not hasattr(fake_libssl, "SSL_CIPHER_is_aead")
+        _load_libssl.cache_clear()
 
 
 class TestServerCipherPreferenceProbe:
@@ -537,6 +573,50 @@ def _setup_enrichment_mocks(
         "webconf_audit.external.recon.tls_probe.probe_ocsp_stapling",
         lambda host, port, **kw: ocsp_result,
     )
+
+
+def test_extract_tls_info_from_openssl_records_handshake_observations(
+    monkeypatch,
+) -> None:
+    from webconf_audit.external.recon import _extract_tls_info_from_openssl
+
+    class FakeConnection:
+        def get_protocol_version_name(self) -> str:
+            return "TLSv1.2"
+
+        def get_cipher_name(self) -> str:
+            return "ECDHE-RSA-AES128-CBC-SHA"
+
+        def get_cipher_bits(self) -> int:
+            return 128
+
+        def get_cipher_version(self) -> str:
+            return "TLSv1/SSLv3"
+
+        def get_peer_cert_chain(self) -> list[object]:
+            return []
+
+        def get_peer_certificate(self):
+            return None
+
+    monkeypatch.setattr(
+        "webconf_audit.external.recon.observe_tls_handshake_features",
+        lambda _connection: TLSHandshakeObservation(
+            renegotiation_info_observed=False,
+            negotiated_compression="deflate",
+            negotiated_cipher_is_aead=False,
+        ),
+    )
+
+    tls_info = _extract_tls_info_from_openssl(
+        FakeConnection(),
+        ocsp_state={"seen": False, "response": b""},
+        sct_state={"response": b""},
+    )
+
+    assert tls_info.renegotiation_info_observed is False
+    assert tls_info.negotiated_compression == "deflate"
+    assert tls_info.negotiated_cipher_is_aead is False
 
 
 class TestTlsProbeIntegration:

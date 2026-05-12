@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 370
+        assert len(full_reg._catalog) == 373
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 284
+        assert len(full_reg._executable) == 287
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 89
+        assert len(rules) == 92
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -183,6 +183,20 @@ class TestStandardsMetadata:
                 ("CWE", "CWE-693"),
                 ("OWASP Top 10", "A05:2021"),
                 ("OWASP ASVS", "v5.0.0-3.4.3"),
+            },
+            "external.tls_secure_renegotiation_not_observed": {
+                ("CWE", "CWE-327"),
+                ("NIST SP 800-52 Rev. 2", "3.5"),
+            },
+            "external.tls_negotiated_compression": {
+                ("CWE", "CWE-310"),
+                ("OWASP Top 10", "A02:2021"),
+                ("NIST SP 800-52 Rev. 2", "3.6"),
+            },
+            "external.tls_aead_cipher_not_negotiated": {
+                ("CWE", "CWE-327"),
+                ("OWASP ASVS", "v5.0.0-12.1.2"),
+                ("NIST SP 800-52 Rev. 2", "3.3.1"),
             },
         }
 

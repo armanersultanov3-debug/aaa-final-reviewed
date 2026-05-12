@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 370-rule inventory plus the rule-level work needed to cover the
+existing 373-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -32,7 +32,7 @@ The same conservative rules apply as in `docs/standards-roadmap.md`:
 - Cite exact, versioned identifiers. No standard reference from memory.
 - Prefer an empty cell over a stretched mapping.
 - Mark partial coverage with the limitation, e.g.
-  `NIST SP 800-52 Rev. 2 §3.3.1 (partial: weak-pattern detection only)`.
+  `NIST SP 800-52 Rev. 2 §3.3.1 (partial: observed negotiated cipher posture only)`.
 - Use the existing gap labels: `covered`, `direct-rule`, `parser-depth`,
   `probe-depth`, `out-of-scope`, `research`. Historical `host-depth` items are
   treated as out of scope because this tool does not inspect host OS posture.
@@ -149,11 +149,11 @@ external / per-server TLS rules already in the registry.
 | 800-52 Rev. 2 section | Topic | Already-covered rules (candidate `covered`) | Partial / cross-source rules | Gap follow-up |
 | --- | --- | --- | --- | --- |
 | §3.1.1 / §3.1.2 | TLS 1.2 mandatory; TLS 1.3 recommended | `universal.weak_tls_protocol`, `nginx.weak_ssl_protocols`, `apache.tls_legacy_versions_explicitly_enabled`, `apache.ssl_protocol_missing_or_weak`, `lighttpd.tls_legacy_versions_explicitly_enabled`, `lighttpd.ssl_protocol_policy_missing_or_weak`, `iis.schannel_tls12_not_enabled`, `iis.schannel_weak_protocol_enabled`, `external.tls_1_0_supported`, `external.tls_1_1_supported` | `nginx.missing_ssl_protocols` (presence-only), `external.tls_1_3_not_supported` (info) | — |
-| §3.3.1 | Recommended cipher suites | `universal.weak_tls_ciphers`, `nginx.ssl_ciphers_weak`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, `iis.ssl_weak_cipher_strength`, `external.weak_cipher_suite` | `nginx.missing_ssl_ciphers`, `apache.ssl_cipher_suite_missing` (presence-only companion rules) | `probe-depth`: runtime recommended-suite policy validation (negotiated forward secrecy, AEAD, server preference). Tracked in `STD-GAP-014`. |
-| §3.3.2 | Server preference order | `apache.ssl_honor_cipher_order_not_on`, `lighttpd.ssl_honor_cipher_order_missing`, `nginx.missing_ssl_prefer_server_ciphers`, `iis.schannel_cipher_suite_order_not_preferred` | — | `probe-depth`: external probe that compares negotiated cipher across multiple client offers to prove server preference. |
+| §3.3.1 | Recommended cipher suites | `universal.weak_tls_ciphers`, `nginx.ssl_ciphers_weak`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, `iis.ssl_weak_cipher_strength`, `external.weak_cipher_suite` | `nginx.missing_ssl_ciphers`, `apache.ssl_cipher_suite_missing` (presence-only companion rules), `external.tls_forward_secrecy_not_observed`, `external.tls_aead_cipher_not_negotiated` (partial: observed negotiated cipher posture only) | `covered`: observe-only coverage now includes single-handshake forward-secrecy and AEAD posture evidence; preference-order proof remains tracked under §3.3.2. |
+| §3.3.2 | Server preference order | `apache.ssl_honor_cipher_order_not_on`, `lighttpd.ssl_honor_cipher_order_missing`, `nginx.missing_ssl_prefer_server_ciphers`, `iis.schannel_cipher_suite_order_not_preferred` | `external.tls_server_cipher_preference_not_observed` (partial: bounded TLS 1.2 probe only) | `partial`: bounded multi-offer TLS 1.2 observation exists, but broader preference inventory remains out of scope for observe-only mode. |
 | §3.4 | Server certificate validation | `external.certificate_expired`, `external.certificate_expires_soon`, `external.tls_certificate_self_signed`, `external.cert_chain_incomplete`, `external.cert_san_mismatch`, `external.tls_ct_log_evidence_missing`, `external.tls_weak_signature_algorithm` | `external.cert_chain_length_unusual` (advisory) | — |
-| §3.5 | Insecure renegotiation disabled | `apache.ssl_insecure_renegotiation_enabled`, `nginx.ssl_conf_command_unsafe_renegotiation_enabled`, `lighttpd.ssl_insecure_renegotiation_enabled` | — | `probe-depth`: external secure-renegotiation probe remains separate; local coverage is explicit-directive only. |
-| §3.6 | TLS compression disabled | `apache.ssl_compression_enabled`, `nginx.ssl_conf_command_tls_compression_enabled`, `lighttpd.ssl_compression_enabled` | — | `probe-depth`: negotiated compression evidence remains separate; local coverage is explicit-directive only. |
+| §3.5 | Insecure renegotiation disabled | `apache.ssl_insecure_renegotiation_enabled`, `nginx.ssl_conf_command_unsafe_renegotiation_enabled`, `lighttpd.ssl_insecure_renegotiation_enabled` | `external.tls_secure_renegotiation_not_observed` (partial: initial handshake advertisement only) | `covered`: observe-only mode now records whether the initial ServerHello advertised secure renegotiation support; no active renegotiation attempt is performed. |
+| §3.6 | TLS compression disabled | `apache.ssl_compression_enabled`, `nginx.ssl_conf_command_tls_compression_enabled`, `lighttpd.ssl_compression_enabled` | `external.tls_negotiated_compression` (partial: initial handshake observation only) | `covered`: observe-only mode now records the negotiated compression method from the initial handshake; TLS 1.3 remains excluded because compression is forbidden there. |
 | §4.2.4 | HSTS strongly recommended | `universal.missing_hsts`, `nginx.missing_hsts_header`, `nginx.hsts_header_unsafe`, `apache.missing_hsts_header`, `apache.hsts_header_unsafe`, `lighttpd.missing_strict_transport_security`, `lighttpd.strict_transport_security_unsafe`, `iis.missing_hsts_header`, `iis.hsts_header_unsafe`, `external.hsts_header_missing`, `external.hsts_header_invalid`, `external.hsts_max_age_too_short`, `external.hsts_missing_include_subdomains` | — | — |
 | §4.2 / §4.3 | OCSP stapling | `nginx.ssl_stapling_disabled`, `nginx.ssl_stapling_missing_resolver`, `nginx.ssl_stapling_without_verify`, `apache.ssl_use_stapling_not_on`, `apache.ssl_stapling_cache_missing`, `external.tls_must_staple_not_observed` | `external.ocsp_stapling_not_observed` (generic handshake evidence only) | — |
 | Top-level "no plaintext fallback" | Reject HTTP for sensitive endpoints | `universal.tls_intent_without_config`, `nginx.missing_ssl_certificate`, `nginx.missing_ssl_certificate_key`, `nginx.missing_http_to_https_redirect`, `nginx.auth_basic_over_http`, `apache.missing_http_to_https_redirect`, `apache.basic_auth_over_http`, `lighttpd.ssl_engine_not_enabled`, `lighttpd.ssl_pemfile_missing`, `lighttpd.basic_auth_over_http`, `iis.ssl_not_required`, `iis.basic_auth_without_ssl`, `iis.forms_auth_require_ssl_missing`, `external.https_not_available`, `external.http_not_redirected_to_https` | — | — |
@@ -598,8 +598,8 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 370 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
-  External 89, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
+  обновлён до 373 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
+  External 92, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
   содержат finding-level `standards` и top-level `standards` summary, а text

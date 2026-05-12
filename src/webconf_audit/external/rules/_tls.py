@@ -9,6 +9,11 @@ from webconf_audit.external.rules.tls_cert_probes import (
     find_tls_must_staple_not_observed,
     find_tls_weak_signature_algorithm,
 )
+from webconf_audit.external.rules.tls_handshake_probes import (
+    find_tls_aead_cipher_not_negotiated,
+    find_tls_negotiated_compression,
+    find_tls_secure_renegotiation_not_observed,
+)
 from webconf_audit.external.rules._helpers import (
     _CERT_CHAIN_DEPTH_MAX,
     _CERT_EXPIRY_SOON_DAYS,
@@ -640,6 +645,9 @@ def collect_tls_findings(
     findings.extend(_find_weak_cipher_suite(probe_attempts))
     findings.extend(_find_tls_forward_secrecy_not_observed(probe_attempts))
     findings.extend(_find_tls_server_cipher_preference_not_observed(probe_attempts))
+    findings.extend(find_tls_secure_renegotiation_not_observed(probe_attempts))
+    findings.extend(find_tls_negotiated_compression(probe_attempts))
+    findings.extend(find_tls_aead_cipher_not_negotiated(probe_attempts))
     findings.extend(_find_ocsp_stapling_not_observed(probe_attempts))
     findings.extend(_find_cert_chain_incomplete(probe_attempts))
     findings.extend(_find_cert_chain_length_unusual(probe_attempts))

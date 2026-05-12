@@ -173,6 +173,23 @@ def test_tls_probe_errors_in_diagnostics(monkeypatch) -> None:
     )
 
 
+def test_tls_handshake_observation_diagnostics(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.2",
+        renegotiation_info_observed=False,
+        negotiated_compression="deflate",
+        negotiated_cipher_is_aead=False,
+    )
+    probe_attempts = [
+        _https_probe_with_headers(tls_info=tls),
+        _http_redirect_probe(),
+    ]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    assert any("renegotiation_info_observed: False" in d for d in result.diagnostics)
+    assert any("negotiated_compression: deflate" in d for d in result.diagnostics)
+    assert any("negotiated_cipher_is_aead: False" in d for d in result.diagnostics)
+
+
 # --- _extract_san unit test ---
 
 
@@ -1549,6 +1566,9 @@ def test_tls_info_default_values() -> None:
     assert tls.cipher_bits is None
     assert tls.cipher_protocol is None
     assert tls.cert_san == ()
+    assert tls.renegotiation_info_observed is None
+    assert tls.negotiated_compression is None
+    assert tls.negotiated_cipher_is_aead is None
     assert tls.supported_protocols == ()
     assert tls.cert_chain_complete is None
     assert tls.cert_chain_error is None
@@ -1562,6 +1582,9 @@ def test_tls_info_metadata_includes_all_new_fields(monkeypatch) -> None:
         cipher_bits=256,
         cipher_protocol="TLSv1.3",
         cert_san=("example.com", "www.example.com"),
+        renegotiation_info_observed=True,
+        negotiated_compression=None,
+        negotiated_cipher_is_aead=True,
         supported_protocols=("TLSv1.2", "TLSv1.3"),
         cert_chain_complete=True,
         cert_chain_error=None,
@@ -1573,6 +1596,9 @@ def test_tls_info_metadata_includes_all_new_fields(monkeypatch) -> None:
     assert tls_meta["cipher_bits"] == 256
     assert tls_meta["cipher_protocol"] == "TLSv1.3"
     assert tls_meta["cert_san"] == ["example.com", "www.example.com"]
+    assert tls_meta["renegotiation_info_observed"] is True
+    assert tls_meta["negotiated_compression"] is None
+    assert tls_meta["negotiated_cipher_is_aead"] is True
     assert tls_meta["supported_protocols"] == ["TLSv1.2", "TLSv1.3"]
     assert tls_meta["cert_chain_complete"] is True
     assert tls_meta["cert_chain_error"] is None
