@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **367**
+Total rules: **370**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (268), external (86), universal (13) |
-| Severity | high (17), medium (129), low (210), info (11) |
-| Input kind | ast (168), effective (88), probe (86), normalized (13), htaccess (6), mixed (6) |
+| Category | local (268), external (89), universal (13) |
+| Severity | high (17), medium (131), low (211), info (11) |
+| Input kind | ast (168), effective (88), probe (89), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -1021,7 +1021,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 86
+Count: 89
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1129,6 +1129,10 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.cert_chain_incomplete` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.cert_chain_length_unusual` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final) (related: Advisory certificate-chain depth signal.)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.cert_san_mismatch` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
+
+| `external.tls_ct_log_evidence_missing` | low | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | [ASVS v5.0.0-12.2.2](https://owasp.org/www-project-application-security-verification-standard/) | - | [NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[Р¤РЎРўР­Рљ "РњРµСЂС‹ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё РІ Р“РРЎ" Р—РРЎ.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
+| `external.tls_weak_signature_algorithm` | medium | probe | - | [CWE-327](https://cwe.mitre.org/data/definitions/327.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | - | - | [NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[Р¤РЎРўР­Рљ "РњРµСЂС‹ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё РІ Р“РРЎ" Р—РРЎ.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
+| `external.tls_must_staple_not_observed` | medium | probe | - | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | [ASVS v5.0.0-12.1.4](https://owasp.org/www-project-application-security-verification-standard/) | - | [NIST SP 800-52 Rev. 2 4.2](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[Р¤РЎРўР­Рљ "РњРµСЂС‹ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё РІ Р“РРЎ" РЈРџР”.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[Р¤РЎРўР­Рљ "РњРµСЂС‹ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё РІ Р“РРЎ" Р—РРЎ.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[Р¤РЎРўР­Рљ "РњРµСЂС‹ Р·Р°С‰РёС‚С‹ РёРЅС„РѕСЂРјР°С†РёРё РІ Р“РРЎ" Р—РРЎ.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 
 Mapping rationale (external probes), grouped by pattern:
 

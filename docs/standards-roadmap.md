@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 367 rules (synchronized with
+The current project inventory is 370 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -47,7 +47,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 84
 - Lighttpd local: 49
 - IIS local: 52
-- External probes: 86
+- External probes: 89
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -261,7 +261,8 @@ limit recorded with the reference or moved to the gap list:
 - `v5.0.0-12.2.2` - publicly trusted certificate posture. Covered by
   certificate probes including `external.tls_certificate_self_signed`,
   `external.cert_chain_incomplete`, `external.cert_san_mismatch`,
-  and `external.certificate_expired`.
+  `external.certificate_expired`, `external.tls_ct_log_evidence_missing`,
+  and `external.tls_weak_signature_algorithm`.
 - `v5.0.0-3.3.1`, `v5.0.0-3.3.2`, and `v5.0.0-3.3.4` - observable cookie
   security attributes. Partial coverage: external cookie rules check `Secure`,
   `SameSite`, `SameSite=None` plus `Secure`, `HttpOnly`, and the browser
@@ -332,8 +333,10 @@ until the listed follow-up exists:
 - `v5.0.0-12.1.2` - forward secrecy and preference order now have partial
   runtime coverage through negotiated-cipher and bounded TLS 1.2 preference
   probes. This is not a full SSL Labs / testssl.sh cipher inventory.
-- `v5.0.0-12.1.4` - OCSP stapling now has local Nginx/Apache coverage and
-  partial external runtime evidence through `external.ocsp_stapling_not_observed`.
+- `v5.0.0-12.1.4` - OCSP stapling and must-staple handling now have local
+  Nginx/Apache coverage, direct external must-staple coverage through
+  `external.tls_must_staple_not_observed`, and partial generic handshake
+  evidence through `external.ocsp_stapling_not_observed`.
 - `v5.0.0-12.1.5` - ECH stays documented as a probe limitation. The current
   safe external probe stack does not evaluate ECH portably, and the project
   should not invent a noisy "ECH missing" finding.
