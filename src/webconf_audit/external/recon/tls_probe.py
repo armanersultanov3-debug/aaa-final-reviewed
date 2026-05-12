@@ -119,8 +119,16 @@ def observe_tls_handshake_features(
 
 
 def _ssl_handle(connection: _OSSL.Connection) -> ctypes.c_void_p | None:
+    # pyOpenSSL does not expose the raw SSL* via a supported public API. Treat
+    # these internals as an optional best-effort compatibility path and degrade
+    # to "unobserved" rather than failing the probe when they are unavailable.
+    ffi = getattr(_OSSL, "_ffi", None)
+    ssl_ptr = getattr(connection, "_ssl", None)
+    if ffi is None or ssl_ptr is None:
+        return None
+
     try:
-        pointer = int(_OSSL._ffi.cast("uintptr_t", connection._ssl))
+        pointer = int(ffi.cast("uintptr_t", ssl_ptr))
     except (AttributeError, TypeError, ValueError):
         return None
     if pointer == 0:
@@ -194,24 +202,62 @@ def _load_libssl() -> ctypes.CDLL | None:
         except OSError:
             continue
 
-        libssl.SSL_ctrl.argtypes = [
-            ctypes.c_void_p,
-            ctypes.c_int,
+        if not _configure_libssl_symbol(
+            libssl,
+            "SSL_ctrl",
+            [
+                ctypes.c_void_p,
+                ctypes.c_int,
+                ctypes.c_long,
+                ctypes.c_void_p,
+            ],
             ctypes.c_long,
+        ):
+            continue
+
+        _configure_libssl_symbol(
+            libssl,
+            "SSL_get_current_compression",
+            [ctypes.c_void_p],
             ctypes.c_void_p,
-        ]
-        libssl.SSL_ctrl.restype = ctypes.c_long
-        libssl.SSL_get_current_compression.argtypes = [ctypes.c_void_p]
-        libssl.SSL_get_current_compression.restype = ctypes.c_void_p
-        libssl.SSL_COMP_get_name.argtypes = [ctypes.c_void_p]
-        libssl.SSL_COMP_get_name.restype = ctypes.c_char_p
-        libssl.SSL_get_current_cipher.argtypes = [ctypes.c_void_p]
-        libssl.SSL_get_current_cipher.restype = ctypes.c_void_p
-        libssl.SSL_CIPHER_is_aead.argtypes = [ctypes.c_void_p]
-        libssl.SSL_CIPHER_is_aead.restype = ctypes.c_int
+        )
+        _configure_libssl_symbol(
+            libssl,
+            "SSL_COMP_get_name",
+            [ctypes.c_void_p],
+            ctypes.c_char_p,
+        )
+        _configure_libssl_symbol(
+            libssl,
+            "SSL_get_current_cipher",
+            [ctypes.c_void_p],
+            ctypes.c_void_p,
+        )
+        _configure_libssl_symbol(
+            libssl,
+            "SSL_CIPHER_is_aead",
+            [ctypes.c_void_p],
+            ctypes.c_int,
+        )
         return libssl
 
     return None
+
+
+def _configure_libssl_symbol(
+    libssl: ctypes.CDLL,
+    name: str,
+    argtypes: list[object],
+    restype: object,
+) -> bool:
+    try:
+        symbol = getattr(libssl, name)
+    except AttributeError:
+        return False
+
+    symbol.argtypes = argtypes
+    symbol.restype = restype
+    return True
 
 
 def _candidate_libssl_paths() -> tuple[str, ...]:

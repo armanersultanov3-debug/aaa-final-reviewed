@@ -22,6 +22,7 @@ from webconf_audit.external.recon.tls_probe import (
     TLSHandshakeObservation,
     TLSVersionProbeResult,
     _build_tls_context,
+    _load_libssl,
     _probe_single_version,
     parse_sct_list,
     probe_chain_depth,
@@ -273,6 +274,40 @@ class TestSupportedProtocolLabels:
 
     def test_empty_input(self) -> None:
         assert supported_protocol_labels([]) == ()
+
+
+class TestLoadLibssl:
+    def test_missing_optional_symbols_do_not_abort_library_loading(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class FakeSymbol:
+            argtypes = None
+            restype = None
+
+        class FakeLibssl:
+            SSL_ctrl = FakeSymbol()
+            SSL_get_current_compression = FakeSymbol()
+            SSL_COMP_get_name = FakeSymbol()
+            SSL_get_current_cipher = FakeSymbol()
+
+        fake_libssl = FakeLibssl()
+        _load_libssl.cache_clear()
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe._candidate_libssl_paths",
+            lambda: ("libssl-test",),
+        )
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.ctypes.CDLL",
+            lambda _candidate: fake_libssl,
+        )
+
+        loaded = _load_libssl()
+
+        assert loaded is fake_libssl
+        assert fake_libssl.SSL_ctrl.argtypes is not None
+        assert not hasattr(fake_libssl, "SSL_CIPHER_is_aead")
+        _load_libssl.cache_clear()
 
 
 class TestServerCipherPreferenceProbe:
