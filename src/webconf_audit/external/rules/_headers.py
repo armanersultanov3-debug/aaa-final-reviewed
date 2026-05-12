@@ -8,6 +8,9 @@ from webconf_audit.csp import (
     content_security_policy_has_reporting_endpoint,
 )
 from webconf_audit.external.rules._helpers import _successful_attempts_for_scheme
+from webconf_audit.external.rules.script_src_missing_sri import (
+    find_script_src_missing_sri,
+)
 from webconf_audit.models import Finding, SourceLocation
 
 if TYPE_CHECKING:
@@ -235,6 +238,22 @@ def _content_security_policy_source_list_is_none(source_list: str | None) -> boo
     return _content_security_policy_source_tokens(source_list) == {"'none'"}
 
 
+def _inline_script_count(attempt: "ProbeAttempt") -> int | None:
+    if attempt.html_recon is None:
+        return None
+    return len(attempt.html_recon.inline_scripts)
+
+
+def _html_inline_script_nonce_tokens(attempt: "ProbeAttempt") -> set[str]:
+    if attempt.html_recon is None:
+        return set()
+    return {
+        f"'nonce-{script.nonce}'"
+        for script in attempt.html_recon.inline_scripts
+        if script.nonce is not None
+    }
+
+
 def _content_security_policy_base_uri_is_restricted(source_list: str | None) -> bool:
     tokens = _content_security_policy_source_tokens(source_list)
     return tokens in ({"'none'"}, {"'self'"})
@@ -418,15 +437,26 @@ def _find_content_security_policy_unsafe_inline(
         if "'unsafe-inline'" not in attempt.content_security_policy_header.lower():
             continue
 
+        inline_script_count = _inline_script_count(attempt)
+        severity = "info" if inline_script_count == 0 else "medium"
+        if inline_script_count == 0:
+            description = (
+                "The Content-Security-Policy header contains 'unsafe-inline', "
+                "but the parsed HTML response body did not contain inline "
+                "<script> blocks."
+            )
+        else:
+            description = (
+                "The Content-Security-Policy header contains 'unsafe-inline', "
+                "which permits inline scripts or styles and weakens XSS protection."
+            )
+
         findings.append(
             Finding(
                 rule_id="external.content_security_policy_unsafe_inline",
                 title="Content-Security-Policy allows unsafe-inline",
-                severity="medium",
-                description=(
-                    "The Content-Security-Policy header contains 'unsafe-inline', "
-                    "which permits inline scripts or styles and weakens XSS protection."
-                ),
+                severity=severity,
+                description=description,
                 recommendation=(
                     "Remove 'unsafe-inline' from the Content-Security-Policy and use "
                     "nonce-based or hash-based allowlisting for inline scripts."
@@ -437,6 +467,7 @@ def _find_content_security_policy_unsafe_inline(
                     target=attempt.target.url,
                     details=f"Content-Security-Policy: {attempt.content_security_policy_header}",
                 ),
+                metadata={"inline_script_count": inline_script_count},
             )
         )
 
@@ -486,13 +517,17 @@ def _find_content_security_policy_nonce_reused(
 ) -> list[Finding]:
     findings: list[Finding] = []
     attempts_by_nonce: dict[str, list["ProbeAttempt"]] = {}
+    corroborated_attempts_by_nonce: dict[str, list["ProbeAttempt"]] = {}
 
     for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
         nonces = _content_security_policy_nonce_tokens(
             attempt.content_security_policy_header
         )
+        inline_nonces = _html_inline_script_nonce_tokens(attempt)
         for nonce in sorted(nonces):
             attempts_by_nonce.setdefault(nonce, []).append(attempt)
+            if nonce in inline_nonces:
+                corroborated_attempts_by_nonce.setdefault(nonce, []).append(attempt)
 
     for nonce in sorted(
         attempts_by_nonce,
@@ -505,6 +540,23 @@ def _find_content_security_policy_nonce_reused(
         observed_targets = ", ".join(attempt.target.url for attempt in attempts[:3])
         if len(attempts) > 3:
             observed_targets += ", ..."
+        corroborated_attempts = corroborated_attempts_by_nonce.get(nonce, [])
+        corroboration_note = ""
+        corroboration_details = ""
+        if corroborated_attempts:
+            corroboration_note = (
+                " Parsed HTML responses also contained inline script tags using "
+                f"that nonce on {len(corroborated_attempts)} response(s)."
+            )
+            corroborated_targets = ", ".join(
+                attempt.target.url for attempt in corroborated_attempts[:3]
+            )
+            if len(corroborated_attempts) > 3:
+                corroborated_targets += ", ..."
+            corroboration_details = (
+                " Inline script nonce observed on: "
+                f"{corroborated_targets}"
+            )
         findings.append(
             Finding(
                 rule_id="external.content_security_policy_nonce_reused",
@@ -514,7 +566,7 @@ def _find_content_security_policy_nonce_reused(
                     "HTTPS responses reused the same Content-Security-Policy "
                     f"nonce token (sha256:{nonce_fingerprint}). Nonce-based "
                     "allowlists should be "
-                    "unpredictable and unique per response."
+                    f"unpredictable and unique per response.{corroboration_note}"
                 ),
                 recommendation=(
                     "Generate a fresh CSP nonce for every response, or use "
@@ -527,8 +579,12 @@ def _find_content_security_policy_nonce_reused(
                     details=(
                         "Observed reused CSP nonce "
                         f"(sha256:{nonce_fingerprint}) on: {observed_targets}"
+                        f"{corroboration_details}"
                     ),
                 ),
+                metadata={
+                    "corroborated_inline_response_count": len(corroborated_attempts),
+                },
             )
         )
 
@@ -736,6 +792,7 @@ def collect_header_findings(probe_attempts: list["ProbeAttempt"]) -> list[Findin
     findings.extend(_find_content_security_policy_missing_reporting_endpoint(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_inline(probe_attempts))
     findings.extend(_find_content_security_policy_unsafe_eval(probe_attempts))
+    findings.extend(find_script_src_missing_sri(probe_attempts))
     findings.extend(_find_content_security_policy_nonce_reused(probe_attempts))
     findings.extend(_find_referrer_policy_missing(probe_attempts))
     findings.extend(_find_referrer_policy_unsafe(probe_attempts))

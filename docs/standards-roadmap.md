@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 373 rules (synchronized with
+The current project inventory is 374 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -47,7 +47,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 84
 - Lighttpd local: 49
 - IIS local: 52
-- External probes: 92
+- External probes: 93
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -277,10 +277,11 @@ limit recorded with the reference or moved to the gap list:
   sensitive information.
 - `v5.0.0-3.4.3` - CSP response header. Partial coverage: current rules detect
   missing CSP, unsafe-inline / unsafe-eval, effective `object-src 'none'`,
-  restricted `base-uri`, and repeated nonce reuse across HTTPS responses when
-  nonce-based allowlisting is present. They still do not inspect HTML/script
-  bodies to prove whether nonce/hash authorization is required or whether SRI
-  is deployed.
+  restricted `base-uri`, repeated nonce reuse across HTTPS responses when
+  nonce-based allowlisting is present, and cross-origin scripts missing SRI on
+  eligible HTML responses. They still do not prove full nonce/hash
+  authorization coverage for every inline script or same-origin script SRI
+  posture.
 - `v5.0.0-3.4.7` - CSP reporting endpoint. Partial coverage: local Nginx,
   Apache, Lighttpd, IIS, and external probes now flag a configured CSP that
   lacks `report-uri` / `report-to`; this does not verify endpoint delivery or
@@ -316,15 +317,15 @@ These ASVS requirements are relevant but should not be marked fully covered
 until the listed follow-up exists:
 
 - `v5.0.0-3.4.3` - CSP minimum policy quality is deeper than missing /
-  unsafe-inline / unsafe-eval. External probes now check effective
-  `object-src 'none'`, restricted `base-uri`, and repeated nonce reuse across
-  responses when nonce-based allowlisting is observed; body-aware inline
-  script inventory and SRI remain outside the current safe header-only probe.
+  unsafe-inline / unsafe-eval. External probes now parse eligible HTML
+  responses to inventory inline scripts, corroborate nonce reuse, and flag
+  cross-origin scripts missing SRI; remaining gaps are deeper nonce/hash
+  authorization semantics and coverage beyond the bounded safe probe.
 - `v5.0.0-3.4.6` - ASVS prefers CSP `frame-ancestors`; the external probe
   checks observed CSP responses, and dedicated local Nginx, Apache,
   Lighttpd, and IIS rules now cover missing `frame-ancestors` directives.
-  Remaining CSP gaps are limited to body-aware inline-script inventory and
-  SRI, not another header-only direct rule.
+  Remaining follow-up is tied to broader CSP policy quality under
+  `v5.0.0-3.4.3`, not another `frame-ancestors` header-only rule.
 - `v5.0.0-3.5.1` through `v5.0.0-3.5.3` - CSRF and safe-method semantics are
   application behavior. Existing dangerous-method probes help, but they do not
   prove anti-forgery controls.
@@ -369,7 +370,7 @@ standard section before implementation.
 | STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper TLS probe work is tracked in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
-| STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation plus repeated CSP nonce detection for per-response allowlisting. Remaining CSP honesty notes are limited to HTML/body-aware inline-script inventory and SRI, not another header-only direct rule. |
+| STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation, repeated CSP nonce detection corroborated by parsed inline scripts, and cross-origin SRI detection on eligible HTML responses. Remaining CSP honesty notes are limited to deeper nonce/hash authorization semantics, not another header-only direct rule. |
 | STD-GAP-014 | ASVS 5.0.0 | covered | P3 | Deeper external TLS runtime evidence now covers negotiated forward secrecy posture, bounded TLS 1.2 server cipher preference, and OCSP stapling observation. ECH remains a documented limitation rather than a rule because the current safe probe stack cannot evaluate it portably. |
 | STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Next, expand the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 

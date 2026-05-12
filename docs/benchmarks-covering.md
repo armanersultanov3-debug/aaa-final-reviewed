@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 373-rule inventory plus the rule-level work needed to cover the
+existing 374-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -242,7 +242,7 @@ already aligned with the relevant requirements.
 | 2.2.6 | System security parameters configured to prevent misuse | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.htpasswd_exposed`, `external.env_file_exposed`, `external.backup_file_exposed` | - |
 | 4.2.1 | Strong cryptography for transmissions over open public networks | All TLS / HSTS / redirect rules from §5.1. | — |
 | 6.2.4 | Common attack vectors / hardening | `nginx.executable_scripts_allowed_in_uploads`, `iis.handler_write_script_execute_enabled`, `iis.cgi_handler_enabled`, `iis.request_filtering_*` family, `apache.htaccess_enables_cgi`, `apache.htaccess_enables_directory_listing`, `apache.htaccess_disables_security_headers`, `apache.htaccess_weakens_security` | — |
-| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.content_security_policy_missing`, `external.content_security_policy_unsafe_inline`, `external.content_security_policy_unsafe_eval`, `external.content_security_policy_object_src_not_none`, `external.content_security_policy_base_uri_not_restricted`, `external.content_security_policy_nonce_reused`. | `probe-depth`: SRI and body-aware inline-script inventory remain outside the current safe header-only probe. |
+| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.content_security_policy_missing`, `external.content_security_policy_unsafe_inline`, `external.content_security_policy_unsafe_eval`, `external.content_security_policy_object_src_not_none`, `external.content_security_policy_base_uri_not_restricted`, `external.content_security_policy_nonce_reused`, `external.script_src_missing_sri`. | `covered` (partial): bounded HTML parsing on eligible responses now inventories inline scripts and flags cross-origin scripts missing SRI; same-origin SRI remains out of scope and the safe probe is capped at 1 MiB per HTML body. |
 | 8.3.1 | Strong authentication for users / administrators | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `external.htpasswd_exposed`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config` | — |
 | 8.3.2 | Strong cryptography during transmission of all auth factors | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`, all cookie `Secure` / `SameSite=None+Secure` rules. | — |
 | 10.2.1 | Audit logs enabled and active | `nginx.missing_access_log`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured`, `nginx.missing_error_log`, `nginx.error_log_too_restrictive`, `apache.log_level_too_restrictive` | — |
@@ -598,8 +598,8 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 373 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
-  External 92, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
+  обновлён до 374 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
+  External 93, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
   содержат finding-level `standards` и top-level `standards` summary, а text

@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 373
+        assert len(full_reg._catalog) == 374
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 287
+        assert len(full_reg._executable) == 288
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 92
+        assert len(rules) == 93
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -182,6 +182,12 @@ class TestStandardsMetadata:
             "external.content_security_policy_nonce_reused": {
                 ("CWE", "CWE-693"),
                 ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-3.4.3"),
+            },
+            "external.script_src_missing_sri": {
+                ("CWE", "CWE-353"),
+                ("OWASP Top 10", "A08:2021"),
+                ("PCI DSS v4.0.1", "Req. 6.4.3"),
                 ("OWASP ASVS", "v5.0.0-3.4.3"),
             },
             "external.tls_secure_renegotiation_not_observed": {
