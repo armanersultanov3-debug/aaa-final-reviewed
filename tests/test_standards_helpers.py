@@ -60,6 +60,17 @@ def test_pci_dss_4_uses_canonical_reference_and_url() -> None:
     )
 
 
+def test_pci_dss_4_canonicalizes_req_prefix() -> None:
+    ref = pci_dss_4("req. 4.2.1")
+
+    assert ref.reference == "Req. 4.2.1"
+
+
+def test_pci_dss_4_rejects_empty_requirement_after_prefix() -> None:
+    with pytest.raises(ValueError, match="requirement number"):
+        pci_dss_4("Req.")
+
+
 def test_iso_27002_2022_uses_canonical_url() -> None:
     ref = iso_27002_2022("8.24")
 
@@ -86,6 +97,12 @@ def test_mitre_attack_marks_reference_as_secondary() -> None:
     assert ref.reference == "T1592.002"
     assert ref.url == "https://attack.mitre.org/techniques/T1592/002/"
     assert ref.tier == "secondary"
+
+
+@pytest.mark.parametrize("technique_id", ["TA0001", "T15", "foo"])
+def test_mitre_attack_rejects_invalid_technique_ids(technique_id: str) -> None:
+    with pytest.raises(ValueError, match="T1190 or T1592.002"):
+        mitre_attack(technique_id)
 
 
 def test_fstec_bdu_marks_reference_as_secondary() -> None:

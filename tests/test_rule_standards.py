@@ -20,9 +20,9 @@ def test_known_rule_ids_warns_when_rule_coverage_doc_is_missing(
     fake_source_rule.parent.mkdir(parents=True)
     fake_module.write_text("# stub\n", encoding="utf-8")
     fake_source_rule.write_text(
-        'RULE_ID = "nginx.sample_rule"\n'
+        "RULE_ID = 'nginx.sample_rule'\n"
         "@rule(rule_id=RULE_ID)\n"
-        'Finding(rule_id="external.sample_rule")\n',
+        "Finding(rule_id='external.sample_rule')\n",
         encoding="utf-8",
     )
 

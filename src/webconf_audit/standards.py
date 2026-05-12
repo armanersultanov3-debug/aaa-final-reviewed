@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from webconf_audit.rule_registry import StandardCoverage, StandardReference
 
 _OWASP_TOP10_2021_URLS = {
@@ -32,6 +34,7 @@ _FSTEC_MERA_URL = (
 _PCI_DSS_4_URL = (
     "https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf"
 )
+_MITRE_ATTACK_TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
 
 def cwe(
@@ -151,8 +154,11 @@ def pci_dss_4(
         fn_name="pci_dss_4",
         field_name="requirement",
     )
-    if not normalized_requirement.lower().startswith("req."):
-        normalized_requirement = f"Req. {normalized_requirement}"
+    if normalized_requirement.lower().startswith("req."):
+        normalized_requirement = normalized_requirement[4:].strip()
+    if not normalized_requirement:
+        raise ValueError("pci_dss_4: requirement must include a requirement number.")
+    normalized_requirement = f"Req. {normalized_requirement}"
     return StandardReference(
         standard="PCI DSS v4.0.1",
         reference=normalized_requirement,
@@ -248,6 +254,8 @@ def mitre_attack(
         fn_name="mitre_attack",
         field_name="technique_id",
     ).upper()
+    if not _MITRE_ATTACK_TECHNIQUE_ID_RE.fullmatch(normalized_technique_id):
+        raise ValueError("mitre_attack: technique_id must look like T1190 or T1592.002.")
     normalized_version = _normalize_non_empty_text(
         version,
         fn_name="mitre_attack",

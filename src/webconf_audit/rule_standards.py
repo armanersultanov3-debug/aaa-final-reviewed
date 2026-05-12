@@ -23,8 +23,8 @@ _RULE_ID_PATTERN = re.compile(
     r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
 )
 _SOURCE_RULE_ID_PATTERN = re.compile(
-    r'^\s*RULE_ID\s*=\s*"(?P<const_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)"'
-    r'|rule_id\s*=\s*"(?P<inline_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)"',
+    r"""^\s*RULE_ID\s*=\s*(?P<const_quote>["'])(?P<const_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)(?P=const_quote)"""
+    r"""|rule_id\s*=\s*(?P<inline_quote>["'])(?P<inline_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)(?P=inline_quote)""",
     re.MULTILINE,
 )
 
