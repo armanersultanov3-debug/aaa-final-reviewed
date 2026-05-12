@@ -159,6 +159,23 @@ def test_apache_tls_vhost_on_nonstandard_port_still_counts_as_tls():
     assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
+def test_apache_tls_vhost_on_port_80_still_counts_as_tls():
+    cfg = _apache_config(
+        "Listen 80\n"
+        "<VirtualHost *:80>\n"
+        "    SSLEngine On\n"
+        "    <Location /admin>\n"
+        "        AuthType Basic\n"
+        "        Require valid-user\n"
+        "    </Location>\n"
+        "</VirtualHost>\n",
+    )
+
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", True) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
+
+
 def test_apache_global_ssl_on_nonstandard_port_counts_as_tls():
     cfg = _apache_config(
         "Listen 8443\n"
@@ -307,6 +324,23 @@ def test_nginx_server_auth_off_disables_inherited_http_auth():
     assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
+def test_nginx_location_root_auth_off_disables_inherited_server_auth():
+    cfg = _nginx_config(
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        '        auth_basic "private";\n'
+        "        location / {\n"
+        "            auth_basic off;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert cfg.auth_requiring_locations == ()
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
+
+
 def test_nginx_auth_basic_off_disables_auth_scope():
     cfg = _nginx_config(
         "http {\n"
@@ -341,6 +375,22 @@ def test_nginx_mixed_listeners_fires():
     assert len(cfg.auth_requiring_locations) == 1
     assert ("/admin", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
+def test_nginx_named_location_is_ignored():
+    cfg = _nginx_config(
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        location @fallback {\n"
+        '            auth_basic "private";\n'
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert cfg.auth_requiring_locations == ()
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
 def test_nginx_no_auth_extracted():

@@ -614,6 +614,7 @@ def _virtualhost_context_from_block(block: ApacheBlockNode) -> ApacheVirtualHost
         server_name=server_name,
         server_aliases=server_aliases,
         listen_address=block.args[0] if block.args else None,
+        listen_addresses=tuple(block.args),
         node=block,
     )
 
@@ -786,6 +787,8 @@ def _apache_scope_requires_tls(
     if not listen_values:
         return False
     if virtualhost_context is not None:
+        if len(listen_values) == 1:
+            return True
         return all(_virtualhost_listen_value_is_tls(value) for value in listen_values)
     return all(_listen_value_is_tls(value) or server_tls for value in listen_values)
 
