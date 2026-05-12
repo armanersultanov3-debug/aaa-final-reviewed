@@ -278,9 +278,12 @@ def fstec_bdu(
         if threat_number.startswith(prefix):
             threat_number = threat_number[len(prefix):]
             break
+    if not threat_number:
+        raise ValueError("fstec_bdu: threat_id must include a non-empty number.")
+    canonical_reference = "\u0423\u0411\u0418." + threat_number
     return StandardReference(
         standard="ФСТЭК БДУ",
-        reference=normalized_threat_id,
+        reference=canonical_reference,
         url=f"https://bdu.fstec.ru/threat/ubi.{threat_number.lower()}",
         note=note,
         tier="secondary",

@@ -1009,7 +1009,9 @@ def lookup_rule_standards(
 
 
 def _pci_references(rule_id: str) -> list[StandardReference]:
-    refs: list[StandardReference] = [pci_dss_4("2.2.1")]
+    refs: list[StandardReference] = []
+    if rule_id in _LEGACY_CATCH_ALL_RULES:
+        refs.append(pci_dss_4("2.2.1"))
     in_2_2_5 = rule_id in _PCI_225_RULES
     in_2_2_6 = rule_id in _PCI_226_RULES
     if in_2_2_5 or in_2_2_6:

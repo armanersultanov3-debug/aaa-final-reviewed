@@ -28,15 +28,15 @@ def test_known_rule_ids_warns_when_rule_coverage_doc_is_missing(
 
     rule_standards._known_rule_ids.cache_clear()
     monkeypatch.setattr(rule_standards, "__file__", str(fake_module))
+    try:
+        with caplog.at_level("WARNING"):
+            assert rule_standards._known_rule_ids() == frozenset(
+                {"nginx.sample_rule", "external.sample_rule"}
+            )
 
-    with caplog.at_level("WARNING"):
-        assert rule_standards._known_rule_ids() == frozenset(
-            {"nginx.sample_rule", "external.sample_rule"}
-        )
-
-    assert "falling back to source-derived rule IDs" in caplog.text
-
-    rule_standards._known_rule_ids.cache_clear()
+        assert "falling back to source-derived rule IDs" in caplog.text
+    finally:
+        rule_standards._known_rule_ids.cache_clear()
 
 
 def test_direct_iso_references_do_not_apply_catch_all_to_unknown_rule() -> None:

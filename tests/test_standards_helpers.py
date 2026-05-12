@@ -95,3 +95,15 @@ def test_fstec_bdu_marks_reference_as_secondary() -> None:
     assert ref.reference == "УБИ.044"
     assert ref.url == "https://bdu.fstec.ru/threat/ubi.044"
     assert ref.tier == "secondary"
+
+
+def test_fstec_bdu_canonicalizes_reference_without_prefix() -> None:
+    ref = fstec_bdu("044")
+
+    assert ref.reference == "\u0423\u0411\u0418.044"
+    assert ref.url == "https://bdu.fstec.ru/threat/ubi.044"
+
+
+def test_fstec_bdu_rejects_prefix_without_number() -> None:
+    with pytest.raises(ValueError, match="non-empty number"):
+        fstec_bdu("UBI.")
