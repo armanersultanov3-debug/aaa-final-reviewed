@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import http.client
+import io
 import socket
 import ssl
 from dataclasses import dataclass, replace
@@ -8,11 +9,19 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal, NamedTuple
 from urllib.parse import SplitResult, urljoin, urlsplit
 
+from OpenSSL import SSL as _OSSL
+
 from webconf_audit.external.safe_probe_catalog import (
     CONDITIONAL_SAFE_PROBE_CONFIDENCES,
     CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE,
     DEFAULT_SAFE_PROBE_PATHS,
     safe_probe_paths_for_identification,
+)
+from webconf_audit.external.recon.tls_probe import (
+    SCTObservation,
+    TLSCertificateObservation,
+    describe_signature_algorithm,
+    parse_sct_list,
 )
 from webconf_audit.external.rules import run_external_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, SourceLocation
@@ -71,6 +80,12 @@ class TLSInfo:
     cert_chain_error: str | None = None
     # Number of certificates the server supplied in the handshake (filled by probe_chain_depth)
     cert_chain_depth: int | None = None
+    # Observe-only certificate evidence from the initial TLS handshake
+    embedded_scts: tuple[SCTObservation, ...] = ()
+    stapled_scts: tuple[SCTObservation, ...] = ()
+    chain_certificates: tuple[TLSCertificateObservation, ...] = ()
+    chain_signature_algorithms: tuple[str, ...] = ()
+    cert_must_staple: bool = False
     # TLS 1.2 cipher-order probe (filled by probe_server_cipher_preference)
     server_cipher_preference: bool | None = None
     cipher_preference_first_cipher: str | None = None
@@ -218,6 +233,47 @@ class ProbeAttempt:
     @property
     def has_http_response(self) -> bool:
         return self.status_code is not None
+
+
+class _OpenSSLConnectionReader(io.RawIOBase):
+    """Adapt a pyOpenSSL connection for http.client.HTTPResponse."""
+
+    def __init__(self, connection: _OSSL.Connection) -> None:
+        self._connection = connection
+        self._closed = False
+
+    def readable(self) -> bool:
+        return True
+
+    def readinto(self, buffer) -> int:  # type: ignore[override]
+        if self._closed:
+            return 0
+        while True:
+            try:
+                data = self._connection.recv(len(buffer))
+            except (_OSSL.WantReadError, _OSSL.WantWriteError):
+                continue
+            except _OSSL.ZeroReturnError:
+                return 0
+            if not data:
+                return 0
+            size = len(data)
+            buffer[:size] = data
+            return size
+
+    def close(self) -> None:
+        self._closed = True
+        super().close()
+
+
+class _OpenSSLSocketAdapter:
+    """Expose a minimal ``makefile`` API for ``HTTPResponse``."""
+
+    def __init__(self, connection: _OSSL.Connection) -> None:
+        self._connection = connection
+
+    def makefile(self, _mode: str) -> io.BufferedReader:
+        return io.BufferedReader(_OpenSSLConnectionReader(self._connection))
 
 
 def _is_bare_host(target: str) -> bool:
@@ -817,7 +873,6 @@ def _enrich_tls_with_version_probe(
     from webconf_audit.external.recon.tls_probe import (  # noqa: PLC0415
         CipherPreferenceProbeResult,
         probe_chain_depth,
-        probe_ocsp_stapling,
         probe_server_cipher_preference,
         probe_tls_versions,
         supported_protocol_labels,
@@ -850,13 +905,6 @@ def _enrich_tls_with_version_probe(
             probe_target.port,
         )
 
-    # OCSP stapling is not tied to the TLS 1.2-only cipher-order probe, so
-    # keep observing it for TLS 1.3-only endpoints as well.
-    ocsp_result = probe_ocsp_stapling(
-        probe_target.host,
-        probe_target.port,
-    )
-
     if attempt.tls_info is None:
         return attempt
     enriched_tls = replace(
@@ -869,8 +917,6 @@ def _enrich_tls_with_version_probe(
         cipher_preference_first_cipher=preference_result.first_cipher,
         cipher_preference_reversed_cipher=preference_result.reversed_cipher,
         cipher_preference_error=preference_result.error_message,
-        ocsp_stapled=ocsp_result.stapled,
-        ocsp_stapling_error=ocsp_result.error_message,
     )
     return replace(attempt, tls_info=enriched_tls)
 
@@ -879,6 +925,9 @@ def _try_http_method(
     probe_target: ProbeTarget,
     method: ProbeMethod,
 ) -> ProbeAttempt:
+    if probe_target.scheme == "https":
+        return _try_https_method(probe_target, method)
+
     connection = _build_connection(probe_target)
     try:
         connection.request(method, probe_target.path)
@@ -933,6 +982,340 @@ def _try_http_method(
         )
     finally:
         connection.close()
+
+
+def _try_https_method(
+    probe_target: ProbeTarget,
+    method: ProbeMethod,
+) -> ProbeAttempt:
+    raw_sock: socket.socket | None = None
+    tls_conn: _OSSL.Connection | None = None
+    response: http.client.HTTPResponse | None = None
+    ocsp_state = {"seen": False, "response": b""}
+    sct_state = {"response": b""}
+    try:
+        context = _build_observed_tls_context(ocsp_state=ocsp_state, sct_state=sct_state)
+        raw_sock = socket.create_connection(
+            (probe_target.host, probe_target.port),
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+        raw_sock.settimeout(DEFAULT_TIMEOUT_SECONDS)
+        tls_conn = _OSSL.Connection(context, raw_sock)
+        tls_conn.set_tlsext_host_name(probe_target.host.encode("idna"))
+        if hasattr(tls_conn, "request_ocsp"):
+            tls_conn.request_ocsp()
+        tls_conn.set_connect_state()
+        _complete_openssl_handshake(tls_conn)
+
+        tls_info = _extract_tls_info_from_openssl(
+            tls_conn,
+            ocsp_state=ocsp_state,
+            sct_state=sct_state,
+        )
+
+        request_bytes = (
+            f"{method} {probe_target.path} HTTP/1.1\r\n"
+            f"Host: {_host_header_value(probe_target)}\r\n"
+            "Connection: close\r\n"
+            "User-Agent: webconf-audit\r\n"
+            "\r\n"
+        ).encode("ascii")
+        tls_conn.sendall(request_bytes)
+
+        response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
+        response.begin()
+
+        body_snippet: str | None = None
+        if method == "GET":
+            raw_body = response.read(_BODY_SNIPPET_MAX_BYTES)
+            try:
+                body_snippet = raw_body.decode("utf-8", errors="replace").strip() or None
+            except Exception:
+                body_snippet = None
+        else:
+            response.read()
+
+        return ProbeAttempt(
+            target=probe_target,
+            tcp_open=True,
+            effective_method=method,
+            status_code=response.status,
+            reason_phrase=response.reason,
+            server_header=response.getheader("Server"),
+            strict_transport_security_header=response.getheader("Strict-Transport-Security"),
+            location_header=response.getheader("Location"),
+            content_type_header=response.getheader("Content-Type"),
+            x_frame_options_header=response.getheader("X-Frame-Options"),
+            x_content_type_options_header=response.getheader("X-Content-Type-Options"),
+            content_security_policy_header=response.getheader("Content-Security-Policy"),
+            referrer_policy_header=response.getheader("Referrer-Policy"),
+            permissions_policy_header=response.getheader("Permissions-Policy"),
+            cache_control_header=response.getheader("Cache-Control"),
+            x_dns_prefetch_control_header=response.getheader("X-DNS-Prefetch-Control"),
+            x_powered_by_header=response.getheader("X-Powered-By"),
+            x_aspnet_version_header=response.getheader("X-AspNet-Version"),
+            x_aspnetmvc_version_header=response.getheader("X-AspNetMvc-Version"),
+            via_header=response.getheader("Via"),
+            etag_header=response.getheader("ETag"),
+            cross_origin_embedder_policy_header=response.getheader("Cross-Origin-Embedder-Policy"),
+            cross_origin_opener_policy_header=response.getheader("Cross-Origin-Opener-Policy"),
+            cross_origin_resource_policy_header=response.getheader("Cross-Origin-Resource-Policy"),
+            access_control_allow_origin_header=response.getheader("Access-Control-Allow-Origin"),
+            access_control_allow_credentials_header=response.getheader("Access-Control-Allow-Credentials"),
+            allow_header=response.getheader("Allow"),
+            set_cookie_headers=tuple(response.msg.get_all("Set-Cookie") or []),
+            body_snippet=body_snippet,
+            tls_info=tls_info,
+        )
+    except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
+        return ProbeAttempt(
+            target=probe_target,
+            tcp_open=True,
+            error_message=str(exc),
+        )
+    finally:
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        if tls_conn is not None:
+            try:
+                tls_conn.close()
+            except Exception:
+                pass
+        if raw_sock is not None:
+            try:
+                raw_sock.close()
+            except Exception:
+                pass
+
+
+def _build_observed_tls_context(
+    *,
+    ocsp_state: dict[str, object],
+    sct_state: dict[str, bytes],
+) -> _OSSL.Context:
+    context = _OSSL.Context(_OSSL.TLS_METHOD)
+    context.set_verify(_OSSL.VERIFY_NONE, lambda *_: True)
+
+    if hasattr(context, "set_ocsp_client_callback"):
+        def _capture_ocsp(_conn, response: bytes, _data) -> bool:
+            ocsp_state["seen"] = True
+            ocsp_state["response"] = response
+            return True
+
+        context.set_ocsp_client_callback(_capture_ocsp)
+
+    _register_sct_extension_request(context, sct_state)
+    return context
+
+
+def _register_sct_extension_request(
+    context: _OSSL.Context,
+    state: dict[str, bytes],
+) -> None:
+    ffi = _OSSL._ffi
+    lib = _OSSL._lib
+    if not hasattr(lib, "SSL_CTX_add_client_custom_ext"):
+        return
+
+    state_handle = ffi.new_handle(state)
+    empty_payload = ffi.new("unsigned char[]", b"")
+
+    @ffi.callback(
+        "int (*)(SSL *, unsigned int, const unsigned char **, size_t *, int *, void *)"
+    )
+    def _add_cb(_ssl_ptr, _ext_type, out, outlen, _al, _arg):
+        out[0] = empty_payload
+        outlen[0] = 0
+        return 1
+
+    @ffi.callback("void (*)(SSL *, unsigned int, const unsigned char *, void *)")
+    def _free_cb(_ssl_ptr, _ext_type, _out, _arg):
+        return None
+
+    @ffi.callback(
+        "int (*)(SSL *, unsigned int, const unsigned char *, size_t, int *, void *)"
+    )
+    def _parse_cb(_ssl_ptr, _ext_type, data, data_len, _al, arg):
+        target_state = ffi.from_handle(arg)
+        target_state["response"] = bytes(ffi.buffer(data, data_len))
+        return 1
+
+    if lib.SSL_CTX_add_client_custom_ext(
+        context._context,
+        18,
+        _add_cb,
+        _free_cb,
+        state_handle,
+        _parse_cb,
+        state_handle,
+    ) == 1:
+        context._sct_add_cb = _add_cb  # type: ignore[attr-defined]
+        context._sct_free_cb = _free_cb  # type: ignore[attr-defined]
+        context._sct_parse_cb = _parse_cb  # type: ignore[attr-defined]
+        context._sct_state_handle = state_handle  # type: ignore[attr-defined]
+        context._sct_empty_payload = empty_payload  # type: ignore[attr-defined]
+
+
+def _complete_openssl_handshake(connection: _OSSL.Connection) -> None:
+    while True:
+        try:
+            connection.do_handshake()
+            return
+        except (_OSSL.WantReadError, _OSSL.WantWriteError):
+            continue
+
+
+def _host_header_value(probe_target: ProbeTarget) -> str:
+    if ":" in probe_target.host:
+        host = f"[{probe_target.host}]"
+    else:
+        host = probe_target.host.encode("idna").decode("ascii")
+
+    default_port = 443 if probe_target.scheme == "https" else 80
+    if probe_target.port == default_port:
+        return host
+    return f"{host}:{probe_target.port}"
+
+
+def _extract_tls_info_from_openssl(
+    connection: _OSSL.Connection,
+    *,
+    ocsp_state: dict[str, object],
+    sct_state: dict[str, bytes],
+) -> TLSInfo:
+    try:
+        from cryptography import x509  # noqa: PLC0415
+        from cryptography.x509.oid import NameOID  # noqa: PLC0415
+    except ImportError:
+        return TLSInfo(
+            protocol_version=connection.get_protocol_version_name(),
+            cipher_name=connection.get_cipher_name(),
+            cipher_bits=connection.get_cipher_bits(),
+            cipher_protocol=connection.get_cipher_version(),
+            ocsp_stapled=_ocsp_stapled_value(ocsp_state),
+            stapled_scts=parse_sct_list(sct_state["response"]) if sct_state["response"] else (),
+        )
+
+    chain = tuple(
+        cert.to_cryptography()
+        for cert in (connection.get_peer_cert_chain() or ())
+    )
+    if not chain:
+        peer_cert = connection.get_peer_certificate()
+        if peer_cert is not None:
+            chain = (peer_cert.to_cryptography(),)
+
+    leaf = chain[0] if chain else None
+    stapled_scts = parse_sct_list(sct_state["response"]) if sct_state["response"] else ()
+    chain_certificates = _certificate_chain_observations(chain, NameOID)
+
+    if leaf is None:
+        return TLSInfo(
+            protocol_version=connection.get_protocol_version_name(),
+            cipher_name=connection.get_cipher_name(),
+            cipher_bits=connection.get_cipher_bits(),
+            cipher_protocol=connection.get_cipher_version(),
+            stapled_scts=stapled_scts,
+            chain_certificates=chain_certificates,
+            chain_signature_algorithms=tuple(
+                describe_signature_algorithm(cert.signature_oid, cert.signature_name)
+                for cert in chain_certificates
+            ),
+            ocsp_stapled=_ocsp_stapled_value(ocsp_state),
+        )
+
+    return TLSInfo(
+        protocol_version=connection.get_protocol_version_name(),
+        cert_not_before=_format_cert_datetime(_cert_time(leaf, "not_valid_before")),
+        cert_not_after=_format_cert_datetime(_cert_time(leaf, "not_valid_after")),
+        cert_subject=_format_x509_name(_x509_name_to_ssl_tuple(leaf.subject, NameOID)),
+        cert_issuer=_format_x509_name(_x509_name_to_ssl_tuple(leaf.issuer, NameOID)),
+        cipher_name=connection.get_cipher_name(),
+        cipher_bits=connection.get_cipher_bits(),
+        cipher_protocol=connection.get_cipher_version(),
+        cert_san=_extract_san({"subjectAltName": _x509_san_entries(leaf, x509)}),
+        embedded_scts=_embedded_sct_observations(leaf, x509),
+        stapled_scts=stapled_scts,
+        chain_certificates=chain_certificates,
+        chain_signature_algorithms=tuple(
+            describe_signature_algorithm(cert.signature_oid, cert.signature_name)
+            for cert in chain_certificates
+        ),
+        cert_must_staple=_must_staple_present(leaf, x509),
+        ocsp_stapled=_ocsp_stapled_value(ocsp_state),
+    )
+
+
+def _ocsp_stapled_value(ocsp_state: dict[str, object]) -> bool | None:
+    if not ocsp_state.get("seen"):
+        return None
+    response = ocsp_state.get("response")
+    if not isinstance(response, (bytes, bytearray)):
+        return None
+    return bool(response)
+
+
+def _embedded_sct_observations(cert, x509_module) -> tuple[SCTObservation, ...]:
+    try:
+        extension = cert.extensions.get_extension_for_class(
+            x509_module.PrecertificateSignedCertificateTimestamps,
+        )
+    except x509_module.ExtensionNotFound:
+        return ()
+
+    return tuple(_sct_from_cryptography(sct) for sct in extension.value)
+
+
+def _sct_from_cryptography(sct) -> SCTObservation:
+    timestamp = getattr(sct, "timestamp", None)
+    if isinstance(timestamp, datetime) and timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    timestamp_text = timestamp.isoformat() if isinstance(timestamp, datetime) else None
+
+    version = getattr(sct, "version", None)
+    entry_type = getattr(sct, "entry_type", None)
+    signature_hash_algorithm = getattr(sct, "signature_hash_algorithm", None)
+    signature_algorithm = getattr(sct, "signature_algorithm", None)
+
+    return SCTObservation(
+        version=getattr(version, "name", None),
+        log_id=getattr(sct, "log_id", b"").hex() or None,
+        timestamp=timestamp_text,
+        entry_type=getattr(entry_type, "name", None),
+        signature_hash_algorithm=getattr(signature_hash_algorithm, "name", None),
+        signature_algorithm=getattr(signature_algorithm, "name", None),
+    )
+
+
+def _certificate_chain_observations(chain, name_oid) -> tuple[TLSCertificateObservation, ...]:
+    observations: list[TLSCertificateObservation] = []
+    for cert in chain:
+        signature_oid = getattr(cert.signature_algorithm_oid, "dotted_string", None)
+        signature_name = (
+            getattr(cert.signature_algorithm_oid, "_name", None)
+            or signature_oid
+        )
+        observations.append(
+            TLSCertificateObservation(
+                subject=_format_x509_name(_x509_name_to_ssl_tuple(cert.subject, name_oid)),
+                issuer=_format_x509_name(_x509_name_to_ssl_tuple(cert.issuer, name_oid)),
+                signature_oid=signature_oid,
+                signature_name=signature_name,
+                self_signed=cert.subject == cert.issuer,
+            )
+        )
+    return tuple(observations)
+
+
+def _must_staple_present(cert, x509_module) -> bool:
+    try:
+        extension = cert.extensions.get_extension_for_class(x509_module.TLSFeature)
+    except x509_module.ExtensionNotFound:
+        return False
+    return x509_module.TLSFeatureType.status_request in extension.value
 
 
 def _extract_tls_info(
@@ -1549,6 +1932,17 @@ def _attempt_tls_diagnostics(tls_info: TLSInfo | None) -> list[str]:
         diagnostics.append(f"cert_not_after: {tls_info.cert_not_after}")
     if tls_info.cert_san:
         diagnostics.append(f"cert_san: {', '.join(tls_info.cert_san)}")
+    if tls_info.embedded_scts:
+        diagnostics.append(f"embedded_sct_count: {len(tls_info.embedded_scts)}")
+    if tls_info.stapled_scts:
+        diagnostics.append(f"stapled_sct_count: {len(tls_info.stapled_scts)}")
+    if tls_info.chain_signature_algorithms:
+        diagnostics.append(
+            "chain_signature_algorithms: "
+            + ", ".join(tls_info.chain_signature_algorithms)
+        )
+    if tls_info.cert_must_staple:
+        diagnostics.append("cert_must_staple: True")
     if tls_info.supported_protocols:
         diagnostics.append(
             f"tls_supported: {', '.join(tls_info.supported_protocols)}"
@@ -1726,6 +2120,40 @@ def _tls_info_to_metadata(tls_info: TLSInfo | None) -> dict[str, object] | None:
         "cipher_bits": tls_info.cipher_bits,
         "cipher_protocol": tls_info.cipher_protocol,
         "cert_san": list(tls_info.cert_san),
+        "embedded_scts": [
+            {
+                "version": sct.version,
+                "log_id": sct.log_id,
+                "timestamp": sct.timestamp,
+                "entry_type": sct.entry_type,
+                "signature_hash_algorithm": sct.signature_hash_algorithm,
+                "signature_algorithm": sct.signature_algorithm,
+            }
+            for sct in tls_info.embedded_scts
+        ],
+        "stapled_scts": [
+            {
+                "version": sct.version,
+                "log_id": sct.log_id,
+                "timestamp": sct.timestamp,
+                "entry_type": sct.entry_type,
+                "signature_hash_algorithm": sct.signature_hash_algorithm,
+                "signature_algorithm": sct.signature_algorithm,
+            }
+            for sct in tls_info.stapled_scts
+        ],
+        "chain_certificates": [
+            {
+                "subject": cert.subject,
+                "issuer": cert.issuer,
+                "signature_oid": cert.signature_oid,
+                "signature_name": cert.signature_name,
+                "self_signed": cert.self_signed,
+            }
+            for cert in tls_info.chain_certificates
+        ],
+        "chain_signature_algorithms": list(tls_info.chain_signature_algorithms),
+        "cert_must_staple": tls_info.cert_must_staple,
         "supported_protocols": list(tls_info.supported_protocols),
         "cert_chain_complete": tls_info.cert_chain_complete,
         "cert_chain_error": tls_info.cert_chain_error,
@@ -2280,8 +2708,10 @@ __all__ = [
     "SensitivePathProbe",
     "ProbeMethod",
     "ProbeTarget",
+    "SCTObservation",
     "ServerIdentification",
     "ServerIdentificationEvidence",
+    "TLSCertificateObservation",
     "TLSInfo",
     "analyze_external_target",
 ]
