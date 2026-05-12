@@ -55,7 +55,10 @@ def normalize_iis(
             "returning empty NormalizedConfig",
             doc.file_path,
         )
-        return NormalizedConfig(server_type="iis")
+        return NormalizedConfig(
+            server_type="iis",
+            auth_requiring_locations=(),
+        )
 
     scopes: list[NormalizedScope] = []
 
@@ -70,7 +73,11 @@ def normalize_iis(
     for loc_path, sections in effective_config.location_sections.items():
         scopes.append(_build_scope(sections, scope_name=loc_path, doc=doc))
 
-    return NormalizedConfig(server_type="iis", scopes=scopes)
+    return NormalizedConfig(
+        server_type="iis",
+        scopes=scopes,
+        auth_requiring_locations=(),
+    )
 
 
 def _build_scope(

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 from webconf_audit.local.universal_rules import run_universal_rules
@@ -67,6 +69,39 @@ def _http_scope(
 
 def _config(*scopes: NormalizedScope, server: str = "nginx") -> NormalizedConfig:
     return NormalizedConfig(server_type=server, scopes=list(scopes))
+
+
+def _auth_location(
+    *,
+    path: str = "/admin",
+    auth_kind: str = "basic",
+    requires_tls: bool = False,
+    server: str = "nginx",
+    line: int = 1,
+) -> AuthRequiringLocation:
+    return AuthRequiringLocation(
+        path=path,
+        auth_kind=auth_kind,
+        requires_tls=requires_tls,
+        source=SourceLocation(
+            mode="local",
+            kind="file",
+            file_path="/fake.conf",
+            line=line,
+            details=f"server_type={server}",
+        ),
+    )
+
+
+def _auth_config(
+    *auth_locations: AuthRequiringLocation,
+    server: str = "nginx",
+) -> NormalizedConfig:
+    return NormalizedConfig(
+        server_type=server,
+        scopes=[],
+        auth_requiring_locations=tuple(auth_locations),
+    )
 
 
 def _rule_ids(config: NormalizedConfig) -> set[str]:
@@ -577,6 +612,18 @@ def test_missing_header_findings_use_header_source_when_scope_has_no_listener():
         assert finding.location.line == 17
 
 
+def test_tls_required_fires_on_plain_auth_route():
+    cfg = _auth_config(_auth_location(requires_tls=False))
+    ids = _rule_ids(cfg)
+    assert "universal.tls_required_for_authenticated_routes" in ids
+
+
+def test_tls_required_silent_on_tls_auth_route():
+    cfg = _auth_config(_auth_location(requires_tls=True))
+    ids = _rule_ids(cfg)
+    assert "universal.tls_required_for_authenticated_routes" not in ids
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. universal.directory_listing_enabled
 # ═══════════════════════════════════════════════════════════════════════════
@@ -681,8 +728,8 @@ def test_finding_has_server_type_in_details():
     assert "server_type=apache" in dir_f[0].location.details
 
 
-def test_runner_returns_all_11_rule_ids_when_everything_bad():
-    """A maximally-bad scope should trigger all 11 rules."""
+def test_runner_returns_all_12_rule_ids_when_everything_bad():
+    """A maximally-bad scope should trigger all 12 rules."""
     # Port 443 with TLS intent but broken TLS config
     scope_no_tls = NormalizedScope(
         scope_name="broken",
@@ -705,7 +752,13 @@ def test_runner_returns_all_11_rule_ids_when_everything_bad():
         tls_ciphers="RC4-SHA:AES128",
         address="0.0.0.0",
     )
-    cfg = _config(scope_no_tls, scope_weak_tls)
+    cfg = NormalizedConfig(
+        server_type="nginx",
+        scopes=[scope_no_tls, scope_weak_tls],
+        auth_requiring_locations=(
+            _auth_location(path="/admin", auth_kind="basic", requires_tls=False),
+        ),
+    )
     ids = _rule_ids(cfg)
 
     expected = {
@@ -717,6 +770,7 @@ def test_runner_returns_all_11_rule_ids_when_everything_bad():
         "universal.missing_x_frame_options",
         "universal.missing_content_security_policy",
         "universal.missing_referrer_policy",
+        "universal.tls_required_for_authenticated_routes",
         "universal.directory_listing_enabled",
         "universal.server_identification_disclosed",
         "universal.listen_on_all_interfaces",

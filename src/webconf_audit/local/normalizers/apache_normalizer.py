@@ -19,12 +19,14 @@ from webconf_audit.local.apache.parser import (
     ApacheDirectiveNode,
 )
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 
@@ -43,6 +45,7 @@ _SECURITY_HEADERS = frozenset(
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
+_AUTH_REQUIRE_VALUES = frozenset({"valid-user", "user", "group"})
 
 
 def normalize_apache(
@@ -56,7 +59,12 @@ def normalize_apache(
     scopes = _server_scopes(config_ast, virtualhosts)
     scopes.extend(_directory_scopes(config_ast, config_dir))
     scopes.extend(_location_scopes(config_ast, virtualhosts, config_dir))
-    return NormalizedConfig(server_type="apache", scopes=scopes)
+    auth_requiring_locations = _auth_requiring_locations(config_ast, config_dir)
+    return NormalizedConfig(
+        server_type="apache",
+        scopes=scopes,
+        auth_requiring_locations=auth_requiring_locations,
+    )
 
 
 def _server_scopes(
@@ -664,6 +672,189 @@ def _location_scope_name(
     if context is None:
         return label
     return f"{_virtualhost_scope_name(context)} {label}"
+
+
+def _auth_requiring_locations(
+    config_ast: ApacheConfigAst,
+    config_dir: Path | None,
+) -> tuple[AuthRequiringLocation, ...]:
+    locations: list[AuthRequiringLocation] = []
+    for block, context in _iter_auth_scope_blocks_with_virtualhost(
+        config_ast.nodes,
+        current_virtualhost=None,
+    ):
+        auth_directive = _auth_directive_from_block(block)
+        if auth_directive is None:
+            continue
+
+        path = _auth_scope_path(block, config_dir)
+        if path is None:
+            continue
+
+        locations.append(
+            AuthRequiringLocation(
+                path=path,
+                auth_kind=_auth_kind(auth_directive),
+                requires_tls=_apache_scope_requires_tls(
+                    config_ast,
+                    virtualhost_context=context,
+                ),
+                source=_source_location(auth_directive),
+            )
+        )
+    return tuple(locations)
+
+
+def _auth_scope_path(block: ApacheBlockNode, config_dir: Path | None) -> str | None:
+    block_name = block.name.lower()
+    if block_name == "directory":
+        directory_path = _resolve_directory_path(block, config_dir)
+        return str(directory_path) if directory_path is not None else None
+    if not block.args:
+        return None
+    return block.args[0]
+
+
+def _auth_directive_from_block(block: ApacheBlockNode) -> ApacheDirectiveNode | None:
+    last_authtype: ApacheDirectiveNode | None = None
+    last_require: ApacheDirectiveNode | None = None
+
+    for directive in _iter_scoped_directives(block.children):
+        name = directive.name.lower()
+        if name == "authtype" and directive.args:
+            if directive.args[0].strip().lower() != "none":
+                last_authtype = directive
+        elif name == "require" and _require_is_authenticating(directive):
+            last_require = directive
+
+    return last_authtype or last_require
+
+
+def _require_is_authenticating(directive: ApacheDirectiveNode) -> bool:
+    if not directive.args:
+        return False
+    return directive.args[0].strip().lower() in _AUTH_REQUIRE_VALUES
+
+
+def _auth_kind(directive: ApacheDirectiveNode) -> str:
+    if not directive.args:
+        return directive.name.lower()
+    return directive.args[0].strip().lower()
+
+
+def _source_location(directive: ApacheDirectiveNode) -> SourceLocation:
+    return SourceLocation(
+        mode="local",
+        kind="file",
+        file_path=directive.source.file_path or "",
+        line=directive.source.line,
+    )
+
+
+def _apache_scope_requires_tls(
+    config_ast: ApacheConfigAst,
+    *,
+    virtualhost_context: ApacheVirtualHostContext | None,
+) -> bool:
+    if virtualhost_context is None:
+        if not _apache_server_tls_enabled(config_ast, virtualhost_context=None):
+            return False
+        listen_values = _apache_listen_values(config_ast, virtualhost_context=None)
+    else:
+        if not _apache_server_tls_enabled(
+            config_ast,
+            virtualhost_context=virtualhost_context,
+        ):
+            return False
+        listen_values = list(virtualhost_context.listen_addresses)
+        if not listen_values and virtualhost_context.listen_address is not None:
+            listen_values = [virtualhost_context.listen_address]
+
+    if not listen_values:
+        return False
+    return all(_listen_value_is_tls(value) for value in listen_values)
+
+
+def _apache_server_tls_enabled(
+    config_ast: ApacheConfigAst,
+    *,
+    virtualhost_context: ApacheVirtualHostContext | None,
+) -> bool:
+    directives = build_server_effective_config(
+        config_ast,
+        virtualhost_context=virtualhost_context,
+    ).directives
+    return _ssl_engine_required(directives.get("sslengine")) is True
+
+
+def _apache_listen_values(
+    config_ast: ApacheConfigAst,
+    *,
+    virtualhost_context: ApacheVirtualHostContext | None,
+) -> list[str]:
+    if virtualhost_context is not None:
+        return list(virtualhost_context.listen_addresses)
+
+    values: list[str] = []
+    for directive in _iter_top_level_directives(config_ast.nodes):
+        if directive.name.lower() == "listen" and directive.args:
+            values.append(directive.args[0])
+    return values
+
+
+def _listen_value_is_tls(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered.endswith(":443"):
+        return True
+    return lowered == "443"
+
+
+def _iter_top_level_directives(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+) -> list[ApacheDirectiveNode]:
+    directives: list[ApacheDirectiveNode] = []
+    for node in nodes:
+        if isinstance(node, ApacheDirectiveNode):
+            directives.append(node)
+        elif _is_transparent_wrapper_block(node):
+            directives.extend(_iter_top_level_directives(node.children))
+    return directives
+
+
+def _is_transparent_wrapper_block(block: ApacheBlockNode) -> bool:
+    return block.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS
+
+
+def _iter_auth_scope_blocks_with_virtualhost(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+    current_virtualhost: ApacheVirtualHostContext | None,
+) -> list[tuple[ApacheBlockNode, ApacheVirtualHostContext | None]]:
+    blocks: list[tuple[ApacheBlockNode, ApacheVirtualHostContext | None]] = []
+    for node in nodes:
+        if not isinstance(node, ApacheBlockNode):
+            continue
+
+        node_name = node.name.lower()
+        if node_name == "virtualhost":
+            child_context = _virtualhost_context_from_block(node)
+            blocks.extend(
+                _iter_auth_scope_blocks_with_virtualhost(
+                    node.children,
+                    current_virtualhost=child_context,
+                )
+            )
+            continue
+
+        if node_name in {"directory", "location", "locationmatch"}:
+            blocks.append((node, current_virtualhost))
+
+        blocks.extend(
+            _iter_auth_scope_blocks_with_virtualhost(
+                node.children,
+                current_virtualhost=current_virtualhost,
+            )
+        )
+    return blocks
 
 
 __all__ = ["normalize_apache"]

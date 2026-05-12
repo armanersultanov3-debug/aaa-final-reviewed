@@ -33,7 +33,7 @@ RULE_ID = "universal.server_identification_disclosed"
         owasp_top10_2021("A05:2021"),
         asvs_5("13.4.6"),
     ),
-    order=109,
+    order=110,
 )
 def check(config: NormalizedConfig) -> list[Finding]:
     findings: list[Finding] = []

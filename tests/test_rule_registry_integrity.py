@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 375
+        assert len(full_reg._catalog) == 376
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 289
+        assert len(full_reg._executable) == 290
 
 
 # ---------------------------------------------------------------------------
@@ -73,7 +73,7 @@ class TestTotalCounts:
 class TestCategoryCounts:
     def test_universal(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="universal")
-        assert len(rules) == 13
+        assert len(rules) == 14
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
@@ -174,6 +174,13 @@ class TestStandardsMetadata:
                 ("PCI DSS v4.0.1", "Req. 8.3.1"),
                 ("BSI IT-Grundschutz", "APP.3.2.A5"),
                 ('ФСТЭК "Меры защиты информации в ГИС"', "ИАФ.1"),
+            },
+            "universal.tls_required_for_authenticated_routes": {
+                ("CWE", "CWE-319"),
+                ("OWASP Top 10", "A02:2021"),
+                ("OWASP ASVS", "v5.0.0-3.7.1"),
+                ("NIST SP 800-53 Rev. 5", "SC-8"),
+                ("PCI DSS v4.0.1", "Req. 8.3.2"),
             },
             "external.cookie_prefix_contract_violated": {
                 ("OWASP Top 10", "A05:2021"),

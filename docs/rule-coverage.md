@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **375**
+Total rules: **376**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (268), external (94), universal (13) |
-| Severity | high (17), medium (135), low (212), info (11) |
-| Input kind | ast (168), effective (88), probe (94), normalized (13), htaccess (6), mixed (6) |
+| Category | local (268), external (94), universal (14) |
+| Severity | high (18), medium (135), low (212), info (11) |
+| Input kind | ast (168), effective (88), probe (94), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -52,7 +52,7 @@ Columns:
 
 ### Universal Rules
 
-Count: 13
+Count: 14
 
 Stage 2 step 3 mapping: **complete** for this group. CIS / vendor cells say
 `_see vendor sections_` because each universal rule reduces to a
@@ -69,7 +69,7 @@ matching CIS benchmark item lives in the corresponding server-family table.
 | `universal.missing_x_frame_options` | low | normalized | headers | [CWE-1021](https://cwe.mitre.org/data/definitions/1021.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)<br>[Cheat Sheet: Clickjacking Defense](https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html) |
 | `universal.missing_content_security_policy` | low | normalized | headers | [CWE-693](https://cwe.mitre.org/data/definitions/693.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-3.4.3](https://owasp.org/www-project-application-security-verification-standard/) (partial: Presence only.) | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 6.4.3](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf) (partial)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)<br>[Cheat Sheet: Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) |
 | `universal.missing_referrer_policy` | low | normalized | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-3.4.5](https://owasp.org/www-project-application-security-verification-standard/) | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) |
-| `universal.directory_listing_enabled` | medium | normalized | access | [CWE-548](https://cwe.mitre.org/data/definitions/548.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.3](https://owasp.org/www-project-application-security-verification-standard/) | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
+| `universal.tls_required_for_authenticated_routes` | high | normalized | auth, tls | [CWE-319](https://cwe.mitre.org/data/definitions/319.html) | [A02:2021](https://owasp.org/Top10/A02_2021-Cryptographic_Failures/) | [ASVS v5.0.0-3.7.1](https://owasp.org/www-project-application-security-verification-standard/) | - | [NIST SP 800-53 Rev. 5 SC-8](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)<br>[PCI DSS v4.0.1 Req. 8.3.2](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf) |
 | `universal.server_identification_disclosed` | low | normalized | disclosure | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.6](https://owasp.org/www-project-application-security-verification-standard/) | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `universal.listen_on_all_interfaces` | info | normalized | network | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.3](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.20](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `universal.referrer_policy_unsafe` | low | normalized | headers | - | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-3.4.5](https://owasp.org/www-project-application-security-verification-standard/) | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
@@ -80,6 +80,11 @@ Mapping rationale (universal rules):
 - `tls_intent_without_config` -- a listener advertises HTTPS but no TLS is
   configured, so traffic would travel in cleartext: CWE-319, OWASP A02
   (cryptographic failures).
+- `tls_required_for_authenticated_routes` -- credentials or authentication
+  exchanges over a non-TLS listener are a direct transport-confidentiality
+  failure, so CWE-319 and OWASP A02 are the honest primary mappings. ASVS
+  3.7.1, NIST SP 800-53 SC-8, and PCI DSS 8.3.2 fit the same "protect
+  authentication traffic in transit" posture.
 - `weak_tls_protocol`, `universal.weak_tls_ciphers` -- enabling
   SSLv2/SSLv3/TLSv1.0/1.1 or weak TLS cipher components is the textbook case
   of CWE-327 (broken / risky cryptographic algorithm), which OWASP groups under

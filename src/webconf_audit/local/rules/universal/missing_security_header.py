@@ -160,7 +160,7 @@ def check_referrer_policy(config: NormalizedConfig) -> list[Finding]:
         owasp_top10_2021("A05:2021"),
         asvs_5("3.4.5"),
     ),
-    order=111,
+    order=112,
 )
 def check_referrer_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
     return _check_unsafe_header(
@@ -193,7 +193,7 @@ def check_referrer_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
         owasp_top10_2021("A05:2021"),
         asvs_5("3.4.6", coverage="related"),
     ),
-    order=112,
+    order=113,
 )
 def check_permissions_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
     return _check_unsafe_header(

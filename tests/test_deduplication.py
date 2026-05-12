@@ -191,6 +191,16 @@ class TestDeduplicateFindings:
         assert len(result) == 4
         assert all(f.rule_id.startswith("nginx.") for f in result)
 
+    def test_auth_over_http_rules_suppress_new_universal_tls_rule(self) -> None:
+        findings = [
+            _finding("nginx.auth_basic_over_http"),
+            _finding("universal.tls_required_for_authenticated_routes"),
+        ]
+        result, suppressed = deduplicate_findings(findings)
+        assert suppressed == 1
+        assert len(result) == 1
+        assert result[0].rule_id == "nginx.auth_basic_over_http"
+
 
 # ---------------------------------------------------------------------------
 # Mapping integrity

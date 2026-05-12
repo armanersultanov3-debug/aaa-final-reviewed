@@ -9,14 +9,17 @@ from webconf_audit.local.nginx.parser.ast import (
     ConfigAst,
     DirectiveNode,
     find_child_directives,
+    iter_nodes,
 )
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 
@@ -29,6 +32,7 @@ _SECURITY_HEADERS = frozenset({
     "referrer-policy",
     "permissions-policy",
 })
+_AUTH_DIRECTIVE_NAMES = frozenset({"auth_basic", "auth_request", "auth_jwt"})
 
 
 _logger = logging.getLogger(__name__)
@@ -37,6 +41,7 @@ _logger = logging.getLogger(__name__)
 def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
     """Extract normalized entities from Nginx AST."""
     scopes: list[NormalizedScope] = []
+    auth_requiring_locations: list[AuthRequiringLocation] = []
 
     has_http_block = False
     for node in config_ast.nodes:
@@ -45,6 +50,9 @@ def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
             for child in node.children:
                 if isinstance(child, BlockNode) and child.name == "server":
                     scopes.append(_normalize_server_block(child))
+                    auth_requiring_locations.extend(
+                        _auth_requiring_locations_from_server(child, config_ast)
+                    )
 
     if not has_http_block:
         _logger.debug(
@@ -52,7 +60,11 @@ def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
             "returning empty NormalizedConfig",
         )
 
-    return NormalizedConfig(server_type="nginx", scopes=scopes)
+    return NormalizedConfig(
+        server_type="nginx",
+        scopes=scopes,
+        auth_requiring_locations=tuple(auth_requiring_locations),
+    )
 
 
 # -- server block -----------------------------------------------------------
@@ -76,6 +88,123 @@ def _normalize_server_block(server: BlockNode) -> NormalizedScope:
         security_headers=headers,
         access_policy=access_policy,
     )
+
+
+def _auth_requiring_locations_from_server(
+    server: BlockNode,
+    config_ast: ConfigAst,
+) -> list[AuthRequiringLocation]:
+    locations: list[AuthRequiringLocation] = []
+    has_tls = _server_requires_tls(server)
+    auth_jwt_loaded = _auth_jwt_module_loaded(config_ast)
+
+    for location in _iter_location_blocks(server):
+        auth_directive = _location_auth_directive(location, auth_jwt_loaded)
+        if auth_directive is None:
+            continue
+
+        locations.append(
+            AuthRequiringLocation(
+                path=_location_path(location),
+                auth_kind=_auth_kind(auth_directive),
+                requires_tls=has_tls,
+                source=_source_location(auth_directive),
+            )
+        )
+
+    return locations
+
+
+def _server_requires_tls(server: BlockNode) -> bool:
+    listen_points = _extract_listen_points(server)
+    return bool(listen_points) and all(lp.tls for lp in listen_points)
+
+
+def _auth_jwt_module_loaded(config_ast: ConfigAst) -> bool:
+    for node in iter_nodes(config_ast.nodes):
+        if not isinstance(node, DirectiveNode):
+            continue
+        if node.name != "load_module":
+            continue
+        if any("auth_jwt" in arg.lower() for arg in node.args):
+            return True
+    return False
+
+
+def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
+    locations: list[BlockNode] = []
+    for child in block.children:
+        if not isinstance(child, BlockNode):
+            continue
+        if child.name == "location":
+            locations.append(child)
+        locations.extend(_iter_location_blocks(child))
+    return locations
+
+
+def _location_auth_directive(
+    location: BlockNode,
+    auth_jwt_loaded: bool,
+) -> DirectiveNode | None:
+    candidate: DirectiveNode | None = None
+    for directive in _iter_auth_directives(location, auth_jwt_loaded):
+        if _is_auth_directive_enabled(directive, auth_jwt_loaded):
+            candidate = directive
+    return candidate
+
+
+def _iter_auth_directives(
+    block: BlockNode,
+    auth_jwt_loaded: bool,
+) -> list[DirectiveNode]:
+    directives: list[DirectiveNode] = []
+    for child in block.children:
+        if isinstance(child, DirectiveNode):
+            directives.append(child)
+            continue
+        if child.name == "location":
+            continue
+        directives.extend(_iter_auth_directives(child, auth_jwt_loaded))
+    return directives
+
+
+def _is_auth_directive_enabled(
+    directive: DirectiveNode,
+    auth_jwt_loaded: bool,
+) -> bool:
+    name = directive.name.lower()
+    if name not in _AUTH_DIRECTIVE_NAMES:
+        return False
+    if name == "auth_jwt" and not auth_jwt_loaded:
+        return False
+    if not directive.args:
+        return False
+    return _normalized_first_arg(directive) != "off"
+
+
+def _auth_kind(directive: DirectiveNode) -> str:
+    return directive.name.removeprefix("auth_")
+
+
+def _location_path(location: BlockNode) -> str:
+    if not location.args:
+        return "/"
+    if location.args[0] in {"=", "^~", "~", "~*"} and len(location.args) >= 2:
+        return location.args[1]
+    return location.args[0]
+
+
+def _source_location(directive: DirectiveNode) -> SourceLocation:
+    return SourceLocation(
+        mode="local",
+        kind="file",
+        file_path=directive.source.file_path or "",
+        line=directive.source.line,
+    )
+
+
+def _normalized_first_arg(directive: DirectiveNode) -> str:
+    return directive.args[0].strip().strip('"').strip("'").lower()
 
 
 # -- listen ------------------------------------------------------------------

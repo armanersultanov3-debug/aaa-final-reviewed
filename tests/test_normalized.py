@@ -5,12 +5,14 @@ from __future__ import annotations
 import pytest
 
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 
@@ -146,6 +148,19 @@ def test_access_policy_defaults_none():
     assert ap.directory_listing is None
     assert ap.server_identification_disclosed is None
     assert ap.debug_mode is None
+
+
+def test_auth_requiring_location():
+    loc = AuthRequiringLocation(
+        path="/admin",
+        auth_kind="basic",
+        requires_tls=True,
+        source=SourceLocation(mode="local", kind="file", file_path="/fake", line=9),
+    )
+    assert loc.path == "/admin"
+    assert loc.auth_kind == "basic"
+    assert loc.requires_tls is True
+    assert loc.source.line == 9
 
 
 # ── NormalizedScope ──────────────────────────────────────────────────────
