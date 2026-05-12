@@ -22,6 +22,11 @@ _LOGGER = logging.getLogger(__name__)
 _RULE_ID_PATTERN = re.compile(
     r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
 )
+_SOURCE_RULE_ID_PATTERN = re.compile(
+    r'^\s*RULE_ID\s*=\s*"(?P<const_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)"'
+    r'|rule_id\s*=\s*"(?P<inline_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)"',
+    re.MULTILINE,
+)
 
 _HSTS_RULES = {
     "universal.missing_hsts",
@@ -589,14 +594,26 @@ def _is_rule_id(rule_id: str) -> bool:
 @lru_cache(maxsize=1)
 def _known_rule_ids() -> frozenset[str]:
     repo_root = Path(__file__).resolve().parents[2]
+    source_rule_ids = _known_rule_ids_from_source(repo_root / "src" / "webconf_audit")
     doc_path = repo_root / "docs" / "rule-coverage.md"
     if not doc_path.exists():
         _LOGGER.warning(
-            "Cannot load hardening rule IDs: %s is missing; standards catch-all mappings will be skipped.",
+            "Cannot load hardening rule IDs from %s; falling back to source-derived rule IDs.",
             doc_path,
         )
-        return frozenset()
-    return frozenset(_RULE_ID_PATTERN.findall(doc_path.read_text(encoding="utf-8")))
+        return source_rule_ids
+    doc_rule_ids = frozenset(_RULE_ID_PATTERN.findall(doc_path.read_text(encoding="utf-8")))
+    return doc_rule_ids | source_rule_ids
+
+
+def _known_rule_ids_from_source(source_root: Path) -> frozenset[str]:
+    rule_ids: set[str] = set()
+    for path in source_root.rglob("*.py"):
+        for match in _SOURCE_RULE_ID_PATTERN.finditer(path.read_text(encoding="utf-8")):
+            rule_id = match.group("const_rule_id") or match.group("inline_rule_id")
+            if rule_id is not None:
+                rule_ids.add(rule_id)
+    return frozenset(rule_ids)
 
 
 @lru_cache(maxsize=None)

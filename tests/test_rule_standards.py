@@ -15,16 +15,26 @@ def test_known_rule_ids_warns_when_rule_coverage_doc_is_missing(
     tmp_path: Path,
 ) -> None:
     fake_module = tmp_path / "src" / "webconf_audit" / "rule_standards.py"
+    fake_source_rule = tmp_path / "src" / "webconf_audit" / "local" / "rules" / "sample.py"
     fake_module.parent.mkdir(parents=True)
+    fake_source_rule.parent.mkdir(parents=True)
     fake_module.write_text("# stub\n", encoding="utf-8")
+    fake_source_rule.write_text(
+        'RULE_ID = "nginx.sample_rule"\n'
+        "@rule(rule_id=RULE_ID)\n"
+        'Finding(rule_id="external.sample_rule")\n',
+        encoding="utf-8",
+    )
 
     rule_standards._known_rule_ids.cache_clear()
     monkeypatch.setattr(rule_standards, "__file__", str(fake_module))
 
     with caplog.at_level("WARNING"):
-        assert rule_standards._known_rule_ids() == frozenset()
+        assert rule_standards._known_rule_ids() == frozenset(
+            {"nginx.sample_rule", "external.sample_rule"}
+        )
 
-    assert "rule-coverage.md is missing" in caplog.text
+    assert "falling back to source-derived rule IDs" in caplog.text
 
     rule_standards._known_rule_ids.cache_clear()
 

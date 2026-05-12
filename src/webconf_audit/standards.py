@@ -306,7 +306,7 @@ def rfc(
     reference = f"RFC {number}"
     url = f"https://datatracker.ietf.org/doc/html/rfc{number}"
     if normalized_section is not None:
-        reference = f"{reference} В§{normalized_section}"
+        reference = f"{reference} \N{SECTION SIGN}{normalized_section}"
         url = f"{url}#section-{normalized_section}"
 
     return StandardReference(

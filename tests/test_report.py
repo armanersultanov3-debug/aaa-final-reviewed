@@ -763,6 +763,63 @@ class TestJsonFormatter:
             "rule_ids": ["test.rule"],
         } in parsed["standards"]
 
+    def test_json_summary_keeps_distinct_standard_metadata_in_separate_buckets(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        direct_ref = StandardReference(
+            standard="Shared Standard",
+            reference="CTRL-1",
+            url="https://example.test/ctrl-1",
+        )
+        partial_ref = StandardReference(
+            standard="Shared Standard",
+            reference="CTRL-1",
+            url="https://example.test/ctrl-1",
+            coverage="partial",
+            note="TLS-only signal.",
+        )
+
+        def fake_standards_for_rule(
+            rule_id: str,
+            *,
+            secondary: bool = False,
+        ) -> tuple[StandardReference, ...]:
+            if secondary or rule_id not in {"test.rule", "other.rule"}:
+                return ()
+            return (direct_ref,) if rule_id == "test.rule" else (partial_ref,)
+
+        monkeypatch.setattr(report_module, "_standards_for_rule", fake_standards_for_rule)
+
+        parsed = json.loads(
+            JsonFormatter().format(
+                ReportData(
+                    results=[
+                        _result(findings=[_finding(rule_id="test.rule")]),
+                        _result(target="/other", findings=[_finding(rule_id="other.rule")]),
+                    ]
+                )
+            )
+        )
+
+        assert {
+            "standard": "Shared Standard",
+            "reference": "CTRL-1",
+            "url": "https://example.test/ctrl-1",
+            "coverage": "direct",
+            "finding_count": 1,
+            "rule_ids": ["test.rule"],
+        } in parsed["standards"]
+        assert {
+            "standard": "Shared Standard",
+            "reference": "CTRL-1",
+            "url": "https://example.test/ctrl-1",
+            "coverage": "partial",
+            "note": "TLS-only signal.",
+            "finding_count": 1,
+            "rule_ids": ["other.rule"],
+        } in parsed["standards"]
+
     def test_json_formatter_reloads_external_metadata_after_registry_clear(self) -> None:
         catalog = dict(registry._catalog)
         executable = dict(registry._executable)

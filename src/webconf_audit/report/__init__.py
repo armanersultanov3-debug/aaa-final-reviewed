@@ -987,13 +987,23 @@ def _standard_ref_payload(ref: StandardReference) -> dict[str, object]:
 def _standards_summary_payload(
     finding_pairs: list[tuple[AnalysisResult, Finding]],
 ) -> list[dict[str, object]]:
-    buckets: dict[tuple[str, str, str], dict[str, object]] = {}
+    buckets: dict[
+        tuple[str, str, str, str, str | None, str | None],
+        dict[str, object],
+    ] = {}
     for _result, finding in finding_pairs:
         for ref in (
             *_standards_for_rule(finding.rule_id),
             *_standards_for_rule(finding.rule_id, secondary=True),
         ):
-            key = (ref.tier, ref.standard, ref.reference)
+            key = (
+                ref.tier,
+                ref.standard,
+                ref.reference,
+                ref.coverage,
+                ref.url,
+                ref.note,
+            )
             bucket = buckets.setdefault(
                 key,
                 {

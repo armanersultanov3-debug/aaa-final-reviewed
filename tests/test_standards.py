@@ -61,7 +61,7 @@ def test_rfc_accepts_section_and_propagates_metadata() -> None:
         note="TLS 1.0 and 1.1 are deprecated.",
     )
 
-    assert ref.reference == "RFC 8996 В§1"
+    assert ref.reference == "RFC 8996 \N{SECTION SIGN}1"
     assert ref.url == "https://datatracker.ietf.org/doc/html/rfc8996#section-1"
     assert ref.coverage == "partial"
     assert ref.note == "TLS 1.0 and 1.1 are deprecated."
