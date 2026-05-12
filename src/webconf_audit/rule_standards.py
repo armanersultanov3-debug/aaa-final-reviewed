@@ -1589,14 +1589,13 @@ def _secondary_references(rule_id: str) -> list[StandardReference]:
         refs.append(mitre_attack("T1078"))
     if rule_id in _MITRE_T1040_RULES:
         refs.append(mitre_attack("T1040"))
+        refs.append(fstec_bdu("УБИ.044"))
     if rule_id in _MITRE_T1505_003_RULES:
         refs.append(mitre_attack("T1505.003"))
     if rule_id in _MITRE_T1557_RULES:
         refs.append(mitre_attack("T1557"))
     if rule_id in _MITRE_T1574_RULES:
         refs.append(mitre_attack("T1574"))
-    if rule_id in _MITRE_T1040_RULES:
-        refs.append(fstec_bdu("УБИ.044"))
     if rule_id in _MITRE_T1190_RULES | {
         "external.dependency_manifest_exposed",
     }:

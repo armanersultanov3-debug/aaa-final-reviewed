@@ -59,15 +59,7 @@ def test_direct_catch_all_references_apply_to_migrated_rule_ids() -> None:
     assert any(ref.reference.endswith(".32") for ref in fstec_refs)
 
 
-def test_direct_catch_all_references_do_not_apply_to_future_known_rule_ids(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        rule_standards,
-        "_known_rule_ids",
-        lambda: frozenset({"nginx.future_rule"}),
-    )
-
+def test_direct_catch_all_references_do_not_apply_to_future_known_rule_ids() -> None:
     iso_refs = rule_standards._iso_references("nginx.future_rule")
     fstec_refs = rule_standards._fstec_references("nginx.future_rule")
 
