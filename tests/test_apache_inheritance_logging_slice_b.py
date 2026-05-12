@@ -159,6 +159,7 @@ def test_log_level_too_restrictive_top_level_inherited_by_all_vhosts_one_finding
 
     assert len(findings) == 1
     assert _location_tuple(findings[0]) == ("httpd.conf", 1)
+    _cause_key_tuple(findings[0])
     assert findings[0].metadata["scope_name"] == "global"
     assert findings[0].metadata["affected_scopes"] == [
         "alpha.test",
@@ -185,6 +186,7 @@ def test_log_level_too_restrictive_top_level_one_vhost_overrides_safe() -> None:
 
     assert len(findings) == 1
     assert _location_tuple(findings[0]) == ("httpd.conf", 1)
+    _cause_key_tuple(findings[0])
     assert findings[0].metadata["scope_name"] == "global"
     assert findings[0].metadata["affected_scopes"] == ["alpha.test", "*:8080"]
 
@@ -205,6 +207,7 @@ def test_log_level_too_restrictive_only_in_one_vhost() -> None:
 
     assert len(findings) == 1
     assert _location_tuple(findings[0]) == ("httpd.conf", 7)
+    _cause_key_tuple(findings[0])
     assert findings[0].metadata == {"scope_name": "beta.test"}
     assert "crit" in findings[0].description
 
@@ -231,6 +234,8 @@ def test_log_level_too_restrictive_in_multiple_vhosts() -> None:
         (("httpd.conf", 4), {"scope_name": "alpha.test"}),
         (("httpd.conf", 8), {"scope_name": "beta.test"}),
     ]
+    for finding in findings:
+        _cause_key_tuple(finding)
 
 
 def test_log_level_safe_everywhere_no_findings() -> None:
@@ -255,4 +260,5 @@ def test_log_level_too_restrictive_single_server_no_vhosts_top_level_finding() -
 
     assert len(findings) == 1
     assert _location_tuple(findings[0]) == ("httpd.conf", 1)
+    _cause_key_tuple(findings[0])
     assert findings[0].metadata == {}
