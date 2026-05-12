@@ -11,6 +11,7 @@ from tests.external_helpers import (
 from webconf_audit.external.html_recon import parse_html_recon
 from webconf_audit.external.recon import (
     _BODY_SNIPPET_MAX_BYTES,
+    _build_https_request_bytes,
     _HTML_RECON_BODY_MAX_BYTES,
     _read_get_body_observations,
 )
@@ -212,3 +213,12 @@ def test_oversize_html_response_skips_html_parsing() -> None:
     assert html_recon is None
     assert body_snippet == "a" * _BODY_SNIPPET_MAX_BYTES
     assert response.read_sizes == [_BODY_SNIPPET_MAX_BYTES]
+
+
+def test_https_request_bytes_request_identity_encoding() -> None:
+    request_bytes = _build_https_request_bytes(
+        ProbeTarget(scheme="https", host="example.com", port=443, path="/"),
+        "GET",
+    )
+
+    assert b"Accept-Encoding: identity\r\n" in request_bytes

@@ -385,6 +385,20 @@ def _is_bare_host(target: str) -> bool:
     return True
 
 
+def _build_https_request_bytes(
+    probe_target: ProbeTarget,
+    method: ProbeMethod,
+) -> bytes:
+    return (
+        f"{method} {probe_target.path} HTTP/1.1\r\n"
+        f"Host: {_host_header_value(probe_target)}\r\n"
+        "Accept-Encoding: identity\r\n"
+        "Connection: close\r\n"
+        "User-Agent: webconf-audit\r\n"
+        "\r\n"
+    ).encode("ascii")
+
+
 def analyze_external_target(
     target: str,
     *,
@@ -1108,13 +1122,7 @@ def _try_https_method(
             sct_state=sct_state,
         )
 
-        request_bytes = (
-            f"{method} {probe_target.path} HTTP/1.1\r\n"
-            f"Host: {_host_header_value(probe_target)}\r\n"
-            "Connection: close\r\n"
-            "User-Agent: webconf-audit\r\n"
-            "\r\n"
-        ).encode("ascii")
+        request_bytes = _build_https_request_bytes(probe_target, method)
         tls_conn.sendall(request_bytes)
 
         response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
