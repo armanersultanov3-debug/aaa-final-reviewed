@@ -231,7 +231,7 @@ class TestParseSctList:
     def test_rejects_trailing_bytes_after_declared_length(self) -> None:
         sct = self._single_sct()
         serialized = (
-            len(sct).to_bytes(2, "big")
+            (2 + len(sct)).to_bytes(2, "big")
             + len(sct).to_bytes(2, "big")
             + sct
             + b"\x00"
@@ -241,7 +241,7 @@ class TestParseSctList:
 
     def test_rejects_out_of_range_timestamp(self) -> None:
         sct = self._single_sct(timestamp_ms=2**63 - 1)
-        serialized = len(sct).to_bytes(2, "big") + len(sct).to_bytes(2, "big") + sct
+        serialized = (2 + len(sct)).to_bytes(2, "big") + len(sct).to_bytes(2, "big") + sct
 
         assert parse_sct_list(serialized) == ()
 
