@@ -116,6 +116,7 @@ class TestListRules:
             "input_kind",
             "tags",
             "standards",
+            "standards_secondary",
             "condition",
             "order",
         }
@@ -123,6 +124,7 @@ class TestListRules:
             assert set(entry.keys()) == expected_keys
             assert isinstance(entry["tags"], list)
             assert isinstance(entry["standards"], list)
+            assert isinstance(entry["standards_secondary"], list)
 
     def test_list_rules_json_includes_standards_metadata(self) -> None:
         result = runner.invoke(

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import importlib
 import pkgutil
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Callable, Literal
 
 from webconf_audit.models import Severity
@@ -29,6 +29,7 @@ from webconf_audit.models import Severity
 RuleCategory = Literal["local", "external", "universal"]
 
 StandardCoverage = Literal["direct", "partial", "related"]
+StandardTier = Literal["primary", "secondary"]
 
 InputKind = Literal[
     "ast",         # server-specific AST (Nginx / Apache / Lighttpd)
@@ -56,6 +57,7 @@ class StandardReference:
     url: str | None = None
     coverage: StandardCoverage = "direct"
     note: str | None = None
+    tier: StandardTier = "primary"
 
 # ---------------------------------------------------------------------------
 # RuleMeta -- immutable metadata for a single rule
@@ -81,6 +83,7 @@ class RuleMeta:
     input_kind: InputKind = "ast"
     tags: tuple[str, ...] = ()
     standards: tuple[StandardReference, ...] = ()
+    standards_secondary: tuple[StandardReference, ...] = ()
     condition: str | None = None
     order: int = 1000
 
@@ -115,6 +118,7 @@ class RuleRegistry:
 
     def register(self, meta: RuleMeta, fn: Callable[..., Any]) -> None:
         """Register an executable rule (adds to both catalog and executable)."""
+        meta = _augment_rule_meta(meta)
         if meta.rule_id in self._catalog:
             raise ValueError(f"Duplicate rule_id: {meta.rule_id!r}")
         self._catalog[meta.rule_id] = meta
@@ -126,6 +130,7 @@ class RuleRegistry:
         Used for external grouped rules that have metadata but are
         executed through a composite runner.
         """
+        meta = _augment_rule_meta(meta)
         if meta.rule_id in self._catalog:
             raise ValueError(f"Duplicate rule_id: {meta.rule_id!r}")
         self._catalog[meta.rule_id] = meta
@@ -294,6 +299,7 @@ def rule(
     input_kind: InputKind = "ast",
     tags: tuple[str, ...] = (),
     standards: tuple[StandardReference, ...] = (),
+    standards_secondary: tuple[StandardReference, ...] = (),
     condition: str | None = None,
     order: int = 1000,
 ) -> Callable:
@@ -332,6 +338,7 @@ def rule(
             input_kind=input_kind,
             tags=tags,
             standards=standards,
+            standards_secondary=standards_secondary,
             condition=condition,
             order=order,
         )
@@ -351,6 +358,83 @@ __all__ = [
     "RuleRegistry",
     "StandardCoverage",
     "StandardReference",
+    "StandardTier",
     "registry",
     "rule",
 ]
+
+
+def _augment_rule_meta(meta: RuleMeta) -> RuleMeta:
+    from webconf_audit.rule_standards import lookup_rule_standards
+
+    extra_primary, extra_secondary = lookup_rule_standards(meta.rule_id)
+    normalized_primary = _coerce_standard_tier(meta.standards, tier="primary")
+    normalized_secondary = _coerce_standard_tier(
+        meta.standards_secondary,
+        tier="secondary",
+    )
+    merged_primary = _merge_standard_references(
+        normalized_primary,
+        _coerce_standard_tier(extra_primary, tier="primary"),
+    )
+    merged_secondary = _merge_standard_references(
+        normalized_secondary,
+        _coerce_standard_tier(extra_secondary, tier="secondary"),
+    )
+    if (
+        merged_primary == meta.standards
+        and merged_secondary == meta.standards_secondary
+    ):
+        _validate_cross_tier_duplicates(meta)
+        return meta
+    merged = replace(
+        meta,
+        standards=merged_primary,
+        standards_secondary=merged_secondary,
+    )
+    _validate_cross_tier_duplicates(merged)
+    return merged
+
+
+def _coerce_standard_tier(
+    refs: tuple[StandardReference, ...],
+    *,
+    tier: StandardTier,
+) -> tuple[StandardReference, ...]:
+    return tuple(
+        ref if ref.tier == tier else replace(ref, tier=tier)
+        for ref in refs
+    )
+
+
+def _merge_standard_references(
+    *ref_groups: tuple[StandardReference, ...],
+) -> tuple[StandardReference, ...]:
+    merged: list[StandardReference] = []
+    seen: set[tuple[object, ...]] = set()
+    for refs in ref_groups:
+        for ref in refs:
+            key = (
+                ref.standard,
+                ref.reference,
+                ref.url,
+                ref.coverage,
+                ref.note,
+                ref.tier,
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(ref)
+    return tuple(merged)
+
+
+def _validate_cross_tier_duplicates(meta: RuleMeta) -> None:
+    primary = {(ref.standard, ref.reference) for ref in meta.standards}
+    secondary = {(ref.standard, ref.reference) for ref in meta.standards_secondary}
+    overlap = primary & secondary
+    if overlap:
+        raise ValueError(
+            f"Rule {meta.rule_id!r} has duplicate standards across primary and secondary: "
+            f"{sorted(overlap)!r}"
+        )

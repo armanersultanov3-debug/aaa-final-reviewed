@@ -39,7 +39,26 @@ _ISSUE_LEVEL_ORDER: dict[str, int] = {
 }
 
 _ALL_SEVERITIES: list[Severity] = ["critical", "high", "medium", "low", "info"]
-_STANDARD_ORDER = ["CWE", "OWASP Top 10", "OWASP ASVS", "CIS", "Vendor", "Unmapped"]
+_STANDARD_ORDER = [
+    "CWE",
+    "OWASP Top 10",
+    "OWASP ASVS",
+    "CIS",
+    "Vendor",
+    "OWASP Cheat Sheet Series",
+    "NIST SP 800-44 Rev. 2",
+    "NIST SP 800-52 Rev. 2",
+    "NIST SP 800-53 Rev. 5",
+    "NIST SP 800-63B",
+    "PCI DSS v4.0.1",
+    "ISO/IEC 27002:2022",
+    'ФСТЭК "Меры защиты информации в ГИС"',
+    "Unmapped",
+]
+_SECONDARY_STANDARD_ORDER = [
+    "MITRE ATT&CK Enterprise v15",
+    "ФСТЭК БДУ",
+]
 
 ReportGroupBy = Literal["severity", "standard"]
 
@@ -623,9 +642,9 @@ def _standard_section_lines(
     group_repeated: bool = False,
 ) -> list[str]:
     lines: list[str] = []
-    groups = _findings_by_standard(result_findings)
-    for standard in _ordered_standard_names(groups):
-        entries = groups[standard]
+    primary_groups = _findings_by_standard(result_findings, secondary=False)
+    for standard in _ordered_standard_names(primary_groups):
+        entries = primary_groups[standard]
         lines.append(f"=== STANDARD {standard.upper()} ({len(entries)}) ===")
         if group_repeated:
             lines.extend(_grouped_standard_finding_lines(entries))
@@ -633,17 +652,33 @@ def _standard_section_lines(
             for finding, refs in entries:
                 lines.extend(_standard_finding_lines(finding, refs))
         lines.append("")
+    secondary_groups = _findings_by_standard(result_findings, secondary=True)
+    if secondary_groups:
+        total = sum(len(entries) for entries in secondary_groups.values())
+        lines.append(f"=== SECONDARY TAGS ({total}) ===")
+        for standard in _ordered_standard_names(secondary_groups, secondary=True):
+            entries = secondary_groups[standard]
+            lines.append(f"--- {standard} ({len(entries)}) ---")
+            if group_repeated:
+                lines.extend(_grouped_standard_finding_lines(entries))
+            else:
+                for finding, refs in entries:
+                    lines.extend(_standard_finding_lines(finding, refs))
+        lines.append("")
     return lines
 
 
 def _findings_by_standard(
     result_findings: list[Finding],
+    *,
+    secondary: bool,
 ) -> dict[str, list[tuple[Finding, tuple[StandardReference, ...]]]]:
     groups: dict[str, list[tuple[Finding, tuple[StandardReference, ...]]]] = {}
     for finding in result_findings:
-        refs = _standards_for_rule(finding.rule_id)
+        refs = _standards_for_rule(finding.rule_id, secondary=secondary)
         if not refs:
-            groups.setdefault("Unmapped", []).append((finding, ()))
+            if not secondary:
+                groups.setdefault("Unmapped", []).append((finding, ()))
             continue
         refs_by_standard: dict[str, list[StandardReference]] = {}
         for ref in refs:
@@ -655,9 +690,12 @@ def _findings_by_standard(
 
 def _ordered_standard_names(
     groups: dict[str, list[tuple[Finding, tuple[StandardReference, ...]]]],
+    *,
+    secondary: bool = False,
 ) -> list[str]:
-    known = [name for name in _STANDARD_ORDER if name in groups]
-    extra = sorted(name for name in groups if name not in _STANDARD_ORDER)
+    order = _SECONDARY_STANDARD_ORDER if secondary else _STANDARD_ORDER
+    known = [name for name in order if name in groups]
+    extra = sorted(name for name in groups if name not in order)
     return known + extra
 
 
@@ -889,8 +927,11 @@ def _suppressed_finding_payloads(results: list[AnalysisResult]) -> list[dict[str
 def finding_payload(result: AnalysisResult, finding: Finding) -> dict[str, object]:
     payload = finding.model_dump()
     payload["fingerprint"] = finding_fingerprint(result, finding)
-    standards = _standard_ref_payloads(finding.rule_id)
-    payload["standards"] = standards
+    payload["standards"] = _standard_ref_payloads(finding.rule_id)
+    payload["standards_secondary"] = _standard_ref_payloads(
+        finding.rule_id,
+        secondary=True,
+    )
     return payload
 
 
@@ -905,16 +946,27 @@ def _ensure_rule_metadata_loaded() -> None:
     register_external_rule_metas()
 
 
-def _standards_for_rule(rule_id: str) -> tuple[StandardReference, ...]:
+def _standards_for_rule(
+    rule_id: str,
+    *,
+    secondary: bool = False,
+) -> tuple[StandardReference, ...]:
     _ensure_rule_metadata_loaded()
     meta = registry.get_meta(rule_id)
     if meta is None:
         return ()
-    return meta.standards
+    return meta.standards_secondary if secondary else meta.standards
 
 
-def _standard_ref_payloads(rule_id: str) -> list[dict[str, object]]:
-    return [_standard_ref_payload(ref) for ref in _standards_for_rule(rule_id)]
+def _standard_ref_payloads(
+    rule_id: str,
+    *,
+    secondary: bool = False,
+) -> list[dict[str, object]]:
+    return [
+        _standard_ref_payload(ref)
+        for ref in _standards_for_rule(rule_id, secondary=secondary)
+    ]
 
 
 def _standard_ref_payload(ref: StandardReference) -> dict[str, object]:
@@ -927,16 +979,31 @@ def _standard_ref_payload(ref: StandardReference) -> dict[str, object]:
         payload["url"] = ref.url
     if ref.note is not None:
         payload["note"] = ref.note
+    if ref.tier != "primary":
+        payload["tier"] = ref.tier
     return payload
 
 
 def _standards_summary_payload(
     finding_pairs: list[tuple[AnalysisResult, Finding]],
 ) -> list[dict[str, object]]:
-    buckets: dict[tuple[str, str], dict[str, object]] = {}
+    buckets: dict[
+        tuple[str, str, str, str, str | None, str | None],
+        dict[str, object],
+    ] = {}
     for _result, finding in finding_pairs:
-        for ref in _standards_for_rule(finding.rule_id):
-            key = (ref.standard, ref.reference)
+        for ref in (
+            *_standards_for_rule(finding.rule_id),
+            *_standards_for_rule(finding.rule_id, secondary=True),
+        ):
+            key = (
+                ref.tier,
+                ref.standard,
+                ref.reference,
+                ref.coverage,
+                ref.url,
+                ref.note,
+            )
             bucket = buckets.setdefault(
                 key,
                 {
@@ -960,11 +1027,19 @@ def _standards_summary_payload(
     return payload
 
 
-def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, str, str]:
+def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, int, str, str]:
+    tier_order = 1 if entry.get("tier") == "secondary" else 0
     standard = str(entry.get("standard", ""))
     reference = str(entry.get("reference", ""))
-    order = _STANDARD_ORDER.index(standard) if standard in _STANDARD_ORDER else 999
-    return (order, standard, reference)
+    if entry.get("tier") == "secondary":
+        order = (
+            _SECONDARY_STANDARD_ORDER.index(standard)
+            if standard in _SECONDARY_STANDARD_ORDER
+            else 999
+        )
+    else:
+        order = _STANDARD_ORDER.index(standard) if standard in _STANDARD_ORDER else 999
+    return (tier_order, order, standard, reference)
 
 
 def _standard_ref_label(ref: StandardReference) -> str:
