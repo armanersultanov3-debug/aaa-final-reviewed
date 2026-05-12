@@ -3,7 +3,7 @@ from datetime import timezone
 
 import pytest
 
-from webconf_audit.external.recon import ErrorPageProbe, MalformedRequestProbe, OptionsObservation, ProbeAttempt, ProbeTarget, SCTObservation, SensitivePathProbe, ServerIdentification, ServerIdentificationEvidence, TLSCertificateObservation, TLSInfo, analyze_external_target, _match_error_page_body, _match_malformed_response_body, _parse_malformed_response
+from webconf_audit.external.recon import ErrorPageProbe, MalformedRequestProbe, OptionsObservation, ProbeAttempt, ProbeTarget, RuntimeResponseObservation, SCTObservation, SensitivePathProbe, ServerIdentification, ServerIdentificationEvidence, TLSCertificateObservation, TLSInfo, UnknownHostProbe, analyze_external_target, _match_error_page_body, _match_malformed_response_body, _parse_malformed_response
 from webconf_audit.external.rules._helpers import _parse_cert_date
 from webconf_audit.external.rules import hostname_matches_san, run_external_rules
 
@@ -190,12 +190,14 @@ __all__ = [
     "OptionsObservation",
     "ProbeAttempt",
     "ProbeTarget",
+    "RuntimeResponseObservation",
     "SCTObservation",
     "SensitivePathProbe",
     "ServerIdentification",
     "ServerIdentificationEvidence",
     "TLSCertificateObservation",
     "TLSInfo",
+    "UnknownHostProbe",
     "analyze_external_target",
     "hostname_matches_san",
     "http",

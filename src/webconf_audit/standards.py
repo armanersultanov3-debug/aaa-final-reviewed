@@ -34,6 +34,7 @@ _FSTEC_MERA_URL = (
 _PCI_DSS_4_URL = (
     "https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf"
 )
+_CIS_NGINX_V3_0_0_URL = "https://www.cisecurity.org/benchmark/nginx"
 _MITRE_ATTACK_TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
 
@@ -88,6 +89,32 @@ def asvs_5(
         standard="OWASP ASVS",
         reference=f"v5.0.0-{normalized_requirement}",
         url="https://owasp.org/www-project-application-security-verification-standard/",
+        coverage=coverage,
+        note=note,
+    )
+
+
+def cis_nginx_v3_0_0(
+    section: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_section = _normalize_non_empty_text(
+        section,
+        fn_name="cis_nginx_v3_0_0",
+        field_name="section",
+    )
+    if normalized_section.startswith("\N{SECTION SIGN}"):
+        normalized_section = normalized_section[1:].strip()
+    if not normalized_section:
+        raise ValueError(
+            "cis_nginx_v3_0_0: section must include a section number after §."
+        )
+    return StandardReference(
+        standard="CIS",
+        reference=f"NGINX v3.0.0 \N{SECTION SIGN}{normalized_section}",
+        url=_CIS_NGINX_V3_0_0_URL,
         coverage=coverage,
         note=note,
     )
@@ -332,6 +359,7 @@ def rfc(
 __all__ = [
     "asvs_5",
     "bsi_app_3_2",
+    "cis_nginx_v3_0_0",
     "cwe",
     "fstec_bdu",
     "fstec_mera",

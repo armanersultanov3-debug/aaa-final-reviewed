@@ -12,6 +12,9 @@ from webconf_audit.external.rules._https import collect_https_findings
 from webconf_audit.external.rules._methods import collect_method_findings
 from webconf_audit.external.rules._sensitive_paths import collect_sensitive_path_findings
 from webconf_audit.external.rules._tls import collect_tls_findings
+from webconf_audit.external.rules.unknown_host_runtime_response import (
+    find_unknown_host_runtime_response,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import RuleMeta, RuleRegistry, registry
 from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021
@@ -145,6 +148,7 @@ def run_external_rules(
     findings.extend(collect_method_findings(probe_attempts))
     findings.extend(collect_cookie_findings(probe_attempts))
     findings.extend(collect_tls_findings(probe_attempts, target))
+    findings.extend(find_unknown_host_runtime_response(probe_attempts))
     findings.extend(
         collect_sensitive_path_findings(
             path_probes,

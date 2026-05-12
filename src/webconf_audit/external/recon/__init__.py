@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import http.client
 import io
 import socket
 import ssl
+import uuid
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal, NamedTuple
@@ -122,6 +124,10 @@ _BODY_SNIPPET_MAX_BYTES = 512
 _HTML_RECON_BODY_MAX_BYTES = 1024 * 1024
 _ERROR_PAGE_PROBE_PATH = "/_wca_nonexistent_404_probe"
 _ERROR_PAGE_BODY_MAX_BYTES = 2048
+_RUNTIME_BODY_MAX_BYTES = 2 * 1024 * 1024
+_RUNTIME_BODY_READ_CHUNK_BYTES = 64 * 1024
+_UNKNOWN_HOST_REJECTION_STATUS_CODES = frozenset({400, 404, 421, 444})
+_UNKNOWN_HOST_PROBE_LABEL_PREFIX = "webconf-audit-unknown-host"
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +178,38 @@ class RedirectChainAnalysis:
     cross_domain_redirect: bool = False
     truncated: bool = False
     error_message: str | None = None
+
+
+UnknownHostProbeDisposition = Literal[
+    "accepted_different_content",
+    "accepted_same_content",
+    "inconclusive",
+    "rejected",
+    "tls_rejected",
+]
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeResponseObservation:
+    url: str
+    host_header: str
+    status_code: int | None = None
+    reason_phrase: str | None = None
+    body_sha256: str | None = None
+    body_size: int | None = None
+    server_header: str | None = None
+    content_type_header: str | None = None
+    location_header: str | None = None
+    error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class UnknownHostProbe:
+    target: ProbeTarget
+    host_header: str
+    disposition: UnknownHostProbeDisposition
+    baseline_response: RuntimeResponseObservation
+    unknown_host_response: RuntimeResponseObservation
 
 
 # Default error page body signatures.
@@ -237,6 +275,7 @@ class ProbeAttempt:
     html_recon: HTMLRecon | None = None
     tls_info: TLSInfo | None = None
     options_observation: OptionsObservation | None = None
+    unknown_host_probe: UnknownHostProbe | None = None
     error_message: str | None = None
 
     @property
@@ -388,10 +427,12 @@ def _is_bare_host(target: str) -> bool:
 def _build_https_request_bytes(
     probe_target: ProbeTarget,
     method: ProbeMethod,
+    *,
+    host_header: str | None = None,
 ) -> bytes:
     return (
         f"{method} {probe_target.path} HTTP/1.1\r\n"
-        f"Host: {_host_header_value(probe_target)}\r\n"
+        f"Host: {host_header or _host_header_value(probe_target)}\r\n"
         "Accept-Encoding: identity\r\n"
         "Connection: close\r\n"
         "User-Agent: webconf-audit\r\n"
@@ -451,6 +492,9 @@ def analyze_external_target(
             scan_metadata=probe_resolution.scan_metadata,
         )
 
+    unknown_host_probes = _probe_unknown_host_responses(successful_attempts)
+    attempts = _attach_unknown_host_probes(attempts, unknown_host_probes)
+    diagnostics.extend(_unknown_host_probe_diagnostics(unknown_host_probes))
     identification = _identify_server(
         successful_attempts,
         error_page_probes,
@@ -472,6 +516,7 @@ def analyze_external_target(
         sensitive_path_probes=sensitive_path_probes,
         error_page_probes=error_page_probes,
         malformed_request_probes=malformed_request_probes,
+        unknown_host_probes=unknown_host_probes,
         identification=identification,
         scan_metadata=probe_resolution.scan_metadata,
     )
@@ -675,6 +720,7 @@ def _no_http_service_metadata(
         "sensitive_path_probes": [],
         "error_page_probes": [],
         "malformed_request_probes": [],
+        "unknown_host_probes": [],
     }
     if scan_metadata is not None:
         metadata["port_scan"] = scan_metadata
@@ -688,6 +734,7 @@ def _analysis_metadata(
     sensitive_path_probes: list[SensitivePathProbe],
     error_page_probes: list[ErrorPageProbe],
     malformed_request_probes: list[MalformedRequestProbe],
+    unknown_host_probes: list[UnknownHostProbe],
     identification: ServerIdentification,
     scan_metadata: list[dict[str, object]] | None,
 ) -> dict[str, object]:
@@ -708,6 +755,10 @@ def _analysis_metadata(
         "malformed_request_probes": [
             _malformed_request_probe_to_metadata(probe)
             for probe in malformed_request_probes
+        ],
+        "unknown_host_probes": [
+            _unknown_host_probe_to_metadata(probe)
+            for probe in unknown_host_probes
         ],
         "server_identification": _server_identification_to_metadata(identification),
     }
@@ -1643,6 +1694,301 @@ def _try_options_request(probe_target: ProbeTarget) -> OptionsObservation:
         connection.close()
 
 
+def _probe_unknown_host_responses(
+    successful_attempts: list[ProbeAttempt],
+) -> list[UnknownHostProbe]:
+    seen: set[tuple[str, str, int]] = set()
+    probes: list[UnknownHostProbe] = []
+
+    for attempt in successful_attempts:
+        key = (attempt.target.scheme, attempt.target.host, attempt.target.port)
+        if key in seen:
+            continue
+        seen.add(key)
+        probes.append(_probe_unknown_host_response(attempt))
+
+    return probes
+
+
+def _probe_unknown_host_response(attempt: ProbeAttempt) -> UnknownHostProbe:
+    root_target = ProbeTarget(
+        scheme=attempt.target.scheme,
+        host=attempt.target.host,
+        port=attempt.target.port,
+        path="/",
+    )
+    baseline_response = _try_runtime_response(
+        root_target,
+        host_header=_host_header_value(root_target),
+    )
+    unknown_host_header = _unknown_host_probe_hostname()
+    unknown_host_response = _try_runtime_response(
+        root_target,
+        host_header=unknown_host_header,
+    )
+    return UnknownHostProbe(
+        target=root_target,
+        host_header=unknown_host_header,
+        disposition=_classify_unknown_host_probe(
+            baseline_response,
+            unknown_host_response,
+        ),
+        baseline_response=baseline_response,
+        unknown_host_response=unknown_host_response,
+    )
+
+
+def _unknown_host_probe_hostname() -> str:
+    return f"{_UNKNOWN_HOST_PROBE_LABEL_PREFIX}-{uuid.uuid4().hex}.invalid"
+
+
+def _try_runtime_response(
+    probe_target: ProbeTarget,
+    *,
+    host_header: str,
+) -> RuntimeResponseObservation:
+    if probe_target.scheme == "https":
+        return _try_https_runtime_response(
+            probe_target,
+            host_header=host_header,
+        )
+    return _try_http_runtime_response(
+        probe_target,
+        host_header=host_header,
+    )
+
+
+def _try_http_runtime_response(
+    probe_target: ProbeTarget,
+    *,
+    host_header: str,
+) -> RuntimeResponseObservation:
+    connection = _build_connection(probe_target)
+    try:
+        connection.request(
+            "GET",
+            probe_target.path,
+            headers=_runtime_request_headers(host_header),
+        )
+        response = connection.getresponse()
+        body_sha256, body_size, read_error = _read_runtime_response_body(response)
+        return _runtime_response_observation(
+            probe_target=probe_target,
+            host_header=host_header,
+            response=response,
+            body_sha256=body_sha256,
+            body_size=body_size,
+            error_message=read_error,
+        )
+    except (OSError, http.client.HTTPException) as exc:
+        return RuntimeResponseObservation(
+            url=probe_target.url,
+            host_header=host_header,
+            error_message=str(exc),
+        )
+    finally:
+        connection.close()
+
+
+def _try_https_runtime_response(
+    probe_target: ProbeTarget,
+    *,
+    host_header: str,
+) -> RuntimeResponseObservation:
+    raw_sock: socket.socket | None = None
+    tls_conn: _OSSL.Connection | None = None
+    response: http.client.HTTPResponse | None = None
+
+    try:
+        context = _build_observed_tls_context(
+            ocsp_state={"seen": False, "response": b""},
+            sct_state={"response": b""},
+        )
+        raw_sock = socket.create_connection(
+            (probe_target.host, probe_target.port),
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+        raw_sock.settimeout(DEFAULT_TIMEOUT_SECONDS)
+        tls_conn = _OSSL.Connection(context, raw_sock)
+        tls_conn.set_tlsext_host_name(probe_target.host.encode("idna"))
+        tls_conn.set_connect_state()
+        _complete_openssl_handshake(tls_conn)
+
+        request_bytes = _build_https_request_bytes(
+            probe_target,
+            "GET",
+            host_header=host_header,
+        )
+        tls_conn.sendall(request_bytes)
+
+        response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
+        response.begin()
+        body_sha256, body_size, read_error = _read_runtime_response_body(response)
+        return _runtime_response_observation(
+            probe_target=probe_target,
+            host_header=host_header,
+            response=response,
+            body_sha256=body_sha256,
+            body_size=body_size,
+            error_message=read_error,
+        )
+    except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
+        return RuntimeResponseObservation(
+            url=probe_target.url,
+            host_header=host_header,
+            error_message=str(exc),
+        )
+    finally:
+        if response is not None:
+            try:
+                response.close()
+            except Exception:
+                pass
+        if tls_conn is not None:
+            try:
+                tls_conn.close()
+            except Exception:
+                pass
+        if raw_sock is not None:
+            try:
+                raw_sock.close()
+            except Exception:
+                pass
+
+
+def _runtime_request_headers(host_header: str) -> dict[str, str]:
+    return {
+        "Host": host_header,
+        "Accept-Encoding": "identity",
+        "Connection": "close",
+        "User-Agent": "webconf-audit",
+    }
+
+
+def _read_runtime_response_body(
+    response: http.client.HTTPResponse,
+) -> tuple[str | None, int, str | None]:
+    digest = hashlib.sha256()
+    total = 0
+
+    try:
+        while True:
+            chunk = response.read(_RUNTIME_BODY_READ_CHUNK_BYTES)
+            if not chunk:
+                return digest.hexdigest(), total, None
+
+            total += len(chunk)
+            if total > _RUNTIME_BODY_MAX_BYTES:
+                return (
+                    None,
+                    total,
+                    f"runtime response body exceeded {_RUNTIME_BODY_MAX_BYTES} bytes",
+                )
+            digest.update(chunk)
+    except (OSError, http.client.HTTPException) as exc:
+        return None, total, str(exc)
+
+
+def _runtime_response_observation(
+    *,
+    probe_target: ProbeTarget,
+    host_header: str,
+    response: http.client.HTTPResponse,
+    body_sha256: str | None,
+    body_size: int,
+    error_message: str | None,
+) -> RuntimeResponseObservation:
+    return RuntimeResponseObservation(
+        url=probe_target.url,
+        host_header=host_header,
+        status_code=response.status,
+        reason_phrase=response.reason,
+        body_sha256=body_sha256,
+        body_size=body_size,
+        server_header=response.getheader("Server"),
+        content_type_header=response.getheader("Content-Type"),
+        location_header=response.getheader("Location"),
+        error_message=error_message,
+    )
+
+
+def _classify_unknown_host_probe(
+    baseline_response: RuntimeResponseObservation,
+    unknown_host_response: RuntimeResponseObservation,
+) -> UnknownHostProbeDisposition:
+    if (
+        baseline_response.status_code is None
+        or baseline_response.error_message is not None
+    ):
+        return "inconclusive"
+    if unknown_host_response.error_message is not None:
+        if _looks_like_tls_level_rejection(unknown_host_response.error_message):
+            return "tls_rejected"
+        return "inconclusive"
+    if unknown_host_response.status_code is None:
+        return "inconclusive"
+    if (
+        baseline_response.status_code != unknown_host_response.status_code
+        and unknown_host_response.status_code in _UNKNOWN_HOST_REJECTION_STATUS_CODES
+    ):
+        return "rejected"
+    if (
+        unknown_host_response.status_code == 200
+        and baseline_response.body_sha256 is not None
+        and baseline_response.body_sha256 == unknown_host_response.body_sha256
+    ):
+        return "accepted_same_content"
+    if unknown_host_response.status_code == 200:
+        return "accepted_different_content"
+    return "inconclusive"
+
+
+def _looks_like_tls_level_rejection(error_message: str) -> bool:
+    normalized = error_message.lower()
+    return any(
+        token in normalized
+        for token in ("alert", "certificate", "handshake", "ssl", "tls")
+    )
+
+
+def _attach_unknown_host_probes(
+    attempts: list[ProbeAttempt],
+    unknown_host_probes: list[UnknownHostProbe],
+) -> list[ProbeAttempt]:
+    probes_by_target = {
+        probe.target: probe
+        for probe in unknown_host_probes
+    }
+    attached_attempts: list[ProbeAttempt] = []
+    for attempt in attempts:
+        root_target = ProbeTarget(
+            scheme=attempt.target.scheme,
+            host=attempt.target.host,
+            port=attempt.target.port,
+            path="/",
+        )
+        attached_attempts.append(
+            replace(
+                attempt,
+                unknown_host_probe=probes_by_target.get(root_target),
+            )
+        )
+    return attached_attempts
+
+
+def _unknown_host_probe_diagnostics(
+    unknown_host_probes: list[UnknownHostProbe],
+) -> list[str]:
+    return [
+        (
+            "unknown_host_probe: "
+            f"{probe.target.url} host={probe.host_header} "
+            f"disposition={probe.disposition}"
+        )
+        for probe in unknown_host_probes
+    ]
+
+
 def _probe_sensitive_paths(
     successful_attempts: list[ProbeAttempt],
     identification: ServerIdentification | None = None,
@@ -2189,6 +2535,7 @@ def _attempt_to_metadata(attempt: ProbeAttempt) -> dict[str, object]:
         "html_recon": _html_recon_to_metadata(attempt.html_recon),
         "tls_info": _tls_info_to_metadata(attempt.tls_info),
         "options_observation": _options_observation_to_metadata(attempt.options_observation),
+        "unknown_host_probe": _unknown_host_probe_to_metadata(attempt.unknown_host_probe),
         "error_message": attempt.error_message,
     }
 
@@ -2332,6 +2679,39 @@ def _options_observation_to_metadata(
         "allow_header": obs.allow_header,
         "public_header": obs.public_header,
         "error_message": obs.error_message,
+    }
+
+
+def _runtime_response_to_metadata(
+    response: RuntimeResponseObservation,
+) -> dict[str, object]:
+    return {
+        "url": response.url,
+        "host_header": response.host_header,
+        "status_code": response.status_code,
+        "reason_phrase": response.reason_phrase,
+        "body_sha256": response.body_sha256,
+        "body_size": response.body_size,
+        "server_header": response.server_header,
+        "content_type_header": response.content_type_header,
+        "location_header": response.location_header,
+        "error_message": response.error_message,
+    }
+
+
+def _unknown_host_probe_to_metadata(
+    probe: UnknownHostProbe | None,
+) -> dict[str, object] | None:
+    if probe is None:
+        return None
+    return {
+        "target_url": probe.target.url,
+        "host_header": probe.host_header,
+        "disposition": probe.disposition,
+        "baseline_response": _runtime_response_to_metadata(probe.baseline_response),
+        "unknown_host_response": _runtime_response_to_metadata(
+            probe.unknown_host_response
+        ),
     }
 
 
@@ -2863,10 +3243,12 @@ __all__ = [
     "SensitivePathProbe",
     "ProbeMethod",
     "ProbeTarget",
+    "RuntimeResponseObservation",
     "SCTObservation",
     "ServerIdentification",
     "ServerIdentificationEvidence",
     "TLSCertificateObservation",
     "TLSInfo",
+    "UnknownHostProbe",
     "analyze_external_target",
 ]
