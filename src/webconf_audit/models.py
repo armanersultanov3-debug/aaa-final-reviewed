@@ -33,6 +33,7 @@ class Finding(_BaseResultEntry):
     severity: Severity
     description: str
     recommendation: str
+    effective_cause_key: tuple[str, ...] | None = None
 
 
 class AnalysisIssue(_BaseResultEntry):

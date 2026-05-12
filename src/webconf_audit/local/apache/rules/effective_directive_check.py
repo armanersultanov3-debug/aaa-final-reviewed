@@ -119,6 +119,16 @@ def unsafe_effective_group_metadata(
     return {"scope_name": virtualhost_label(affected_contexts[0])}
 
 
+def directive_effective_cause_key(
+    directive: EffectiveDirective,
+) -> tuple[str, ...] | None:
+    file_path = directive.origin.source.file_path
+    line = directive.origin.source.line
+    if file_path is None or line is None:
+        return None
+    return (file_path, str(line))
+
+
 def check_effective_directive_token(
     config_ast: ApacheConfigAst,
     *,
@@ -382,6 +392,7 @@ def _directory_path(block: ApacheBlockNode) -> Path | None:
 
 __all__ = [
     "check_effective_directive_token",
+    "directive_effective_cause_key",
     "group_unsafe_effective_by_source",
     "iter_vhosts_missing_directive",
     "unsafe_effective_group_metadata",
