@@ -31,6 +31,7 @@ def _fresh_registry() -> RuleRegistry:
     reg.ensure_loaded("webconf_audit.local.apache.rules")
     reg.ensure_loaded("webconf_audit.local.lighttpd.rules")
     reg.ensure_loaded("webconf_audit.local.iis.rules")
+    reg.ensure_loaded("webconf_audit.external.rules")
     register_external_rule_metas(reg)
     return reg
 
@@ -59,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 367
+        assert len(full_reg._catalog) == 370
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 281
+        assert len(full_reg._executable) == 284
 
 
 # ---------------------------------------------------------------------------
@@ -92,7 +93,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 86
+        assert len(rules) == 89
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()

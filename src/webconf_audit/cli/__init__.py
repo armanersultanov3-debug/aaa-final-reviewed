@@ -761,6 +761,7 @@ def _ensure_all_rules_loaded() -> None:
     registry.ensure_loaded("webconf_audit.local.apache.rules")
     registry.ensure_loaded("webconf_audit.local.lighttpd.rules")
     registry.ensure_loaded("webconf_audit.local.iis.rules")
+    registry.ensure_loaded("webconf_audit.external.rules")
     register_external_rule_metas()
 
 
