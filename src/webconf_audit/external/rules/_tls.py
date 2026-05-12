@@ -4,6 +4,11 @@ import ipaddress
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from webconf_audit.external.rules.tls_cert_probes import (
+    find_tls_ct_log_evidence_missing,
+    find_tls_must_staple_not_observed,
+    find_tls_weak_signature_algorithm,
+)
 from webconf_audit.external.rules._helpers import (
     _CERT_CHAIN_DEPTH_MAX,
     _CERT_EXPIRY_SOON_DAYS,
@@ -638,6 +643,9 @@ def collect_tls_findings(
     findings.extend(_find_ocsp_stapling_not_observed(probe_attempts))
     findings.extend(_find_cert_chain_incomplete(probe_attempts))
     findings.extend(_find_cert_chain_length_unusual(probe_attempts))
+    findings.extend(find_tls_ct_log_evidence_missing(probe_attempts))
+    findings.extend(find_tls_weak_signature_algorithm(probe_attempts))
+    findings.extend(find_tls_must_staple_not_observed(probe_attempts))
     findings.extend(_find_cert_san_mismatch(probe_attempts, target))
     return findings
 

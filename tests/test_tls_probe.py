@@ -22,6 +22,7 @@ from webconf_audit.external.recon.tls_probe import (
     TLSVersionProbeResult,
     _build_tls_context,
     _probe_single_version,
+    parse_sct_list,
     probe_chain_depth,
     probe_ocsp_stapling,
     probe_server_cipher_preference,
@@ -210,6 +211,39 @@ class TestProbeTlsVersions:
         )
         probe_tls_versions("example.com", 443, timeout=5.0)
         assert all(t == 5.0 for t in captured_timeouts)
+
+
+class TestParseSctList:
+    @staticmethod
+    def _single_sct(*, timestamp_ms: int = 1_700_000_000_000) -> bytes:
+        return b"".join(
+            (
+                b"\x00",
+                b"\x01" * 32,
+                timestamp_ms.to_bytes(8, "big"),
+                b"\x00\x00",
+                b"\x04",
+                b"\x03",
+                b"\x00\x00",
+            )
+        )
+
+    def test_rejects_trailing_bytes_after_declared_length(self) -> None:
+        sct = self._single_sct()
+        serialized = (
+            (2 + len(sct)).to_bytes(2, "big")
+            + len(sct).to_bytes(2, "big")
+            + sct
+            + b"\x00"
+        )
+
+        assert parse_sct_list(serialized) == ()
+
+    def test_rejects_out_of_range_timestamp(self) -> None:
+        sct = self._single_sct(timestamp_ms=2**63 - 1)
+        serialized = (2 + len(sct)).to_bytes(2, "big") + len(sct).to_bytes(2, "big") + sct
+
+        assert parse_sct_list(serialized) == ()
 
 
 class TestSupportedProtocolLabels:
@@ -616,12 +650,11 @@ class TestTlsProbeIntegration:
         tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
         assert tls_meta["supported_protocols"] == []
 
-    def test_tls12_cipher_preference_probe_skipped_when_tls12_unsupported_but_ocsp_still_runs(
+    def test_tls12_cipher_preference_probe_skipped_when_tls12_unsupported(
         self,
         monkeypatch,
     ) -> None:
-        attempt = _make_https_attempt()
-        ocsp_calls: list[tuple[str, int]] = []
+        attempt = _make_https_attempt(ocsp_stapled=True)
         _setup_enrichment_mocks(
             monkeypatch,
             attempt,
@@ -634,17 +667,17 @@ class TestTlsProbeIntegration:
         def fail_preference_probe(*_args, **_kwargs):
             raise AssertionError("TLS 1.2 preference probe should be skipped.")
 
-        def tracking_ocsp_probe(host, port, **_kwargs):
-            ocsp_calls.append((host, port))
-            return OCSPStaplingProbeResult(stapled=True)
-
         monkeypatch.setattr(
             "webconf_audit.external.recon.tls_probe.probe_server_cipher_preference",
             fail_preference_probe,
         )
+
+        def fail_ocsp_probe(*_args, **_kwargs):
+            raise AssertionError("OCSP probe should not run in this scenario.")
+
         monkeypatch.setattr(
             "webconf_audit.external.recon.tls_probe.probe_ocsp_stapling",
-            tracking_ocsp_probe,
+            fail_ocsp_probe,
         )
 
         result = analyze_external_target("example.com")
@@ -654,10 +687,9 @@ class TestTlsProbeIntegration:
             "TLS 1.2 is not supported by the endpoint."
         )
         assert tls_meta["ocsp_stapled"] is True
-        assert ocsp_calls == [("example.com", 443)]
 
     def test_cipher_preference_and_ocsp_in_metadata(self, monkeypatch) -> None:
-        attempt = _make_https_attempt()
+        attempt = _make_https_attempt(ocsp_stapled=False)
         _setup_enrichment_mocks(
             monkeypatch,
             attempt,
@@ -666,7 +698,6 @@ class TestTlsProbeIntegration:
                 first_cipher="ECDHE-RSA-AES128-GCM-SHA256",
                 reversed_cipher="AES128-GCM-SHA256",
             ),
-            ocsp_result=OCSPStaplingProbeResult(stapled=False),
         )
 
         result = analyze_external_target("example.com")

@@ -22,6 +22,7 @@ import socket
 import ssl
 import warnings
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from OpenSSL import SSL as _OSSL
 
@@ -60,6 +61,29 @@ class TLSVersionProbeResult:
     label: str
     supported: bool
     error_message: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SCTObservation:
+    """Serializable view of a Signed Certificate Timestamp."""
+
+    version: str | None = None
+    log_id: str | None = None
+    timestamp: str | None = None
+    entry_type: str | None = None
+    signature_hash_algorithm: str | None = None
+    signature_algorithm: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TLSCertificateObservation:
+    """Observed signature metadata for one certificate in the peer chain."""
+
+    subject: str | None = None
+    issuer: str | None = None
+    signature_oid: str | None = None
+    signature_name: str | None = None
+    self_signed: bool = False
 
 
 # --- Probing ----------------------------------------------------------------
@@ -136,6 +160,126 @@ def supported_protocol_labels(
 ) -> tuple[str, ...]:
     """Extract the labels of supported versions from probe results."""
     return tuple(r.label for r in results if r.supported)
+
+
+def describe_signature_algorithm(signature_oid: str | None, signature_name: str | None) -> str:
+    """Render one signature algorithm in a stable human-readable form."""
+    if signature_name and signature_oid:
+        return f"{signature_name} ({signature_oid})"
+    if signature_name:
+        return signature_name
+    if signature_oid:
+        return signature_oid
+    return "unknown"
+
+
+def signature_algorithm_is_weak(
+    signature_oid: str | None,
+    signature_name: str | None,
+) -> bool:
+    """Return True when a signature algorithm uses MD5 or SHA-1."""
+    combined = " ".join(
+        part.lower()
+        for part in (signature_oid, signature_name)
+        if part
+    )
+    if not combined:
+        return False
+    return any(marker in combined for marker in ("md5", "sha1", "sha-1"))
+
+
+def parse_sct_list(serialized_list: bytes) -> tuple[SCTObservation, ...]:
+    """Parse RFC 6962 SignedCertificateTimestampList bytes."""
+    if len(serialized_list) < 2:
+        return ()
+
+    total_length = int.from_bytes(serialized_list[:2], "big")
+    if len(serialized_list) != 2 + total_length:
+        return ()
+    payload = serialized_list[2:]
+
+    scts: list[SCTObservation] = []
+    cursor = 0
+    while cursor + 2 <= len(payload):
+        item_length = int.from_bytes(payload[cursor:cursor + 2], "big")
+        cursor += 2
+        item = payload[cursor:cursor + item_length]
+        cursor += item_length
+        if len(item) != item_length:
+            return ()
+        parsed = _parse_single_sct(item)
+        if parsed is None:
+            return ()
+        scts.append(parsed)
+
+    if cursor != len(payload):
+        return ()
+    return tuple(scts)
+
+
+def _parse_single_sct(serialized_sct: bytes) -> SCTObservation | None:
+    if len(serialized_sct) < 43:
+        return None
+
+    version = serialized_sct[0]
+    log_id = serialized_sct[1:33]
+    timestamp_ms = int.from_bytes(serialized_sct[33:41], "big")
+    extensions_length = int.from_bytes(serialized_sct[41:43], "big")
+
+    cursor = 43 + extensions_length
+    if cursor + 4 > len(serialized_sct):
+        return None
+
+    hash_algorithm = serialized_sct[cursor]
+    signature_algorithm = serialized_sct[cursor + 1]
+    signature_length = int.from_bytes(serialized_sct[cursor + 2:cursor + 4], "big")
+    cursor += 4
+    if cursor + signature_length != len(serialized_sct):
+        return None
+
+    try:
+        timestamp_text = datetime.fromtimestamp(
+            timestamp_ms / 1000,
+            tz=timezone.utc,
+        ).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
+
+    return SCTObservation(
+        version=_sct_version_name(version),
+        log_id=log_id.hex(),
+        timestamp=timestamp_text,
+        entry_type="x509_certificate",
+        signature_hash_algorithm=_sct_hash_algorithm_name(hash_algorithm),
+        signature_algorithm=_sct_signature_algorithm_name(signature_algorithm),
+    )
+
+
+def _sct_version_name(value: int) -> str:
+    if value == 0:
+        return "v1"
+    return f"unknown({value})"
+
+
+def _sct_hash_algorithm_name(value: int) -> str:
+    return {
+        0: "none",
+        1: "md5",
+        2: "sha1",
+        3: "sha224",
+        4: "sha256",
+        5: "sha384",
+        6: "sha512",
+    }.get(value, f"unknown({value})")
+
+
+def _sct_signature_algorithm_name(value: int) -> str:
+    return {
+        0: "anonymous",
+        1: "rsa",
+        2: "dsa",
+        3: "ecdsa",
+    }.get(value, f"unknown({value})")
 
 
 # --- Cipher preference ------------------------------------------------------
@@ -435,11 +579,16 @@ __all__ = [
     "ChainVerificationResult",
     "CipherPreferenceProbeResult",
     "OCSPStaplingProbeResult",
+    "SCTObservation",
     "TLSVersionProbeResult",
+    "TLSCertificateObservation",
+    "describe_signature_algorithm",
+    "parse_sct_list",
     "probe_chain_depth",
     "probe_ocsp_stapling",
     "probe_server_cipher_preference",
     "probe_tls_versions",
+    "signature_algorithm_is_weak",
     "supported_protocol_labels",
     "verify_certificate_chain",
 ]

@@ -128,6 +128,9 @@ _LEGACY_CATCH_ALL_RULES = frozenset(
         "external.cert_san_mismatch",
         "external.certificate_expired",
         "external.certificate_expires_soon",
+        "external.tls_ct_log_evidence_missing",
+        "external.tls_weak_signature_algorithm",
+        "external.tls_must_staple_not_observed",
         "external.coep_missing",
         "external.content_security_policy_base_uri_not_restricted",
         "external.content_security_policy_missing",
@@ -462,6 +465,8 @@ _TLS_CERTIFICATE_RULES = {
     "external.cert_chain_incomplete",
     "external.cert_san_mismatch",
     "external.cert_chain_length_unusual",
+    "external.tls_ct_log_evidence_missing",
+    "external.tls_weak_signature_algorithm",
 }
 
 _TLS_RENEGOTIATION_RULES = {
@@ -483,6 +488,7 @@ _TLS_STAPLING_RULES = {
     "apache.ssl_use_stapling_not_on",
     "apache.ssl_stapling_cache_missing",
     "external.ocsp_stapling_not_observed",
+    "external.tls_must_staple_not_observed",
 }
 
 _TLS_NO_PLAINTEXT_RULES = {
@@ -1136,7 +1142,7 @@ def _nist_references(rule_id: str) -> list[StandardReference]:
         refs.append(
             nist_sp(
                 "800-52 Rev. 2",
-                "4.2 / 4.3",
+                "4.2" if rule_id == "external.tls_must_staple_not_observed" else "4.2 / 4.3",
                 coverage="partial" if rule_id == "external.ocsp_stapling_not_observed" else "direct",
                 note="Handshake observation only." if rule_id == "external.ocsp_stapling_not_observed" else None,
             )
