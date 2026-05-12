@@ -672,6 +672,14 @@ class TestTlsProbeIntegration:
             fail_preference_probe,
         )
 
+        def fail_ocsp_probe(*_args, **_kwargs):
+            raise AssertionError("OCSP probe should not run in this scenario.")
+
+        monkeypatch.setattr(
+            "webconf_audit.external.recon.tls_probe.probe_ocsp_stapling",
+            fail_ocsp_probe,
+        )
+
         result = analyze_external_target("example.com")
         tls_meta = result.metadata["probe_attempts"][0]["tls_info"]
         assert tls_meta["server_cipher_preference"] is None
