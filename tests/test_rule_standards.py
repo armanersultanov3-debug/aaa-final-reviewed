@@ -48,4 +48,28 @@ def test_direct_iso_references_do_not_apply_catch_all_to_unknown_rule() -> None:
 def test_direct_fstec_references_do_not_apply_catch_all_to_unknown_rule() -> None:
     refs = rule_standards._fstec_references("test.rule")
 
-    assert all(ref.reference != "ЗИС.32" for ref in refs)
+    assert all(not ref.reference.endswith(".32") for ref in refs)
+
+
+def test_direct_catch_all_references_apply_to_migrated_rule_ids() -> None:
+    iso_refs = rule_standards._iso_references("nginx.autoindex_on")
+    fstec_refs = rule_standards._fstec_references("nginx.autoindex_on")
+
+    assert any(ref.reference == "8.27" for ref in iso_refs)
+    assert any(ref.reference.endswith(".32") for ref in fstec_refs)
+
+
+def test_direct_catch_all_references_do_not_apply_to_future_known_rule_ids(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        rule_standards,
+        "_known_rule_ids",
+        lambda: frozenset({"nginx.future_rule"}),
+    )
+
+    iso_refs = rule_standards._iso_references("nginx.future_rule")
+    fstec_refs = rule_standards._fstec_references("nginx.future_rule")
+
+    assert all(ref.reference != "8.27" for ref in iso_refs)
+    assert all(not ref.reference.endswith(".32") for ref in fstec_refs)
