@@ -140,6 +140,7 @@ _LEGACY_CATCH_ALL_RULES = frozenset(
         "external.content_security_policy_object_src_not_none",
         "external.content_security_policy_unsafe_eval",
         "external.content_security_policy_unsafe_inline",
+        "external.script_src_missing_sri",
         "external.cookie_missing_httponly",
         "external.cookie_missing_samesite",
         "external.cookie_missing_secure_on_https",
@@ -695,6 +696,7 @@ _CSP_RULES = {
     "external.content_security_policy_object_src_not_none",
     "external.content_security_policy_base_uri_not_restricted",
     "external.content_security_policy_nonce_reused",
+    "external.script_src_missing_sri",
 }
 
 _CLICKJACKING_RULES = {
@@ -1056,6 +1058,7 @@ def _pci_references(rule_id: str) -> list[StandardReference]:
         "apache.content_security_policy_missing_frame_ancestors",
         "lighttpd.content_security_policy_missing_frame_ancestors",
         "iis.content_security_policy_missing_frame_ancestors",
+        "external.script_src_missing_sri",
     }:
         coverage = "partial" if rule_id.startswith("external.") or rule_id.startswith("universal.") else "direct"
         note = (
@@ -1660,6 +1663,7 @@ def _secondary_references(rule_id: str) -> list[StandardReference]:
         "external.content_security_policy_base_uri_not_restricted",
         "external.content_security_policy_missing_reporting_endpoint",
         "external.content_security_policy_nonce_reused",
+        "external.script_src_missing_sri",
         "external.x_frame_options_missing",
         "external.x_frame_options_invalid",
         "external.x_content_type_options_missing",

@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **373**
+Total rules: **374**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (268), external (92), universal (13) |
-| Severity | high (17), medium (133), low (212), info (11) |
-| Input kind | ast (168), effective (88), probe (92), normalized (13), htaccess (6), mixed (6) |
+| Category | local (268), external (93), universal (13) |
+| Severity | high (17), medium (134), low (212), info (11) |
+| Input kind | ast (168), effective (88), probe (93), normalized (13), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -1021,7 +1021,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 92
+Count: 93
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1083,6 +1083,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.coep_missing` | info | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) |
 | `external.coop_missing` | info | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) |
 | `external.corp_missing` | info | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html) |
+| `external.script_src_missing_sri` | medium | probe | - | [CWE-353](https://cwe.mitre.org/data/definitions/353.html) | [A08:2021](https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/) | [ASVS v5.0.0-3.4.3](https://owasp.org/www-project-application-security-verification-standard/) (partial: SRI on cross-origin scripts only.) | - | [PCI DSS v4.0.1 Req. 6.4.3](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Content Security Policy](https://cheatsheetseries.owasp.org/cheatsheets/Content_Security_Policy_Cheat_Sheet.html) |
 | `external.https_not_available` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 NO PLAINTEXT FALLBACK](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" УПД.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.http_not_redirected_to_https` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 NO PLAINTEXT FALLBACK](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" УПД.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.hsts_header_missing` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 4.2.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" УПД.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)<br>[Cheat Sheet: HTTP Strict Transport Security](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Strict_Transport_Security_Cheat_Sheet.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
@@ -1242,4 +1243,3 @@ Mapping rationale (external probes), grouped by pattern:
   clients into either accepting an unsafe channel or refusing to connect:
   CWE-295 (improper certificate validation, used as the umbrella class for
   the server-side configuration error), OWASP A02.
-

@@ -11,6 +11,7 @@ from urllib.parse import SplitResult, urljoin, urlsplit
 
 from OpenSSL import SSL as _OSSL
 
+from webconf_audit.external.html_recon import HTMLRecon, parse_html_recon
 from webconf_audit.external.safe_probe_catalog import (
     CONDITIONAL_SAFE_PROBE_CONFIDENCES,
     CONDITIONAL_SAFE_PROBE_PATHS_BY_SERVER_TYPE,
@@ -117,6 +118,8 @@ _CONDITIONAL_SENSITIVE_PATH_CONFIDENCES = CONDITIONAL_SAFE_PROBE_CONFIDENCES
 _REDIRECT_STATUS_CODES = frozenset({301, 302, 307, 308})
 _REDIRECT_CHAIN_MAX_HOPS = 5
 _BODY_SNIPPET_MAX_BYTES = 512
+# Bound HTML body parsing to 1 MiB so the safe probe remains lightweight.
+_HTML_RECON_BODY_MAX_BYTES = 1024 * 1024
 _ERROR_PAGE_PROBE_PATH = "/_wca_nonexistent_404_probe"
 _ERROR_PAGE_BODY_MAX_BYTES = 2048
 
@@ -231,6 +234,7 @@ class ProbeAttempt:
     allow_header: str | None = None
     set_cookie_headers: tuple[str, ...] = ()
     body_snippet: str | None = None
+    html_recon: HTMLRecon | None = None
     tls_info: TLSInfo | None = None
     options_observation: OptionsObservation | None = None
     error_message: str | None = None
@@ -281,6 +285,90 @@ class _OpenSSLSocketAdapter:
         return io.BufferedReader(_OpenSSLConnectionReader(self._connection))
 
 
+def _response_content_charset(response: http.client.HTTPResponse) -> str:
+    charset = response.msg.get_content_charset("utf-8")
+    if charset is None:
+        return "utf-8"
+    normalized = charset.strip() or "utf-8"
+    try:
+        "".encode(normalized)
+    except LookupError:
+        return "utf-8"
+    return normalized
+
+
+def _parse_content_length_header(value: str | None) -> int | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    try:
+        parsed = int(normalized)
+    except ValueError:
+        return None
+    return parsed if parsed >= 0 else None
+
+
+def _should_collect_html_recon(
+    *,
+    status_code: int | None,
+    content_type_header: str | None,
+) -> bool:
+    if status_code != 200:
+        return False
+    if content_type_header is None:
+        return False
+    return content_type_header.strip().lower().startswith("text/html")
+
+
+def _decode_response_body(raw_body: bytes, charset: str) -> str | None:
+    try:
+        return raw_body.decode(charset, errors="replace")
+    except LookupError:
+        return raw_body.decode("utf-8", errors="replace")
+    except Exception:
+        return None
+
+
+def _body_snippet_from_raw_body(raw_body: bytes, charset: str) -> str | None:
+    decoded = _decode_response_body(raw_body[:_BODY_SNIPPET_MAX_BYTES], charset)
+    if decoded is None:
+        return None
+    normalized = decoded.strip()
+    return normalized or None
+
+
+def _read_get_body_observations(
+    response: http.client.HTTPResponse,
+    *,
+    status_code: int | None,
+    content_type_header: str | None,
+) -> tuple[str | None, HTMLRecon | None]:
+    charset = _response_content_charset(response)
+    if not _should_collect_html_recon(
+        status_code=status_code,
+        content_type_header=content_type_header,
+    ):
+        raw_body = response.read(_BODY_SNIPPET_MAX_BYTES)
+        return _body_snippet_from_raw_body(raw_body, charset), None
+
+    content_length = _parse_content_length_header(response.getheader("Content-Length"))
+    if content_length is not None and content_length > _HTML_RECON_BODY_MAX_BYTES:
+        raw_body = response.read(_BODY_SNIPPET_MAX_BYTES)
+        return _body_snippet_from_raw_body(raw_body, charset), None
+
+    raw_body = response.read(_HTML_RECON_BODY_MAX_BYTES + 1)
+    body_snippet = _body_snippet_from_raw_body(raw_body, charset)
+    if len(raw_body) > _HTML_RECON_BODY_MAX_BYTES:
+        return body_snippet, None
+
+    body_text = _decode_response_body(raw_body, charset)
+    if body_text is None:
+        return body_snippet, None
+    return body_snippet, parse_html_recon(body_text)
+
+
 def _is_bare_host(target: str) -> bool:
     """Return *True* when *target* is a plain hostname without scheme, port, path, or query."""
     normalized = target.strip()
@@ -295,6 +383,20 @@ def _is_bare_host(target: str) -> bool:
     if split.query:
         return False
     return True
+
+
+def _build_https_request_bytes(
+    probe_target: ProbeTarget,
+    method: ProbeMethod,
+) -> bytes:
+    return (
+        f"{method} {probe_target.path} HTTP/1.1\r\n"
+        f"Host: {_host_header_value(probe_target)}\r\n"
+        "Accept-Encoding: identity\r\n"
+        "Connection: close\r\n"
+        "User-Agent: webconf-audit\r\n"
+        "\r\n"
+    ).encode("ascii")
 
 
 def analyze_external_target(
@@ -939,12 +1041,13 @@ def _try_http_method(
         response = connection.getresponse()
         tls_info = _extract_tls_info(connection, response)
         body_snippet: str | None = None
+        html_recon: HTMLRecon | None = None
         if method == "GET":
-            raw_body = response.read(_BODY_SNIPPET_MAX_BYTES)
-            try:
-                body_snippet = raw_body.decode("utf-8", errors="replace").strip() or None
-            except Exception:
-                body_snippet = None
+            body_snippet, html_recon = _read_get_body_observations(
+                response,
+                status_code=response.status,
+                content_type_header=response.getheader("Content-Type"),
+            )
         else:
             response.read()
         return ProbeAttempt(
@@ -977,6 +1080,7 @@ def _try_http_method(
             allow_header=response.getheader("Allow"),
             set_cookie_headers=tuple(response.msg.get_all("Set-Cookie") or []),
             body_snippet=body_snippet,
+            html_recon=html_recon,
             tls_info=tls_info,
         )
     except (OSError, http.client.HTTPException) as exc:
@@ -1018,25 +1122,20 @@ def _try_https_method(
             sct_state=sct_state,
         )
 
-        request_bytes = (
-            f"{method} {probe_target.path} HTTP/1.1\r\n"
-            f"Host: {_host_header_value(probe_target)}\r\n"
-            "Connection: close\r\n"
-            "User-Agent: webconf-audit\r\n"
-            "\r\n"
-        ).encode("ascii")
+        request_bytes = _build_https_request_bytes(probe_target, method)
         tls_conn.sendall(request_bytes)
 
         response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
         response.begin()
 
         body_snippet: str | None = None
+        html_recon: HTMLRecon | None = None
         if method == "GET":
-            raw_body = response.read(_BODY_SNIPPET_MAX_BYTES)
-            try:
-                body_snippet = raw_body.decode("utf-8", errors="replace").strip() or None
-            except Exception:
-                body_snippet = None
+            body_snippet, html_recon = _read_get_body_observations(
+                response,
+                status_code=response.status,
+                content_type_header=response.getheader("Content-Type"),
+            )
         else:
             response.read()
 
@@ -1070,6 +1169,7 @@ def _try_https_method(
             allow_header=response.getheader("Allow"),
             set_cookie_headers=tuple(response.msg.get_all("Set-Cookie") or []),
             body_snippet=body_snippet,
+            html_recon=html_recon,
             tls_info=tls_info,
         )
     except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
@@ -2029,6 +2129,29 @@ def _optional_diagnostics(
     ]
 
 
+def _html_recon_to_metadata(html_recon: HTMLRecon | None) -> dict[str, object] | None:
+    if html_recon is None:
+        return None
+    return {
+        "external_scripts": [
+            {
+                "src": script.src,
+                "integrity": script.integrity,
+                "crossorigin": script.crossorigin,
+                "nonce": script.nonce,
+            }
+            for script in html_recon.external_scripts
+        ],
+        "inline_scripts": [
+            {
+                "nonce": script.nonce,
+                "body_hash_candidate": script.body_hash_candidate,
+            }
+            for script in html_recon.inline_scripts
+        ],
+    }
+
+
 def _attempt_to_metadata(attempt: ProbeAttempt) -> dict[str, object]:
     return {
         "scheme": attempt.target.scheme,
@@ -2063,6 +2186,7 @@ def _attempt_to_metadata(attempt: ProbeAttempt) -> dict[str, object]:
         "access_control_allow_credentials_header": attempt.access_control_allow_credentials_header,
         "allow_header": attempt.allow_header,
         "set_cookie_headers": list(attempt.set_cookie_headers),
+        "html_recon": _html_recon_to_metadata(attempt.html_recon),
         "tls_info": _tls_info_to_metadata(attempt.tls_info),
         "options_observation": _options_observation_to_metadata(attempt.options_observation),
         "error_message": attempt.error_message,
