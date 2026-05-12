@@ -107,6 +107,10 @@ def cis_nginx_v3_0_0(
     )
     if normalized_section.startswith("\N{SECTION SIGN}"):
         normalized_section = normalized_section[1:].strip()
+    if not normalized_section:
+        raise ValueError(
+            "cis_nginx_v3_0_0: section must include a section number after §."
+        )
     return StandardReference(
         standard="CIS",
         reference=f"NGINX v3.0.0 \N{SECTION SIGN}{normalized_section}",

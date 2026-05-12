@@ -1,3 +1,5 @@
+import hashlib
+
 from tests.external_helpers import (
     ProbeAttempt,
     ProbeTarget,
@@ -133,6 +135,48 @@ def test_unknown_host_rule_does_not_fire_for_tls_level_rejection(monkeypatch) ->
     assert "external.unknown_host_runtime_response" not in {
         finding.rule_id for finding in run_external_rules(probe_attempts, "example.com")
     }
+
+
+class _ChunkedRuntimeResponse:
+    def __init__(self, chunks: list[bytes]) -> None:
+        self._chunks = iter(chunks)
+
+    def read(self, _amt: int = -1) -> bytes:
+        return next(self._chunks, b"")
+
+
+def test_read_runtime_response_body_hashes_chunked_content() -> None:
+    from webconf_audit.external.recon import _read_runtime_response_body
+
+    body_sha256, body_size, error_message = _read_runtime_response_body(
+        _ChunkedRuntimeResponse([b"hello ", b"world"])
+    )
+
+    assert body_sha256 == hashlib.sha256(b"hello world").hexdigest()
+    assert body_size == 11
+    assert error_message is None
+
+
+def test_read_runtime_response_body_enforces_limit() -> None:
+    from webconf_audit.external.recon import (
+        _RUNTIME_BODY_MAX_BYTES,
+        _read_runtime_response_body,
+    )
+
+    body_sha256, body_size, error_message = _read_runtime_response_body(
+        _ChunkedRuntimeResponse(
+            [
+                b"a" * _RUNTIME_BODY_MAX_BYTES,
+                b"b",
+            ]
+        )
+    )
+
+    assert body_sha256 is None
+    assert body_size == _RUNTIME_BODY_MAX_BYTES + 1
+    assert error_message == (
+        f"runtime response body exceeded {_RUNTIME_BODY_MAX_BYTES} bytes"
+    )
 
 
 def test_probe_unknown_host_response_classifies_421_as_rejected(monkeypatch) -> None:

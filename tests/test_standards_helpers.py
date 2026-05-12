@@ -80,6 +80,11 @@ def test_cis_nginx_v3_0_0_uses_canonical_reference_and_url() -> None:
     assert ref.url == "https://www.cisecurity.org/benchmark/nginx"
 
 
+def test_cis_nginx_v3_0_0_rejects_empty_section_after_sign() -> None:
+    with pytest.raises(ValueError, match="section"):
+        cis_nginx_v3_0_0("§")
+
+
 def test_iso_27002_2022_uses_canonical_url() -> None:
     ref = iso_27002_2022("8.24")
 

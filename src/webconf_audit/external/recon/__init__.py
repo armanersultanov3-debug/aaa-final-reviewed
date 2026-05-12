@@ -124,6 +124,8 @@ _BODY_SNIPPET_MAX_BYTES = 512
 _HTML_RECON_BODY_MAX_BYTES = 1024 * 1024
 _ERROR_PAGE_PROBE_PATH = "/_wca_nonexistent_404_probe"
 _ERROR_PAGE_BODY_MAX_BYTES = 2048
+_RUNTIME_BODY_MAX_BYTES = 2 * 1024 * 1024
+_RUNTIME_BODY_READ_CHUNK_BYTES = 64 * 1024
 _UNKNOWN_HOST_REJECTION_STATUS_CODES = frozenset({400, 404, 421, 444})
 _UNKNOWN_HOST_PROBE_LABEL_PREFIX = "webconf-audit-unknown-host"
 
@@ -1769,12 +1771,14 @@ def _try_http_runtime_response(
             headers=_runtime_request_headers(host_header),
         )
         response = connection.getresponse()
-        raw_body = response.read()
+        body_sha256, body_size, read_error = _read_runtime_response_body(response)
         return _runtime_response_observation(
             probe_target=probe_target,
             host_header=host_header,
             response=response,
-            raw_body=raw_body,
+            body_sha256=body_sha256,
+            body_size=body_size,
+            error_message=read_error,
         )
     except (OSError, http.client.HTTPException) as exc:
         return RuntimeResponseObservation(
@@ -1819,12 +1823,14 @@ def _try_https_runtime_response(
 
         response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
         response.begin()
-        raw_body = response.read()
+        body_sha256, body_size, read_error = _read_runtime_response_body(response)
         return _runtime_response_observation(
             probe_target=probe_target,
             host_header=host_header,
             response=response,
-            raw_body=raw_body,
+            body_sha256=body_sha256,
+            body_size=body_size,
+            error_message=read_error,
         )
     except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
         return RuntimeResponseObservation(
@@ -1859,23 +1865,50 @@ def _runtime_request_headers(host_header: str) -> dict[str, str]:
     }
 
 
+def _read_runtime_response_body(
+    response: http.client.HTTPResponse,
+) -> tuple[str | None, int, str | None]:
+    digest = hashlib.sha256()
+    total = 0
+
+    try:
+        while True:
+            chunk = response.read(_RUNTIME_BODY_READ_CHUNK_BYTES)
+            if not chunk:
+                return digest.hexdigest(), total, None
+
+            total += len(chunk)
+            if total > _RUNTIME_BODY_MAX_BYTES:
+                return (
+                    None,
+                    total,
+                    f"runtime response body exceeded {_RUNTIME_BODY_MAX_BYTES} bytes",
+                )
+            digest.update(chunk)
+    except (OSError, http.client.HTTPException) as exc:
+        return None, total, str(exc)
+
+
 def _runtime_response_observation(
     *,
     probe_target: ProbeTarget,
     host_header: str,
     response: http.client.HTTPResponse,
-    raw_body: bytes,
+    body_sha256: str | None,
+    body_size: int,
+    error_message: str | None,
 ) -> RuntimeResponseObservation:
     return RuntimeResponseObservation(
         url=probe_target.url,
         host_header=host_header,
         status_code=response.status,
         reason_phrase=response.reason,
-        body_sha256=hashlib.sha256(raw_body).hexdigest(),
-        body_size=len(raw_body),
+        body_sha256=body_sha256,
+        body_size=body_size,
         server_header=response.getheader("Server"),
         content_type_header=response.getheader("Content-Type"),
         location_header=response.getheader("Location"),
+        error_message=error_message,
     )
 
 
@@ -1883,7 +1916,10 @@ def _classify_unknown_host_probe(
     baseline_response: RuntimeResponseObservation,
     unknown_host_response: RuntimeResponseObservation,
 ) -> UnknownHostProbeDisposition:
-    if baseline_response.status_code is None:
+    if (
+        baseline_response.status_code is None
+        or baseline_response.error_message is not None
+    ):
         return "inconclusive"
     if unknown_host_response.error_message is not None:
         if _looks_like_tls_level_rejection(unknown_host_response.error_message):
