@@ -110,30 +110,12 @@ def _auth_requiring_locations_from_server(
         skip_block_names=_AUTH_SKIP_LOCATION_BLOCKS,
     )
     server_auth_directive = _active_auth_directive(server_auth_state)
-    root_scope_defined = False
-
-    for location in _iter_location_blocks(server):
-        path = _location_path(location)
-        if path is None:
-            continue
-
-        auth_directive = _block_auth_directive(
-            location,
-            inherited_auth_state=server_auth_state,
-        )
-        if path == "/":
-            root_scope_defined = True
-        if auth_directive is None:
-            continue
-
-        locations.append(
-            AuthRequiringLocation(
-                path=path,
-                auth_kind=_auth_kind(auth_directive),
-                requires_tls=has_tls,
-                source=_source_location(auth_directive),
-            )
-        )
+    location_entries, root_scope_defined = _location_auth_entries(
+        server.children,
+        inherited_auth_state=server_auth_state,
+        has_tls=has_tls,
+    )
+    locations.extend(location_entries)
 
     if server_auth_directive is not None and not root_scope_defined:
         locations.append(
@@ -153,15 +135,48 @@ def _server_requires_tls(server: BlockNode) -> bool:
     return bool(listen_points) and all(lp.tls for lp in listen_points)
 
 
-def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
-    locations: list[BlockNode] = []
-    for child in block.children:
-        if not isinstance(child, BlockNode):
+def _location_auth_entries(
+    nodes: list[DirectiveNode | BlockNode],
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None],
+    has_tls: bool,
+) -> tuple[list[AuthRequiringLocation], bool]:
+    locations: list[AuthRequiringLocation] = []
+    root_scope_defined = False
+
+    for node in nodes:
+        if not isinstance(node, BlockNode):
             continue
-        if child.name == "location":
-            locations.append(child)
-        locations.extend(_iter_location_blocks(child))
-    return locations
+
+        child_inherited_state = inherited_auth_state
+        if node.name == "location":
+            path = _location_path(node)
+            child_inherited_state = _block_auth_state(
+                node,
+                inherited_auth_state=inherited_auth_state,
+            )
+            auth_directive = _active_auth_directive(child_inherited_state)
+            if path == "/":
+                root_scope_defined = True
+            if path is not None and auth_directive is not None:
+                locations.append(
+                    AuthRequiringLocation(
+                        path=path,
+                        auth_kind=_auth_kind(auth_directive),
+                        requires_tls=has_tls,
+                        source=_source_location(auth_directive),
+                    )
+                )
+
+        child_locations, child_root_scope_defined = _location_auth_entries(
+            node.children,
+            inherited_auth_state=child_inherited_state,
+            has_tls=has_tls,
+        )
+        locations.extend(child_locations)
+        root_scope_defined = root_scope_defined or child_root_scope_defined
+
+    return locations, root_scope_defined
 
 
 def _block_auth_directive(

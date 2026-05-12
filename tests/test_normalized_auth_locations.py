@@ -341,6 +341,26 @@ def test_nginx_location_root_auth_off_disables_inherited_server_auth():
     assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
+def test_nginx_nested_location_inherits_parent_auth():
+    cfg = _nginx_config(
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        location /admin {\n"
+        '            auth_basic "private";\n'
+        "            location /admin/public {\n"
+        "                proxy_pass http://backend;\n"
+        "            }\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert ("/admin", "basic", False) in _auth_location_set(cfg)
+    assert ("/admin/public", "basic", False) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
 def test_nginx_auth_basic_off_disables_auth_scope():
     cfg = _nginx_config(
         "http {\n"
