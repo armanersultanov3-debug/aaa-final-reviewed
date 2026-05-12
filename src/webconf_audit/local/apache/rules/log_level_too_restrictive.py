@@ -6,6 +6,7 @@ from webconf_audit.local.apache.effective import (
 )
 from webconf_audit.local.apache.parser import ApacheConfigAst
 from webconf_audit.local.apache.rules.effective_directive_check import (
+    directive_effective_cause_key,
     group_unsafe_effective_by_source,
     unsafe_effective_group_metadata,
 )
@@ -83,6 +84,7 @@ def _build_finding(
         recommendation="Use at least warn, notice, or info verbosity.",
         location=directive_location(directive),
         metadata=metadata,
+        effective_cause_key=directive_effective_cause_key(directive),
     )
 
 

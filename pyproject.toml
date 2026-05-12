@@ -8,6 +8,7 @@ dependencies = [
     # lower bounds aligned with the dependency set exercised by the
     # current test environment. Cap the next major so SemVer breakage
     # does not silently land via a fresh `pip install`.
+    "click>=8.1,<9.0",
     "defusedxml>=0.7,<1.0",
     "cryptography>=46.0.7,<47",
     "pydantic>=2.12.5,<3.0",

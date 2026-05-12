@@ -2,6 +2,7 @@ import json
 from enum import Enum
 from typing import cast
 
+import click
 import typer
 
 from webconf_audit.baselines import apply_baseline_diff, load_baseline_file, write_baseline_file
@@ -44,6 +45,8 @@ _SEVERITY_RANK: dict[str, int] = {
     "critical": 4,
 }
 
+_GROUPING_SEQUENCE_META_KEY = "grouping_sequence"
+
 
 def _suppressions_option() -> str | None:
     return typer.Option(
@@ -82,6 +85,7 @@ def _group_by_option() -> GroupBy:
         GroupBy.severity,
         "--group-by",
         help="Text report grouping: severity or standard.",
+        callback=_record_group_by_option,
     )
 
 
@@ -90,6 +94,16 @@ def _group_repeated_option() -> bool:
         False,
         "--group-repeated/--no-group-repeated",
         help="Group repeated findings in text reports while preserving each location.",
+        callback=_record_group_repeated_option,
+    )
+
+
+def _group_by_cause_option() -> bool:
+    return typer.Option(
+        False,
+        "--group-by-cause",
+        help="Group findings by shared effective cause in text and JSON reports.",
+        callback=_record_group_by_cause_option,
     )
 
 
@@ -103,8 +117,21 @@ def _output_result(
     fail_on_new: FailOnSeverity | None = None,
     group_by: GroupBy = GroupBy.severity,
     group_repeated: bool = False,
+    group_by_cause: bool = False,
+    grouping_sequence: list[str] | None = None,
 ) -> None:
     _ensure_all_rules_loaded()
+    if group_by is None:
+        group_by = GroupBy.severity
+    if grouping_sequence is None:
+        ctx = click.get_current_context(silent=True)
+        grouping_sequence = list(_grouping_sequence(ctx)) if ctx is not None else []
+    group_by, group_repeated, group_by_cause = _resolve_grouping_options(
+        group_by=group_by,
+        group_repeated=group_repeated,
+        group_by_cause=group_by_cause,
+        grouping_sequence=grouping_sequence or [],
+    )
     suppression_load_failed = _apply_suppressions(
         result,
         suppressions_path,
@@ -118,9 +145,13 @@ def _output_result(
             result.issues.append(issue)
             baseline_operation_failed = True
     formatter = (
-        TextFormatter(group_by=group_by.value, group_repeated=group_repeated)
+        TextFormatter(
+            group_by=group_by.value,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
         if fmt == OutputFormat.text
-        else JsonFormatter()
+        else JsonFormatter(group_by_cause=group_by_cause)
     )
     typer.echo(formatter.format(report))
     exit_code = _ci_exit_code(
@@ -148,6 +179,74 @@ def _apply_suppressions(
         issue.level == "error" and issue.code.startswith("suppression_")
         for issue in suppression_set.issues
     )
+
+
+def _record_group_by_option(
+    ctx: click.Context,
+    _param: click.Parameter,
+    value: GroupBy,
+) -> GroupBy:
+    if value == GroupBy.standard:
+        _grouping_sequence(ctx).append("standard")
+    return value
+
+
+def _record_group_repeated_option(
+    ctx: click.Context,
+    _param: click.Parameter,
+    value: bool,
+) -> bool:
+    if value:
+        _grouping_sequence(ctx).append("repeated")
+    return value
+
+
+def _record_group_by_cause_option(
+    ctx: click.Context,
+    _param: click.Parameter,
+    value: bool,
+) -> bool:
+    if value:
+        _grouping_sequence(ctx).append("cause")
+    return value
+
+
+def _grouping_sequence(ctx: click.Context) -> list[str]:
+    sequence = ctx.meta.get(_GROUPING_SEQUENCE_META_KEY)
+    if not isinstance(sequence, list):
+        sequence = []
+        ctx.meta[_GROUPING_SEQUENCE_META_KEY] = sequence
+    return sequence
+
+
+def _resolve_grouping_options(
+    *,
+    group_by: GroupBy,
+    group_repeated: bool,
+    group_by_cause: bool,
+    grouping_sequence: list[str],
+) -> tuple[GroupBy, bool, bool]:
+    if len(grouping_sequence) > 1:
+        typer.echo(
+            (
+                "Warning: --group-by standard, --group-repeated, and "
+                "--group-by-cause are mutually exclusive; using the last one "
+                "provided."
+            ),
+            err=True,
+        )
+
+    if not grouping_sequence:
+        return group_by, group_repeated, group_by_cause
+
+    winner = grouping_sequence[-1]
+    if winner == "standard":
+        return GroupBy.standard, False, False
+    if winner == "repeated":
+        return GroupBy.severity, True, False
+    if winner == "cause":
+        return GroupBy.severity, False, True
+    return group_by, group_repeated, group_by_cause
 
 
 def _ci_exit_code(
@@ -247,6 +346,7 @@ def analyze_nginx(
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
 ) -> None:
     result = analyze_nginx_config(config_path)
     _output_result(
@@ -259,6 +359,7 @@ def analyze_nginx(
         fail_on_new,
         group_by,
         group_repeated,
+        group_by_cause,
     )
 
 
@@ -279,6 +380,7 @@ def analyze_apache(
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
 ) -> None:
     result = analyze_apache_config(config_path)
     _output_result(
@@ -291,6 +393,7 @@ def analyze_apache(
         fail_on_new,
         group_by,
         group_repeated,
+        group_by_cause,
     )
 
 
@@ -321,6 +424,7 @@ def analyze_lighttpd(
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
 ) -> None:
     result = analyze_lighttpd_config(
         config_path, execute_shell=execute_shell, host=host,
@@ -335,6 +439,7 @@ def analyze_lighttpd(
         fail_on_new,
         group_by,
         group_repeated,
+        group_by_cause,
     )
 
 
@@ -373,6 +478,7 @@ def analyze_iis(
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
     if machine_config is not None:
@@ -393,6 +499,7 @@ def analyze_iis(
         fail_on_new,
         group_by,
         group_repeated,
+        group_by_cause,
     )
 
 
@@ -453,6 +560,7 @@ def analyze_external(
     fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
 ) -> None:
     parsed_ports: tuple[int, ...] | None = None
     if ports is not None:
@@ -468,6 +576,7 @@ def analyze_external(
         fail_on_new,
         group_by,
         group_repeated,
+        group_by_cause,
     )
 
 

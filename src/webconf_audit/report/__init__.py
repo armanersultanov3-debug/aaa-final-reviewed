@@ -361,9 +361,11 @@ class TextFormatter:
         *,
         group_by: ReportGroupBy = "severity",
         group_repeated: bool = False,
+        group_by_cause: bool = False,
     ) -> None:
         self.group_by = group_by
         self.group_repeated = group_repeated
+        self.group_by_cause = group_by_cause
 
     def format(self, report: ReportData) -> str:
         summary = report.summary()
@@ -380,6 +382,7 @@ class TextFormatter:
                     multi=multi,
                     group_by=self.group_by,
                     group_repeated=self.group_repeated,
+                    group_by_cause=self.group_by_cause,
                 )
             )
 
@@ -496,12 +499,15 @@ def _result_section_lines(
     multi: bool,
     group_by: ReportGroupBy = "severity",
     group_repeated: bool = False,
+    group_by_cause: bool = False,
 ) -> list[str]:
     lines: list[str] = []
     if multi:
         lines.extend(_multi_target_header_lines(result))
     lines.extend(_external_section_lines(result))
-    if group_by == "standard":
+    if group_by_cause:
+        lines.extend(_cause_section_lines(result_findings))
+    elif group_by == "standard":
         lines.extend(
             _standard_section_lines(result_findings, group_repeated=group_repeated)
         )
@@ -554,6 +560,41 @@ def _findings_by_severity(
     return grouped
 
 
+def _cause_section_lines(result_findings: list[Finding]) -> list[str]:
+    lines: list[str] = []
+    cause_groups = _findings_by_cause(result_findings)
+    causal_group_count = len(cause_groups)
+    uncausal_findings = [
+        finding
+        for finding in result_findings
+        if finding.effective_cause_key is None
+    ]
+
+    lines.append(f"=== CAUSE GROUPS ({causal_group_count}) ===")
+    if not cause_groups:
+        lines.append("  none")
+    for cause_key, findings in cause_groups:
+        lines.append(f"  cause: {_cause_key_display(cause_key)}")
+        scopes = _cause_group_scopes(findings)
+        if scopes:
+            lines.append(
+                f"    affected scopes ({len(scopes)}): {', '.join(scopes)}"
+            )
+        lines.append(f"    findings ({len(findings)}):")
+        for finding in findings:
+            lines.extend(_indent_lines(_finding_lines(finding), "      "))
+    lines.append("")
+
+    lines.append(f"=== UNCAUSAL FINDINGS ({len(uncausal_findings)}) ===")
+    if not uncausal_findings:
+        lines.append("  none")
+    else:
+        for finding in uncausal_findings:
+            lines.extend(_finding_lines(finding))
+    lines.append("")
+    return lines
+
+
 def _finding_lines(finding: Finding) -> list[str]:
     lines = [f"  [{finding.rule_id}] {finding.title}"]
     location = format_location(finding.location)
@@ -596,6 +637,56 @@ def _repeated_finding_group_lines(findings: list[Finding]) -> list[str]:
 
 def _finding_location_display(finding: Finding) -> str:
     return format_location(finding.location) or "no location"
+
+
+def _findings_by_cause(
+    findings: list[Finding],
+) -> list[tuple[tuple[str, ...], list[Finding]]]:
+    grouped: dict[tuple[str, ...], list[Finding]] = {}
+    for finding in findings:
+        cause_key = finding.effective_cause_key
+        if cause_key is None:
+            continue
+        grouped.setdefault(cause_key, []).append(finding)
+    return list(grouped.items())
+
+
+def _cause_key_display(cause_key: tuple[str, ...]) -> str:
+    if len(cause_key) == 2 and cause_key[1].isdigit():
+        return f"{cause_key[0]}:{cause_key[1]}"
+    return " | ".join(cause_key)
+
+
+def _cause_group_scopes(findings: list[Finding]) -> list[str]:
+    scopes: list[str] = []
+    seen: set[str] = set()
+    for finding in findings:
+        for scope in _finding_affected_scopes(finding):
+            if scope in seen:
+                continue
+            seen.add(scope)
+            scopes.append(scope)
+    return scopes
+
+
+def _finding_affected_scopes(finding: Finding) -> list[str]:
+    raw_affected_scopes = finding.metadata.get("affected_scopes")
+    if isinstance(raw_affected_scopes, list):
+        scopes = [
+            scope
+            for scope in raw_affected_scopes
+            if isinstance(scope, str) and scope
+        ]
+        if scopes:
+            return scopes
+    scope_name = finding.metadata.get("scope_name")
+    if isinstance(scope_name, str) and scope_name:
+        return [scope_name]
+    return []
+
+
+def _indent_lines(lines: list[str], prefix: str) -> list[str]:
+    return [f"{prefix}{line}" for line in lines]
 
 
 def _finding_groups(findings: list[Finding]) -> list[list[Finding]]:
@@ -794,6 +885,9 @@ def _diagnostic_section_lines(diagnostics: list[str]) -> list[str]:
 class JsonFormatter:
     """Render ReportData as structured JSON."""
 
+    def __init__(self, *, group_by_cause: bool = False) -> None:
+        self.group_by_cause = group_by_cause
+
     def format(self, report: ReportData) -> str:
         summary = report.summary()
         top_level_findings = deduplicated_finding_pairs(report.results)
@@ -818,6 +912,8 @@ class JsonFormatter:
             "standards": _standards_summary_payload(top_level_findings),
             "issues": [i.model_dump() for i in report.all_issues],
         }
+        if self.group_by_cause:
+            payload["cause_groups"] = _cause_group_payloads(top_level_findings)
         return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
@@ -897,6 +993,34 @@ def _finding_group_location_payload(
         "location": finding.location.model_dump() if finding.location else None,
         "fingerprint": finding_fingerprint(result, finding),
     }
+
+
+def _cause_group_payloads(
+    finding_pairs: list[tuple[AnalysisResult, Finding]],
+) -> list[dict[str, object]]:
+    grouped: dict[
+        tuple[str, ...],
+        list[tuple[AnalysisResult, Finding]],
+    ] = {}
+    for result, finding in finding_pairs:
+        cause_key = finding.effective_cause_key
+        if cause_key is None:
+            continue
+        grouped.setdefault(cause_key, []).append((result, finding))
+
+    return [
+        {
+            "cause_key": list(cause_key),
+            "findings": [
+                {
+                    "target": result.target,
+                    **finding_payload(result, finding),
+                }
+                for result, finding in entries
+            ],
+        }
+        for cause_key, entries in grouped.items()
+    ]
 
 
 def _result_payload(result: AnalysisResult) -> dict[str, object]:
