@@ -17,12 +17,17 @@ Python ``ssl`` stdlib does not expose.
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import logging
 import socket
 import ssl
+import sys
 import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
+from pathlib import Path
 
 from OpenSSL import SSL as _OSSL
 
@@ -84,6 +89,156 @@ class TLSCertificateObservation:
     signature_oid: str | None = None
     signature_name: str | None = None
     self_signed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class TLSHandshakeObservation:
+    """Signals observed directly from the negotiated ServerHello."""
+
+    renegotiation_info_observed: bool | None = None
+    negotiated_compression: str | None = None
+    negotiated_cipher_is_aead: bool | None = None
+
+
+_SSL_CTRL_GET_RI_SUPPORT = 76
+
+
+def observe_tls_handshake_features(
+    connection: _OSSL.Connection,
+) -> TLSHandshakeObservation:
+    """Return ServerHello-era observations from the live OpenSSL connection."""
+    ssl_handle = _ssl_handle(connection)
+    if ssl_handle is None:
+        return TLSHandshakeObservation()
+
+    return TLSHandshakeObservation(
+        renegotiation_info_observed=_secure_renegotiation_supported(ssl_handle),
+        negotiated_compression=_negotiated_compression_name(ssl_handle),
+        negotiated_cipher_is_aead=_negotiated_cipher_is_aead(ssl_handle),
+    )
+
+
+def _ssl_handle(connection: _OSSL.Connection) -> ctypes.c_void_p | None:
+    try:
+        pointer = int(_OSSL._ffi.cast("uintptr_t", connection._ssl))
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if pointer == 0:
+        return None
+    return ctypes.c_void_p(pointer)
+
+
+def _secure_renegotiation_supported(
+    ssl_handle: ctypes.c_void_p,
+) -> bool | None:
+    libssl = _load_libssl()
+    if libssl is None:
+        return None
+    try:
+        # OpenSSL implements SSL_get_secure_renegotiation_support() as the
+        # SSL_ctrl(..., SSL_CTRL_GET_RI_SUPPORT, ...) macro.
+        return bool(
+            libssl.SSL_ctrl(
+                ssl_handle,
+                _SSL_CTRL_GET_RI_SUPPORT,
+                0,
+                None,
+            )
+        )
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+def _negotiated_compression_name(
+    ssl_handle: ctypes.c_void_p,
+) -> str | None:
+    libssl = _load_libssl()
+    if libssl is None:
+        return None
+    try:
+        compression = libssl.SSL_get_current_compression(ssl_handle)
+        if not compression:
+            return None
+        compression_name = libssl.SSL_COMP_get_name(compression)
+        if not compression_name:
+            return None
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+    normalized = compression_name.decode("ascii", errors="ignore").strip().lower()
+    if normalized in {"", "null", "none"}:
+        return None
+    return normalized
+
+
+def _negotiated_cipher_is_aead(
+    ssl_handle: ctypes.c_void_p,
+) -> bool | None:
+    libssl = _load_libssl()
+    if libssl is None:
+        return None
+    try:
+        cipher = libssl.SSL_get_current_cipher(ssl_handle)
+        if not cipher:
+            return None
+        return bool(libssl.SSL_CIPHER_is_aead(cipher))
+    except (AttributeError, OSError, TypeError, ValueError):
+        return None
+
+
+@lru_cache(maxsize=1)
+def _load_libssl() -> ctypes.CDLL | None:
+    for candidate in _candidate_libssl_paths():
+        try:
+            libssl = ctypes.CDLL(candidate)
+        except OSError:
+            continue
+
+        libssl.SSL_ctrl.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_long,
+            ctypes.c_void_p,
+        ]
+        libssl.SSL_ctrl.restype = ctypes.c_long
+        libssl.SSL_get_current_compression.argtypes = [ctypes.c_void_p]
+        libssl.SSL_get_current_compression.restype = ctypes.c_void_p
+        libssl.SSL_COMP_get_name.argtypes = [ctypes.c_void_p]
+        libssl.SSL_COMP_get_name.restype = ctypes.c_char_p
+        libssl.SSL_get_current_cipher.argtypes = [ctypes.c_void_p]
+        libssl.SSL_get_current_cipher.restype = ctypes.c_void_p
+        libssl.SSL_CIPHER_is_aead.argtypes = [ctypes.c_void_p]
+        libssl.SSL_CIPHER_is_aead.restype = ctypes.c_int
+        return libssl
+
+    return None
+
+
+def _candidate_libssl_paths() -> tuple[str, ...]:
+    candidates: list[str] = []
+
+    for library_name in (
+        ctypes.util.find_library("ssl"),
+        ctypes.util.find_library("libssl"),
+    ):
+        if library_name:
+            candidates.append(library_name)
+
+    if sys.platform == "win32":
+        for prefix in (sys.base_exec_prefix, sys.exec_prefix):
+            dll_path = Path(prefix) / "DLLs" / "libssl-3.dll"
+            candidates.append(str(dll_path))
+    else:
+        candidates.extend(
+            (
+                "libssl.so.3",
+                "libssl.so",
+                "libssl.3.dylib",
+                "libssl.dylib",
+            )
+        )
+
+    return tuple(dict.fromkeys(candidates))
 
 
 # --- Probing ----------------------------------------------------------------
@@ -580,9 +735,11 @@ __all__ = [
     "CipherPreferenceProbeResult",
     "OCSPStaplingProbeResult",
     "SCTObservation",
+    "TLSHandshakeObservation",
     "TLSVersionProbeResult",
     "TLSCertificateObservation",
     "describe_signature_algorithm",
+    "observe_tls_handshake_features",
     "parse_sct_list",
     "probe_chain_depth",
     "probe_ocsp_stapling",

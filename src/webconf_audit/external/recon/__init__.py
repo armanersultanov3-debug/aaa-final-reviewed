@@ -21,6 +21,7 @@ from webconf_audit.external.recon.tls_probe import (
     SCTObservation,
     TLSCertificateObservation,
     describe_signature_algorithm,
+    observe_tls_handshake_features,
     parse_sct_list,
 )
 from webconf_audit.external.rules import run_external_rules
@@ -73,6 +74,10 @@ class TLSInfo:
     cipher_protocol: str | None = None
     # Subject Alternative Names from the certificate
     cert_san: tuple[str, ...] = ()
+    # Observe-only ServerHello signals from the initial handshake
+    renegotiation_info_observed: bool | None = None
+    negotiated_compression: str | None = None
+    negotiated_cipher_is_aead: bool | None = None
     # Actively probed protocol support (filled by tls_probe, not the main connection)
     supported_protocols: tuple[str, ...] = ()
     # Certificate chain completeness (filled by verify_certificate_chain)
@@ -1186,6 +1191,13 @@ def _extract_tls_info_from_openssl(
     ocsp_state: dict[str, object],
     sct_state: dict[str, bytes],
 ) -> TLSInfo:
+    handshake_observation = observe_tls_handshake_features(connection)
+    handshake_kwargs = {
+        "renegotiation_info_observed": handshake_observation.renegotiation_info_observed,
+        "negotiated_compression": handshake_observation.negotiated_compression,
+        "negotiated_cipher_is_aead": handshake_observation.negotiated_cipher_is_aead,
+    }
+
     try:
         from cryptography import x509  # noqa: PLC0415
         from cryptography.x509.oid import NameOID  # noqa: PLC0415
@@ -1197,6 +1209,7 @@ def _extract_tls_info_from_openssl(
             cipher_protocol=connection.get_cipher_version(),
             ocsp_stapled=_ocsp_stapled_value(ocsp_state),
             stapled_scts=parse_sct_list(sct_state["response"]) if sct_state["response"] else (),
+            **handshake_kwargs,
         )
 
     chain = tuple(
@@ -1225,6 +1238,7 @@ def _extract_tls_info_from_openssl(
                 for cert in chain_certificates
             ),
             ocsp_stapled=_ocsp_stapled_value(ocsp_state),
+            **handshake_kwargs,
         )
 
     return TLSInfo(
@@ -1246,6 +1260,7 @@ def _extract_tls_info_from_openssl(
         ),
         cert_must_staple=_must_staple_present(leaf, x509),
         ocsp_stapled=_ocsp_stapled_value(ocsp_state),
+        **handshake_kwargs,
     )
 
 
@@ -1932,6 +1947,19 @@ def _attempt_tls_diagnostics(tls_info: TLSInfo | None) -> list[str]:
         diagnostics.append(f"cert_not_after: {tls_info.cert_not_after}")
     if tls_info.cert_san:
         diagnostics.append(f"cert_san: {', '.join(tls_info.cert_san)}")
+    if tls_info.renegotiation_info_observed is not None:
+        diagnostics.append(
+            "renegotiation_info_observed: "
+            f"{tls_info.renegotiation_info_observed}"
+        )
+    if tls_info.negotiated_compression is not None:
+        diagnostics.append(
+            f"negotiated_compression: {tls_info.negotiated_compression}"
+        )
+    if tls_info.negotiated_cipher_is_aead is not None:
+        diagnostics.append(
+            f"negotiated_cipher_is_aead: {tls_info.negotiated_cipher_is_aead}"
+        )
     if tls_info.embedded_scts:
         diagnostics.append(f"embedded_sct_count: {len(tls_info.embedded_scts)}")
     if tls_info.stapled_scts:
@@ -2120,6 +2148,9 @@ def _tls_info_to_metadata(tls_info: TLSInfo | None) -> dict[str, object] | None:
         "cipher_bits": tls_info.cipher_bits,
         "cipher_protocol": tls_info.cipher_protocol,
         "cert_san": list(tls_info.cert_san),
+        "renegotiation_info_observed": tls_info.renegotiation_info_observed,
+        "negotiated_compression": tls_info.negotiated_compression,
+        "negotiated_cipher_is_aead": tls_info.negotiated_cipher_is_aead,
         "embedded_scts": [
             {
                 "version": sct.version,

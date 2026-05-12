@@ -189,8 +189,11 @@ _LEGACY_CATCH_ALL_RULES = frozenset(
         "external.tls_1_0_supported",
         "external.tls_1_1_supported",
         "external.tls_1_3_not_supported",
+        "external.tls_aead_cipher_not_negotiated",
         "external.tls_certificate_self_signed",
         "external.tls_forward_secrecy_not_observed",
+        "external.tls_negotiated_compression",
+        "external.tls_secure_renegotiation_not_observed",
         "external.tls_server_cipher_preference_not_observed",
         "external.trace_axd_exposed",
         "external.trace_method_allowed",
@@ -448,6 +451,7 @@ _TLS_CIPHER_RULES = {
     "iis.ssl_weak_cipher_strength",
     "external.weak_cipher_suite",
     "external.tls_forward_secrecy_not_observed",
+    "external.tls_aead_cipher_not_negotiated",
 }
 
 _TLS_SERVER_PREFERENCE_RULES = {
@@ -473,12 +477,14 @@ _TLS_RENEGOTIATION_RULES = {
     "apache.ssl_insecure_renegotiation_enabled",
     "nginx.ssl_conf_command_unsafe_renegotiation_enabled",
     "lighttpd.ssl_insecure_renegotiation_enabled",
+    "external.tls_secure_renegotiation_not_observed",
 }
 
 _TLS_COMPRESSION_RULES = {
     "apache.ssl_compression_enabled",
     "nginx.ssl_conf_command_tls_compression_enabled",
     "lighttpd.ssl_compression_enabled",
+    "external.tls_negotiated_compression",
 }
 
 _TLS_STAPLING_RULES = {
@@ -1090,10 +1096,20 @@ def _nist_references(rule_id: str) -> list[StandardReference]:
             nist_sp(
                 "800-52 Rev. 2",
                 "3.3.1",
-                coverage="partial" if rule_id == "external.tls_forward_secrecy_not_observed" else "direct",
+                coverage=(
+                    "partial"
+                    if rule_id in {
+                        "external.tls_forward_secrecy_not_observed",
+                        "external.tls_aead_cipher_not_negotiated",
+                    }
+                    else "direct"
+                ),
                 note=(
                     "Observed negotiated cipher posture only."
-                    if rule_id == "external.tls_forward_secrecy_not_observed"
+                    if rule_id in {
+                        "external.tls_forward_secrecy_not_observed",
+                        "external.tls_aead_cipher_not_negotiated",
+                    }
                     else None
                 ),
             )
@@ -1125,8 +1141,19 @@ def _nist_references(rule_id: str) -> list[StandardReference]:
             nist_sp(
                 "800-52 Rev. 2",
                 "3.5",
-                coverage="partial" if rule_id.startswith("lighttpd.") else "direct",
-                note="Explicit local directive signal only." if rule_id.startswith("lighttpd.") else None,
+                coverage=(
+                    "partial"
+                    if rule_id.startswith("lighttpd.")
+                    or rule_id == "external.tls_secure_renegotiation_not_observed"
+                    else "direct"
+                ),
+                note=(
+                    "Explicit local directive signal only."
+                    if rule_id.startswith("lighttpd.")
+                    else "Initial handshake advertisement only."
+                    if rule_id == "external.tls_secure_renegotiation_not_observed"
+                    else None
+                ),
             )
         )
     if rule_id in _TLS_COMPRESSION_RULES:
@@ -1134,8 +1161,19 @@ def _nist_references(rule_id: str) -> list[StandardReference]:
             nist_sp(
                 "800-52 Rev. 2",
                 "3.6",
-                coverage="partial" if rule_id.startswith("lighttpd.") else "direct",
-                note="Explicit local directive signal only." if rule_id.startswith("lighttpd.") else None,
+                coverage=(
+                    "partial"
+                    if rule_id.startswith("lighttpd.")
+                    or rule_id == "external.tls_negotiated_compression"
+                    else "direct"
+                ),
+                note=(
+                    "Explicit local directive signal only."
+                    if rule_id.startswith("lighttpd.")
+                    else "Initial handshake observation only."
+                    if rule_id == "external.tls_negotiated_compression"
+                    else None
+                ),
             )
         )
     if rule_id in _TLS_STAPLING_RULES:

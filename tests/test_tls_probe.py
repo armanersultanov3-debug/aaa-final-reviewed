@@ -19,6 +19,7 @@ from webconf_audit.external.recon.tls_probe import (
     ChainVerificationResult,
     CipherPreferenceProbeResult,
     OCSPStaplingProbeResult,
+    TLSHandshakeObservation,
     TLSVersionProbeResult,
     _build_tls_context,
     _probe_single_version,
@@ -537,6 +538,50 @@ def _setup_enrichment_mocks(
         "webconf_audit.external.recon.tls_probe.probe_ocsp_stapling",
         lambda host, port, **kw: ocsp_result,
     )
+
+
+def test_extract_tls_info_from_openssl_records_handshake_observations(
+    monkeypatch,
+) -> None:
+    from webconf_audit.external.recon import _extract_tls_info_from_openssl
+
+    class FakeConnection:
+        def get_protocol_version_name(self) -> str:
+            return "TLSv1.2"
+
+        def get_cipher_name(self) -> str:
+            return "ECDHE-RSA-AES128-CBC-SHA"
+
+        def get_cipher_bits(self) -> int:
+            return 128
+
+        def get_cipher_version(self) -> str:
+            return "TLSv1/SSLv3"
+
+        def get_peer_cert_chain(self) -> list[object]:
+            return []
+
+        def get_peer_certificate(self):
+            return None
+
+    monkeypatch.setattr(
+        "webconf_audit.external.recon.observe_tls_handshake_features",
+        lambda _connection: TLSHandshakeObservation(
+            renegotiation_info_observed=False,
+            negotiated_compression="deflate",
+            negotiated_cipher_is_aead=False,
+        ),
+    )
+
+    tls_info = _extract_tls_info_from_openssl(
+        FakeConnection(),
+        ocsp_state={"seen": False, "response": b""},
+        sct_state={"response": b""},
+    )
+
+    assert tls_info.renegotiation_info_observed is False
+    assert tls_info.negotiated_compression == "deflate"
+    assert tls_info.negotiated_cipher_is_aead is False
 
 
 class TestTlsProbeIntegration:
