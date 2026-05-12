@@ -719,14 +719,22 @@ def _auth_scope_path(block: ApacheBlockNode, config_dir: Path | None) -> str | N
 def _auth_directive_from_block(block: ApacheBlockNode) -> ApacheDirectiveNode | None:
     last_authtype: ApacheDirectiveNode | None = None
     last_require: ApacheDirectiveNode | None = None
+    auth_disabled = False
 
     for directive in _iter_scoped_directives(block.children):
         name = directive.name.lower()
         if name == "authtype" and directive.args:
-            if directive.args[0].strip().lower() != "none":
+            value = directive.args[0].strip().lower()
+            if value == "none":
+                auth_disabled = True
+                last_authtype = None
+                last_require = None
+            else:
+                auth_disabled = False
                 last_authtype = directive
         elif name == "require" and _require_is_authenticating(directive):
-            last_require = directive
+            if not auth_disabled:
+                last_require = directive
 
     return last_authtype or last_require
 
@@ -824,6 +832,8 @@ def _virtualhost_listen_value_is_tls(value: str) -> bool:
     if lowered.endswith(" https"):
         return True
     port = _listen_value_port(lowered)
+    if port is None:
+        return False
     return port != 80
 
 

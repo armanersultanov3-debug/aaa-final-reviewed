@@ -144,8 +144,13 @@ def _block_auth_directive(
 ) -> DirectiveNode | None:
     candidate: DirectiveNode | None = None
     for directive in _iter_auth_directives(block):
+        name = directive.name.lower()
+        if name not in _AUTH_DIRECTIVE_NAMES:
+            continue
         if _is_auth_directive_enabled(directive):
             candidate = directive
+        else:
+            candidate = None
     return candidate
 
 
