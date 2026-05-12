@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 374-rule inventory plus the rule-level work needed to cover the
+existing 375-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -565,6 +565,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | --- | --- | --- |
 | `external.http_not_redirected_to_https` | CIS NGINX v3.0.0 §4.1.1, CIS Apache 2.4 v2.3.0 §7.1 | `nginx.missing_http_to_https_redirect`, `apache.missing_http_to_https_redirect` |
 | `external.https_not_available` | CIS NGINX v3.0.0 §4.1.1, CIS Apache 2.4 v2.3.0 §7.1, CIS IIS 10 v1.2.1 §2.6 | те же + `iis.ssl_not_required`, `iis.basic_auth_without_ssl` |
+| `external.unknown_host_runtime_response` | CIS NGINX v3.0.0 §2.4.2 | `nginx.default_server_not_rejecting_unknown_hosts` |
 | `external.tls_1_0_supported`, `external.tls_1_1_supported` | CIS NGINX v3.0.0 §4.1.4, CIS Apache 2.4 v2.3.0 §7.1, CIS IIS 10 v1.2.1 §7.2-§7.5 | `nginx.weak_ssl_protocols`, `apache.ssl_protocol_missing_or_weak`, `iis.schannel_weak_protocol_enabled` |
 | `external.weak_cipher_suite` | CIS NGINX v3.0.0 §4.1.5, CIS Apache 2.4 v2.3.0 §7.4, CIS IIS 10 v1.2.1 §7.7-§7.9 | `universal.weak_tls_ciphers`, `nginx.ssl_ciphers_weak`, `apache.ssl_cipher_suite_weak`, `lighttpd.weak_ssl_cipher_list` |
 | `external.hsts_*` family | CIS NGINX v3.0.0 §4.1.8, CIS Apache 2.4 v2.3.0 §7.11, CIS IIS 10 v1.2.1 §7.1 | `nginx.missing_hsts_header`, `apache.missing_hsts_header`, `apache.hsts_header_unsafe`, `iis.missing_hsts_header` |
@@ -582,11 +583,11 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 конфиг и не должен утверждать `covered`. Формат:
 `CIS NGINX v3.0.0 §4.1.4 (partial: runtime evidence; primary CIS reference at nginx.weak_ssl_protocols)`.
 
-Дополнительный кандидат для конкретно §2.4.2 default-server reject из
-`docs/standards-roadmap.md`: external эквивалент пока **не реализован**, и
-прямого probe для unknown-Host runtime-rejection в текущем external-наборе
-нет. Это `probe-depth` follow-up: добавить probe «отправляем `Host: random`
-на IP и фиксируем поведение».
+Follow-up для §2.4.2 default-server reject теперь закрыт:
+`external.unknown_host_runtime_response` отправляет синтетический
+unknown-Host probe через `.invalid`-домен и даёт cross-source runtime
+evidence, когда сервер принимает произвольный Host и возвращает тот же
+контент, что и базовый `/`.
 
 ## 8. Слабые места и риски
 
@@ -598,8 +599,8 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 374 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
-  External 93, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
+  обновлён до 375 правил (Nginx 83, Apache 84, Lighttpd 49, IIS 52,
+  External 94, Universal 13), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
   содержат finding-level `standards` и top-level `standards` summary, а text
@@ -607,10 +608,10 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 - **Lighttpd** не имеет CIS-бенчмарка (это правда — его не существует), но и
   **DevSec lighttpd-baseline / lighttpd vendor docs** не закреплены как
   замещающий источник, поэтому колонка `CIS / Vendor` для Lighttpd «слепая».
-- **External probes**: колонка CIS принципиально пуста — это аргументировано
-  (probe ≠ config-level CIS), но для §2.4.2 (default-server reject) и §4.1.1
-  (HTTP→HTTPS redirect) runtime evidence как раз есть. Можно было бы
-  пометить cross-source partial.
+- **External probes**: колонка CIS принципиально остаётся точечной, а не
+  массовой — probe ≠ config-level CIS. Для §2.4.2 (default-server reject) и
+  §4.1.1 (HTTP→HTTPS redirect) runtime evidence уже помечен как
+  cross-source partial, но это дополнение, а не замена локальных правил.
 - **OWASP Cheat Sheet Series** заявлен как companion для external probes, но
   реально нигде не маппится — это потерянный low-effort выигрыш.
 - **ASVS глава V8 (Authentication / Session)** покрыта только косвенно
@@ -658,7 +659,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | STD-GAP-032 | ФСТЭК БДУ | direct-rule | P3 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «ФСТЭК БДУ — Банк данных угроз») в `docs/rule-coverage.md`. Покрыты УБИ.044, УБИ.067, УБИ.072, УБИ.121, УБИ.184 со ссылками на `bdu.fstec.ru`. Правила те же, что для ATT&CK: secondary-only, не заменяет primary standard. |
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | done (2026-05-05) | 10 | ✓ Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Артефакт research-задачи — сама подсекция. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается до фидбека от ИСПДн-пользователей, собранного через `STD-GAP-031`. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | deferred | — | Узкий финтех; делегирует в ISO 27002 / ФСТЭК Меры, которые уже взяты в `STD-GAP-024` / `STD-GAP-031`. |
-| STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 17 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
+| STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 18 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), unknown-Host acceptance (NGINX §2.4.2), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error и version header (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
 | STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (370 правил: Nginx 83, Apache 84, Lighttpd 49, IIS 52, External 89, Universal 13). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
 | STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |

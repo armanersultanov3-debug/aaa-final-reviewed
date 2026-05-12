@@ -67,3 +67,12 @@ def _disable_ambient_iis_live_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     from webconf_audit.local.iis import registry as iis_registry
 
     monkeypatch.setattr(iis_registry, "read_live_registry", lambda: (None, []))
+
+
+@pytest.fixture(autouse=True)
+def _disable_unknown_host_runtime_probe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep unit tests from performing live unknown-Host follow-up probes."""
+    monkeypatch.setattr(
+        "webconf_audit.external.recon._probe_unknown_host_responses",
+        lambda _successful_attempts: [],
+    )

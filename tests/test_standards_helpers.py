@@ -7,6 +7,7 @@ import json
 import pytest
 
 from webconf_audit.standards import (
+    cis_nginx_v3_0_0,
     fstec_bdu,
     fstec_mera,
     iso_27002_2022,
@@ -69,6 +70,14 @@ def test_pci_dss_4_canonicalizes_req_prefix() -> None:
 def test_pci_dss_4_rejects_empty_requirement_after_prefix() -> None:
     with pytest.raises(ValueError, match="requirement number"):
         pci_dss_4("Req.")
+
+
+def test_cis_nginx_v3_0_0_uses_canonical_reference_and_url() -> None:
+    ref = cis_nginx_v3_0_0("2.4.2")
+
+    assert ref.standard == "CIS"
+    assert ref.reference == "NGINX v3.0.0 §2.4.2"
+    assert ref.url == "https://www.cisecurity.org/benchmark/nginx"
 
 
 def test_iso_27002_2022_uses_canonical_url() -> None:
