@@ -9,7 +9,6 @@ from webconf_audit.local.nginx.parser.ast import (
     ConfigAst,
     DirectiveNode,
     find_child_directives,
-    iter_nodes,
 )
 from webconf_audit.local.normalized import (
     AuthRequiringLocation,
@@ -51,7 +50,7 @@ def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
                 if isinstance(child, BlockNode) and child.name == "server":
                     scopes.append(_normalize_server_block(child))
                     auth_requiring_locations.extend(
-                        _auth_requiring_locations_from_server(child, config_ast)
+                        _auth_requiring_locations_from_server(child)
                     )
 
     if not has_http_block:
@@ -92,14 +91,12 @@ def _normalize_server_block(server: BlockNode) -> NormalizedScope:
 
 def _auth_requiring_locations_from_server(
     server: BlockNode,
-    config_ast: ConfigAst,
 ) -> list[AuthRequiringLocation]:
     locations: list[AuthRequiringLocation] = []
     has_tls = _server_requires_tls(server)
-    auth_jwt_loaded = _auth_jwt_module_loaded(config_ast)
 
     for location in _iter_location_blocks(server):
-        auth_directive = _location_auth_directive(location, auth_jwt_loaded)
+        auth_directive = _location_auth_directive(location)
         if auth_directive is None:
             continue
 
@@ -120,17 +117,6 @@ def _server_requires_tls(server: BlockNode) -> bool:
     return bool(listen_points) and all(lp.tls for lp in listen_points)
 
 
-def _auth_jwt_module_loaded(config_ast: ConfigAst) -> bool:
-    for node in iter_nodes(config_ast.nodes):
-        if not isinstance(node, DirectiveNode):
-            continue
-        if node.name != "load_module":
-            continue
-        if any("auth_jwt" in arg.lower() for arg in node.args):
-            return True
-    return False
-
-
 def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
     locations: list[BlockNode] = []
     for child in block.children:
@@ -144,18 +130,16 @@ def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
 
 def _location_auth_directive(
     location: BlockNode,
-    auth_jwt_loaded: bool,
 ) -> DirectiveNode | None:
     candidate: DirectiveNode | None = None
-    for directive in _iter_auth_directives(location, auth_jwt_loaded):
-        if _is_auth_directive_enabled(directive, auth_jwt_loaded):
+    for directive in _iter_auth_directives(location):
+        if _is_auth_directive_enabled(directive):
             candidate = directive
     return candidate
 
 
 def _iter_auth_directives(
     block: BlockNode,
-    auth_jwt_loaded: bool,
 ) -> list[DirectiveNode]:
     directives: list[DirectiveNode] = []
     for child in block.children:
@@ -164,18 +148,15 @@ def _iter_auth_directives(
             continue
         if child.name == "location":
             continue
-        directives.extend(_iter_auth_directives(child, auth_jwt_loaded))
+        directives.extend(_iter_auth_directives(child))
     return directives
 
 
 def _is_auth_directive_enabled(
     directive: DirectiveNode,
-    auth_jwt_loaded: bool,
 ) -> bool:
     name = directive.name.lower()
     if name not in _AUTH_DIRECTIVE_NAMES:
-        return False
-    if name == "auth_jwt" and not auth_jwt_loaded:
         return False
     if not directive.args:
         return False

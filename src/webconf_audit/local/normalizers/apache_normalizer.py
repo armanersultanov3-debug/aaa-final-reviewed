@@ -772,6 +772,8 @@ def _apache_scope_requires_tls(
 
     if not listen_values:
         return False
+    if virtualhost_context is not None:
+        return all(_virtualhost_listen_value_is_tls(value) for value in listen_values)
     return all(_listen_value_is_tls(value) for value in listen_values)
 
 
@@ -798,15 +800,36 @@ def _apache_listen_values(
     values: list[str] = []
     for directive in _iter_top_level_directives(config_ast.nodes):
         if directive.name.lower() == "listen" and directive.args:
-            values.append(directive.args[0])
+            values.append(" ".join(directive.args))
     return values
 
 
 def _listen_value_is_tls(value: str) -> bool:
     lowered = value.strip().lower()
-    if lowered.endswith(":443"):
+    if lowered.endswith(" https"):
         return True
-    return lowered == "443"
+    port = _listen_value_port(lowered)
+    return port == 443
+
+
+def _virtualhost_listen_value_is_tls(value: str) -> bool:
+    lowered = value.strip().lower()
+    if lowered.endswith(" http"):
+        return False
+    if lowered.endswith(" https"):
+        return True
+    port = _listen_value_port(lowered)
+    return port != 80
+
+
+def _listen_value_port(value: str) -> int | None:
+    lowered = value.strip().lower()
+    if lowered.isdigit():
+        return int(lowered)
+    _, _, port_str = lowered.rpartition(":")
+    if port_str.isdigit():
+        return int(port_str)
+    return None
 
 
 def _iter_top_level_directives(

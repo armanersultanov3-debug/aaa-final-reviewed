@@ -41,6 +41,13 @@ def _empty_iis_doc() -> IISConfigDocument:
     )
 
 
+def _auth_location_set(config) -> set[tuple[str, str, bool]]:
+    return {
+        (location.path, location.auth_kind, location.requires_tls)
+        for location in config.auth_requiring_locations
+    }
+
+
 def test_apache_tls_only_auth_scope_does_not_fire():
     cfg = _apache_config(
         "Listen 443 https\n"
@@ -53,7 +60,8 @@ def test_apache_tls_only_auth_scope_does_not_fire():
         "</VirtualHost>\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is True
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", True) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
@@ -69,7 +77,8 @@ def test_apache_plain_listener_fires():
         "</VirtualHost>\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is False
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
@@ -86,7 +95,8 @@ def test_apache_mixed_listener_fires():
         "</VirtualHost>\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is False
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
@@ -98,8 +108,26 @@ def test_apache_require_only_scope_is_extracted():
         "</Location>\n",
     )
 
-    assert cfg.auth_requiring_locations[0].auth_kind == "group"
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/staff", "group", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
+def test_apache_tls_vhost_on_nonstandard_port_still_counts_as_tls():
+    cfg = _apache_config(
+        "Listen 8443\n"
+        "<VirtualHost *:8443>\n"
+        "    SSLEngine On\n"
+        "    <Location /admin>\n"
+        "        AuthType Basic\n"
+        "        Require valid-user\n"
+        "    </Location>\n"
+        "</VirtualHost>\n",
+    )
+
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", True) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
 def test_apache_no_auth_extracted():
@@ -122,7 +150,8 @@ def test_nginx_tls_only_auth_basic_does_not_fire():
         "}\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is True
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", True) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
@@ -139,13 +168,13 @@ def test_nginx_plain_auth_basic_fires():
         "}\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is False
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
 def test_nginx_auth_request_and_auth_jwt_are_extracted():
     cfg = _nginx_config(
-        "load_module modules/ngx_http_auth_jwt_module.so;\n"
         "http {\n"
         "    server {\n"
         "        listen 80;\n"
@@ -159,8 +188,11 @@ def test_nginx_auth_request_and_auth_jwt_are_extracted():
         "}\n",
     )
 
-    assert {loc.path for loc in cfg.auth_requiring_locations} == {"/request", "/jwt"}
-    assert {loc.auth_kind for loc in cfg.auth_requiring_locations} == {"request", "jwt"}
+    assert len(cfg.auth_requiring_locations) == 2
+    assert _auth_location_set(cfg) == {
+        ("/request", "request", False),
+        ("/jwt", "jwt", False),
+    }
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
@@ -178,7 +210,8 @@ def test_nginx_mixed_listeners_fires():
         "}\n",
     )
 
-    assert cfg.auth_requiring_locations[0].requires_tls is False
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
