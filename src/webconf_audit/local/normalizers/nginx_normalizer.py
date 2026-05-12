@@ -32,6 +32,7 @@ _SECURITY_HEADERS = frozenset({
     "permissions-policy",
 })
 _AUTH_DIRECTIVE_NAMES = frozenset({"auth_basic", "auth_request", "auth_jwt"})
+_AUTH_SKIP_LOCATION_BLOCKS = frozenset({"location"})
 
 
 _logger = logging.getLogger(__name__)
@@ -46,11 +47,18 @@ def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
     for node in config_ast.nodes:
         if isinstance(node, BlockNode) and node.name == "http":
             has_http_block = True
+            http_auth_state = _block_auth_state(
+                node,
+                skip_block_names=_AUTH_SKIP_LOCATION_BLOCKS | {"server"},
+            )
             for child in node.children:
                 if isinstance(child, BlockNode) and child.name == "server":
                     scopes.append(_normalize_server_block(child))
                     auth_requiring_locations.extend(
-                        _auth_requiring_locations_from_server(child)
+                        _auth_requiring_locations_from_server(
+                            child,
+                            inherited_auth_state=http_auth_state,
+                        )
                     )
 
     if not has_http_block:
@@ -91,10 +99,16 @@ def _normalize_server_block(server: BlockNode) -> NormalizedScope:
 
 def _auth_requiring_locations_from_server(
     server: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
 ) -> list[AuthRequiringLocation]:
     locations: list[AuthRequiringLocation] = []
     has_tls = _server_requires_tls(server)
-    server_auth_directive = _block_auth_directive(server)
+    server_auth_directive = _block_auth_directive(
+        server,
+        inherited_auth_state=inherited_auth_state,
+        skip_block_names=frozenset({"location"}),
+    )
 
     if server_auth_directive is not None:
         locations.append(
@@ -141,30 +155,64 @@ def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
 
 def _block_auth_directive(
     block: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
 ) -> DirectiveNode | None:
-    candidate: DirectiveNode | None = None
-    for directive in _iter_auth_directives(block):
+    auth_state = _block_auth_state(
+        block,
+        inherited_auth_state=inherited_auth_state,
+        skip_block_names=skip_block_names,
+    )
+    active_directives = [
+        directive for directive in auth_state.values() if directive is not None
+    ]
+    if not active_directives:
+        return None
+    return max(
+        active_directives,
+        key=lambda directive: (directive.source.line, directive.source.column),
+    )
+
+
+def _block_auth_state(
+    block: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
+) -> dict[str, DirectiveNode | None]:
+    auth_state = dict(inherited_auth_state or {})
+    for directive in _iter_auth_directives(
+        block,
+        skip_block_names=skip_block_names,
+    ):
         name = directive.name.lower()
-        if name not in _AUTH_DIRECTIVE_NAMES:
-            continue
         if _is_auth_directive_enabled(directive):
-            candidate = directive
+            auth_state[name] = directive
         else:
-            candidate = None
-    return candidate
+            auth_state[name] = None
+    return auth_state
 
 
 def _iter_auth_directives(
     block: BlockNode,
+    *,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
 ) -> list[DirectiveNode]:
     directives: list[DirectiveNode] = []
     for child in block.children:
         if isinstance(child, DirectiveNode):
-            directives.append(child)
+            if child.name.lower() in _AUTH_DIRECTIVE_NAMES:
+                directives.append(child)
             continue
-        if child.name == "location":
+        if child.name.lower() in skip_block_names:
             continue
-        directives.extend(_iter_auth_directives(child))
+        directives.extend(
+            _iter_auth_directives(
+                child,
+                skip_block_names=skip_block_names,
+            )
+        )
     return directives
 
 

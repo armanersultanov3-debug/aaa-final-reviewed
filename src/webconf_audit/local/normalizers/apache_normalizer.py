@@ -883,7 +883,7 @@ def _iter_auth_scope_blocks_with_virtualhost(
             )
             continue
 
-        if node_name in {"directory", "location", "locationmatch"}:
+        if node_name in {"directory", "directorymatch", "location", "locationmatch"}:
             blocks.append((node, current_virtualhost))
 
         blocks.extend(

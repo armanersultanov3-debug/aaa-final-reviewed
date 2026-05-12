@@ -128,6 +128,20 @@ def test_apache_requireall_scope_is_extracted():
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
+def test_apache_directorymatch_scope_is_extracted():
+    cfg = _apache_config(
+        "Listen 80\n"
+        "<DirectoryMatch ^/var/www/private>\n"
+        "    AuthType Basic\n"
+        "    Require valid-user\n"
+        "</DirectoryMatch>\n",
+    )
+
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("^/var/www/private", "basic", False) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
 def test_apache_tls_vhost_on_nonstandard_port_still_counts_as_tls():
     cfg = _apache_config(
         "Listen 8443\n"
@@ -256,6 +270,41 @@ def test_nginx_server_level_auth_is_extracted_as_root_scope():
 
     assert ("/", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
+def test_nginx_http_level_auth_is_inherited():
+    cfg = _nginx_config(
+        "http {\n"
+        '    auth_basic "private";\n'
+        "    server {\n"
+        "        listen 80;\n"
+        "        location /admin {\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert ("/", "basic", False) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
+def test_nginx_server_auth_off_disables_inherited_http_auth():
+    cfg = _nginx_config(
+        "http {\n"
+        '    auth_basic "private";\n'
+        "    server {\n"
+        "        listen 80;\n"
+        "        auth_basic off;\n"
+        "        location /admin {\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert cfg.auth_requiring_locations == ()
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
 
 
 def test_nginx_auth_basic_off_disables_auth_scope():
