@@ -45,6 +45,7 @@ _SECURITY_HEADERS = frozenset(
 _TRANSPARENT_WRAPPER_BLOCKS = frozenset(
     {"if", "ifdefine", "ifmodule", "ifversion", "else", "elseif"}
 )
+_AUTH_WRAPPER_BLOCKS = frozenset({"requireall", "requireany"})
 _AUTH_REQUIRE_VALUES = frozenset({"valid-user", "user", "group"})
 
 
@@ -624,7 +625,7 @@ def _iter_scoped_directives(
     for node in nodes:
         if isinstance(node, ApacheDirectiveNode):
             directives.append(node)
-        elif node.name.lower() in _TRANSPARENT_WRAPPER_BLOCKS:
+        elif node.name.lower() in (_TRANSPARENT_WRAPPER_BLOCKS | _AUTH_WRAPPER_BLOCKS):
             directives.extend(_iter_scoped_directives(node.children))
     return directives
 
@@ -757,7 +758,11 @@ def _apache_scope_requires_tls(
     virtualhost_context: ApacheVirtualHostContext | None,
 ) -> bool:
     if virtualhost_context is None:
-        if not _apache_server_tls_enabled(config_ast, virtualhost_context=None):
+        server_tls = _apache_server_tls_enabled(
+            config_ast,
+            virtualhost_context=None,
+        )
+        if not server_tls:
             return False
         listen_values = _apache_listen_values(config_ast, virtualhost_context=None)
     else:
@@ -774,7 +779,7 @@ def _apache_scope_requires_tls(
         return False
     if virtualhost_context is not None:
         return all(_virtualhost_listen_value_is_tls(value) for value in listen_values)
-    return all(_listen_value_is_tls(value) for value in listen_values)
+    return all(_listen_value_is_tls(value) or server_tls for value in listen_values)
 
 
 def _apache_server_tls_enabled(

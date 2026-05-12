@@ -113,6 +113,21 @@ def test_apache_require_only_scope_is_extracted():
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 
+def test_apache_requireall_scope_is_extracted():
+    cfg = _apache_config(
+        "Listen 80\n"
+        "<Location /staff>\n"
+        "    <RequireAll>\n"
+        "        Require valid-user\n"
+        "    </RequireAll>\n"
+        "</Location>\n",
+    )
+
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/staff", "valid-user", False) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
 def test_apache_tls_vhost_on_nonstandard_port_still_counts_as_tls():
     cfg = _apache_config(
         "Listen 8443\n"
@@ -123,6 +138,21 @@ def test_apache_tls_vhost_on_nonstandard_port_still_counts_as_tls():
         "        Require valid-user\n"
         "    </Location>\n"
         "</VirtualHost>\n",
+    )
+
+    assert len(cfg.auth_requiring_locations) == 1
+    assert ("/admin", "basic", True) in _auth_location_set(cfg)
+    assert "universal.tls_required_for_authenticated_routes" not in _rule_ids(cfg)
+
+
+def test_apache_global_ssl_on_nonstandard_port_counts_as_tls():
+    cfg = _apache_config(
+        "Listen 8443\n"
+        "SSLEngine On\n"
+        "<Location /admin>\n"
+        "    AuthType Basic\n"
+        "    Require valid-user\n"
+        "</Location>\n",
     )
 
     assert len(cfg.auth_requiring_locations) == 1
@@ -193,6 +223,23 @@ def test_nginx_auth_request_and_auth_jwt_are_extracted():
         ("/request", "request", False),
         ("/jwt", "jwt", False),
     }
+    assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
+
+
+def test_nginx_server_level_auth_is_extracted_as_root_scope():
+    cfg = _nginx_config(
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        '        auth_basic "private";\n'
+        "        location /admin {\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+    )
+
+    assert ("/", "basic", False) in _auth_location_set(cfg)
     assert "universal.tls_required_for_authenticated_routes" in _rule_ids(cfg)
 
 

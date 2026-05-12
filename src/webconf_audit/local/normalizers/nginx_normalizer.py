@@ -94,9 +94,20 @@ def _auth_requiring_locations_from_server(
 ) -> list[AuthRequiringLocation]:
     locations: list[AuthRequiringLocation] = []
     has_tls = _server_requires_tls(server)
+    server_auth_directive = _block_auth_directive(server)
+
+    if server_auth_directive is not None:
+        locations.append(
+            AuthRequiringLocation(
+                path="/",
+                auth_kind=_auth_kind(server_auth_directive),
+                requires_tls=has_tls,
+                source=_source_location(server_auth_directive),
+            )
+        )
 
     for location in _iter_location_blocks(server):
-        auth_directive = _location_auth_directive(location)
+        auth_directive = _block_auth_directive(location)
         if auth_directive is None:
             continue
 
@@ -128,11 +139,11 @@ def _iter_location_blocks(block: BlockNode) -> list[BlockNode]:
     return locations
 
 
-def _location_auth_directive(
-    location: BlockNode,
+def _block_auth_directive(
+    block: BlockNode,
 ) -> DirectiveNode | None:
     candidate: DirectiveNode | None = None
-    for directive in _iter_auth_directives(location):
+    for directive in _iter_auth_directives(block):
         if _is_auth_directive_enabled(directive):
             candidate = directive
     return candidate
