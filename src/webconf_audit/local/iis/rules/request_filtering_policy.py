@@ -24,6 +24,14 @@ REMOVE_SERVER_HEADER_RULE_ID = "iis.request_filtering_remove_server_header_disab
 
 _MAX_URL_THRESHOLD = 4096
 _MAX_QUERY_STRING_THRESHOLD = 2048
+_REQUEST_FILTERING_PATH = "system.webServer/security/requestFiltering"
+_REQUEST_LIMITS_PATH = "system.webServer/security/requestFiltering/requestLimits"
+_FILE_EXTENSIONS_PATH = "system.webServer/security/requestFiltering/fileExtensions"
+_REQUEST_FILTERING_ANCHORS = (
+    _REQUEST_FILTERING_PATH,
+    "system.webServer/security",
+    "system.webServer",
+)
 
 
 @rule(
@@ -141,19 +149,17 @@ def find_file_extensions_allow_unlisted(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
     if effective_config is not None:
-        findings = [
-            _effective_file_extensions_finding(section)
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/fileExtensions"
-            and _allows_unlisted_by_default(section.attributes.get("allowUnlisted"))
-        ]
-        findings.extend(
-            _effective_file_extensions_missing_finding(section)
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/requestFiltering"
-            and not is_pure_inheritance(section)
-            and not _has_file_extensions_section(effective_config, section.location_path)
-        )
+        findings: list[Finding] = []
+        for scope in _effective_request_filtering_scopes(effective_config):
+            section = effective_config.get_effective_or_default_section(
+                _FILE_EXTENSIONS_PATH,
+                location_path=scope.location_path,
+                anchor_paths=_REQUEST_FILTERING_ANCHORS,
+            )
+            if section is None:
+                continue
+            if _allows_unlisted_by_default(section.attributes.get("allowUnlisted")):
+                findings.append(_effective_file_extensions_finding(section))
         return findings
 
     findings = [
@@ -223,13 +229,18 @@ def find_request_filtering_remove_server_header_disabled(
     doc: IISConfigDocument, *, effective_config: IISEffectiveConfig | None = None,
 ) -> list[Finding]:
     if effective_config is not None:
-        return [
-            _effective_remove_server_header_finding(section)
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/requestFiltering"
-            and not is_pure_inheritance(section)
-            and _is_not_true(section.attributes.get("removeServerHeader"))
-        ]
+        findings: list[Finding] = []
+        for scope in _effective_request_filtering_scopes(effective_config):
+            section = effective_config.get_effective_or_default_section(
+                _REQUEST_FILTERING_PATH,
+                location_path=scope.location_path,
+                anchor_paths=("system.webServer/security", "system.webServer"),
+            )
+            if section is None:
+                continue
+            if _is_not_true(section.attributes.get("removeServerHeader")):
+                findings.append(_effective_remove_server_header_finding(section))
+        return findings
     return [
         _raw_remove_server_header_finding(section)
         for section in doc.sections
@@ -266,9 +277,15 @@ def _limit_findings(
                 title=title,
                 unit_label=unit_label,
             )
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/requestLimits"
-            and not is_pure_inheritance(section)
+            for scope in _effective_request_filtering_scopes(effective_config)
+            if (
+                section := effective_config.get_effective_or_default_section(
+                    _REQUEST_LIMITS_PATH,
+                    location_path=scope.location_path,
+                    anchor_paths=_REQUEST_FILTERING_ANCHORS,
+                )
+            )
+            is not None
         ]
     else:
         findings = [
@@ -308,28 +325,17 @@ def _missing_limit_findings(
                 unit_label=unit_label,
                 recommendation=recommendation,
             )
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/requestLimits"
-            and not is_pure_inheritance(section)
+            for scope in _effective_request_filtering_scopes(effective_config)
+            if (
+                section := effective_config.get_effective_or_default_section(
+                    _REQUEST_LIMITS_PATH,
+                    location_path=scope.location_path,
+                    anchor_paths=_REQUEST_FILTERING_ANCHORS,
+                )
+            )
+            is not None
             and not str(section.attributes.get(attribute, "")).strip()
         ]
-        findings.extend(
-            _missing_limit_finding_for_section(
-                section,
-                attribute=attribute,
-                rule_id=rule_id,
-                title=title,
-                unit_label=unit_label,
-                recommendation=recommendation,
-            )
-            for section in effective_config.all_sections
-            if section.section_path_suffix == "/requestFiltering"
-            and not is_pure_inheritance(section)
-            and not _has_effective_request_limits_section(
-                effective_config,
-                section.location_path,
-            )
-        )
         return findings
 
     findings = [
@@ -348,20 +354,6 @@ def _missing_limit_findings(
             _raw_request_limits_attribute(doc, section.location_path, attribute) or "",
         ).strip()
     ]
-    findings.extend(
-        _missing_limit_finding(
-            raw_location(section),
-            context_suffix="",
-            attribute=attribute,
-            rule_id=rule_id,
-            title=title,
-            unit_label=unit_label,
-            recommendation=recommendation,
-        )
-        for section in doc.sections
-        if section.tag == "requestFiltering"
-        and not _has_raw_request_limits_section(doc, section.location_path)
-    )
     return findings
 
 
@@ -441,6 +433,24 @@ def _missing_limit_finding(
 
 def _effective_file_extensions_finding(section: IISEffectiveSection) -> Finding:
     ctx = location_context(section)
+    if section.materialized_from_defaults:
+        description = (
+            f"IIS request filtering allows unlisted file extensions by default{ctx}. "
+            "The schema-default policy allows unlisted extensions, so unexpected "
+            "file types may reach the application."
+        )
+        recommendation = (
+            'Set fileExtensions allowUnlisted="false" and add only required '
+            "file extensions."
+        )
+        return Finding(
+            rule_id=FILE_EXTENSIONS_RULE_ID,
+            title="Request filtering allows unlisted file extensions",
+            severity="medium",
+            description=description,
+            recommendation=recommendation,
+            location=effective_location(section),
+        )
     return Finding(
         rule_id=FILE_EXTENSIONS_RULE_ID,
         title="Request filtering allows unlisted file extensions",
@@ -629,15 +639,23 @@ def _effective_remove_server_header_finding(
     section: IISEffectiveSection,
 ) -> Finding:
     ctx = location_context(section)
+    if section.materialized_from_defaults:
+        description = (
+            f"IIS request filtering leaves native Server header removal disabled "
+            f"by default{ctx}. The default IIS Server header can disclose server "
+            "technology and version information."
+        )
+    else:
+        description = (
+            f"IIS request filtering explicitly disables native Server header "
+            f"removal{ctx}. The default IIS Server header can disclose server "
+            "technology and version information."
+        )
     return Finding(
         rule_id=REMOVE_SERVER_HEADER_RULE_ID,
         title="IIS Server header removal is disabled",
         severity="low",
-        description=(
-            f"IIS request filtering explicitly disables native Server header "
-            f"removal{ctx}. The default IIS Server header can disclose server "
-            "technology and version information."
-        ),
+        description=description,
         recommendation='Set requestFiltering removeServerHeader="true" to suppress the native IIS Server header.',
         location=effective_location(section),
     )
@@ -668,3 +686,14 @@ def _is_not_true(value: object) -> bool:
 
 def _allows_unlisted_by_default(value: object) -> bool:
     return str(value).strip().lower() != "false"
+
+
+def _effective_request_filtering_scopes(
+    effective_config: IISEffectiveConfig,
+) -> list[IISEffectiveSection]:
+    return [
+        section
+        for section in effective_config.all_sections
+        if section.section_path == "system.webServer"
+        and not is_pure_inheritance(section)
+    ]
