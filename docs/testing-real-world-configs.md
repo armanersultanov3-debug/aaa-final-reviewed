@@ -113,6 +113,23 @@ dedicated local rules for them:
 These gaps are useful future rule candidates, but tests should not pretend that
 the current analyzer detects them.
 
+## Deferred rule candidates
+
+These reference gaps stay documented as deferred follow-up ideas rather than
+current expected findings:
+
+- Nginx CRLF/HTTP response splitting via `return ... $uri`: `direct-rule`
+  (deferred) - requires careful false-positive guards on `$uri`
+  interpolation contexts.
+- User-controlled `proxy_pass` SSRF: `parser-depth` (deferred) - needs
+  taint-tracking through Nginx variables before a local rule would be honest.
+- Host header spoofing in local Nginx config: `direct-rule` (deferred) - the
+  pattern is clear, but the priority is currently low.
+- Raw backend response reading: `research` (deferred) - signal design is still
+  incomplete and there is no clear directive-level marker yet.
+- Gixy alias traversal `location /static` -> `alias /path/`: `direct-rule`
+  (deferred) - natural future extension of `nginx.alias_without_trailing_slash`.
+
 ## Run Static Tests
 
 ```powershell

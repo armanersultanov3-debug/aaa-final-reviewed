@@ -360,10 +360,10 @@ Nginx CIS v3.0.0 gap table:
 | CIS section | Gap type | Current coverage / follow-up |
 | --- | --- | --- |
 | §1.1.1, §1.2.1, §1.2.2 | `out-of-scope` | Installation, repository, and package-version posture need host/package-manager inventory, which is outside web-server config / safe external analysis. |
-| §2.1.1 | `research` | Dynamic module minimization needs an allowed-module policy before a rule can decide which `load_module` entries are unnecessary. |
+| §2.1.1 | `out-of-scope` | Dynamic module minimization needs an operator-defined allowed-module policy; a generic scanner rule cannot decide which `load_module` entries are unnecessary across deployments. |
 | §2.2.1-§2.2.3 | `out-of-scope` | Service-account user, lock state, and shell require OS account inspection, which is outside the tool scope. |
 | §2.3.1-§2.3.3 | `out-of-scope` | Ownership, permissions, and PID-file checks require filesystem metadata, which is outside the tool scope. |
-| §2.4.1 | `research` | Authorized listening ports require an environment-specific approved-port policy. |
+| §2.4.1 | `out-of-scope` | Authorized listening ports require an environment-specific approved-port policy, so a generic scanner cannot define the correct allowlist. |
 | §2.4.2 | `direct-rule` | Current coverage validates configured `default_server` rejection behavior through `nginx.default_server_not_rejecting_unknown_hosts` plus explicit `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on` signals, `nginx.default_tls_server_not_rejecting_unknown_hosts` covers the first/default TLS catch-all case for each listen key, and `external.unknown_host_runtime_response` adds partial runtime corroboration when a synthetic unknown Host returns the baseline site content. First/default non-TLS behavior without an explicit `default_server` remains environment-specific in local-only analysis. |
 | §2.5.2 | `covered` | `external.nginx.default_index_page_body` adds partial runtime evidence for the stock nginx root-page marker, and `external.nginx.default_welcome_page` remains the broader placeholder-page exposure signal. |
 | §2.5.4 | `parser-depth` | Reverse-proxy disclosure checks need proxy-header semantics beyond the current generic header rules. |
@@ -374,9 +374,9 @@ Nginx CIS v3.0.0 gap table:
 | §4.1.2 | `probe-depth` | Trusted certificate and chain validation is runtime/certificate data, not fully knowable from local `ssl_certificate` paths alone. |
 | §4.1.3 | `out-of-scope` | Private-key permission checks require filesystem metadata, which is outside web-server config / safe external analysis. |
 | §4.1.5 | `direct-rule` | Covered by `nginx.missing_ssl_ciphers` plus `nginx.ssl_ciphers_weak` for conservative weak-component / FS / AEAD cipher-string posture; runtime negotiation and full SSL Labs-style validation remain out of scope for local-only analysis. |
-| §4.1.6 | `research` | TLS 1.3 Diffie-Hellman awareness is mostly operational guidance; define a scanner signal before adding a rule. |
+| §4.1.6 | `out-of-scope` | TLS 1.3 Diffie-Hellman group choice is mostly operational: client offers drive the negotiated group, and the scanner cannot prove a correct posture without organisation-specific policy. |
 | §4.1.9, §4.1.10 | `direct-rule` | Covered by `nginx.ssl_session_timeout_missing_or_invalid` and `nginx.ssl_session_cache_missing` for local `http` / `server` scopes; upstream proxy TLS trust checks need their own benchmark mapping if added later. |
-| §4.1.12 | `research` | HTTP/3 configuration is version/build dependent; define supported directive signals before mapping it. |
+| §4.1.12 | `direct-rule` (deferred) | A future rule can key off `quic=on` or `http3` in `listen`, but the signal is low priority and stays deferred until HTTP/3 deployments warrant dedicated coverage. |
 | §5.1.1 | `manual-context` | Current coverage checks missing sensitive-location access controls and flags non-IP controls, deny-only exclusions, and `satisfy any` auth bypasses that lack an effective restrictive `allow`/`deny all` policy. Full coverage still depends on the operator's sensitive-path catalogue and runtime location matching. |
 | §5.1.2 | `covered` | `nginx.missing_http_method_restrictions` covers missing sensitive-scope method policy, `nginx.missing_allowed_methods_restriction_for_uploads` covers upload-like handlers, `nginx.http_method_policy_allows_unapproved` catches unsafe explicit allowlists, and `nginx.sitewide_http_method_policy_missing` adds a conservative whole-scope approved-method signal across `limit_except` plus equivalent `if`/`map`/`return` patterns when root request handling is exposed. |
 | §5.2.4-§5.2.5 | `manual-context` | Current connection/rate-limit rules now check presence, defined zones, per-IP keys, positive connection limits, and positive request rates; remaining CIS judgment is whether the chosen values and application scopes are reasonable for the deployment. |
@@ -1028,7 +1028,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §4.11/§5.1/§5.3 | `out-of-scope` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals and are outside the tool scope. |
 | §6.1/§6.2 | `out-of-scope` | FTP encryption and FTP logon attempt restrictions stay outside the web-server HTTP configuration scope unless FTP analysis becomes a product goal. |
 | §7.1-§7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_weak_protocol_enabled`, `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence; runtime negotiation evidence and complete source collection remain follow-up. |
-| CIS IIS 7/8 archive PDFs | `research` | Local archive PDFs are historical context only; they must not become primary references unless a future PR explicitly scopes legacy IIS. |
+| CIS IIS 7/8 archive PDFs | `out-of-scope` | IIS 7/8 is not actively maintained; the archive PDFs are historical context only and must not become primary references unless a future PR explicitly scopes legacy IIS. |
 
 ### External (Probe-based)
 

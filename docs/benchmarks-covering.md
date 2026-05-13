@@ -488,6 +488,10 @@ disclosure / exposure правил.
 
 #### Research scope для `STD-GAP-033`
 
+Current disposition: research is blocked pending ИСПДн user feedback surfaced
+through `STD-GAP-031`; revisit only if that work produces clear demand for
+RFC 9189 / ГОСТ TLS detection.
+
 Этот research-пункт — не mapping-PR, а отдельная исследовательская задача
 с фиксированными границами:
 
@@ -667,7 +671,7 @@ evidence, когда сервер принимает произвольный Ho
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 20 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), unknown-Host acceptance (NGINX §2.4.2), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error, version header, и native Server header runtime observation (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
 | STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (391 правило: Nginx 85, Apache 84, Lighttpd 49, IIS 52, External 107, Universal 14). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 deepening | parser-depth | P3 | deferred | — | Расширение существующего ASVS-покрытия за рамками текущей итерации. |
-| STD-GAP-038 | Standard-family helper migration | metadata-depth | P2 | accepted | 12 | Core `STD-GAP-012` output path уже готов. Следующий этап — решить, какие topic-grouped mappings должны стать typed `StandardReference` metadata в правилах, добавить helper-функции для NIST / PCI / ISO / ФСТЭК при необходимости, и отдельно решить, нужен ли `tier=secondary` для ATT&CK / БДУ. |
+| STD-GAP-038 | Standard-family helper migration | covered | P2 | done (2026-05-11) | 12 | ✓ Typed helper functions for NIST / PCI / ISO / ФСТЭК now exist in `src/webconf_audit/standards.py` and are wired through `src/webconf_audit/rule_standards.py`, closing the helper-migration blocker for current standards metadata. Secondary-only ATT&CK / БДУ tags remain documentation-only and do not require a `tier=secondary` field in the current model. |
 
 ## 10. Acceptance criteria for new standards-mapping PRs
 
