@@ -436,7 +436,7 @@ def _forms_auth_enabled(
     authentication: IISEffectiveSection | None,
     forms: IISEffectiveSection | None,
 ) -> bool:
-    if authentication is None or forms is None:
+    if authentication is None:
         return False
     return authentication.attributes.get("mode", "").strip().lower() == "forms"
 

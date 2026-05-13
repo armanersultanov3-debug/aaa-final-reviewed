@@ -11,6 +11,7 @@ from webconf_audit.local.lighttpd.effective import (
 )
 from webconf_audit.local.lighttpd.parser import (
     LighttpdAssignmentNode,
+    LighttpdBlockNode,
     LighttpdCondition,
     LighttpdConfigAst,
     LighttpdSourceSpan,
@@ -63,10 +64,8 @@ def normalize_lighttpd(
         # Host-filtered: single merged scope.
         scope = _normalize_merged_directives(merged_directives, config_ast)
         scopes.append(scope)
-        auth_requiring_locations = (
-            _auth_requiring_locations_from_effective(effective_config)
-            if effective_config is not None
-            else _auth_requiring_locations_from_merged(merged_directives)
+        auth_requiring_locations = _auth_requiring_locations_from_merged(
+            merged_directives,
         )
     elif effective_config is not None:
         global_scope = _normalize_effective_global(effective_config, config_ast)
@@ -82,7 +81,7 @@ def normalize_lighttpd(
         # Fallback: scan raw AST.
         global_scope = _normalize_from_ast(config_ast)
         scopes.append(global_scope)
-        auth_requiring_locations = ()
+        auth_requiring_locations = _auth_requiring_locations_from_ast(config_ast)
 
     return NormalizedConfig(
         server_type="lighttpd",
@@ -240,6 +239,77 @@ def _auth_requiring_locations_from_merged(
             auth,
             requires_tls=_merged_scope_requires_tls(directives),
         )
+    )
+
+
+def _auth_requiring_locations_from_ast(
+    config_ast: LighttpdConfigAst,
+) -> tuple[AuthRequiringLocation, ...]:
+    return tuple(
+        _auth_locations_from_ast_nodes(
+            config_ast.nodes,
+            inherited_ssl_enabled=False,
+            inherited_tls_socket_scope=False,
+        )
+    )
+
+
+def _auth_locations_from_ast_nodes(
+    nodes: list[object],
+    *,
+    inherited_ssl_enabled: bool,
+    inherited_tls_socket_scope: bool,
+) -> list[AuthRequiringLocation]:
+    ssl_enabled = _scope_ast_ssl_enabled(nodes, inherited_ssl_enabled)
+    locations: list[AuthRequiringLocation] = []
+
+    for node in nodes:
+        if isinstance(node, LighttpdAssignmentNode):
+            if node.name != "auth.require":
+                continue
+            locations.extend(
+                AuthRequiringLocation(
+                    path=path,
+                    auth_kind=auth_kind,
+                    requires_tls=ssl_enabled,
+                    source=_source_location(node.source),
+                )
+                for path, auth_kind in _parse_auth_require_entries(node.value)
+            )
+            continue
+
+        if not isinstance(node, LighttpdBlockNode):
+            continue
+
+        child_tls_socket_scope = inherited_tls_socket_scope or _is_socket_condition(
+            node.condition,
+        )
+        locations.extend(
+            _auth_locations_from_ast_nodes(
+                node.children,
+                inherited_ssl_enabled=ssl_enabled,
+                inherited_tls_socket_scope=child_tls_socket_scope,
+            )
+        )
+
+    return locations
+
+
+def _scope_ast_ssl_enabled(
+    nodes: list[object],
+    inherited_ssl_enabled: bool,
+) -> bool:
+    ssl_enabled = inherited_ssl_enabled
+    for node in nodes:
+        if isinstance(node, LighttpdAssignmentNode) and node.name == "ssl.engine":
+            ssl_enabled = normalize_value(node.value) == "enable"
+    return ssl_enabled
+
+
+def _is_socket_condition(condition: LighttpdCondition | None) -> bool:
+    return (
+        condition is not None
+        and condition.variable.lower() == '$server["socket"]'
     )
 
 
