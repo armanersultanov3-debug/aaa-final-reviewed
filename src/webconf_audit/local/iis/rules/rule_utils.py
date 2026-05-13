@@ -20,6 +20,32 @@ _OTHER_AUTH_SUFFIXES = (
     ("/digestAuthentication", "digest"),
 )
 
+_AUTHENTICATION_SECTION_PATH = "system.webServer/security/authentication"
+_ANONYMOUS_AUTH_SECTION_PATH = (
+    "system.webServer/security/authentication/anonymousAuthentication"
+)
+_BASIC_AUTH_SECTION_PATH = "system.webServer/security/authentication/basicAuthentication"
+_WINDOWS_AUTH_SECTION_PATH = (
+    "system.webServer/security/authentication/windowsAuthentication"
+)
+_DIGEST_AUTH_SECTION_PATH = (
+    "system.webServer/security/authentication/digestAuthentication"
+)
+_OTHER_AUTH_SECTION_PATHS = (
+    (_BASIC_AUTH_SECTION_PATH, "basic"),
+    (_WINDOWS_AUTH_SECTION_PATH, "Windows"),
+    (_DIGEST_AUTH_SECTION_PATH, "digest"),
+)
+_AUTH_RELATED_SECTION_PATHS = frozenset(
+    {
+        _AUTHENTICATION_SECTION_PATH,
+        _ANONYMOUS_AUTH_SECTION_PATH,
+        _BASIC_AUTH_SECTION_PATH,
+        _WINDOWS_AUTH_SECTION_PATH,
+        _DIGEST_AUTH_SECTION_PATH,
+    },
+)
+
 
 def effective_location(section: IISEffectiveSection) -> SourceLocation:
     """Build a SourceLocation from an effective section."""
@@ -131,11 +157,18 @@ def ssl_flag_tokens(value: object) -> set[str]:
 
 
 __all__ = [
+    "_ANONYMOUS_AUTH_SECTION_PATH",
+    "_AUTHENTICATION_SECTION_PATH",
+    "_AUTH_RELATED_SECTION_PATHS",
+    "_BASIC_AUTH_SECTION_PATH",
     "_DANGEROUS_HANDLERS",
+    "_DIGEST_AUTH_SECTION_PATH",
     "_EXPOSE_SERVER_HEADERS",
     "_MAX_CONTENT_LENGTH_THRESHOLD",
+    "_OTHER_AUTH_SECTION_PATHS",
     "_OTHER_AUTH_SUFFIXES",
     "_WEBDAV_MODULES",
+    "_WINDOWS_AUTH_SECTION_PATH",
     "effective_location",
     "file_location",
     "has_https_binding",

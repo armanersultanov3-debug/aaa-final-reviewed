@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISChildElement, IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
+    _ANONYMOUS_AUTH_SECTION_PATH,
+    _AUTHENTICATION_SECTION_PATH,
+    _AUTH_RELATED_SECTION_PATHS,
     effective_location,
     is_pure_inheritance,
     location_applies_to_scope,
@@ -101,10 +105,9 @@ def find_basic_auth_without_ssl(
             url="https://www.cisecurity.org/benchmark/microsoft_iis",
             coverage="partial",
             note=(
-                "Detects explicit non-empty anonymousAuthentication "
-                "userName values, and password values only when userName is "
-                "not explicitly blank; inherited platform defaults without "
-                "source evidence remain unknown."
+                "Detects non-empty anonymousAuthentication userName values, "
+                "including the embedded IIS schema default when the section "
+                "is absent in an otherwise-authenticated scope."
             ),
         ),
     ),
@@ -547,10 +550,19 @@ def _effective_anonymous_user_identity_findings(
     effective_config: IISEffectiveConfig,
 ) -> list[Finding]:
     findings: list[Finding] = []
-    for section in effective_config.all_sections:
-        if section.section_path_suffix != "/anonymousAuthentication":
+    for location_path in _effective_auth_candidate_locations(effective_config):
+        section = effective_config.get_effective_or_default_section(
+            _ANONYMOUS_AUTH_SECTION_PATH,
+            location_path=location_path,
+            anchor_paths=(
+                _AUTHENTICATION_SECTION_PATH,
+                "system.webServer/security",
+                "system.webServer",
+            ),
+        )
+        if section is None:
             continue
-        if is_pure_inheritance(section):
+        if is_pure_inheritance(section) and not section.materialized_from_defaults:
             continue
         account = _specific_anonymous_user(section.attributes)
         if account is None:
@@ -562,13 +574,27 @@ def _effective_anonymous_user_identity_findings(
 def _raw_anonymous_user_identity_findings(doc: IISConfigDocument) -> list[Finding]:
     findings: list[Finding] = []
     for group in _sections_by_location(doc.sections).values():
+        if not _raw_group_has_auth_context(group):
+            continue
         section = _raw_section(group, "anonymousAuthentication")
+        used_schema_default = False
+        if section is None:
+            section = _raw_anchor_section(group)
+            used_schema_default = True
         if section is None:
             continue
-        account = _specific_anonymous_user(section.attributes)
+        account = _specific_anonymous_user(
+            _raw_anonymous_auth_attributes(section, use_schema_defaults=used_schema_default),
+        )
         if account is None:
             continue
-        findings.append(_raw_anonymous_user_identity_finding(section, account))
+        findings.append(
+            _raw_anonymous_user_identity_finding(
+                section,
+                account,
+                materialized_from_defaults=used_schema_default,
+            ),
+        )
     return findings
 
 
@@ -662,14 +688,15 @@ def _effective_anonymous_user_identity_finding(
     account: str,
 ) -> Finding:
     ctx = location_context(section)
+    default_text = " by default" if section.materialized_from_defaults else ""
     return Finding(
         rule_id=ANONYMOUS_USER_IDENTITY_RULE_ID,
         title="Anonymous authentication uses a specific user",
         severity="medium",
         description=(
             f'IIS anonymous authentication uses "{account}" as the anonymous '
-            f"user identity{ctx}. Anonymous requests should use the "
-            "application pool identity so site isolation follows the "
+            f"user identity{default_text}{ctx}. Anonymous requests should use "
+            "the application pool identity so site isolation follows the "
             "application pool boundary."
         ),
         recommendation=(
@@ -677,21 +704,27 @@ def _effective_anonymous_user_identity_finding(
             "for this scope, or document why a specific anonymous account is required."
         ),
         location=effective_location(section),
-        metadata={"anonymous_user": account},
+        metadata={
+            "anonymous_user": account,
+            "materialized_from_defaults": section.materialized_from_defaults,
+        },
     )
 
 
 def _raw_anonymous_user_identity_finding(
     section: IISSection,
     account: str,
+    *,
+    materialized_from_defaults: bool = False,
 ) -> Finding:
+    default_text = " by default" if materialized_from_defaults else ""
     return Finding(
         rule_id=ANONYMOUS_USER_IDENTITY_RULE_ID,
         title="Anonymous authentication uses a specific user",
         severity="medium",
         description=(
             f'IIS anonymous authentication uses "{account}" as the anonymous '
-            "user identity. Anonymous requests should use the application "
+            f"user identity{default_text}. Anonymous requests should use the application "
             "pool identity so site isolation follows the application pool boundary."
         ),
         recommendation=(
@@ -699,5 +732,63 @@ def _raw_anonymous_user_identity_finding(
             "for this scope, or document why a specific anonymous account is required."
         ),
         location=raw_location(section),
-        metadata={"anonymous_user": account},
+        metadata={
+            "anonymous_user": account,
+            "materialized_from_defaults": materialized_from_defaults,
+        },
     )
+
+
+def _effective_auth_candidate_locations(
+    effective_config: IISEffectiveConfig,
+) -> list[str | None]:
+    locations: set[str | None] = set()
+    for section in effective_config.all_sections:
+        if (section.section_path or "") in _AUTH_RELATED_SECTION_PATHS:
+            locations.add(section.location_path)
+    return sorted(locations, key=_location_sort_key)
+
+
+def _raw_group_has_auth_context(group: list[IISSection]) -> bool:
+    return any(
+        _strip_configuration_path(section.xml_path) in _AUTH_RELATED_SECTION_PATHS
+        for section in group
+    )
+
+
+def _raw_anchor_section(group: list[IISSection]) -> IISSection | None:
+    for target_path in (
+        _AUTHENTICATION_SECTION_PATH,
+        "system.webServer/security",
+        "system.webServer",
+    ):
+        for section in group:
+            if _strip_configuration_path(section.xml_path) == target_path:
+                return section
+    return None
+
+
+def _raw_anonymous_auth_attributes(
+    section: IISSection,
+    *,
+    use_schema_defaults: bool,
+) -> dict[str, str]:
+    if not use_schema_defaults:
+        return section.attributes
+    if section.tag == "anonymousAuthentication":
+        return section.attributes
+    return load_defaults().get_section_defaults(_ANONYMOUS_AUTH_SECTION_PATH)
+
+
+def _location_sort_key(location_path: str | None) -> tuple[int, str]:
+    if location_path is None:
+        return (0, "")
+    return (location_path.count("/"), location_path)
+
+
+def _strip_configuration_path(xml_path: str) -> str:
+    parts = [part for part in xml_path.replace("\\", "/").split("/") if part]
+    if parts and parts[0].casefold() == "configuration":
+        parts = parts[1:]
+    parts = [part for part in parts if not part.casefold().startswith("location[@path=")]
+    return "/".join(parts)

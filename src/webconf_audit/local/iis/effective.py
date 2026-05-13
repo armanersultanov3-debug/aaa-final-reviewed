@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.parser import (
     IISChildElement,
     IISConfigDocument,
@@ -37,6 +38,8 @@ class IISEffectiveSection:
     location_path: str | None
     origin_chain: list[IISSourceRef]
     child_operations: list[IISChildElement] = field(default_factory=list)
+    section_path: str | None = None
+    materialized_from_defaults: bool = False
 
     @property
     def source(self) -> IISSourceRef:
@@ -63,6 +66,81 @@ class IISEffectiveConfig:
             loc = self.location_sections.get(location_path, {})
             return loc.get(suffix)
         return self.global_sections.get(suffix)
+
+    def get_effective_section_by_path(
+        self,
+        section_path: str,
+        location_path: str | None = None,
+    ) -> IISEffectiveSection | None:
+        """Return the effective section for a canonical IIS section path."""
+        target = _normalize_section_path(section_path)
+        sections = (
+            _effective_sections_for_location(self, location_path)
+            if location_path is not None
+            else self.global_sections
+        )
+        for section in sections.values():
+            if _normalize_section_path(
+                section.section_path or section.source.xml_path or "",
+            ) == target:
+                return section
+        return None
+
+    def get_effective_or_default_section(
+        self,
+        section_path: str,
+        *,
+        location_path: str | None = None,
+        anchor_paths: tuple[str, ...] = (),
+    ) -> IISEffectiveSection | None:
+        """Return the effective section, or a schema-default materialization."""
+        defaults = _default_attributes_for_section_path(section_path)
+        section = self.get_effective_section_by_path(
+            section_path,
+            location_path=location_path,
+        )
+        if section is not None:
+            if not defaults:
+                return section
+            merged_attributes = dict(defaults)
+            merged_attributes.update(section.attributes)
+            if merged_attributes == section.attributes:
+                return section
+            return IISEffectiveSection(
+                tag=section.tag,
+                section_path_suffix=section.section_path_suffix,
+                attributes=merged_attributes,
+                children=list(section.children),
+                location_path=section.location_path,
+                origin_chain=list(section.origin_chain),
+                child_operations=list(section.child_operations),
+                section_path=section.section_path,
+                materialized_from_defaults=True,
+            )
+
+        if not defaults:
+            return None
+
+        anchor = _default_anchor(
+            self,
+            location_path=location_path,
+            anchor_paths=anchor_paths,
+        )
+        if anchor is None:
+            return None
+
+        tag = section_path.strip("/").split("/")[-1]
+        return IISEffectiveSection(
+            tag=tag,
+            section_path_suffix=f"/{tag}",
+            attributes=defaults,
+            children=[],
+            location_path=location_path,
+            origin_chain=list(anchor.origin_chain),
+            child_operations=[],
+            section_path=section_path,
+            materialized_from_defaults=True,
+        )
 
     @property
     def all_sections(self) -> list[IISEffectiveSection]:
@@ -223,6 +301,7 @@ def _merge_sections(
         location_path=location_path,
         origin_chain=origin,
         child_operations=child_operations,
+        section_path=_strip_configuration_path(sections[-1].xml_path),
     )
 
 
@@ -378,6 +457,10 @@ def _merge_effective_section_pair(
         location_path=location_path if location_path is not None else override.location_path,
         origin_chain=origin,
         child_operations=list(base.child_operations) + list(child_operations),
+        section_path=override.section_path,
+        materialized_from_defaults=(
+            base.materialized_from_defaults and override.materialized_from_defaults
+        ),
     )
 
 
@@ -407,7 +490,56 @@ def _clone_effective_section(
         location_path=location_path if location_path is not None else section.location_path,
         origin_chain=list(section.origin_chain),
         child_operations=list(section.child_operations),
+        section_path=section.section_path,
+        materialized_from_defaults=section.materialized_from_defaults,
     )
+
+
+def _default_attributes_for_section_path(section_path: str) -> dict[str, str]:
+    defaults = load_defaults()
+    section_defaults = defaults.get_section_defaults(section_path)
+    if section_defaults:
+        return section_defaults
+    return defaults.get_element_default(section_path)
+
+
+def _default_anchor(
+    config: IISEffectiveConfig,
+    *,
+    location_path: str | None,
+    anchor_paths: tuple[str, ...],
+) -> IISEffectiveSection | None:
+    for index, anchor_path in enumerate(anchor_paths):
+        anchor = config.get_effective_section_by_path(
+            anchor_path,
+            location_path=location_path,
+        )
+        if anchor is not None:
+            return anchor
+
+    for index, anchor_path in enumerate(anchor_paths):
+        anchor = config.get_effective_or_default_section(
+            anchor_path,
+            location_path=location_path,
+            anchor_paths=anchor_paths[index + 1 :],
+        )
+        if anchor is not None:
+            return anchor
+    return None
+
+
+def _strip_configuration_path(xml_path: str) -> str:
+    parts = [part for part in xml_path.replace("\\", "/").split("/") if part]
+    if parts and parts[0].casefold() == "configuration":
+        parts = parts[1:]
+    parts = [part for part in parts if not part.casefold().startswith("location[@path=")]
+    return "/".join(parts)
+
+
+def _normalize_section_path(path: str) -> str:
+    if path.casefold().startswith("configuration/"):
+        path = _strip_configuration_path(path)
+    return path.replace("\\", "/").strip("/").casefold()
 
 
 __all__ = [

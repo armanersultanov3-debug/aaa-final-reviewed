@@ -648,7 +648,9 @@ def test_request_filtering_length_limits_safe_silent(tmp_path: Path) -> None:
     assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
-def test_request_filtering_length_limits_missing_fire(tmp_path: Path) -> None:
+def test_request_filtering_length_limits_missing_use_schema_defaults(
+    tmp_path: Path,
+) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -668,11 +670,11 @@ def test_request_filtering_length_limits_missing_fire(tmp_path: Path) -> None:
 
     _assert_no_analysis_issues(result)
     rule_ids = _rule_ids(result)
-    assert "iis.request_filtering_max_url_missing" in rule_ids
-    assert "iis.request_filtering_max_query_string_missing" in rule_ids
+    assert "iis.request_filtering_max_url_missing" not in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
-def test_request_filtering_missing_request_limits_fires_length_limits(
+def test_request_filtering_missing_request_limits_use_schema_defaults(
     tmp_path: Path,
 ) -> None:
     config = """\
@@ -692,8 +694,8 @@ def test_request_filtering_missing_request_limits_fires_length_limits(
 
     _assert_no_analysis_issues(result)
     rule_ids = _rule_ids(result)
-    assert "iis.request_filtering_max_url_missing" in rule_ids
-    assert "iis.request_filtering_max_query_string_missing" in rule_ids
+    assert "iis.request_filtering_max_url_missing" not in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
 def test_raw_request_filtering_remove_server_header_inherits_parent_true() -> None:

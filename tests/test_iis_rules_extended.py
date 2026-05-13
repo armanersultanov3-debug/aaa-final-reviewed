@@ -90,6 +90,30 @@ def test_anonymous_auth_enabled_fires_with_other_scheme(tmp_path: Path) -> None:
     assert "basic" in finding.description
 
 
+def test_anonymous_auth_enabled_fires_with_default_anonymous_auth(
+    tmp_path: Path,
+) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authentication>
+                <windowsAuthentication enabled="true" />
+            </authentication>
+        </security>
+    </system.webServer>
+</configuration>
+"""
+    (tmp_path / "web.config").write_text(config, encoding="utf-8")
+    result = analyze_iis_config(str(tmp_path / "web.config"))
+    _assert_no_analysis_issues(result)
+    findings = [f for f in result.findings if f.rule_id == "iis.anonymous_auth_enabled"]
+    assert len(findings) == 1
+    assert "by default" in findings[0].description
+    assert "Windows" in findings[0].description
+
+
 def test_anonymous_auth_alone_silent(tmp_path: Path) -> None:
     """anonymous only (no other scheme) → no finding."""
     config = """\
