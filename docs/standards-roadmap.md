@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 378 rules (synchronized with
+The current project inventory is 380 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -47,7 +47,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 84
 - Lighttpd local: 49
 - IIS local: 52
-- External probes: 94
+- External probes: 96
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -261,7 +261,8 @@ limit recorded with the reference or moved to the gap list:
 - `v5.0.0-12.2.1` - HTTPS must not fall back to cleartext. Covered by
   HTTPS/TLS intent and redirect findings such as
   `universal.tls_intent_without_config`, `external.https_not_available`, and
-  `external.http_not_redirected_to_https`.
+  `external.http_not_redirected_to_https` plus
+  `external.nginx.redirect_target_unexpected`.
 - `v5.0.0-12.2.2` - publicly trusted certificate posture. Covered by
   certificate probes including `external.tls_certificate_self_signed`,
   `external.cert_chain_incomplete`, `external.cert_san_mismatch`,

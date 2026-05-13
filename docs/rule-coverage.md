@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **378**
+Total rules: **380**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (270), external (94), universal (14) |
-| Severity | high (18), medium (137), low (212), info (11) |
-| Input kind | ast (170), effective (88), probe (94), normalized (14), htaccess (6), mixed (6) |
+| Category | local (270), external (96), universal (14) |
+| Severity | high (18), medium (137), low (214), info (11) |
+| Input kind | ast (170), effective (88), probe (96), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -365,12 +365,12 @@ Nginx CIS v3.0.0 gap table:
 | §2.3.1-§2.3.3 | `out-of-scope` | Ownership, permissions, and PID-file checks require filesystem metadata, which is outside the tool scope. |
 | §2.4.1 | `research` | Authorized listening ports require an environment-specific approved-port policy. |
 | §2.4.2 | `direct-rule` | Current coverage validates configured `default_server` rejection behavior through `nginx.default_server_not_rejecting_unknown_hosts` plus explicit `return 400`/`403`/`404`/`444` or `ssl_reject_handshake on` signals, `nginx.default_tls_server_not_rejecting_unknown_hosts` covers the first/default TLS catch-all case for each listen key, and `external.unknown_host_runtime_response` adds partial runtime corroboration when a synthetic unknown Host returns the baseline site content. First/default non-TLS behavior without an explicit `default_server` remains environment-specific in local-only analysis. |
-| §2.5.2 | `probe-depth` | Default error and index page content needs response-body probing or filesystem content inspection. |
+| §2.5.2 | `covered` | `external.nginx.default_index_page_body` adds partial runtime evidence for the stock nginx root-page marker, and `external.nginx.default_welcome_page` remains the broader placeholder-page exposure signal. |
 | §2.5.4 | `parser-depth` | Reverse-proxy disclosure checks need proxy-header semantics beyond the current generic header rules. |
 | §3.1 | `manual-context` | Current coverage validates named custom `log_format` references and recommended request/source/status/user-agent fields on referenced formats. Plain `access_log` entries that use Nginx's default format are not flagged; organisation-specific JSON/escape policy remains manual. |
 | §3.3 | `manual-context` | Current coverage checks `error_log` presence and flags `/dev/null` plus overly restrictive `error`/`crit`/`alert`/`emerg` levels; final `warn`/`notice`/`info` level choice remains policy. |
 | §3.4 | `direct-rule` | Covered by `nginx.proxy_missing_source_ip_headers`, which checks source-IP forwarding for `proxy_pass`, `fastcgi_pass`, `grpc_pass`, and `uwsgi_pass` upstreams. |
-| §4.1.1 | `probe-depth` | Current coverage checks named local HTTP server blocks that redirect with `return` to HTTPS, and `external.http_not_redirected_to_https` provides cross-source runtime corroboration for observed plaintext fallback. |
+| §4.1.1 | `covered` | `nginx.missing_http_to_https_redirect` remains the primary local rule. `external.http_not_redirected_to_https` captures successful plaintext HTTP responses that do not redirect to HTTPS, while `external.nginx.redirect_target_unexpected` narrows that runtime corroboration to nginx-fingerprinted root responses that still serve body content over HTTP. |
 | §4.1.2 | `probe-depth` | Trusted certificate and chain validation is runtime/certificate data, not fully knowable from local `ssl_certificate` paths alone. |
 | §4.1.3 | `out-of-scope` | Private-key permission checks require filesystem metadata, which is outside web-server config / safe external analysis. |
 | §4.1.5 | `direct-rule` | Covered by `nginx.missing_ssl_ciphers` plus `nginx.ssl_ciphers_weak` for conservative weak-component / FS / AEAD cipher-string posture; runtime negotiation and full SSL Labs-style validation remain out of scope for local-only analysis. |
@@ -1032,7 +1032,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 94
+Count: 96
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1041,9 +1041,9 @@ default for this group. As a follow-up of `STD-GAP-035` from
 `docs/benchmarks-covering.md`, a small set of external rules whose runtime
 signal corroborates a specific CIS benchmark section now carries a
 **cross-source partial** annotation in the `CIS / Vendor` column. Each such
-entry is explicitly marked `(partial: runtime evidence; primary CIS
-reference at <local rule>)` so it never claims standalone CIS coverage and
-always points back to the config-level rule that owns the primary mapping.
+entry is explicitly marked as runtime evidence; when a config-level
+counterpart exists, the note also points back to the local rule that owns
+the primary mapping so the table never claims standalone CIS coverage.
 Their natural standards companions are the OWASP Cheat Sheet Series and
 [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/)
 verification requirements, which are now recorded in the `ASVS` column when the
@@ -1054,6 +1054,8 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 
 | Rule ID | Severity | Input | Tags | CWE | OWASP | ASVS | CIS / Vendor | Standards (other) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `external.nginx.redirect_target_unexpected` | low | probe | - | - | - | - | [NGINX v3.0.0 §4.1.1](https://www.cisecurity.org/benchmark/nginx) (partial: runtime evidence; primary CIS reference at `nginx.missing_http_to_https_redirect`) | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 NO PLAINTEXT FALLBACK](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" УПД.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
+| `external.nginx.default_index_page_body` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | - | - | [NGINX v3.0.0 §2.5.2](https://www.cisecurity.org/benchmark/nginx) (partial: runtime evidence of stock nginx default index content) | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.nginx.version_disclosed_in_server_header` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
 | `external.nginx.default_welcome_page` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.apache.version_disclosed_in_server_header` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
@@ -1170,6 +1172,8 @@ Mapping rationale (external probes), grouped by pattern:
   -- the unconfigured-default page
   proves the server still runs in a stock state: CWE-1188 (insecure default
   initialization of resource), OWASP A05.
+- `external.nginx.default_index_page_body` -- narrower runtime disclosure of
+  stock nginx index content: CWE-200.
 - `external.iis.detailed_error_page`, `external.elmah_axd_exposed` -- public
   detailed error pages or error logs expose stack traces and SQL fragments:
   CWE-209 (information exposure through an error message), OWASP A05.

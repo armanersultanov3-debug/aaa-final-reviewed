@@ -12,6 +12,10 @@ from webconf_audit.external.rules._https import collect_https_findings
 from webconf_audit.external.rules._methods import collect_method_findings
 from webconf_audit.external.rules._sensitive_paths import collect_sensitive_path_findings
 from webconf_audit.external.rules._tls import collect_tls_findings
+from webconf_audit.external.rules.nginx_runtime_probes import (
+    find_nginx_default_index_page_body,
+    find_nginx_redirect_target_unexpected,
+)
 from webconf_audit.external.rules.unknown_host_runtime_response import (
     find_unknown_host_runtime_response,
 )
@@ -144,6 +148,8 @@ def run_external_rules(
             server_identification=server_identification,
         )
     )
+    findings.extend(find_nginx_redirect_target_unexpected(probe_attempts))
+    findings.extend(find_nginx_default_index_page_body(probe_attempts))
     findings.extend(collect_cors_findings(probe_attempts))
     findings.extend(collect_method_findings(probe_attempts))
     findings.extend(collect_cookie_findings(probe_attempts))

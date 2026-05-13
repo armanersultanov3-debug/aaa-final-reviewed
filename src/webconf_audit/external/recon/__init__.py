@@ -889,7 +889,14 @@ def _probe_target(probe_target: ProbeTarget) -> ProbeAttempt:
         head_attempt.has_http_response
         and head_attempt.status_code not in _HEAD_FALLBACK_STATUS_CODES
     ):
-        result = head_attempt
+        if _head_attempt_requires_root_body_follow_up(probe_target, head_attempt):
+            get_attempt = _try_http_method(probe_target, "GET")
+            if get_attempt.has_http_response:
+                result = _preserve_head_allow_header(get_attempt, head_attempt)
+            else:
+                result = head_attempt
+        else:
+            result = head_attempt
     else:
         get_attempt = _try_http_method(probe_target, "GET")
         if get_attempt.has_http_response:
@@ -906,6 +913,17 @@ def _probe_target(probe_target: ProbeTarget) -> ProbeAttempt:
             result = _enrich_tls_with_version_probe(result, probe_target)
 
     return result
+
+
+def _head_attempt_requires_root_body_follow_up(
+    probe_target: ProbeTarget,
+    head_attempt: ProbeAttempt,
+) -> bool:
+    return (
+        probe_target.path == "/"
+        and head_attempt.status_code == 200
+        and head_attempt.body_snippet is None
+    )
 
 
 def _analyze_redirect_chains(
