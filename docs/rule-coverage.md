@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **380**
+Total rules: **390**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (270), external (96), universal (14) |
-| Severity | high (18), medium (137), low (214), info (11) |
-| Input kind | ast (170), effective (88), probe (96), normalized (14), htaccess (6), mixed (6) |
+| Category | local (270), external (106), universal (14) |
+| Severity | high (24), medium (138), low (217), info (11) |
+| Input kind | ast (170), effective (88), probe (106), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -1032,7 +1032,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 96
+Count: 106
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1130,6 +1130,16 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.database_dump_exposed` | high | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.dependency_manifest_exposed` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.npmrc_exposed` | high | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
+| `external.laravel_storage_logs_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed application log file.) | - | - |
+| `external.symfony_profiler_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.adminer_panel_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.phpmyadmin_dashboard_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.springboot_actuator_env_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.wordpress_wp_config_bak_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Backup copy of a sensitive configuration file.) | - | - |
+| `external.wordpress_wp_config_tilde_exposed` | high | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Editor backup copy of a sensitive configuration file.) | - | - |
+| `external.searchreplacedb2_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.webpack_config_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed build configuration file.) | - | - |
+| `external.webpack_mix_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed asset build configuration file.) | - | - |
 | `external.certificate_expired` | high | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.certificate_expires_soon` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.tls_certificate_self_signed` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
