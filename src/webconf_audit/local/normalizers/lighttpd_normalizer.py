@@ -11,20 +11,26 @@ from webconf_audit.local.lighttpd.effective import (
 )
 from webconf_audit.local.lighttpd.parser import (
     LighttpdAssignmentNode,
+    LighttpdCondition,
     LighttpdConfigAst,
     LighttpdSourceSpan,
 )
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 from webconf_audit.local.lighttpd.rules.rule_utils import (
+    effective_directive_for_scope,
     iter_all_nodes,
+    normalize_value,
+    scope_conditions,
     unquote,
 )
 
@@ -51,10 +57,17 @@ def normalize_lighttpd(
     """
     scopes: list[NormalizedScope] = []
 
+    auth_requiring_locations: tuple[AuthRequiringLocation, ...]
+
     if merged_directives is not None:
         # Host-filtered: single merged scope.
         scope = _normalize_merged_directives(merged_directives, config_ast)
         scopes.append(scope)
+        auth_requiring_locations = (
+            _auth_requiring_locations_from_effective(effective_config)
+            if effective_config is not None
+            else _auth_requiring_locations_from_merged(merged_directives)
+        )
     elif effective_config is not None:
         global_scope = _normalize_effective_global(effective_config, config_ast)
         scopes.append(global_scope)
@@ -62,15 +75,19 @@ def normalize_lighttpd(
         for cond_scope in effective_config.conditional_scopes:
             scope = _normalize_conditional_scope(cond_scope, config_ast)
             scopes.append(scope)
+        auth_requiring_locations = _auth_requiring_locations_from_effective(
+            effective_config,
+        )
     else:
         # Fallback: scan raw AST.
         global_scope = _normalize_from_ast(config_ast)
         scopes.append(global_scope)
+        auth_requiring_locations = ()
 
     return NormalizedConfig(
         server_type="lighttpd",
         scopes=scopes,
-        auth_requiring_locations=(),
+        auth_requiring_locations=auth_requiring_locations,
     )
 
 
@@ -176,6 +193,120 @@ def _normalize_conditional_scope(
     )
 
 
+def _auth_requiring_locations_from_effective(
+    effective_config: LighttpdEffectiveConfig,
+) -> tuple[AuthRequiringLocation, ...]:
+    locations: list[AuthRequiringLocation] = []
+    global_auth = effective_config.get_global("auth.require")
+    if global_auth is not None:
+        locations.extend(
+            _auth_locations_from_directive(
+                global_auth,
+                requires_tls=_global_scope_requires_tls(effective_config.global_directives),
+            )
+        )
+
+    for scope in effective_config.conditional_scopes:
+        auth = effective_directive_for_scope(
+            effective_config,
+            scope,
+            "auth.require",
+        )
+        if auth is None:
+            continue
+        if (
+            "auth.require" not in scope.directives
+            and not _scope_changes_listener_tls_context(scope)
+        ):
+            continue
+        locations.extend(
+            _auth_locations_from_directive(
+                auth,
+                requires_tls=_conditional_scope_requires_tls(effective_config, scope),
+            )
+        )
+
+    return tuple(locations)
+
+
+def _auth_requiring_locations_from_merged(
+    directives: dict[str, LighttpdEffectiveDirective],
+) -> tuple[AuthRequiringLocation, ...]:
+    auth = directives.get("auth.require")
+    if auth is None:
+        return ()
+    return tuple(
+        _auth_locations_from_directive(
+            auth,
+            requires_tls=_merged_scope_requires_tls(directives),
+        )
+    )
+
+
+def _auth_locations_from_directive(
+    directive: LighttpdEffectiveDirective,
+    *,
+    requires_tls: bool,
+) -> list[AuthRequiringLocation]:
+    return [
+        AuthRequiringLocation(
+            path=path,
+            auth_kind=auth_kind,
+            requires_tls=requires_tls,
+            source=_source_location(directive.source),
+        )
+        for path, auth_kind in _parse_auth_require_entries(directive.value)
+    ]
+
+
+def _global_scope_requires_tls(
+    directives: dict[str, LighttpdEffectiveDirective],
+) -> bool:
+    ssl_engine = directives.get("ssl.engine")
+    return ssl_engine is not None and normalize_value(ssl_engine.value) == "enable"
+
+
+def _conditional_scope_requires_tls(
+    effective_config: LighttpdEffectiveConfig,
+    scope: LighttpdConditionalScope,
+) -> bool:
+    ssl_engine = effective_directive_for_scope(effective_config, scope, "ssl.engine")
+    if ssl_engine is None or normalize_value(ssl_engine.value) != "enable":
+        return False
+
+    socket_condition = _last_socket_condition(scope)
+    if socket_condition is not None:
+        return True
+
+    return _global_scope_requires_tls(effective_config.global_directives)
+
+
+def _merged_scope_requires_tls(
+    directives: dict[str, LighttpdEffectiveDirective],
+) -> bool:
+    ssl_engine = directives.get("ssl.engine")
+    return ssl_engine is not None and normalize_value(ssl_engine.value) == "enable"
+
+
+def _scope_changes_listener_tls_context(scope: LighttpdConditionalScope) -> bool:
+    if any(name in scope.directives for name in {"ssl.engine", "server.bind", "server.port"}):
+        return True
+    return _last_socket_condition(scope) is not None
+
+
+def _last_socket_condition(
+    scope: LighttpdConditionalScope,
+) -> LighttpdCondition | None:
+    socket_conditions = [
+        condition
+        for condition in scope_conditions(scope)
+        if condition is not None and condition.variable.lower() == '$server["socket"]'
+    ]
+    if not socket_conditions:
+        return None
+    return socket_conditions[-1]
+
+
 # -- listen points -----------------------------------------------------------
 
 
@@ -219,19 +350,23 @@ def _parse_socket_condition(
     if cond.condition is None:
         return None
 
-    raw = unquote(cond.condition.value)
-    # Patterns: ":443", "0.0.0.0:443"
+    return _listen_point_from_socket_condition(cond.condition, cond.directives.get("ssl.engine"))
+
+
+def _listen_point_from_socket_condition(
+    condition: LighttpdCondition,
+    ssl_engine: LighttpdEffectiveDirective | None,
+) -> NormalizedListenPoint | None:
+    raw = unquote(condition.value)
     match = re.match(r"^(?:(.*):)?(\d+)$", raw)
     if not match:
         return None
 
     addr = match.group(1) or None
     port = int(match.group(2))
-    # Detect TLS from ssl.engine in this scope.
-    ssl_dir = cond.directives.get("ssl.engine")
-    has_ssl = ssl_dir is not None and unquote(ssl_dir.value).lower() == "enable"
+    has_ssl = ssl_engine is not None and unquote(ssl_engine.value).lower() == "enable"
 
-    source_span = ssl_dir.source if ssl_dir else LighttpdSourceSpan()
+    source_span = ssl_engine.source if ssl_engine else LighttpdSourceSpan()
     return NormalizedListenPoint(
         port=port,
         protocol="https" if has_ssl else "http",
@@ -326,6 +461,8 @@ def _split_tuple_items(raw: str) -> list[str]:
     current: list[str] = []
     quote: str | None = None
     escaped = False
+    paren_depth = 0
+    bracket_depth = 0
 
     for char in raw:
         if escaped:
@@ -345,7 +482,23 @@ def _split_tuple_items(raw: str) -> list[str]:
             current.append(char)
             quote = char
             continue
-        if char == ",":
+        if char == "(":
+            current.append(char)
+            paren_depth += 1
+            continue
+        if char == ")":
+            current.append(char)
+            paren_depth = max(paren_depth - 1, 0)
+            continue
+        if char == "[":
+            current.append(char)
+            bracket_depth += 1
+            continue
+        if char == "]":
+            current.append(char)
+            bracket_depth = max(bracket_depth - 1, 0)
+            continue
+        if char == "," and paren_depth == 0 and bracket_depth == 0:
             items.append("".join(current))
             current = []
             continue
@@ -401,12 +554,55 @@ def _normalize_from_ast(ast: LighttpdConfigAst) -> NormalizedScope:
     )
 
 
+def _parse_auth_require_entries(raw: str) -> list[tuple[str, str]]:
+    stripped = unquote(raw).strip()
+    if stripped.startswith("(") and stripped.endswith(")"):
+        stripped = stripped[1:-1]
+
+    entries: list[tuple[str, str]] = []
+    for item in _split_tuple_items(stripped):
+        key, separator, value = item.partition("=>")
+        if not separator:
+            continue
+        path = unquote(key.strip())
+        auth_kind = _auth_kind_from_require_value(value)
+        entries.append((path, auth_kind))
+    return entries
+
+
+def _auth_kind_from_require_value(raw: str) -> str:
+    stripped = raw.strip()
+    if stripped.startswith("(") and stripped.endswith(")"):
+        stripped = stripped[1:-1]
+
+    fields: dict[str, str] = {}
+    for item in _split_tuple_items(stripped):
+        key, separator, value = item.partition("=>")
+        if not separator:
+            continue
+        fields[unquote(key.strip()).lower()] = unquote(value.strip())
+
+    method = fields.get("method")
+    if method:
+        return method.lower()
+    return "require"
+
+
 # -- helpers -----------------------------------------------------------------
 
 
 def _ref_from_span(span: LighttpdSourceSpan) -> SourceRef:
     return SourceRef(
         server_type="lighttpd",
+        file_path=span.file_path or "",
+        line=span.line,
+    )
+
+
+def _source_location(span: LighttpdSourceSpan) -> SourceLocation:
+    return SourceLocation(
+        mode="local",
+        kind="file",
         file_path=span.file_path or "",
         line=span.line,
     )
