@@ -2,6 +2,10 @@ from tests.iis_helpers import (
     AnalysisResult,
     Path,
     analyze_iis_config,
+    parse_iis_config,
+)
+from webconf_audit.local.iis.rules.anonymous_auth_enabled import (
+    find_anonymous_auth_enabled,
 )
 
 
@@ -153,6 +157,27 @@ def test_anonymous_auth_disabled_silent(tmp_path: Path) -> None:
     result = analyze_iis_config(str(tmp_path / "web.config"))
     _assert_no_analysis_issues(result)
     assert "iis.anonymous_auth_enabled" not in {f.rule_id for f in result.findings}
+
+
+def test_raw_anonymous_auth_disabled_does_not_default_to_enabled() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <authentication>
+                <anonymousAuthentication enabled="false" />
+                <basicAuthentication enabled="true" />
+            </authentication>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    assert find_anonymous_auth_enabled(doc) == []
 
 
 def test_forms_auth_require_ssl_missing_fires(tmp_path: Path) -> None:

@@ -92,13 +92,19 @@ def _sections_by_location(
 def _raw_group_finding(group: list[IISSection]) -> Finding | None:
     if not _raw_group_has_auth_context(group):
         return None
+    anon_explicit = _raw_section(group, "anonymousAuthentication")
     anon_section = _enabled_raw_section(group, "anonymousAuthentication")
     active_others = _active_raw_auth_schemes(group)
     if not active_others:
         return None
     used_schema_default = False
     if anon_section is None:
-        anon_section = _raw_anchor_section(group)
+        if anon_explicit is not None:
+            if anon_explicit.attributes.get("enabled", "").lower() == "false":
+                return None
+            anon_section = anon_explicit
+        else:
+            anon_section = _raw_anchor_section(group)
         used_schema_default = True
     if anon_section is None:
         return None
@@ -128,11 +134,22 @@ def _enabled_raw_section(
     sections: list[IISSection],
     tag_name: str,
 ) -> IISSection | None:
+    section = _raw_section(sections, tag_name)
+    if section is None:
+        return None
+    if section.attributes.get("enabled", "").lower() == "true":
+        return section
+    return None
+
+
+def _raw_section(
+    sections: list[IISSection],
+    tag_name: str,
+) -> IISSection | None:
     for section in sections:
         if section.tag != tag_name:
             continue
-        if section.attributes.get("enabled", "").lower() == "true":
-            return section
+        return section
     return None
 
 
