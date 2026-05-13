@@ -22,6 +22,7 @@ SHARED_APP_POOL_RULE_ID = "iis.sites_share_application_pool"
 _APPLICATION_POOL_IDENTITY_VALUES = frozenset({"applicationpoolidentity", "4"})
 _DEFAULT_APP_POOL = "DefaultAppPool"
 _SITE_XML_PATH = "configuration/system.applicationHost/sites/site"
+_APPLICATION_POOLS_XML_PATH = "configuration/system.applicationHost/applicationPools"
 _DEFAULT_PROCESS_MODEL_PATH = (
     "system.applicationHost/applicationPools/applicationPoolDefaults/processModel"
 )
@@ -154,7 +155,7 @@ def _application_pool_default_process_model(
     default_process_model: _DefaultProcessModel | None = None
     fallback_source: IISSourceRef | None = None
     for section in doc.sections:
-        if section.xml_path.endswith("/applicationPools"):
+        if section.xml_path == _APPLICATION_POOLS_XML_PATH:
             fallback_source = section.source
         if section.tag != "processModel":
             continue

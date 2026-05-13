@@ -711,7 +711,7 @@ def _location(section: IISEffectiveSection | IISSection):
 
 def _machine_key_validation(section: IISEffectiveSection | IISSection) -> str | None:
     value = section.attributes.get("validation")
-    if value is not None:
+    if value is not None and value.strip():
         return value
     return load_defaults().get_section_attribute_default(_MACHINE_KEY_PATH, "validation")
 
@@ -720,7 +720,7 @@ def _machine_key_compatibility_mode(
     section: IISEffectiveSection | IISSection,
 ) -> str | None:
     value = section.attributes.get("compatibilityMode")
-    if value is not None:
+    if value is not None and value.strip():
         return value
     return load_defaults().get_section_attribute_default(
         _MACHINE_KEY_PATH,
@@ -732,7 +732,8 @@ def _defaulted_machine_key_context(
     section: IISEffectiveSection | IISSection,
     attribute_name: str,
 ) -> str:
-    if attribute_name in section.attributes:
+    value = section.attributes.get(attribute_name)
+    if value is not None and value.strip():
         return ""
     default_value = load_defaults().get_section_attribute_default(
         _MACHINE_KEY_PATH,

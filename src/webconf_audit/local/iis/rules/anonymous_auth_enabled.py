@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from webconf_audit.local.iis.effective import IISEffectiveConfig
+from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
     _ANONYMOUS_AUTH_SECTION_PATH,
@@ -177,7 +177,10 @@ def _raw_anchor_section(group: list[IISSection]) -> IISSection | None:
     return None
 
 
-def _effective_finding(section, active_others: list[str]) -> Finding:
+def _effective_finding(
+    section: IISEffectiveSection,
+    active_others: list[str],
+) -> Finding:
     ctx = location_context(section)
     others_str = ", ".join(active_others)
     default_text = " by default" if section.materialized_from_defaults else ""

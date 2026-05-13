@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from webconf_audit.local.iis.effective import IISEffectiveSection
+from dataclasses import replace
+
+from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
+from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.models import SourceLocation
 
@@ -44,6 +47,11 @@ _AUTH_RELATED_SECTION_PATHS = frozenset(
         _WINDOWS_AUTH_SECTION_PATH,
         _DIGEST_AUTH_SECTION_PATH,
     },
+)
+_REQUEST_FILTERING_SECTION_PATH = "system.webServer/security/requestFiltering"
+_REQUEST_FILTERING_ANCHORS = (
+    "system.webServer/security",
+    "system.webServer",
 )
 
 
@@ -131,6 +139,34 @@ def is_pure_inheritance(section: IISEffectiveSection) -> bool:
     )
 
 
+def effective_request_filtering_section(
+    effective_config: IISEffectiveConfig,
+    *,
+    location_path: str | None,
+) -> IISEffectiveSection | None:
+    """Return requestFiltering with schema defaults merged when needed."""
+    section = effective_config.get_effective_section("/requestFiltering", location_path)
+    if section is not None:
+        defaults = load_defaults().get_section_defaults(_REQUEST_FILTERING_SECTION_PATH)
+        if not defaults:
+            return section
+        merged = dict(defaults)
+        merged.update(section.attributes)
+        if merged == section.attributes:
+            return section
+        return replace(
+            section,
+            attributes=merged,
+            materialized_from_defaults=True,
+        )
+
+    return effective_config.get_effective_or_default_section(
+        _REQUEST_FILTERING_SECTION_PATH,
+        location_path=location_path,
+        anchor_paths=_REQUEST_FILTERING_ANCHORS,
+    )
+
+
 def has_https_binding(doc: IISConfigDocument) -> bool:
     """Return True if any parsed section contains an HTTPS binding."""
     for section in doc.sections:
@@ -169,6 +205,7 @@ __all__ = [
     "_OTHER_AUTH_SUFFIXES",
     "_WEBDAV_MODULES",
     "_WINDOWS_AUTH_SECTION_PATH",
+    "effective_request_filtering_section",
     "effective_location",
     "file_location",
     "has_https_binding",

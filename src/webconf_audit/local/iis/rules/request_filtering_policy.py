@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
@@ -558,10 +557,7 @@ def _raw_request_filtering_attribute(
                 continue
             if attribute in section.attributes:
                 return section.attributes.get(attribute)
-    return load_defaults().get_section_attribute_default(
-        _REQUEST_FILTERING_PATH,
-        attribute,
-    )
+    return None
 
 
 def _raw_request_limits_attribute(
@@ -577,7 +573,7 @@ def _raw_request_limits_attribute(
                 continue
             if attribute in section.attributes:
                 return section.attributes.get(attribute)
-    return load_defaults().get_element_default(_REQUEST_LIMITS_PATH).get(attribute)
+    return None
 
 
 def _has_raw_file_extensions_section(

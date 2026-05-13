@@ -755,6 +755,27 @@ def test_raw_request_limits_missing_checks_inherited_length_attributes() -> None
     assert find_request_filtering_max_query_string_missing(doc) == []
 
 
+def test_raw_request_limits_missing_without_parent_value_still_fires() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    assert len(find_request_filtering_max_url_missing(doc)) == 1
+    assert len(find_request_filtering_max_query_string_missing(doc)) == 1
+
+
 def test_file_extensions_allow_unlisted_fires(tmp_path: Path) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>

@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from importlib.resources import files
-from importlib.resources.abc import Traversable
+
+try:
+    from importlib.resources.abc import Traversable
+except ImportError:  # pragma: no cover - Python 3.10 compatibility
+    from importlib.abc import Traversable
 
 _SCHEMA_FILE_NAMES = (
     "IIS_schema.xml",
