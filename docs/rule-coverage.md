@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **376**
+Total rules: **378**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (268), external (94), universal (14) |
-| Severity | high (18), medium (135), low (212), info (11) |
-| Input kind | ast (168), effective (88), probe (94), normalized (14), htaccess (6), mixed (6) |
+| Category | local (270), external (94), universal (14) |
+| Severity | high (18), medium (137), low (212), info (11) |
+| Input kind | ast (170), effective (88), probe (94), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -119,7 +119,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 83
+Count: 85
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -215,6 +215,8 @@ the benchmark covers but webconf-audit does not.
 | `nginx.ssl_conf_command_unsafe_renegotiation_enabled` | high | ast | tls | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 4.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.5](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" УПД.13](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.20](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.21](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `nginx.public_autoindex_rate_limit_policy_weak` | medium | ast | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `nginx.merge_slashes_off` | low | ast | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
+| `nginx.proxy_ssl_verify_disabled` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | [ASVS v5.0.0-12.2.2](https://owasp.org/www-project-application-security-verification-standard/) | - | [NIST SP 800-53 Rev. 5 AC-4](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final) |
+| `nginx.proxy_ssl_trusted_certificate_missing` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | - | - | [NIST SP 800-53 Rev. 5 AC-4](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final) |
 
 Mapping rationale (nginx rules):
 
@@ -291,6 +293,10 @@ Mapping rationale (nginx rules):
 - `auth_basic_over_http` -- Basic authentication on a plain HTTP
   content-serving scope sends reusable credentials without transport
   confidentiality: CWE-319, OWASP A02.
+- `proxy_ssl_verify_disabled`, `proxy_ssl_trusted_certificate_missing` --
+  HTTPS upstream proxying without certificate verification or without a
+  configured trust bundle undermines upstream TLS authenticity: CWE-295.
+  `proxy_ssl_verify_disabled` also maps directly to ASVS 12.2.2.
 - `missing_hsts_header`, `hsts_header_unsafe` -- missing HSTS or a short /
   incomplete HSTS policy allows downgrade to HTTP: CWE-319, OWASP A05.
 - `missing_http_to_https_redirect` -- leaving a named HTTP virtual host

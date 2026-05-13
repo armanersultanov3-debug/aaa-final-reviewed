@@ -41,10 +41,16 @@ _READINESS_URLS: tuple[str, ...] = (
 _PACK_COVERAGE_EXCLUDED_LOCAL_RULE_IDS: dict[str, frozenset[str]] = {
     # The public-repo Linux fixture set focuses on parser/effective-config
     # paths that are practical to model against the demo stacks. A smaller set
-    # of local-only Apache rules is still covered by focused unit tests rather
-    # than this scenario matrix because they need extra module inventory,
-    # upstream TLS trust wiring, OS-root path fixtures, or broader whole-scope
+    # of local-only rules is still covered by focused unit tests rather than
+    # this scenario matrix because they need extra module inventory, upstream
+    # TLS trust wiring, OS-root path fixtures, or broader whole-scope
     # content/runtime modelling than the public fixture pack currently carries.
+    "nginx": frozenset(
+        {
+            "nginx.proxy_ssl_trusted_certificate_missing",
+            "nginx.proxy_ssl_verify_disabled",
+        }
+    ),
     "apache": frozenset(
         {
             "apache.basic_auth_over_http",
