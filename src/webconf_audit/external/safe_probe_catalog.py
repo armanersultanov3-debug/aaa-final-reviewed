@@ -468,6 +468,291 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         order=699,
         metadata_recommendation="Block public access to .npmrc files.",
     ),
+    SafePathRule(
+        rule_id="external.laravel_storage_logs_exposed",
+        title="Laravel storage log file exposed",
+        severity="high",
+        description=(
+            "The /storage/logs/laravel.log file is externally accessible and "
+            "appears to contain Laravel application log output. Public log files "
+            "can disclose stack traces, request data, and secrets."
+        ),
+        recommendation=(
+            "Block public access to Laravel log files and move application logs "
+            "outside the web root."
+        ),
+        paths=("/storage/logs/laravel.log",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)^(?:\[[^\]]+\]\s+)?(?:local|production|staging|testing)\.(?:EMERGENCY|ALERT|CRITICAL|ERROR|WARNING|NOTICE|INFO|DEBUG):",
+            ),
+        ),
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Publicly exposed application log file.",
+            ),
+        ),
+        order=720,
+        metadata_recommendation="Block public access to Laravel log files.",
+    ),
+    SafePathRule(
+        rule_id="external.symfony_profiler_exposed",
+        title="Symfony profiler exposed",
+        severity="high",
+        description=(
+            "The /_profiler/empty/search/results endpoint is externally "
+            "accessible and appears to expose Symfony profiler output. This can "
+            "disclose debug data, routes, headers, and internal application "
+            "details."
+        ),
+        recommendation=(
+            "Disable the Symfony profiler in production or restrict access to "
+            "trusted administrators."
+        ),
+        paths=("/_profiler/empty/search/results?limit=10",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?i)(Symfony Profiler|<title>\s*Profiler\s*</title>|Symfony-Debug-Toolbar)",
+            ),
+        ),
+        standards=(
+            cwe(200),
+            owasp_top10_2021("A05:2021"),
+        ),
+        order=721,
+        metadata_recommendation="Disable or restrict Symfony profiler in production.",
+    ),
+    SafePathRule(
+        rule_id="external.adminer_panel_exposed",
+        title="Adminer panel exposed",
+        severity="low",
+        description=(
+            "The /adminer.php endpoint is externally accessible and appears to "
+            "expose an Adminer database administration login surface. Public "
+            "database admin panels increase reconnaissance and brute-force "
+            "exposure."
+        ),
+        recommendation=(
+            "Restrict Adminer to trusted administrators or remove it from "
+            "production deployments."
+        ),
+        paths=("/adminer.php",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?i)<title>\s*(?:login\s*-\s*)?adminer\s*</title>",
+            ),
+        ),
+        standards=(
+            cwe(200),
+            owasp_top10_2021("A05:2021"),
+        ),
+        order=722,
+        metadata_recommendation="Restrict or remove Adminer in production.",
+    ),
+    SafePathRule(
+        rule_id="external.phpmyadmin_dashboard_exposed",
+        title="phpMyAdmin dashboard exposed",
+        severity="high",
+        description=(
+            "The /phpmyadmin/index.php endpoint is externally accessible and "
+            "appears to expose a phpMyAdmin dashboard without an intervening "
+            "login prompt. This can grant unauthenticated access to database "
+            "administration features."
+        ),
+        recommendation=(
+            "Require authentication for phpMyAdmin, restrict it to trusted "
+            "administrators, or remove it from production."
+        ),
+        paths=("/phpmyadmin/index.php",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)server_(?:sql|status)\.php"),
+            BodyMatcher("regex", r"(?i)server_(?:variables|databases)\.php"),
+        ),
+        standards=(
+            cwe(306),
+            owasp_top10_2021("A01:2021"),
+        ),
+        order=723,
+        metadata_recommendation="Require authentication for phpMyAdmin.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_env_exposed",
+        title="Spring Boot Actuator env endpoint exposed",
+        severity="medium",
+        description=(
+            "The /actuator/env endpoint is externally accessible and appears to "
+            "expose Spring Boot environment metadata. This can disclose "
+            "application configuration and deployment details."
+        ),
+        recommendation=(
+            "Disable the env actuator in production or restrict access to "
+            "trusted administrators."
+        ),
+        paths=("/actuator/env",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(applicationConfig|activeProfiles)"),
+            BodyMatcher("regex", r"(?i)(server\.port|local\.server\.port)"),
+        ),
+        standards=(
+            cwe(200),
+            owasp_top10_2021("A05:2021"),
+        ),
+        order=724,
+        metadata_recommendation="Disable or restrict the env actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.wordpress_wp_config_bak_exposed",
+        title="WordPress wp-config.php.bak exposed",
+        severity="high",
+        description=(
+            "The /wp-config.php.bak file is externally accessible and appears to "
+            "contain WordPress database configuration. This can expose database "
+            "credentials and other deployment secrets."
+        ),
+        recommendation=(
+            "Remove backup copies of wp-config.php from the web root and block "
+            "public access to backup file extensions."
+        ),
+        paths=("/wp-config.php.bak",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)\b(?:DB_NAME|DBNAME|DB_USERNAME)\b"),
+            BodyMatcher("regex", r"(?im)\b(?:DB_PASSWORD|PASSWORD)\b"),
+        ),
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Backup copy of a sensitive configuration file.",
+            ),
+        ),
+        order=725,
+        metadata_recommendation="Remove backup wp-config files from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.wordpress_wp_config_tilde_exposed",
+        title="WordPress wp-config.php~ exposed",
+        severity="high",
+        description=(
+            "The /wp-config.php~ file is externally accessible and appears to "
+            "contain WordPress database configuration. This can expose database "
+            "credentials and other deployment secrets."
+        ),
+        recommendation=(
+            "Remove editor backup copies of wp-config.php from the web root and "
+            "block public access to temporary file extensions."
+        ),
+        paths=("/wp-config.php~",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)\b(?:DB_NAME|DBNAME|DB_USERNAME)\b"),
+            BodyMatcher("regex", r"(?im)\b(?:DB_PASSWORD|PASSWORD)\b"),
+        ),
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Editor backup copy of a sensitive configuration file.",
+            ),
+        ),
+        order=726,
+        metadata_recommendation="Remove temporary wp-config files from the web root.",
+    ),
+    SafePathRule(
+        rule_id="external.searchreplacedb2_exposed",
+        title="Search Replace DB tool exposed",
+        severity="high",
+        description=(
+            "The /searchreplacedb2.php endpoint is externally accessible and "
+            "appears to expose the Search Replace DB administration utility. "
+            "Public database maintenance tools can disclose internal database "
+            "details and enable unauthorized administrative actions."
+        ),
+        recommendation=(
+            "Remove Search Replace DB from production or restrict it to trusted "
+            "administrators."
+        ),
+        paths=("/searchreplacedb2.php",),
+        body_matchers=(
+            BodyMatcher("contains", "Database details", case_sensitive=True),
+            BodyMatcher("contains", "Safe Search Replace", case_sensitive=True),
+        ),
+        standards=(
+            cwe(306),
+            owasp_top10_2021("A01:2021"),
+        ),
+        order=727,
+        metadata_recommendation="Remove or restrict Search Replace DB in production.",
+    ),
+    SafePathRule(
+        rule_id="external.webpack_config_exposed",
+        title="webpack.config.js exposed",
+        severity="low",
+        description=(
+            "The /webpack.config.js file is externally accessible and appears to "
+            "contain build configuration. This can disclose internal asset "
+            "pipelines, source layout, and environment-specific settings."
+        ),
+        recommendation=(
+            "Avoid serving webpack.config.js from the public web root and keep "
+            "build configuration outside exposed paths."
+        ),
+        paths=("/webpack.config.js",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)\b(?:module\.exports|export\s+default)\b"),
+            BodyMatcher("regex", r"(?im)\b(?:entry|output|plugins|rules?)\b"),
+        ),
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Publicly exposed build configuration file.",
+            ),
+        ),
+        order=728,
+        metadata_recommendation="Do not serve webpack.config.js publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.webpack_mix_exposed",
+        title="webpack.mix.js exposed",
+        severity="low",
+        description=(
+            "The /webpack.mix.js file is externally accessible and appears to "
+            "contain Laravel Mix build configuration. This can disclose asset "
+            "build paths and internal deployment structure."
+        ),
+        recommendation=(
+            "Avoid serving webpack.mix.js from the public web root and keep "
+            "build configuration outside exposed paths."
+        ),
+        paths=("/webpack.mix.js",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)\bconst\s+mix\b"),
+            BodyMatcher("regex", r"(?im)\bmix\."),
+        ),
+        standards=(
+            cwe(538),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Publicly exposed asset build configuration file.",
+            ),
+        ),
+        order=729,
+        metadata_recommendation="Do not serve webpack.mix.js publicly.",
+    ),
 )
 
 CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (

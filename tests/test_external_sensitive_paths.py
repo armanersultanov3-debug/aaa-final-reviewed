@@ -55,6 +55,16 @@ def test_sensitive_paths_phase_1_4_1_set() -> None:
         "/package-lock.json",
         "/yarn.lock",
         "/.npmrc",
+        "/storage/logs/laravel.log",
+        "/_profiler/empty/search/results?limit=10",
+        "/adminer.php",
+        "/phpmyadmin/index.php",
+        "/actuator/env",
+        "/wp-config.php.bak",
+        "/wp-config.php~",
+        "/searchreplacedb2.php",
+        "/webpack.config.js",
+        "/webpack.mix.js",
     )
 
 
@@ -993,6 +1003,16 @@ def test_no_sensitive_path_findings_on_baseline_probe(monkeypatch) -> None:
         "external.database_dump_exposed",
         "external.dependency_manifest_exposed",
         "external.npmrc_exposed",
+        "external.laravel_storage_logs_exposed",
+        "external.symfony_profiler_exposed",
+        "external.adminer_panel_exposed",
+        "external.phpmyadmin_dashboard_exposed",
+        "external.springboot_actuator_env_exposed",
+        "external.wordpress_wp_config_bak_exposed",
+        "external.wordpress_wp_config_tilde_exposed",
+        "external.searchreplacedb2_exposed",
+        "external.webpack_config_exposed",
+        "external.webpack_mix_exposed",
     }
     fired = sensitive_rule_ids & {f.rule_id for f in result.findings}
     assert fired == set()
@@ -1020,6 +1040,56 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         SensitivePathProbe(url="https://example.com/dump.sql", path="/dump.sql", status_code=403),
         SensitivePathProbe(url="https://example.com/package.json", path="/package.json", status_code=500),
         SensitivePathProbe(url="https://example.com/.npmrc", path="/.npmrc", status_code=404),
+        SensitivePathProbe(
+            url="https://example.com/storage/logs/laravel.log",
+            path="/storage/logs/laravel.log",
+            status_code=404,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/_profiler/empty/search/results?limit=10",
+            path="/_profiler/empty/search/results?limit=10",
+            status_code=403,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/adminer.php",
+            path="/adminer.php",
+            status_code=404,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/phpmyadmin/index.php",
+            path="/phpmyadmin/index.php",
+            status_code=403,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/actuator/env",
+            path="/actuator/env",
+            status_code=404,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/wp-config.php.bak",
+            path="/wp-config.php.bak",
+            status_code=403,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/wp-config.php~",
+            path="/wp-config.php~",
+            status_code=404,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/searchreplacedb2.php",
+            path="/searchreplacedb2.php",
+            status_code=403,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/webpack.config.js",
+            path="/webpack.config.js",
+            status_code=404,
+        ),
+        SensitivePathProbe(
+            url="https://example.com/webpack.mix.js",
+            path="/webpack.mix.js",
+            status_code=403,
+        ),
     ]
     probe_attempts = [
         _https_probe_with_headers(),
@@ -1047,6 +1117,16 @@ def test_non_200_responses_do_not_trigger_sensitive_path_rules(monkeypatch) -> N
         "external.database_dump_exposed",
         "external.dependency_manifest_exposed",
         "external.npmrc_exposed",
+        "external.laravel_storage_logs_exposed",
+        "external.symfony_profiler_exposed",
+        "external.adminer_panel_exposed",
+        "external.phpmyadmin_dashboard_exposed",
+        "external.springboot_actuator_env_exposed",
+        "external.wordpress_wp_config_bak_exposed",
+        "external.wordpress_wp_config_tilde_exposed",
+        "external.searchreplacedb2_exposed",
+        "external.webpack_config_exposed",
+        "external.webpack_mix_exposed",
     }
     fired = sensitive_rule_ids & {f.rule_id for f in result.findings}
     assert fired == set()
