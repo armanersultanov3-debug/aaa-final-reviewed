@@ -7,6 +7,7 @@ import json
 import pytest
 
 from webconf_audit.standards import (
+    cis_iis_10_v1_2_1,
     cis_nginx_v3_0_0,
     fstec_bdu,
     fstec_mera,
@@ -83,6 +84,19 @@ def test_cis_nginx_v3_0_0_uses_canonical_reference_and_url() -> None:
 def test_cis_nginx_v3_0_0_rejects_empty_section_after_sign() -> None:
     with pytest.raises(ValueError, match="section"):
         cis_nginx_v3_0_0("§")
+
+
+def test_cis_iis_10_v1_2_1_uses_canonical_reference_and_url() -> None:
+    ref = cis_iis_10_v1_2_1("3.11")
+
+    assert ref.standard == "CIS"
+    assert ref.reference == "Microsoft IIS 10 v1.2.1 §3.11"
+    assert ref.url == "https://www.cisecurity.org/benchmark/microsoft_iis"
+
+
+def test_cis_iis_10_v1_2_1_rejects_empty_section_after_sign() -> None:
+    with pytest.raises(ValueError, match="section"):
+        cis_iis_10_v1_2_1("§")
 
 
 def test_iso_27002_2022_uses_canonical_url() -> None:

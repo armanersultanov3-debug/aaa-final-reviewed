@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **390**
+Total rules: **391**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (270), external (106), universal (14) |
-| Severity | high (24), medium (138), low (217), info (11) |
-| Input kind | ast (170), effective (88), probe (106), normalized (14), htaccess (6), mixed (6) |
+| Category | local (270), external (107), universal (14) |
+| Severity | high (24), medium (138), low (218), info (11) |
+| Input kind | ast (170), effective (88), probe (107), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -1022,7 +1022,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §2.1/§2.2 | `partial` | `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, and `iis.authorization_policy_missing` cover common anonymous/authenticated mixups, explicit wildcard/anonymous allow rules, and absent/empty visible IIS URL authorization policy. |
 | §2.5/§2.7/§2.8 | `partial` | `iis.forms_auth_protection_unsafe`, `iis.credentials_password_format_clear`, and `iis.credentials_stored_in_config` cover explicit unsafe forms credential settings; broader inherited/default policy remains follow-up. |
 | §2.6 | `covered` | `iis.basic_auth_without_ssl` checks Basic Authentication together with the effective `access sslFlags` requirement; `iis.ssl_not_required` remains a broader access-section signal. |
-| §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.http_cookies_require_ssl_missing`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, and `iis.request_filtering_remove_server_header_disabled` cover explicit unsafe values plus selected visible default-policy absence cases; runtime native-header verification remains follow-up. |
+| §3.1/§3.7/§3.8/§3.9/§3.10/§3.12 | `partial` | `iis.deployment_retail_not_enabled`, `iis.http_cookies_http_only_disabled`, `iis.http_cookies_require_ssl_missing`, `iis.machine_key_legacy_validation_weak`, `iis.machine_key_validation_weak`, `iis.trust_level_full`, `iis.request_filtering_remove_server_header_disabled`, and `external.iis.server_header_removal_not_applied` cover explicit unsafe values plus runtime corroboration of native `Server` header disclosure. Remaining follow-up is deeper application-pool shared-hosting exceptions and parser/effective-depth only where the current model cannot materialize defaults. |
 | §4.2/§4.3/§4.7/§4.9/§4.10 | `partial` | `iis.request_filtering_max_url_too_high`, `iis.request_filtering_max_query_string_too_high`, `iis.request_filtering_max_url_missing`, `iis.request_filtering_max_query_string_missing`, `iis.file_extensions_allow_unlisted`, and `iis.isapi_cgi_restrictions_allow_unlisted` cover explicit unsafe values and visible missing/default request-filtering policy where the relevant XML section is present. |
 | §4.8 | `covered` | `iis.handler_write_script_execute_enabled` detects handler `accessPolicy` values that grant Write together with Script or Execute; `iis.cgi_handler_enabled` remains an extra CGI handler signal. |
 | §4.11/§5.1/§5.3 | `out-of-scope` | Dynamic IP restrictions, log location, and ETW logging depend on server-level feature / filesystem state beyond current XML signals and are outside the tool scope. |
@@ -1032,7 +1032,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 106
+Count: 107
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1063,6 +1063,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.apache.etag_inode_disclosure` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
 | `external.apache.default_welcome_page` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.iis.aspnet_version_header_present` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
+| `external.iis.server_header_removal_not_applied` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | - | - | [Microsoft IIS 10 v1.2.1 §3.11](https://www.cisecurity.org/benchmark/microsoft_iis) (partial: runtime evidence of Server header presence.) | [NIST SP 800-53 Rev. 5 SI-11](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final)<br>[PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.26](https://www.iso.org/standard/75652.html) (partial: Header and cookie posture signal only.)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: HTTP Security Response Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
 | `external.iis.detailed_error_page` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Error Handling](https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html) |
 | `external.iis.default_welcome_page` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `external.lighttpd.version_in_server_header` | low | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[PCI DSS v4.0.1 Req. 2.2.6](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" АНЗ.1](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Server-Side Headers](https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html#server) |
@@ -1170,6 +1171,7 @@ Mapping rationale (external probes), grouped by pattern:
   `external.x_powered_by_header_present`,
   `external.x_aspnet_version_header_present`,
   `external.iis.aspnet_version_header_present`,
+  `external.iis.server_header_removal_not_applied`,
   `external.apache.etag_inode_disclosure`,
   `external.phpinfo_exposed`, `external.nginx_status_exposed`,
   `external.apache.mod_status_public`, `external.lighttpd.mod_status_public`,
