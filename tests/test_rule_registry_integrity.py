@@ -254,6 +254,9 @@ class TestStandardsMetadata:
                 ("OWASP Top 10", "A05:2021"),
                 ("CIS", "NGINX v3.0.0 §2.4.2"),
             },
+            "nginx.proxy_missing_source_ip_headers": {
+                ("CIS", "NGINX v3.0.0 §3.4"),
+            },
         }
 
         for rule_id, expected_refs in expectations.items():
@@ -262,6 +265,23 @@ class TestStandardsMetadata:
 
             references = {(ref.standard, ref.reference) for ref in meta.standards}
             assert expected_refs.issubset(references)
+
+    def test_nginx_proxy_source_ip_rule_cis_note_mentions_all_supported_upstreams(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        meta = full_reg.get_meta("nginx.proxy_missing_source_ip_headers")
+        assert meta is not None
+
+        cis_refs = [
+            ref
+            for ref in meta.standards
+            if ref.standard == "CIS" and ref.reference == "NGINX v3.0.0 §3.4"
+        ]
+        assert len(cis_refs) == 1
+        assert cis_refs[0].note is not None
+        for upstream in ("proxy_pass", "fastcgi_pass", "grpc_pass", "uwsgi_pass"):
+            assert upstream in cis_refs[0].note
 
     def test_nginx_ocsp_stapling_rules_have_expected_standards(
         self,
