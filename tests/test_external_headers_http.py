@@ -981,10 +981,10 @@ def test_get_fallback_on_head_501(monkeypatch) -> None:
     assert result.status_code == 200
 
 
-def test_successful_head_does_not_trigger_get_fallback(monkeypatch) -> None:
+def test_successful_non_root_head_does_not_trigger_get_fallback(monkeypatch) -> None:
     from webconf_audit.external.recon import _probe_target
 
-    target = ProbeTarget(scheme="https", host="example.com", port=443, path="/")
+    target = ProbeTarget(scheme="https", host="example.com", port=443, path="/health")
     methods_called = []
 
     def fake_try(probe_target, method):

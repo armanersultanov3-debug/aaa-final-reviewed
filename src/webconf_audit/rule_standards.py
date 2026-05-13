@@ -171,7 +171,9 @@ _LEGACY_CATCH_ALL_RULES = frozenset(
         "external.lighttpd.default_welcome_page",
         "external.lighttpd.mod_status_public",
         "external.lighttpd.version_in_server_header",
+        "external.nginx.default_index_page_body",
         "external.nginx.default_welcome_page",
+        "external.nginx.redirect_target_unexpected",
         "external.nginx.version_disclosed_in_server_header",
         "external.nginx_status_exposed",
         "external.npmrc_exposed",
@@ -513,6 +515,7 @@ _TLS_NO_PLAINTEXT_RULES = {
     "iis.basic_auth_without_ssl",
     "iis.forms_auth_require_ssl_missing",
     "external.https_not_available",
+    "external.nginx.redirect_target_unexpected",
     "external.http_not_redirected_to_https",
 }
 
@@ -848,6 +851,7 @@ _MITRE_T1078_RULES = {
 
 _MITRE_T1040_RULES = {
     "external.https_not_available",
+    "external.nginx.redirect_target_unexpected",
     "external.http_not_redirected_to_https",
     "iis.basic_auth_without_ssl",
     "iis.forms_auth_require_ssl_missing",
@@ -936,6 +940,7 @@ _PCI_226_RULES = {
     "external.nginx.version_disclosed_in_server_header",
     "external.apache.version_disclosed_in_server_header",
     "external.lighttpd.version_in_server_header",
+    "external.nginx.default_index_page_body",
     "external.nginx.default_welcome_page",
     "external.apache.default_welcome_page",
     "external.iis.default_welcome_page",
