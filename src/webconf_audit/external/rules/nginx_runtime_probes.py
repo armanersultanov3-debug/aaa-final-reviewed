@@ -144,7 +144,7 @@ def _attempt_has_body_on_plain_http(attempt: "ProbeAttempt") -> bool:
         and attempt.target.scheme == "http"
         and attempt.target.path == "/"
         and attempt.status_code == 200
-        and attempt.body_snippet is not None
+        and bool(attempt.body_snippet and attempt.body_snippet.strip())
     )
 
 

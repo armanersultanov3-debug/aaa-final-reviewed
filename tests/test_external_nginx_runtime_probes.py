@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from tests.external_helpers import (
     OptionsObservation,
     ProbeAttempt,
@@ -126,7 +128,11 @@ def test_nginx_runtime_probes_require_nginx_fingerprint(monkeypatch) -> None:
     assert _new_rule_ids(result) == set()
 
 
-def test_nginx_default_index_page_body_requires_non_empty_body(monkeypatch) -> None:
+@pytest.mark.parametrize("body_snippet", [None, "", "   "])
+def test_nginx_runtime_rules_require_non_empty_body(
+    monkeypatch,
+    body_snippet: str | None,
+) -> None:
     probe_attempts = [
         _https_probe_with_headers(
             server_header="nginx/1.25.5",
@@ -134,7 +140,7 @@ def test_nginx_default_index_page_body_requires_non_empty_body(monkeypatch) -> N
         ),
         _http_probe_with_headers(
             server_header="nginx/1.25.5",
-            body_snippet=None,
+            body_snippet=body_snippet,
         ),
     ]
 
