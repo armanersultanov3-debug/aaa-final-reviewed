@@ -200,7 +200,7 @@ Applicability:
 | Nginx | Partially covered | Logging, timeout, header, TLS, stapling, HTTP/2, and fragment-only notes have regression coverage; `nginx -T` dump context reconstruction remains open. | Add effective `main -> http -> server -> location` handling for inherited directives. |
 | Apache | Partially covered | Effective helpers exist, but more rules still need to consume inherited `VirtualHost`, `Directory`, and `Location` state. | Extend existing effective helpers so more rules consume inherited state. |
 | Lighttpd | Confirmed gap | Conditional logging/header findings showed host/default scope noise; keep adding request-context fixtures. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
-| IIS | Partially covered | Cross-file collection merge was fixed for custom headers; extend regression coverage to handlers, modules, and requestFiltering. | Prefer effective merged XML sections for rules that currently inspect only the local document. |
+| IIS | Confirmed / covered | Covered by `tests/test_iis_inheritance_fixtures.py` and the IIS inheritance-edge fixtures for handlers, modules, and requestFiltering. | Effective merged XML sections now have cross-file regression coverage across `machine.config`, `applicationHost.config`, and `web.config`. |
 
 ### TLS hardening expansion
 
