@@ -63,3 +63,18 @@ def test_iis_native_server_header_rule_is_conservative_on_header_mismatch() -> N
     )
 
     assert _RULE_ID not in {finding.rule_id for finding in findings}
+
+
+def test_iis_native_server_header_rule_ignored_for_non_iis_fingerprint() -> None:
+    probe_attempts = [
+        _https_probe_with_headers(server_header="Microsoft-IIS/10.0"),
+        _http_redirect_probe(server_header="Microsoft-IIS/10.0"),
+    ]
+
+    findings = run_external_rules(
+        probe_attempts,
+        "example.com",
+        server_identification=_server_identification("nginx", "low"),
+    )
+
+    assert _RULE_ID not in {finding.rule_id for finding in findings}
