@@ -133,6 +133,37 @@ def iter_server_blocks_with_http_directives(
     return servers
 
 
+def iter_blocks_with_inherited_directives(
+    config_ast: ConfigAst,
+    directive_names: set[str],
+    *,
+    block_names: set[str],
+) -> list[tuple[BlockNode, dict[str, list[DirectiveNode]]]]:
+    blocks: list[tuple[BlockNode, dict[str, list[DirectiveNode]]]] = []
+
+    def walk(
+        nodes: list[AstNode],
+        inherited_directives: dict[str, list[DirectiveNode]],
+    ) -> None:
+        for node in nodes:
+            if not isinstance(node, BlockNode):
+                continue
+
+            current_directives = inherited_directives
+            if node.name in block_names:
+                blocks.append((node, inherited_directives))
+                current_directives = dict(inherited_directives)
+                for directive_name in directive_names:
+                    local_directives = find_child_directives(node, directive_name)
+                    if local_directives:
+                        current_directives[directive_name] = local_directives
+
+            walk(node.children, current_directives)
+
+    walk(config_ast.nodes, {})
+    return blocks
+
+
 def effective_child_directives(
     block: BlockNode,
     directive_name: str,
@@ -153,6 +184,7 @@ def last_directive_is_on(directives: list[DirectiveNode]) -> bool:
 
 __all__ = [
     "effective_child_directives",
+    "iter_blocks_with_inherited_directives",
     "iter_server_blocks_with_http_directives",
     "iter_direct_child_directives",
     "iter_last_direct_child_directives",

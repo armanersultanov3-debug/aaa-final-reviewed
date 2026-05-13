@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 376
+        assert len(full_reg._catalog) == 378
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 290
+        assert len(full_reg._executable) == 292
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 83
+        assert len(rules) == 85
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
@@ -154,6 +154,15 @@ class TestStandardsMetadata:
             "apache.directory_without_allowoverride": {
                 ("OWASP Top 10", "A05:2021"),
                 ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.4"),
+            },
+            "nginx.proxy_ssl_verify_disabled": {
+                ("CWE", "CWE-295"),
+                ("OWASP ASVS", "v5.0.0-12.2.2"),
+                ("NIST SP 800-53 Rev. 5", "AC-4"),
+            },
+            "nginx.proxy_ssl_trusted_certificate_missing": {
+                ("CWE", "CWE-295"),
+                ("NIST SP 800-53 Rev. 5", "AC-4"),
             },
         }
 
