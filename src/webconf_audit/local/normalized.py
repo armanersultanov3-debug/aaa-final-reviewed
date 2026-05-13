@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from webconf_audit.models import SourceLocation
+
 
 @dataclass(frozen=True)
 class SourceRef:
@@ -100,6 +102,19 @@ class NormalizedAccessPolicy:
 
 
 # ---------------------------------------------------------------------------
+# Authentication-requiring routes
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AuthRequiringLocation:
+    path: str
+    auth_kind: str
+    requires_tls: bool
+    source: SourceLocation
+
+
+# ---------------------------------------------------------------------------
 # Scope & top-level container
 # ---------------------------------------------------------------------------
 
@@ -125,10 +140,12 @@ class NormalizedConfig:
 
     server_type: str  # "nginx" | "apache" | "lighttpd" | "iis"
     scopes: list[NormalizedScope] = field(default_factory=list)
+    auth_requiring_locations: tuple[AuthRequiringLocation, ...] = field(default_factory=tuple)
 
 
 __all__ = [
     "NormalizedAccessPolicy",
+    "AuthRequiringLocation",
     "NormalizedConfig",
     "NormalizedListenPoint",
     "NormalizedScope",

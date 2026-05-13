@@ -11,12 +11,14 @@ from webconf_audit.local.nginx.parser.ast import (
     find_child_directives,
 )
 from webconf_audit.local.normalized import (
+    AuthRequiringLocation,
     NormalizedAccessPolicy,
     NormalizedConfig,
     NormalizedListenPoint,
     NormalizedScope,
     NormalizedSecurityHeader,
     NormalizedTLS,
+    SourceLocation,
     SourceRef,
 )
 
@@ -29,6 +31,8 @@ _SECURITY_HEADERS = frozenset({
     "referrer-policy",
     "permissions-policy",
 })
+_AUTH_DIRECTIVE_NAMES = frozenset({"auth_basic", "auth_request", "auth_jwt"})
+_AUTH_SKIP_LOCATION_BLOCKS = frozenset({"location"})
 
 
 _logger = logging.getLogger(__name__)
@@ -37,14 +41,25 @@ _logger = logging.getLogger(__name__)
 def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
     """Extract normalized entities from Nginx AST."""
     scopes: list[NormalizedScope] = []
+    auth_requiring_locations: list[AuthRequiringLocation] = []
 
     has_http_block = False
     for node in config_ast.nodes:
         if isinstance(node, BlockNode) and node.name == "http":
             has_http_block = True
+            http_auth_state = _block_auth_state(
+                node,
+                skip_block_names=_AUTH_SKIP_LOCATION_BLOCKS | {"server"},
+            )
             for child in node.children:
                 if isinstance(child, BlockNode) and child.name == "server":
                     scopes.append(_normalize_server_block(child))
+                    auth_requiring_locations.extend(
+                        _auth_requiring_locations_from_server(
+                            child,
+                            inherited_auth_state=http_auth_state,
+                        )
+                    )
 
     if not has_http_block:
         _logger.debug(
@@ -52,7 +67,11 @@ def normalize_nginx(config_ast: ConfigAst) -> NormalizedConfig:
             "returning empty NormalizedConfig",
         )
 
-    return NormalizedConfig(server_type="nginx", scopes=scopes)
+    return NormalizedConfig(
+        server_type="nginx",
+        scopes=scopes,
+        auth_requiring_locations=tuple(auth_requiring_locations),
+    )
 
 
 # -- server block -----------------------------------------------------------
@@ -75,6 +94,197 @@ def _normalize_server_block(server: BlockNode) -> NormalizedScope:
         tls=tls,
         security_headers=headers,
         access_policy=access_policy,
+    )
+
+
+def _auth_requiring_locations_from_server(
+    server: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
+) -> list[AuthRequiringLocation]:
+    locations: list[AuthRequiringLocation] = []
+    has_tls = _server_requires_tls(server)
+    server_auth_state = _block_auth_state(
+        server,
+        inherited_auth_state=inherited_auth_state,
+        skip_block_names=_AUTH_SKIP_LOCATION_BLOCKS,
+    )
+    server_auth_directive = _active_auth_directive(server_auth_state)
+    location_entries, root_scope_defined = _location_auth_entries(
+        server.children,
+        inherited_auth_state=server_auth_state,
+        has_tls=has_tls,
+    )
+    locations.extend(location_entries)
+
+    if server_auth_directive is not None and not root_scope_defined:
+        locations.append(
+            AuthRequiringLocation(
+                path="/",
+                auth_kind=_auth_kind(server_auth_directive),
+                requires_tls=has_tls,
+                source=_source_location(server_auth_directive),
+            )
+        )
+
+    return locations
+
+
+def _server_requires_tls(server: BlockNode) -> bool:
+    listen_points = _extract_listen_points(server)
+    return bool(listen_points) and all(lp.tls for lp in listen_points)
+
+
+def _location_auth_entries(
+    nodes: list[DirectiveNode | BlockNode],
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None],
+    has_tls: bool,
+) -> tuple[list[AuthRequiringLocation], bool]:
+    locations: list[AuthRequiringLocation] = []
+    root_scope_defined = False
+
+    for node in nodes:
+        if not isinstance(node, BlockNode):
+            continue
+
+        child_inherited_state = inherited_auth_state
+        if node.name == "location":
+            path = _location_path(node)
+            child_inherited_state = _block_auth_state(
+                node,
+                inherited_auth_state=inherited_auth_state,
+            )
+            auth_directive = _active_auth_directive(child_inherited_state)
+            if path == "/":
+                root_scope_defined = True
+            if path is not None and auth_directive is not None:
+                locations.append(
+                    AuthRequiringLocation(
+                        path=path,
+                        auth_kind=_auth_kind(auth_directive),
+                        requires_tls=has_tls,
+                        source=_source_location(auth_directive),
+                    )
+                )
+
+        child_locations, child_root_scope_defined = _location_auth_entries(
+            node.children,
+            inherited_auth_state=child_inherited_state,
+            has_tls=has_tls,
+        )
+        locations.extend(child_locations)
+        root_scope_defined = root_scope_defined or child_root_scope_defined
+
+    return locations, root_scope_defined
+
+
+def _block_auth_directive(
+    block: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
+) -> DirectiveNode | None:
+    auth_state = _block_auth_state(
+        block,
+        inherited_auth_state=inherited_auth_state,
+        skip_block_names=skip_block_names,
+    )
+    return _active_auth_directive(auth_state)
+
+
+def _block_auth_state(
+    block: BlockNode,
+    *,
+    inherited_auth_state: dict[str, DirectiveNode | None] | None = None,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
+) -> dict[str, DirectiveNode | None]:
+    auth_state = dict(inherited_auth_state or {})
+    for directive in _iter_auth_directives(
+        block,
+        skip_block_names=skip_block_names,
+    ):
+        name = directive.name.lower()
+        if _is_auth_directive_enabled(directive):
+            auth_state[name] = directive
+        else:
+            auth_state[name] = None
+    return auth_state
+
+
+def _iter_auth_directives(
+    block: BlockNode,
+    *,
+    skip_block_names: frozenset[str] = _AUTH_SKIP_LOCATION_BLOCKS,
+) -> list[DirectiveNode]:
+    directives: list[DirectiveNode] = []
+    for child in block.children:
+        if isinstance(child, DirectiveNode):
+            if child.name.lower() in _AUTH_DIRECTIVE_NAMES:
+                directives.append(child)
+            continue
+        if child.name.lower() in skip_block_names:
+            continue
+        directives.extend(
+            _iter_auth_directives(
+                child,
+                skip_block_names=skip_block_names,
+            )
+        )
+    return directives
+
+
+def _is_auth_directive_enabled(
+    directive: DirectiveNode,
+) -> bool:
+    name = directive.name.lower()
+    if name not in _AUTH_DIRECTIVE_NAMES:
+        return False
+    if not directive.args:
+        return False
+    return _normalized_first_arg(directive) != "off"
+
+
+def _auth_kind(directive: DirectiveNode) -> str:
+    return directive.name.removeprefix("auth_")
+
+
+def _location_path(location: BlockNode) -> str | None:
+    if not location.args:
+        return "/"
+    if location.args[0] in {"=", "^~", "~", "~*"} and len(location.args) >= 2:
+        path = location.args[1]
+    else:
+        path = location.args[0]
+    if path.startswith("@"):
+        return None
+    return path
+
+
+def _source_location(directive: DirectiveNode) -> SourceLocation:
+    return SourceLocation(
+        mode="local",
+        kind="file",
+        file_path=directive.source.file_path or "",
+        line=directive.source.line,
+    )
+
+
+def _normalized_first_arg(directive: DirectiveNode) -> str:
+    return directive.args[0].strip().strip('"').strip("'").lower()
+
+
+def _active_auth_directive(
+    auth_state: dict[str, DirectiveNode | None],
+) -> DirectiveNode | None:
+    active_directives = [
+        directive for directive in auth_state.values() if directive is not None
+    ]
+    if not active_directives:
+        return None
+    return max(
+        active_directives,
+        key=lambda directive: (directive.source.line, directive.source.column),
     )
 
 

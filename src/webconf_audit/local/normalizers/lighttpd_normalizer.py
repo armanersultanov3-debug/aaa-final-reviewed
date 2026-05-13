@@ -67,7 +67,11 @@ def normalize_lighttpd(
         global_scope = _normalize_from_ast(config_ast)
         scopes.append(global_scope)
 
-    return NormalizedConfig(server_type="lighttpd", scopes=scopes)
+    return NormalizedConfig(
+        server_type="lighttpd",
+        scopes=scopes,
+        auth_requiring_locations=(),
+    )
 
 
 # -- merged directives (host-filtered) --------------------------------------

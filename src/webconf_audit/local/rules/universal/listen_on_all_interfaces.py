@@ -24,7 +24,7 @@ _WILDCARD_ADDRESSES = frozenset({"0.0.0.0", "*", "::", "[::]", ""})  # noqa: S10
     category="universal",
     input_kind="normalized",
     tags=("network",),
-    order=110,
+    order=111,
 )
 def check(config: NormalizedConfig) -> list[Finding]:
     findings: list[Finding] = []

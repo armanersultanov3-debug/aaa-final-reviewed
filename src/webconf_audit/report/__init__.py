@@ -112,6 +112,10 @@ UNIVERSAL_TO_SPECIFIC_MAP: dict[str, list[str]] = {
     "universal.missing_referrer_policy": [
         "nginx.missing_referrer_policy",
     ],
+    "universal.tls_required_for_authenticated_routes": [
+        "nginx.auth_basic_over_http",
+        "apache.basic_auth_over_http",
+    ],
 }
 
 

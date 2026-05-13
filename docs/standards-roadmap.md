@@ -37,12 +37,12 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 375 rules (synchronized with
+The current project inventory is 376 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
-- Universal: 13
+- Universal: 14
 - Nginx local: 83
 - Apache local: 84
 - Lighttpd local: 49
@@ -55,6 +55,10 @@ and partial ASVS candidates are now copied into the dedicated `ASVS` column in
 existing-rule references plus their server-specific gap tables are recorded in
 `docs/rule-coverage.md`. ASVS requirements that need deeper probe/parser
 coverage or a stricter policy interpretation stay in the follow-up gap list.
+Direct ASVS v5.0.0-3.7.1 coverage now includes
+`universal.tls_required_for_authenticated_routes` for Apache and Nginx
+auth-requiring routes; IIS and Lighttpd auth normalization remains deferred to
+PR-08b.
 
 ## Mapping Rules
 
