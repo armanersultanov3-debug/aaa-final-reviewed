@@ -11,9 +11,19 @@ original AST node so findings remain traceable.
 
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass, field
+from typing import Literal, cast
 
 from webconf_audit.models import SourceLocation
+
+ListenAddressKind = Literal[
+    "wildcard_ipv4",
+    "wildcard_ipv6",
+    "loopback",
+    "specific",
+    "unix",
+]
 
 
 @dataclass(frozen=True)
@@ -34,13 +44,25 @@ class SourceRef:
 
 @dataclass(frozen=True)
 class NormalizedListenPoint:
-    """A single address:port the server is configured to listen on."""
+    """A single listener endpoint the server is configured to expose.
+
+    ``port`` is ``0`` for non-TCP listeners such as unix sockets.
+    """
 
     port: int
     protocol: str  # "http" | "https"
     tls: bool
     source: SourceRef
     address: str | None = None  # "0.0.0.0", "127.0.0.1", "*", etc.
+    address_kind: ListenAddressKind = cast(ListenAddressKind, None)
+
+    def __post_init__(self) -> None:
+        if self.address_kind is None:
+            object.__setattr__(
+                self,
+                "address_kind",
+                _classify_listen_address(self.address),
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -146,6 +168,7 @@ class NormalizedConfig:
 __all__ = [
     "NormalizedAccessPolicy",
     "AuthRequiringLocation",
+    "ListenAddressKind",
     "NormalizedConfig",
     "NormalizedListenPoint",
     "NormalizedScope",
@@ -153,3 +176,31 @@ __all__ = [
     "NormalizedTLS",
     "SourceRef",
 ]
+
+
+def _classify_listen_address(address: str | None) -> ListenAddressKind:
+    if address is None or address == "" or address == "*" or address == "0.0.0.0":
+        return "wildcard_ipv4"
+
+    normalized = address.strip().lower()
+    if normalized.startswith("unix:"):
+        return "unix"
+
+    if normalized.startswith("[") and normalized.endswith("]"):
+        normalized = normalized[1:-1]
+
+    if normalized == "::":
+        return "wildcard_ipv6"
+
+    try:
+        parsed = ipaddress.ip_address(normalized)
+    except ValueError:
+        return "specific"
+
+    if parsed.is_loopback:
+        return "loopback"
+    if parsed.version == 4 and parsed == ipaddress.IPv4Address("0.0.0.0"):
+        return "wildcard_ipv4"
+    if parsed.version == 6 and parsed == ipaddress.IPv6Address("::"):
+        return "wildcard_ipv6"
+    return "specific"

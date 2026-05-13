@@ -41,6 +41,7 @@ def test_http_listen_point():
     assert lps[0].port == 80
     assert lps[0].tls is False
     assert lps[0].protocol == "http"
+    assert lps[0].address_kind == "wildcard_ipv4"
 
 
 def test_https_listen_point():
@@ -65,6 +66,7 @@ def test_listen_address_port():
 
     lp = cfg.scopes[0].listen_points[0]
     assert lp.address == "0.0.0.0"
+    assert lp.address_kind == "wildcard_ipv4"
     assert lp.port == 8080
 
 
@@ -74,6 +76,7 @@ def test_listen_ipv6():
 
     lp = cfg.scopes[0].listen_points[0]
     assert lp.address == "[::]"
+    assert lp.address_kind == "wildcard_ipv6"
     assert lp.port == 443
     assert lp.tls is True
 

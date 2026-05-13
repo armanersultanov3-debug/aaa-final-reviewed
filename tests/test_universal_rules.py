@@ -693,8 +693,20 @@ def test_listen_all_fires_on_unbracketed_ipv6_wildcard():
     assert "universal.listen_on_all_interfaces" in ids
 
 
-def test_listen_all_silent_on_specific():
+def test_listen_all_silent_on_loopback():
     scope = _http_scope(address="127.0.0.1")
+    ids = _rule_ids(_config(scope))
+    assert "universal.listen_on_all_interfaces" not in ids
+
+
+def test_listen_all_silent_on_specific():
+    scope = _http_scope(address="1.2.3.4")
+    ids = _rule_ids(_config(scope))
+    assert "universal.listen_on_all_interfaces" not in ids
+
+
+def test_listen_all_silent_on_unix_socket():
+    scope = _http_scope(address="unix:/var/run/nginx.sock", port=0)
     ids = _rule_ids(_config(scope))
     assert "universal.listen_on_all_interfaces" not in ids
 
