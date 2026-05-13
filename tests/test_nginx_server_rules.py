@@ -524,6 +524,153 @@ def test_analyze_nginx_config_accepts_normalized_proxy_source_headers(
     )
 
 
+def test_analyze_nginx_config_sets_http_upstream_protocol_metadata_for_proxy_findings(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location / {\n"
+        "        proxy_pass http://backend;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    finding = next(
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+    )
+    assert finding.metadata["upstream_protocol"] == "http"
+
+
+@pytest.mark.parametrize(
+    ("config_text", "expected_protocol"),
+    [
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    location ~ \\.php$ {\n"
+            "        fastcgi_param X-Real-IP $remote_addr;\n"
+            "        fastcgi_pass unix:/run/php-fpm.sock;\n"
+            "    }\n"
+            "}\n",
+            "fastcgi",
+            id="fastcgi-missing-forwarded-for",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    location /grpc {\n"
+            "        grpc_pass grpc://backend;\n"
+            "    }\n"
+            "}\n",
+            "grpc",
+            id="grpc-missing-forwarded-for",
+        ),
+        pytest.param(
+            "server {\n"
+            "    listen 80;\n"
+            "    location /app {\n"
+            "        uwsgi_pass backend;\n"
+            "    }\n"
+            "}\n",
+            "uwsgi",
+            id="uwsgi-missing-forwarded-for",
+        ),
+    ],
+)
+def test_analyze_nginx_config_reports_missing_source_ip_headers_for_non_http_upstreams(
+    tmp_path: Path,
+    config_text: str,
+    expected_protocol: str,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata["upstream_protocol"] == expected_protocol
+
+
+def test_analyze_nginx_config_reports_fastcgi_missing_real_ip_header(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    location ~ \\.php$ {\n"
+        "        fastcgi_param X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "        fastcgi_pass unix:/run/php-fpm.sock;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata["upstream_protocol"] == "fastcgi"
+
+
+def test_analyze_nginx_config_accepts_source_ip_headers_for_all_supported_upstreams(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "    proxy_set_header X-Real-IP $remote_addr;\n"
+        "    proxy_set_header X-Forwarded-Proto $scheme;\n"
+        "    fastcgi_param X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "    fastcgi_param X-Real-IP $remote_addr;\n"
+        "    grpc_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "    uwsgi_param X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "    location /proxy {\n"
+        "        proxy_pass http://backend;\n"
+        "    }\n"
+        "    location ~ \\.php$ {\n"
+        "        fastcgi_pass unix:/run/php-fpm.sock;\n"
+        "    }\n"
+        "    location /grpc {\n"
+        "        grpc_pass grpc://backend;\n"
+        "    }\n"
+        "    location /app {\n"
+        "        uwsgi_pass backend;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    assert not any(
+        finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_text = _http_block(

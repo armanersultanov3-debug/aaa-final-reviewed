@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from webconf_audit.local.nginx.parser.ast import (
     AstNode,
     BlockNode,
@@ -8,27 +10,107 @@ from webconf_audit.local.nginx.parser.ast import (
 )
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
+from webconf_audit.standards import cis_nginx_v3_0_0
 
 RULE_ID = "nginx.proxy_missing_source_ip_headers"
+TITLE = "Upstream block does not forward client source headers"
+DESCRIPTION = (
+    "Upstream proxy_pass / fastcgi_pass / grpc_pass / uwsgi_pass scope does "
+    "not forward client source-IP via its protocol's appropriate header."
+)
 
+_FORWARDED_FOR_VALUES = {"$proxy_add_x_forwarded_for", "$remote_addr"}
 _REQUIRED_PROXY_HEADERS = {
-    "x-forwarded-for": {"$proxy_add_x_forwarded_for", "$remote_addr"},
+    "x-forwarded-for": _FORWARDED_FOR_VALUES,
     "x-real-ip": {"$remote_addr"},
     "x-forwarded-proto": {"$scheme"},
 }
+_REQUIRED_FASTCGI_HEADERS = {
+    "x-forwarded-for": _FORWARDED_FOR_VALUES,
+    "x-real-ip": {"$remote_addr"},
+}
+_REQUIRED_GRPC_HEADERS = {
+    "x-forwarded-for": _FORWARDED_FOR_VALUES,
+}
+_REQUIRED_UWSGI_HEADERS = {
+    "x-forwarded-for": _FORWARDED_FOR_VALUES,
+}
+
+
+class _UpstreamProtocolSpec(NamedTuple):
+    finding_protocol: str
+    pass_directive: str
+    header_directive: str
+    required_headers: dict[str, set[str]]
+    recommendation: str
+
+
+_UPSTREAM_PROTOCOLS = (
+    _UpstreamProtocolSpec(
+        finding_protocol="http",
+        pass_directive="proxy_pass",
+        header_directive="proxy_set_header",
+        required_headers=_REQUIRED_PROXY_HEADERS,
+        recommendation=(
+            "Add proxy_set_header X-Forwarded-For "
+            "$proxy_add_x_forwarded_for; proxy_set_header X-Real-IP "
+            "$remote_addr; and proxy_set_header X-Forwarded-Proto $scheme."
+        ),
+    ),
+    _UpstreamProtocolSpec(
+        finding_protocol="fastcgi",
+        pass_directive="fastcgi_pass",
+        header_directive="fastcgi_param",
+        required_headers=_REQUIRED_FASTCGI_HEADERS,
+        recommendation=(
+            "Add fastcgi_param X-Forwarded-For "
+            "$proxy_add_x_forwarded_for; and fastcgi_param X-Real-IP "
+            "$remote_addr; in FastCGI contexts."
+        ),
+    ),
+    _UpstreamProtocolSpec(
+        finding_protocol="grpc",
+        pass_directive="grpc_pass",
+        header_directive="grpc_set_header",
+        required_headers=_REQUIRED_GRPC_HEADERS,
+        recommendation=(
+            "Add grpc_set_header X-Forwarded-For "
+            "$proxy_add_x_forwarded_for; in gRPC upstream contexts."
+        ),
+    ),
+    _UpstreamProtocolSpec(
+        finding_protocol="uwsgi",
+        pass_directive="uwsgi_pass",
+        header_directive="uwsgi_param",
+        required_headers=_REQUIRED_UWSGI_HEADERS,
+        recommendation=(
+            "Add uwsgi_param X-Forwarded-For $proxy_add_x_forwarded_for; "
+            "in uwsgi upstream contexts."
+        ),
+    ),
+)
 
 
 @rule(
     rule_id=RULE_ID,
-    title="Proxy block does not forward client source headers",
+    title=TITLE,
     severity="low",
-    description="A proxy_pass block does not forward client source IP and protocol headers.",
+    description=DESCRIPTION,
     recommendation=(
-        "Set X-Forwarded-For, X-Real-IP, and X-Forwarded-Proto with proxy_set_header "
-        "in proxied contexts."
+        "Set the protocol-appropriate source-IP forwarding directives in "
+        "upstream contexts."
     ),
     category="local",
     server_type="nginx",
+    standards=(
+        cis_nginx_v3_0_0(
+            "3.4",
+            note=(
+                "Covers source-IP forwarding for proxy_pass, fastcgi_pass, "
+                "grpc_pass, and uwsgi_pass upstreams."
+            ),
+        ),
+    ),
     order=259,
 )
 def find_proxy_missing_source_ip_headers(config_ast: ConfigAst) -> list[Finding]:
@@ -39,45 +121,48 @@ def find_proxy_missing_source_ip_headers(config_ast: ConfigAst) -> list[Finding]
 
 def _walk_blocks(
     nodes: list[AstNode],
-    inherited_headers: dict[str, str],
+    inherited_headers_by_protocol: dict[str, dict[str, str]],
     findings: list[Finding],
 ) -> None:
     for node in nodes:
         if not isinstance(node, BlockNode):
             continue
 
-        headers = inherited_headers | _proxy_headers(node)
-        if _has_proxy_pass(node) and not _has_required_headers(headers):
-            findings.append(
-                Finding(
-                    rule_id=RULE_ID,
-                    title="Proxy block does not forward client source headers",
-                    severity="low",
-                    description=(
-                        "proxy_pass is used without forwarding X-Forwarded-For, "
-                        "X-Real-IP, and X-Forwarded-Proto with expected values."
-                    ),
-                    recommendation=(
-                        "Add proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; "
-                        "proxy_set_header X-Real-IP $remote_addr; and "
-                        "proxy_set_header X-Forwarded-Proto $scheme."
-                    ),
-                    location=SourceLocation(
-                        mode="local",
-                        kind="file",
-                        file_path=node.source.file_path,
-                        line=node.source.line,
-                    ),
-                )
+        headers_by_protocol: dict[str, dict[str, str]] = {}
+        for spec in _UPSTREAM_PROTOCOLS:
+            headers, finding = _headers_and_finding_for_protocol(
+                block=node,
+                inherited_headers=inherited_headers_by_protocol.get(
+                    spec.finding_protocol,
+                    {},
+                ),
+                spec=spec,
             )
+            headers_by_protocol[spec.finding_protocol] = headers
+            if finding is not None:
+                findings.append(finding)
 
-        _walk_blocks(node.children, headers, findings)
+        _walk_blocks(node.children, headers_by_protocol, findings)
 
 
-def _proxy_headers(block: BlockNode) -> dict[str, str]:
+def _headers_and_finding_for_protocol(
+    *,
+    block: BlockNode,
+    inherited_headers: dict[str, str],
+    spec: _UpstreamProtocolSpec,
+) -> tuple[dict[str, str], Finding | None]:
+    headers = inherited_headers | _configured_headers(block, spec.header_directive)
+    if not _has_upstream_pass(block, spec.pass_directive):
+        return headers, None
+    if _has_required_headers(headers, spec.required_headers):
+        return headers, None
+    return headers, _finding_for_block(block, spec)
+
+
+def _configured_headers(block: BlockNode, header_directive: str) -> dict[str, str]:
     headers: dict[str, str] = {}
     for child in block.children:
-        if not isinstance(child, DirectiveNode) or child.name != "proxy_set_header":
+        if not isinstance(child, DirectiveNode) or child.name != header_directive:
             continue
         if len(child.args) < 2:
             continue
@@ -85,15 +170,35 @@ def _proxy_headers(block: BlockNode) -> dict[str, str]:
     return headers
 
 
-def _has_proxy_pass(block: BlockNode) -> bool:
+def _finding_for_block(block: BlockNode, spec: _UpstreamProtocolSpec) -> Finding:
+    return Finding(
+        rule_id=RULE_ID,
+        title=TITLE,
+        severity="low",
+        description=DESCRIPTION,
+        recommendation=spec.recommendation,
+        location=SourceLocation(
+            mode="local",
+            kind="file",
+            file_path=block.source.file_path,
+            line=block.source.line,
+        ),
+        metadata={"upstream_protocol": spec.finding_protocol},
+    )
+
+
+def _has_upstream_pass(block: BlockNode, pass_directive: str) -> bool:
     return any(
-        isinstance(child, DirectiveNode) and child.name == "proxy_pass"
+        isinstance(child, DirectiveNode) and child.name == pass_directive
         for child in block.children
     )
 
 
-def _has_required_headers(headers: dict[str, str]) -> bool:
-    for header_name, allowed_values in _REQUIRED_PROXY_HEADERS.items():
+def _has_required_headers(
+    headers: dict[str, str],
+    required_headers: dict[str, set[str]],
+) -> bool:
+    for header_name, allowed_values in required_headers.items():
         header_value = headers.get(header_name)
         if header_value is None:
             return False
