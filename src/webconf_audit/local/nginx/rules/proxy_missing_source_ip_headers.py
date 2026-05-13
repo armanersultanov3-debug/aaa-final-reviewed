@@ -151,7 +151,8 @@ def _headers_and_finding_for_protocol(
     inherited_headers: dict[str, str],
     spec: _UpstreamProtocolSpec,
 ) -> tuple[dict[str, str], Finding | None]:
-    headers = inherited_headers | _configured_headers(block, spec.header_directive)
+    local_headers = _configured_headers(block, spec.header_directive)
+    headers = local_headers if local_headers else dict(inherited_headers)
     if not _has_upstream_pass(block, spec.pass_directive):
         return headers, None
     if _has_required_headers(headers, spec.required_headers):

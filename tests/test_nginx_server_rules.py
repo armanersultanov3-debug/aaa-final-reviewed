@@ -671,6 +671,35 @@ def test_analyze_nginx_config_accepts_source_ip_headers_for_all_supported_upstre
     )
 
 
+def test_analyze_nginx_config_does_not_merge_parent_fastcgi_headers(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    fastcgi_param X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "    fastcgi_param X-Real-IP $remote_addr;\n"
+        "    location ~ \\.php$ {\n"
+        "        fastcgi_param X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "        fastcgi_pass unix:/run/php-fpm.sock;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert result.issues == []
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_missing_source_ip_headers"
+    ]
+    assert len(matching) == 1
+    assert matching[0].metadata["upstream_protocol"] == "fastcgi"
+
+
 def test_analyze_nginx_config_reports_duplicate_listen_in_same_server(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"
     config_text = _http_block(
