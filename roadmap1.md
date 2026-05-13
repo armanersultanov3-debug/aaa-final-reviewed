@@ -44,6 +44,9 @@ Status: implemented.
   `maxUrl` / `maxQueryString` IIS defaults silent.
 - Lighttpd: keep `server.max-request-size` and `server.max-connections`
   coverage precise with conditional/effective scope tests.
+- Lighttpd: regression fixtures now cover `$SERVER["socket"] == ":80"` and
+  host-scoped `url.redirect` edge cases alongside the existing conditional
+  scope precision checks.
 
 ## PR Slice 3: Logging Quality
 
@@ -76,6 +79,9 @@ Status: implemented.
 - X-Frame-Options and CSP `frame-ancestors`: missing-XFO rules now treat an
   unconditional CSP `frame-ancestors` policy as equivalent clickjacking
   control and keep conditional Apache CSP from hiding missing coverage.
+- Lighttpd: host-filtered regression fixtures cover global header/logging
+  defaults with conditional overrides so inheritance-aware missing-header
+  behavior stays exercised through request-context merges.
 - CSP: keep strictness improvements separate from broad CSP parsing claims.
 
 ## PR Slice 6: TLS Local Complements
