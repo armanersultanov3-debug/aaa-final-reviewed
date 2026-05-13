@@ -94,6 +94,14 @@ def test_cis_iis_10_v1_2_1_uses_canonical_reference_and_url() -> None:
     assert ref.url == "https://www.cisecurity.org/benchmark/microsoft_iis"
 
 
+def test_cis_iis_10_v1_2_1_strips_leading_section_sign() -> None:
+    ref = cis_iis_10_v1_2_1("§3.11")
+
+    assert ref.standard == "CIS"
+    assert ref.reference == "Microsoft IIS 10 v1.2.1 §3.11"
+    assert ref.url == "https://www.cisecurity.org/benchmark/microsoft_iis"
+
+
 def test_cis_iis_10_v1_2_1_rejects_empty_section_after_sign() -> None:
     with pytest.raises(ValueError, match="section"):
         cis_iis_10_v1_2_1("§")

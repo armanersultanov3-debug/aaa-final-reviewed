@@ -24,11 +24,15 @@ def test_iis_native_server_header_rule_fires_with_iis_fingerprint() -> None:
 
     matched = [finding for finding in findings if finding.rule_id == _RULE_ID]
     assert len(matched) == 2
-    assert matched[0].location.details == "Server: Microsoft-IIS/10.0"
-    assert matched[0].metadata["observation_source"] == "runtime_server_header"
-    assert matched[0].metadata["complementary_rule_id"] == (
+    assert {finding.location.details for finding in matched} == {
+        "Server: Microsoft-IIS/10.0"
+    }
+    assert {finding.metadata["observation_source"] for finding in matched} == {
+        "runtime_server_header"
+    }
+    assert {finding.metadata["complementary_rule_id"] for finding in matched} == {
         "iis.request_filtering_remove_server_header_disabled"
-    )
+    }
 
 
 def test_iis_native_server_header_rule_ignores_missing_server_header() -> None:
