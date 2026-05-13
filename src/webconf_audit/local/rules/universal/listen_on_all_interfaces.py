@@ -1,7 +1,7 @@
 """universal.listen_on_all_interfaces
 
-Informational finding when a listen point binds to all interfaces
-(0.0.0.0 / * / :: / [::] / no explicit address).
+Informational finding when a listen point binds to wildcard IPv4 or IPv6
+interfaces.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from webconf_audit.rule_registry import rule
 
 RULE_ID = "universal.listen_on_all_interfaces"
 
-_WILDCARD_ADDRESSES = frozenset({"0.0.0.0", "*", "::", "[::]", ""})  # noqa: S104
+_WILDCARD_ADDRESS_KINDS = frozenset({"wildcard_ipv4", "wildcard_ipv6"})
 
 
 @rule(
@@ -32,13 +32,10 @@ def check(config: NormalizedConfig) -> list[Finding]:
 
     for scope in config.scopes:
         for lp in scope.listen_points:
-            # ``lp.address or ""`` already collapses ``None`` into the
-            # empty string, so the redundant ``addr is not None`` guard
-            # that previously rode along with the wildcard check could
-            # never trigger - drop it for clarity.
-            addr = lp.address or ""
-            if addr not in _WILDCARD_ADDRESSES:
+            if lp.address_kind not in _WILDCARD_ADDRESS_KINDS:
                 continue
+
+            addr = lp.address or ""
             src = lp.source
             listen_key = (
                 lp.port,
@@ -77,6 +74,7 @@ def check(config: NormalizedConfig) -> list[Finding]:
                     metadata={
                         "scope_name": scope.scope_name,
                         "address": addr or None,
+                        "address_kind": lp.address_kind,
                         "port": lp.port,
                     },
                 )

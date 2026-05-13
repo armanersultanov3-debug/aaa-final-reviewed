@@ -60,6 +60,7 @@ def test_listen_point_http():
     assert lp.port == 80
     assert lp.tls is False
     assert lp.address is None
+    assert lp.address_kind == "wildcard_ipv4"
 
 
 def test_listen_point_https_with_address():
@@ -69,6 +70,18 @@ def test_listen_point_https_with_address():
     )
     assert lp.tls is True
     assert lp.address == "0.0.0.0"
+    assert lp.address_kind == "wildcard_ipv4"
+
+
+def test_listen_point_unix_socket():
+    lp = NormalizedListenPoint(
+        port=0,
+        protocol="http",
+        tls=False,
+        source=_make_ref(),
+        address="unix:/tmp/nginx.sock",
+    )
+    assert lp.address_kind == "unix"
 
 
 def test_listen_point_is_frozen():

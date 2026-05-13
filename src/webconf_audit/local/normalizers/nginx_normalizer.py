@@ -323,6 +323,9 @@ def _parse_listen_address(addr_arg: str, has_ssl: bool) -> tuple[str | None, int
     """Parse an addr_arg like '443', '0.0.0.0:443', '[::]:80', '*:8080'."""
     default_port = 443 if has_ssl else 80
 
+    if addr_arg.startswith("unix:"):
+        return addr_arg, 0
+
     # Pure port number
     if addr_arg.isdigit():
         return None, int(addr_arg)
