@@ -183,7 +183,7 @@ Applicability:
 |--------|--------|-----------------------|-------|
 | Nginx | Confirmed / covered | Reproduced from the real `Новая папка` report and covered by `tests/test_nginx_roadmap1_noise.py`. | Common `server { return 301 ...; }` and rewrite-only redirect hosts. |
 | Apache | Confirmed / covered | Covered by Apache redirect-only VirtualHost regression tests. | Common `Redirect`, `RedirectMatch`, and rewrite-only virtual hosts. |
-| Lighttpd | Confirmed / partially covered | Covered for fully redirect-only configs; add `$SERVER["socket"] == ":80"` and host-conditional `url.redirect` fixtures before changing conditional scope behavior. | Redirect-only conditional scopes can be modeled conservatively. |
+| Lighttpd | Covered | `tests/fixtures/webserver-configs/lighttpd/edge-cases/` plus `tests/test_lighttpd_redirect_inheritance_fixtures.py` exercise redirect-only `$SERVER["socket"] == ":80"` conditional blocks and host-conditional `url.redirect`. | Redirect-only conditional scopes can be modeled conservatively. |
 | IIS | Confirmed / covered | Covered for global `httpRedirect enabled="true"` with `childOnly` guard. | Applies to `httpRedirect` and rewrite-only sites, while respecting XML inheritance. |
 
 ### Inheritance-aware missing checks
@@ -198,8 +198,8 @@ Applicability:
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
 | Nginx | Partially covered | Logging, timeout, header, TLS, stapling, HTTP/2, and fragment-only notes have regression coverage; the current parser already resolves includes and effective config for the supported input model, so `nginx -T` dump reconstruction is out of scope until user demand because it reduces source-location quality. | Continue extending effective `main -> http -> server -> location` handling within the current parser model rather than adding an alternative `nginx -T` input mode. |
-| Apache | Partially covered | Effective helpers exist, but more rules still need to consume inherited `VirtualHost`, `Directory`, and `Location` state. | Extend existing effective helpers so more rules consume inherited state. |
-| Lighttpd | Confirmed gap | Conditional logging/header findings showed host/default scope noise; keep adding request-context fixtures. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
+| Apache | Covered for current model | Apache effective helpers are consumed by the log-presence, log-value, LogFormat resolution, `directory_without_allowoverride`, deny-list, header, TLS, timeout, limit, and method-policy rule families; `tests/test_apache_inheritance_*.py` exercise the inheritance scenarios end-to-end. | Remaining rule migrations are tracked rule-by-rule rather than as a backlog item. |
+| Lighttpd | Covered | Request-context inheritance fixtures (`tests/test_lighttpd_redirect_inheritance_fixtures.py`) exercise global directives with conditional scopes for logging and security headers. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
 | IIS | Confirmed / covered | Covered by `tests/test_iis_inheritance_fixtures.py` and the IIS inheritance-edge fixtures for handlers, modules, and requestFiltering. | Effective merged XML sections now have cross-file regression coverage across `machine.config`, `applicationHost.config`, and `web.config`. |
 
 ### TLS hardening expansion

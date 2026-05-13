@@ -24,10 +24,11 @@ Implemented in the repository (originally tracked on
 
 Remaining backlog:
 
-- Generic report-level grouping of repeated same-rule advice across many scopes
-  is still a separate reporting feature. This work reduces the known Nginx
-  noise at its root by honoring inherited/effective settings, but it does not
-  add a new formatter-level grouping model.
+- (closed by `dfaf9b8` — "Add effective-cause grouping") Generic
+  report-level grouping of repeated same-rule advice across many scopes is now
+  implemented as the `--group-by-cause` formatter mode and the
+  `Finding.effective_cause_key` opt-in field on the models. No remaining
+  needfix backlog items at this time.
 
 ## Nginx Effective Configuration
 
