@@ -249,7 +249,6 @@ def _auth_requiring_locations_from_ast(
         _auth_locations_from_ast_nodes(
             config_ast.nodes,
             inherited_ssl_enabled=False,
-            inherited_tls_socket_scope=False,
         )
     )
 
@@ -258,7 +257,6 @@ def _auth_locations_from_ast_nodes(
     nodes: list[object],
     *,
     inherited_ssl_enabled: bool,
-    inherited_tls_socket_scope: bool,
 ) -> list[AuthRequiringLocation]:
     ssl_enabled = _scope_ast_ssl_enabled(nodes, inherited_ssl_enabled)
     locations: list[AuthRequiringLocation] = []
@@ -281,14 +279,10 @@ def _auth_locations_from_ast_nodes(
         if not isinstance(node, LighttpdBlockNode):
             continue
 
-        child_tls_socket_scope = inherited_tls_socket_scope or _is_socket_condition(
-            node.condition,
-        )
         locations.extend(
             _auth_locations_from_ast_nodes(
                 node.children,
                 inherited_ssl_enabled=ssl_enabled,
-                inherited_tls_socket_scope=child_tls_socket_scope,
             )
         )
 
@@ -304,13 +298,6 @@ def _scope_ast_ssl_enabled(
         if isinstance(node, LighttpdAssignmentNode) and node.name == "ssl.engine":
             ssl_enabled = normalize_value(node.value) == "enable"
     return ssl_enabled
-
-
-def _is_socket_condition(condition: LighttpdCondition | None) -> bool:
-    return (
-        condition is not None
-        and condition.variable.lower() == '$server["socket"]'
-    )
 
 
 def _auth_locations_from_directive(
