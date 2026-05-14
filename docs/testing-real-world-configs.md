@@ -66,7 +66,11 @@ The security corpus uses these sources as public references:
 Nginx fixtures cover:
 
 - alias/trailing-slash path mistakes
+- classic Gixy alias traversal slash mismatch
+- CRLF/HTTP response construction from request-derived values
 - proxy blocks missing source IP/protocol forwarding headers
+- user-controlled `proxy_pass` destinations
+- non-default server blocks accepting unexpected Host values
 - autoindex enabled
 - server token disclosure
 - unsafe default server behavior
@@ -103,12 +107,7 @@ Some source classes are represented as documentation/reference notes, but are
 not asserted as expected findings because webconf-audit does not currently have
 dedicated local rules for them:
 
-- Nginx CRLF/HTTP response splitting via `return ... $uri`
-- user-controlled `proxy_pass` SSRF patterns
-- Host header spoofing in local Nginx config
 - raw backend response reading
-- the exact classic Gixy alias traversal shape where `location /static` maps to
-  `alias /path/`
 
 These gaps are useful future rule candidates, but tests should not pretend that
 the current analyzer detects them.
@@ -118,17 +117,8 @@ the current analyzer detects them.
 These reference gaps stay documented as deferred follow-up ideas rather than
 current expected findings:
 
-- Nginx CRLF/HTTP response splitting via `return ... $uri`: `direct-rule`
-  (deferred) - requires careful false-positive guards on `$uri`
-  interpolation contexts.
-- User-controlled `proxy_pass` SSRF: `parser-depth` (deferred) - needs
-  taint-tracking through Nginx variables before a local rule would be honest.
-- Host header spoofing in local Nginx config: `direct-rule` (deferred) - the
-  pattern is clear, but the priority is currently low.
 - Raw backend response reading: `research` (deferred) - signal design is still
   incomplete and there is no clear directive-level marker yet.
-- Gixy alias traversal `location /static` -> `alias /path/`: `direct-rule`
-  (deferred) - natural future extension of `nginx.alias_without_trailing_slash`.
 
 ## Run Static Tests
 
