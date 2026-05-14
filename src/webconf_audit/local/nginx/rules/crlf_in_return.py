@@ -49,6 +49,8 @@ def find_crlf_in_return(config_ast: ConfigAst) -> list[Finding]:
         return_value = _return_value(node)
         if return_value is None:
             continue
+        if _is_canonical_https_redirect(return_value):
+            continue
         if not analyzer.value_contains_user_controlled(
             return_value,
             analyzer.scope_for_node(node),
@@ -83,6 +85,11 @@ def _return_value(directive: DirectiveNode) -> str | None:
 
 def _looks_like_status_code(value: str) -> bool:
     return len(value) == 3 and value.isdigit()
+
+
+def _is_canonical_https_redirect(value: str) -> bool:
+    normalized_value = value.strip().strip('"').strip("'").lower()
+    return normalized_value == "https://$host$request_uri"
 
 
 __all__ = ["find_crlf_in_return"]

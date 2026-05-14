@@ -81,7 +81,8 @@ def find_proxy_pass_user_controlled_destination(
 def _proxy_pass_host_expression(value: str) -> str | None:
     scheme_separator = value.find("://")
     if scheme_separator == -1:
-        return None
+        # Variable-only form is valid in nginx and may carry a full upstream URL.
+        return value if "$" in value else None
     remainder = value[scheme_separator + 3 :]
     if not remainder or remainder.startswith("unix:"):
         return None

@@ -103,6 +103,34 @@ def test_analyze_nginx_config_does_not_report_server_block_accepts_unknown_host_
     )
 
 
+def test_analyze_nginx_config_does_not_report_server_block_accepts_unknown_host_when_host_is_rejected_with_421(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name _;\n"
+        "        if ($host !~ ^example\\.test$) {\n"
+        "            return 421;\n"
+        "        }\n"
+        "        location / {\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.server_block_accepts_unknown_host"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_does_not_report_server_block_accepts_unknown_host_without_content_handler(
     tmp_path: Path,
 ) -> None:

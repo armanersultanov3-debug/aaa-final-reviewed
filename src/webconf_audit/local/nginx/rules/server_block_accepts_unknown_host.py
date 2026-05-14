@@ -109,7 +109,7 @@ def _has_host_guard_reject(server_block: BlockNode) -> bool:
             isinstance(grandchild, DirectiveNode)
             and grandchild.name == "return"
             and grandchild.args
-            and grandchild.args[0] in {"400", "403", "404", "444"}
+            and grandchild.args[0] in {"400", "403", "404", "421", "444"}
             for grandchild in child.children
         ):
             return True

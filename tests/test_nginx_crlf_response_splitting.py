@@ -49,6 +49,26 @@ def test_analyze_nginx_config_does_not_report_crlf_in_return_for_fixed_target(
     )
 
 
+def test_analyze_nginx_config_does_not_report_crlf_in_return_for_canonical_https_redirect(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        _safe_server_block(
+            "listen 80;",
+            "return 301 https://$host$request_uri;",
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.crlf_in_return"
+        for finding in result.findings
+    )
+
+
 def test_analyze_nginx_config_reports_crlf_in_add_header(
     tmp_path: Path,
 ) -> None:
@@ -82,7 +102,7 @@ def test_analyze_nginx_config_does_not_report_crlf_in_add_header_for_fixed_value
     config_path.write_text(
         _safe_server_block(
             "listen 80;",
-            'add_header X-Trace "static-value" always;',
+            'add_header Set-Cookie "session=static; Secure" always;',
         ),
         encoding="utf-8",
     )
