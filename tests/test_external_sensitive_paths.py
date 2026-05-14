@@ -1050,6 +1050,20 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
             None,
         ),
         (
+            "/id_ed25519",
+            "external.ssh_private_key_exposed",
+            "text/plain",
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nZXhhbXBsZQ==\n",
+            None,
+        ),
+        (
+            "/id_ecdsa",
+            "external.ssh_private_key_exposed",
+            "text/plain",
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nZXhhbXBsZQ==\n",
+            None,
+        ),
+        (
             "/.ssh/authorized_keys",
             "external.ssh_authorized_keys_exposed",
             "text/plain",
@@ -1106,6 +1120,13 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
             None,
         ),
         (
+            "/master.key",
+            "external.rails_master_key_exposed",
+            "text/plain",
+            "0123456789abcdef0123456789abcdef\n",
+            None,
+        ),
+        (
             "/config/credentials.yml.enc",
             "external.rails_credentials_yml_enc_exposed",
             "text/plain",
@@ -1114,6 +1135,13 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
         ),
         (
             "/config/database.yml",
+            "external.rails_database_yml_exposed",
+            "text/plain",
+            "production:\n  adapter: postgresql\n  database: app_prod\n",
+            None,
+        ),
+        (
+            "/database.yml",
             "external.rails_database_yml_exposed",
             "text/plain",
             "production:\n  adapter: postgresql\n  database: app_prod\n",
@@ -1155,7 +1183,28 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
             None,
         ),
         (
+            "/swagger-ui.html",
+            "external.swagger_ui_exposed",
+            "text/html",
+            "<html><title>Swagger UI</title><script src='swagger-ui-bundle.js'></script></html>",
+            None,
+        ),
+        (
+            "/v2/api-docs",
+            "external.openapi_spec_exposed",
+            "application/json",
+            '{"openapi":"3.0.3","info":{"title":"Example API"}}',
+            None,
+        ),
+        (
             "/v3/api-docs",
+            "external.openapi_spec_exposed",
+            "application/json",
+            '{"openapi":"3.0.3","info":{"title":"Example API"}}',
+            None,
+        ),
+        (
+            "/api-docs",
             "external.openapi_spec_exposed",
             "application/json",
             '{"openapi":"3.0.3","info":{"title":"Example API"}}',
@@ -1170,6 +1219,20 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
         ),
         (
             "/.github/workflows/ci.yml",
+            "external.github_workflow_exposed",
+            "text/plain",
+            "on:\n  push:\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
+            None,
+        ),
+        (
+            "/.github/workflows/main.yml",
+            "external.github_workflow_exposed",
+            "text/plain",
+            "on:\n  push:\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
+            None,
+        ),
+        (
+            "/.github/workflows/build.yml",
             "external.github_workflow_exposed",
             "text/plain",
             "on:\n  push:\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
@@ -1205,6 +1268,13 @@ def test_backup_archive_rule_can_match_on_content_type_without_body(monkeypatch)
         ),
         (
             "/docker-compose.yml",
+            "external.docker_compose_exposed",
+            "text/plain",
+            "services:\n  web:\n    image: nginx\n",
+            None,
+        ),
+        (
+            "/docker-compose.yaml",
             "external.docker_compose_exposed",
             "text/plain",
             "services:\n  web:\n    image: nginx\n",
