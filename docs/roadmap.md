@@ -282,7 +282,7 @@ hardcoded finder per path.
 
 ## Backlog Status (as of 2026-05-14)
 
-- Rule count: 391 total, with the repeated counters and registry expected to
+- Rule count: 396 total, with the repeated counters and registry expected to
   stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`, `STD-GAP-027`,
@@ -294,9 +294,7 @@ hardcoded finder per path.
   `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`. Each carries an explicit
   rationale in `docs/benchmarks-covering.md §9`.
 - Docs-only alignment (plan 2026-05-14): `STD-GAP-020` (NIST CSF 2.0
-  topic-grouped block in `docs/rule-coverage.md`), `STD-GAP-028` (OWASP API
-  Security Top 10 secondary alignment as a footnote after the O-03 SSRF
-  rule lands).
+  topic-grouped block in `docs/rule-coverage.md`).
 - Active backlog driven by plan 2026-05-14:
   - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 in the plan,
     ~30 rules).
@@ -323,8 +321,10 @@ v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
 reporting.
 
 Current step: continue standards mapping and curated safe external probe
-additions on top of the now-implemented Apache precision and TLS/runtime
-evidence slices.
+additions on top of the now-implemented Apache precision, TLS/runtime
+evidence slices, and the landed Nginx O-03 Gixy-parity work. The only
+documented Nginx-local deferred gap from that slice is raw backend response
+reading.
 
 The TLS runtime-evidence slice of the external-safe track is implemented:
 certificate-chain/trust probing, negotiated forward secrecy posture, bounded

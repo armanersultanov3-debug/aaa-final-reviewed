@@ -67,7 +67,7 @@ Main entrypoint: `nginx/nginx.conf`
 
 Included file: `nginx/conf.d/insecure.conf`
 
-Intentional findings:
+Example findings:
 
 - `nginx.server_tokens_on`
 - `nginx.autoindex_on`
@@ -81,7 +81,7 @@ Included file: `apache/conf/extra/insecure.conf`
 
 Additional distributed config: `apache\htdocs/.htaccess`
 
-Intentional findings:
+Example findings:
 
 - `apache.options_indexes`
 - `apache.options_includes_enabled`
@@ -109,7 +109,7 @@ Main entrypoint: `lighttpd/lighttpd.conf`
 
 Included file: `lighttpd/conf.d/insecure.conf`
 
-Intentional findings:
+Example findings:
 
 - `lighttpd.dir_listing_enabled` (from `conf.d/insecure.conf`)
 - `lighttpd.weak_ssl_cipher_list` (from `conf.d/insecure.conf`)
@@ -136,7 +136,7 @@ Inherited base config: `iis/machine.config`
 
 No Docker validation (IIS does not run in Linux containers).
 
-Intentional findings:
+Example findings:
 
 - `iis.directory_browse_enabled` (directoryBrowse enabled="true")
 - `iis.http_errors_detailed` (errorMode="Detailed")

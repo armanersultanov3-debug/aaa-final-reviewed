@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **421**
+Total rules: **426**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (270), external (137), universal (14) |
-| Severity | high (36), medium (145), low (229), info (11) |
-| Input kind | ast (170), effective (88), probe (137), normalized (14), htaccess (6), mixed (6) |
+| Category | local (275), external (137), universal (14) |
+| Severity | high (39), medium (147), low (229), info (11) |
+| Input kind | ast (175), effective (88), probe (137), normalized (14), htaccess (6), mixed (6) |
 
 ## Inventory tables
 
@@ -119,7 +119,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 85
+Count: 90
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -217,16 +217,29 @@ the benchmark covers but webconf-audit does not.
 | `nginx.merge_slashes_off` | low | ast | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html) |
 | `nginx.proxy_ssl_verify_disabled` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | [ASVS v5.0.0-12.2.2](https://owasp.org/www-project-application-security-verification-standard/) | - | [NIST SP 800-53 Rev. 5 AC-4](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final) |
 | `nginx.proxy_ssl_trusted_certificate_missing` | medium | ast | tls, proxy | [CWE-295](https://cwe.mitre.org/data/definitions/295.html) | - | - | - | [NIST SP 800-53 Rev. 5 AC-4](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final) |
+| `nginx.crlf_in_return` | high | ast | headers, injection | [CWE-113](https://cwe.mitre.org/data/definitions/113.html) | [A03:2021](https://owasp.org/Top10/A03_2021-Injection/) | [ASVS v5.0.0-1.1.2](https://owasp.org/www-project-application-security-verification-standard/) (partial: Response/header generation must keep untrusted values context-safe.) | - | - |
+| `nginx.crlf_in_add_header` | high | ast | headers, injection | [CWE-113](https://cwe.mitre.org/data/definitions/113.html) | [A03:2021](https://owasp.org/Top10/A03_2021-Injection/) | [ASVS v5.0.0-1.1.2](https://owasp.org/www-project-application-security-verification-standard/) (partial: Header generation must keep untrusted values context-safe.) | - | - |
+| `nginx.proxy_pass_user_controlled_destination` | high | ast | proxy, ssrf | [CWE-918](https://cwe.mitre.org/data/definitions/918.html) | [A10:2021](https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/) | [ASVS v5.0.0-1.3.6](https://owasp.org/www-project-application-security-verification-standard/) | - | - |
+| `nginx.server_block_accepts_unknown_host` | medium | ast | host, routing | [CWE-346](https://cwe.mitre.org/data/definitions/346.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `nginx.alias_traversal_classic_pattern` | medium | ast | paths | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
 
 Mapping rationale (nginx rules):
 
 - `alias_without_trailing_slash` -- a misconfigured `alias` allows path
   traversal outside the intended root: CWE-22 (path traversal), OWASP A01.
+- `alias_traversal_classic_pattern` -- the classic `location /prefix` plus
+  `alias /path/` slash mismatch is the same traversal family as the older
+  `alias_without_trailing_slash` variant, but in the opposite slash direction.
 - `allow_all_with_deny_all` -- conflicting `allow all` / `deny all` directives
   let nginx pick the first match, so the intended access rules can be
   bypassed: CWE-863 (incorrect authorization), OWASP A01.
 - `autoindex_on` -- direct match for CWE-548; categorised as A05 because the
   default is safe and the operator must explicitly enable listing.
+- `crlf_in_return`, `crlf_in_add_header` -- both rules catch response/header
+  construction from request-derived variables, so CWE-113 and OWASP A03 are
+  the honest primary mappings. ASVS v5.0.0-1.1.2 is partial because the rules
+  cover server-visible interpolation only, not full application output
+  encoding.
 - `duplicate_listen`, `if_in_location`, `missing_http2_on_tls_listener`,
   `missing_server_name` -- operational anti-patterns and best-practice
   hints, not vulnerabilities; CWE/OWASP cells stay empty.
@@ -238,6 +251,10 @@ Mapping rationale (nginx rules):
   implicit first/default TLS server can answer unexpected host names during
   TLS handshakes and fall back to the wrong application. This is likewise an
   OWASP A05 hardening signal rather than a precise CWE mapping.
+- `server_block_accepts_unknown_host` -- a non-default content-serving server
+  that matches `_`, wildcard names, or no name at all without rejecting
+  unexpected Host values is an origin-validation/routing hardening issue:
+  CWE-346, OWASP A05.
 - `executable_scripts_allowed_in_uploads` -- upload directories that also
   serve PHP/CGI are the textbook CWE-434 (unrestricted upload of dangerous
   file types). Categorised as OWASP A04 (insecure design): the issue is the
@@ -297,6 +314,11 @@ Mapping rationale (nginx rules):
   HTTPS upstream proxying without certificate verification or without a
   configured trust bundle undermines upstream TLS authenticity: CWE-295.
   `proxy_ssl_verify_disabled` also maps directly to ASVS 12.2.2.
+- `proxy_pass_user_controlled_destination` -- interpolating user-controlled
+  variables into the upstream host is a direct SSRF primitive: CWE-918, OWASP
+  A10, ASVS v5.0.0-1.3.6. Secondary alignment also exists with OWASP API
+  Security Top 10 2023 API7:2023 (SSRF), kept here as docs-only context rather
+  than a rule-level standards reference.
 - `missing_hsts_header`, `hsts_header_unsafe` -- missing HSTS or a short /
   incomplete HSTS policy allows downgrade to HTTP: CWE-319, OWASP A05.
 - `missing_http_to_https_redirect` -- leaving a named HTTP virtual host

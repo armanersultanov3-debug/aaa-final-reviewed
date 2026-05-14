@@ -511,6 +511,34 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         ),
         native_validation_should_pass=False,
     )
+    gixy_parity = Scenario(
+        service="nginx",
+        name="gixy_parity",
+        config_filename="nginx.conf",
+        config_text=_nginx_http_config(
+            _nginx_server_block(
+                "listen 80;",
+                "location /redir {",
+                "    return 302 https://example.test/$arg_next;",
+                "}",
+                'location /cookie { add_header Set-Cookie "$arg_session; Secure" always; }',
+                "location /classic { alias /srv/files/; }",
+                "location /proxy {",
+                "    proxy_pass http://$arg_target;",
+                "}",
+            )
+        ),
+        expected_rule_ids=frozenset(
+            {
+                "nginx.crlf_in_return",
+                "nginx.crlf_in_add_header",
+                "nginx.proxy_pass_user_controlled_destination",
+                "nginx.server_block_accepts_unknown_host",
+                "nginx.alias_traversal_classic_pattern",
+            }
+        ),
+        native_validation_should_pass=True,
+    )
     tls_intent = Scenario(
         service="nginx",
         name="tls_intent_without_config",
@@ -610,6 +638,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
         log_format_missing,
         log_format_missing_fields,
         policy_controls,
+        gixy_parity,
         tls_intent,
         default_tls_host_handling,
         hardening_edges,
