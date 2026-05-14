@@ -71,6 +71,40 @@ class ConditionalSafePathProbe:
     minimum_confidences: frozenset[str] = CONDITIONAL_SAFE_PROBE_CONFIDENCES
 
 
+def _partial_asvs(requirement: str, note: str) -> StandardReference:
+    return asvs_5(requirement, coverage="partial", note=note)
+
+
+def _configuration_exposure_standards(note: str) -> tuple[StandardReference, ...]:
+    return (
+        cwe(538),
+        owasp_top10_2021("A05:2021"),
+        _partial_asvs("13.4.7", note),
+    )
+
+
+def _credential_exposure_standards(note: str) -> tuple[StandardReference, ...]:
+    return (
+        cwe(522),
+        owasp_top10_2021("A07:2021"),
+        _partial_asvs("8.3.1", note),
+    )
+
+
+def _information_disclosure_standards() -> tuple[StandardReference, ...]:
+    return (
+        cwe(200),
+        owasp_top10_2021("A05:2021"),
+    )
+
+
+def _admin_surface_standards() -> tuple[StandardReference, ...]:
+    return (
+        cwe(306),
+        owasp_top10_2021("A01:2021"),
+    )
+
+
 SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
     SafePathRule(
         rule_id="external.git_metadata_exposed",
@@ -752,6 +786,695 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         order=729,
         metadata_recommendation="Do not serve webpack.mix.js publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.aws_credentials_exposed",
+        title="AWS shared credentials file exposed",
+        severity="high",
+        description=(
+            "The /.aws/credentials file is externally accessible and appears to "
+            "contain AWS shared credentials. This can expose cloud access keys "
+            "and permit unauthorized access to AWS resources."
+        ),
+        recommendation=(
+            "Block public access to AWS credential files and rotate any access "
+            "keys that may have been exposed."
+        ),
+        paths=("/.aws/credentials",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*\[[^\]\r\n]+\]\s*$"),
+            BodyMatcher("regex", r"(?im)^\s*aws_access_key_id\s*="),
+            BodyMatcher("regex", r"(?im)^\s*aws_secret_access_key\s*="),
+        ),
+        standards=_credential_exposure_standards(
+            "Publicly exposed AWS shared credentials file."
+        ),
+        order=730,
+        metadata_recommendation="Block public access to AWS credentials files.",
+    ),
+    SafePathRule(
+        rule_id="external.aws_config_exposed",
+        title="AWS CLI config file exposed",
+        severity="medium",
+        description=(
+            "The /.aws/config file is externally accessible and appears to "
+            "contain AWS CLI configuration. This can disclose account, region, "
+            "and profile details useful for cloud reconnaissance."
+        ),
+        recommendation=(
+            "Block public access to AWS CLI configuration files and move "
+            "deployment-specific configuration outside the web root."
+        ),
+        paths=("/.aws/config",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*\[(?:default|profile\s+[^\]]+)\]\s*$"),
+            BodyMatcher("regex", r"(?im)^\s*(?:region|output|role_arn)\s*="),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed AWS CLI configuration file."
+        ),
+        order=731,
+        metadata_recommendation="Block public access to AWS CLI config files.",
+    ),
+    SafePathRule(
+        rule_id="external.docker_config_exposed",
+        title="Docker config.json exposed",
+        severity="high",
+        description=(
+            "The /.docker/config.json file is externally accessible and appears "
+            "to contain Docker client configuration. This can expose registry "
+            "credentials or private registry endpoints."
+        ),
+        recommendation=(
+            "Block public access to Docker client configuration files and "
+            "rotate any registry credentials that may have been exposed."
+        ),
+        paths=("/.docker/config.json",),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"(?:auths|credsStore|credHelpers)"\s*:'),
+        ),
+        standards=_credential_exposure_standards(
+            "Publicly exposed Docker client credential/configuration file."
+        ),
+        order=732,
+        metadata_recommendation="Block public access to Docker config.json.",
+    ),
+    SafePathRule(
+        rule_id="external.kube_config_exposed",
+        title="Kubernetes kubeconfig exposed",
+        severity="high",
+        description=(
+            "The /.kube/config file is externally accessible and appears to "
+            "contain Kubernetes client configuration. This can expose cluster "
+            "endpoints, identities, and authentication material."
+        ),
+        recommendation=(
+            "Block public access to kubeconfig files and rotate any credentials "
+            "or certificates that may have been exposed."
+        ),
+        paths=("/.kube/config",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*clusters\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*contexts\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*users\s*:"),
+        ),
+        standards=_credential_exposure_standards(
+            "Publicly exposed Kubernetes client configuration file."
+        ),
+        order=733,
+        metadata_recommendation="Block public access to kubeconfig files.",
+    ),
+    SafePathRule(
+        rule_id="external.ssh_private_key_exposed",
+        title="SSH private key exposed",
+        severity="high",
+        description=(
+            "A common SSH private key path is externally accessible and appears "
+            "to contain private key material. This can enable unauthorized "
+            "access to infrastructure and deployment systems."
+        ),
+        recommendation=(
+            "Block public access to private key files and rotate any keys that "
+            "may have been exposed."
+        ),
+        paths=("/id_rsa", "/id_ed25519", "/id_ecdsa"),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"-----BEGIN (?:RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----",
+            ),
+        ),
+        standards=_credential_exposure_standards(
+            "Publicly exposed SSH private key material."
+        ),
+        order=734,
+        metadata_recommendation="Block public access to private key files.",
+    ),
+    SafePathRule(
+        rule_id="external.ssh_authorized_keys_exposed",
+        title="SSH authorized_keys file exposed",
+        severity="medium",
+        description=(
+            "The /.ssh/authorized_keys file is externally accessible and appears "
+            "to contain authorized SSH keys. This can disclose administrative "
+            "usernames and infrastructure access patterns."
+        ),
+        recommendation=(
+            "Block public access to authorized_keys files and keep SSH access "
+            "control data outside the web root."
+        ),
+        paths=("/.ssh/authorized_keys",),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?im)^(?:ssh-rsa|ssh-ed25519|ecdsa-sha2-[^\s]+)\s+[A-Za-z0-9+/=]+(?:\s+.*)?$",
+            ),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed SSH authorized_keys file."
+        ),
+        order=735,
+        metadata_recommendation="Block public access to authorized_keys files.",
+    ),
+    SafePathRule(
+        rule_id="external.gcp_service_account_exposed",
+        title="GCP service account key exposed",
+        severity="high",
+        description=(
+            "The /credentials.json file is externally accessible and appears to "
+            "contain a Google Cloud service account key. This can expose "
+            "private-key material for machine identities."
+        ),
+        recommendation=(
+            "Block public access to service-account key files and rotate any "
+            "keys that may have been exposed."
+        ),
+        paths=("/credentials.json",),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"type"\s*:\s*"service_account"'),
+            BodyMatcher("regex", r'(?i)"private_key"\s*:\s*"-----BEGIN'),
+        ),
+        standards=_credential_exposure_standards(
+            "Publicly exposed GCP service account key file."
+        ),
+        order=736,
+        metadata_recommendation="Block public access to GCP service-account keys.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_heapdump_exposed",
+        title="Spring Boot Actuator heapdump exposed",
+        severity="high",
+        description=(
+            "The /actuator/heapdump endpoint is externally accessible and "
+            "appears to return a JVM heap dump. Heap dumps can contain secrets, "
+            "session data, and application memory contents."
+        ),
+        recommendation=(
+            "Disable the heapdump actuator in production or restrict it to "
+            "trusted administrators."
+        ),
+        paths=("/actuator/heapdump",),
+        binary_body_matchers=(BinaryBodyMatcher(b"JAVA PROFILE"),),
+        standards=_information_disclosure_standards(),
+        order=737,
+        metadata_recommendation="Disable or restrict the heapdump actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_threaddump_exposed",
+        title="Spring Boot Actuator threaddump exposed",
+        severity="medium",
+        description=(
+            "The /actuator/threaddump endpoint is externally accessible and "
+            "appears to expose JVM thread dump data. This can disclose thread "
+            "names, stack traces, and internal application behavior."
+        ),
+        recommendation=(
+            "Disable the threaddump actuator in production or restrict access "
+            "to trusted administrators."
+        ),
+        paths=("/actuator/threaddump",),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"threadName"\s*:'),
+            BodyMatcher("regex", r'(?i)"stackTrace"\s*:'),
+        ),
+        standards=_information_disclosure_standards(),
+        order=738,
+        metadata_recommendation="Disable or restrict the threaddump actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_configprops_exposed",
+        title="Spring Boot Actuator configprops exposed",
+        severity="medium",
+        description=(
+            "The /actuator/configprops endpoint is externally accessible and "
+            "appears to expose Spring Boot configuration properties. This can "
+            "disclose application settings and deployment metadata."
+        ),
+        recommendation=(
+            "Disable the configprops actuator in production or restrict access "
+            "to trusted administrators."
+        ),
+        paths=("/actuator/configprops",),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"contexts"\s*:'),
+            BodyMatcher("regex", r'(?i)"(?:properties|beans)"\s*:'),
+        ),
+        standards=_information_disclosure_standards(),
+        order=739,
+        metadata_recommendation="Disable or restrict the configprops actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_beans_exposed",
+        title="Spring Boot Actuator beans exposed",
+        severity="low",
+        description=(
+            "The /actuator/beans endpoint is externally accessible and appears "
+            "to expose the Spring bean graph. This can disclose application "
+            "components and framework internals useful for reconnaissance."
+        ),
+        recommendation=(
+            "Disable the beans actuator in production or restrict access to "
+            "trusted administrators."
+        ),
+        paths=("/actuator/beans",),
+        body_matchers=(BodyMatcher("regex", r'(?i)"beans"\s*:'),),
+        standards=_information_disclosure_standards(),
+        order=740,
+        metadata_recommendation="Disable or restrict the beans actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.springboot_actuator_mappings_exposed",
+        title="Spring Boot Actuator mappings exposed",
+        severity="low",
+        description=(
+            "The /actuator/mappings endpoint is externally accessible and "
+            "appears to expose route mappings. This can disclose internal "
+            "application endpoints and handler details."
+        ),
+        recommendation=(
+            "Disable the mappings actuator in production or restrict access to "
+            "trusted administrators."
+        ),
+        paths=("/actuator/mappings",),
+        body_matchers=(BodyMatcher("regex", r'(?i)"mappings"\s*:'),),
+        standards=_information_disclosure_standards(),
+        order=741,
+        metadata_recommendation="Disable or restrict the mappings actuator endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.rails_master_key_exposed",
+        title="Rails master.key exposed",
+        severity="high",
+        description=(
+            "A common Rails master key path is externally accessible and "
+            "appears to contain the Rails master key. This can permit "
+            "decryption of encrypted application secrets."
+        ),
+        recommendation=(
+            "Block public access to Rails master.key files and rotate the key "
+            "if exposure is suspected."
+        ),
+        paths=("/config/master.key", "/master.key"),
+        body_matchers=(BodyMatcher("regex", r"(?i)^[a-f0-9]{32}\s*$"),),
+        standards=_credential_exposure_standards(
+            "Publicly exposed Rails master key."
+        ),
+        order=742,
+        metadata_recommendation="Block public access to Rails master.key files.",
+    ),
+    SafePathRule(
+        rule_id="external.rails_credentials_yml_enc_exposed",
+        title="Rails credentials.yml.enc exposed",
+        severity="medium",
+        description=(
+            "The /config/credentials.yml.enc file is externally accessible. "
+            "Even though the file is encrypted, its public exposure discloses "
+            "sensitive deployment artifacts and can aid attackers when combined "
+            "with other leaks."
+        ),
+        recommendation=(
+            "Block public access to encrypted credential files and keep Rails "
+            "secret material outside the web root."
+        ),
+        paths=("/config/credentials.yml.enc",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?m)^[A-Za-z0-9+/=]{32,}\s*$"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed encrypted Rails credentials file."
+        ),
+        order=743,
+        metadata_recommendation="Block public access to Rails credentials.yml.enc.",
+    ),
+    SafePathRule(
+        rule_id="external.rails_database_yml_exposed",
+        title="Rails database.yml exposed",
+        severity="high",
+        description=(
+            "A common Rails database.yml path is externally accessible and "
+            "appears to contain database connection settings. This can disclose "
+            "database names, adapters, and credentials."
+        ),
+        recommendation=(
+            "Block public access to Rails database.yml files and move database "
+            "configuration outside exposed paths."
+        ),
+        paths=("/config/database.yml", "/database.yml"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*adapter\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*database\s*:"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Rails database configuration file."
+        ),
+        order=744,
+        metadata_recommendation="Block public access to Rails database.yml files.",
+    ),
+    SafePathRule(
+        rule_id="external.drupal_settings_php_exposed",
+        title="Drupal settings.php exposed",
+        severity="high",
+        description=(
+            "The /sites/default/settings.php file is externally accessible and "
+            "appears to contain Drupal settings. This can disclose database "
+            "configuration and deployment secrets."
+        ),
+        recommendation=(
+            "Block public access to Drupal settings.php and rotate any secrets "
+            "that may have been exposed."
+        ),
+        paths=("/sites/default/settings.php",),
+        body_matchers=(
+            BodyMatcher("contains", "<?php", case_sensitive=True),
+            BodyMatcher("regex", r"(?im)\$databases\s*="),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Drupal settings.php file."
+        ),
+        order=745,
+        metadata_recommendation="Block public access to Drupal settings.php.",
+    ),
+    SafePathRule(
+        rule_id="external.magento_env_php_exposed",
+        title="Magento env.php exposed",
+        severity="high",
+        description=(
+            "The /app/etc/env.php file is externally accessible and appears to "
+            "contain Magento environment configuration. This can expose "
+            "cryptographic keys, database settings, and deployment secrets."
+        ),
+        recommendation=(
+            "Block public access to Magento env.php and rotate any secrets that "
+            "may have been exposed."
+        ),
+        paths=("/app/etc/env.php",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)return\s+(?:array\s*\(|\[)"),
+            BodyMatcher("regex", r"""(?i)['"](?:crypt|db)['"]\s*=>"""),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Magento env.php file."
+        ),
+        order=746,
+        metadata_recommendation="Block public access to Magento env.php.",
+    ),
+    SafePathRule(
+        rule_id="external.joomla_configuration_php_exposed",
+        title="Joomla configuration.php exposed",
+        severity="high",
+        description=(
+            "The /configuration.php file is externally accessible and appears "
+            "to contain Joomla configuration. This can disclose database "
+            "settings and site secrets."
+        ),
+        recommendation=(
+            "Block public access to Joomla configuration.php and rotate any "
+            "secrets that may have been exposed."
+        ),
+        paths=("/configuration.php",),
+        body_matchers=(BodyMatcher("contains", "class JConfig", case_sensitive=True),),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Joomla configuration.php file."
+        ),
+        order=747,
+        metadata_recommendation="Block public access to Joomla configuration.php.",
+    ),
+    SafePathRule(
+        rule_id="external.werkzeug_debug_console_exposed",
+        title="Werkzeug debug console exposed",
+        severity="high",
+        description=(
+            "The /console endpoint is externally accessible and appears to "
+            "expose the Werkzeug debug console. This surface can disclose "
+            "internal details and may permit dangerous debugging actions."
+        ),
+        recommendation=(
+            "Disable the Werkzeug debugger in production or restrict access to "
+            "trusted administrators."
+        ),
+        paths=("/console",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)<title>\s*Console\s*</title>"),
+            BodyMatcher("contains", "Werkzeug"),
+        ),
+        standards=_admin_surface_standards(),
+        order=748,
+        metadata_recommendation="Disable or restrict the Werkzeug debug console.",
+    ),
+    SafePathRule(
+        rule_id="external.swagger_ui_exposed",
+        title="Swagger UI exposed",
+        severity="low",
+        description=(
+            "A common Swagger UI path is externally accessible and appears to "
+            "expose interactive API documentation. This can disclose API shape "
+            "and routes useful during reconnaissance."
+        ),
+        recommendation=(
+            "Review whether Swagger UI should be publicly reachable and restrict "
+            "it to trusted users where appropriate."
+        ),
+        paths=("/swagger-ui/", "/swagger-ui.html"),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r"(?i)(<title>\s*Swagger UI\s*</title>|swagger-ui-bundle\.js)",
+            ),
+        ),
+        standards=_information_disclosure_standards(),
+        order=749,
+        metadata_recommendation="Restrict public access to Swagger UI.",
+    ),
+    SafePathRule(
+        rule_id="external.openapi_spec_exposed",
+        title="OpenAPI specification exposed",
+        severity="low",
+        description=(
+            "A common OpenAPI spec path is externally accessible and appears to "
+            "expose API schema data. This can disclose endpoints, models, and "
+            "internal API structure."
+        ),
+        recommendation=(
+            "Review whether OpenAPI schemas should be public and restrict them "
+            "to trusted users where practical."
+        ),
+        paths=("/v2/api-docs", "/v3/api-docs", "/api-docs"),
+        body_matchers=(
+            BodyMatcher(
+                "regex",
+                r'(?i)"(?:openapi|swagger)"\s*:\s*"(?:3\.[0-9.]*|2\.0)"',
+            ),
+        ),
+        standards=_information_disclosure_standards(),
+        order=750,
+        metadata_recommendation="Review whether OpenAPI specs should be public.",
+    ),
+    SafePathRule(
+        rule_id="external.gitlab_ci_yml_exposed",
+        title=".gitlab-ci.yml exposed",
+        severity="low",
+        description=(
+            "The /.gitlab-ci.yml file is externally accessible and appears to "
+            "contain GitLab CI pipeline configuration. This can disclose build "
+            "steps, images, and internal deployment workflows."
+        ),
+        recommendation=(
+            "Avoid serving CI configuration files from the public web root and "
+            "keep pipeline definitions outside exposed paths."
+        ),
+        paths=("/.gitlab-ci.yml",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*stages\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*(?:script|image)\s*:"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed GitLab CI configuration file."
+        ),
+        order=751,
+        metadata_recommendation="Do not serve GitLab CI configuration files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.github_workflow_exposed",
+        title="GitHub Actions workflow exposed",
+        severity="low",
+        description=(
+            "A common GitHub Actions workflow path is externally accessible and "
+            "appears to contain workflow configuration. This can disclose build "
+            "jobs, triggers, and CI infrastructure details."
+        ),
+        recommendation=(
+            "Avoid serving GitHub Actions workflow files from the public web "
+            "root and keep CI definitions outside exposed paths."
+        ),
+        paths=(
+            "/.github/workflows/ci.yml",
+            "/.github/workflows/main.yml",
+            "/.github/workflows/build.yml",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*on\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*jobs\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*runs-on\s*:"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed GitHub Actions workflow file."
+        ),
+        order=752,
+        metadata_recommendation="Do not serve GitHub Actions workflow files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.travis_ci_exposed",
+        title=".travis.yml exposed",
+        severity="low",
+        description=(
+            "The /.travis.yml file is externally accessible and appears to "
+            "contain Travis CI configuration. This can disclose build and test "
+            "steps useful during reconnaissance."
+        ),
+        recommendation=(
+            "Avoid serving Travis CI configuration files from the public web "
+            "root and keep pipeline definitions outside exposed paths."
+        ),
+        paths=("/.travis.yml",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*language\s*:"),
+            BodyMatcher("regex", r"(?im)^\s*script\s*:"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Travis CI configuration file."
+        ),
+        order=753,
+        metadata_recommendation="Do not serve Travis CI configuration files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.jenkinsfile_exposed",
+        title="Jenkinsfile exposed",
+        severity="low",
+        description=(
+            "The /Jenkinsfile path is externally accessible and appears to "
+            "contain Jenkins pipeline configuration. This can disclose build "
+            "logic and deployment workflow details."
+        ),
+        recommendation=(
+            "Avoid serving Jenkins pipeline definitions from the public web "
+            "root and keep them outside exposed paths."
+        ),
+        paths=("/Jenkinsfile",),
+        body_matchers=(BodyMatcher("regex", r"(?im)\b(?:pipeline|node)\s*\{"),),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Jenkins pipeline definition."
+        ),
+        order=754,
+        metadata_recommendation="Do not serve Jenkinsfile publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.circleci_config_exposed",
+        title="CircleCI config exposed",
+        severity="low",
+        description=(
+            "The /.circleci/config.yml file is externally accessible and "
+            "appears to contain CircleCI configuration. This can disclose CI "
+            "jobs and internal pipeline structure."
+        ),
+        recommendation=(
+            "Avoid serving CircleCI configuration files from the public web "
+            "root and keep them outside exposed paths."
+        ),
+        paths=("/.circleci/config.yml",),
+        body_matchers=(
+            BodyMatcher("regex", r"""(?im)^\s*version\s*:\s*['"]?2(?:\.\d+)?['"]?\s*$"""),
+            BodyMatcher("regex", r"(?im)^\s*jobs\s*:"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed CircleCI configuration file."
+        ),
+        order=755,
+        metadata_recommendation="Do not serve CircleCI configuration files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.dockerfile_exposed",
+        title="Dockerfile exposed",
+        severity="low",
+        description=(
+            "The /Dockerfile path is externally accessible and appears to "
+            "contain Docker build instructions. This can disclose base images, "
+            "build steps, and internal deployment assumptions."
+        ),
+        recommendation=(
+            "Avoid serving Dockerfiles from the public web root and keep build "
+            "artifacts outside exposed paths."
+        ),
+        paths=("/Dockerfile",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*FROM\s+\S+"),
+            BodyMatcher("regex", r"(?im)^\s*(?:RUN|COPY|CMD)\b"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Docker build definition."
+        ),
+        order=756,
+        metadata_recommendation="Do not serve Dockerfiles publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.docker_compose_exposed",
+        title="docker-compose file exposed",
+        severity="low",
+        description=(
+            "A common docker-compose file path is externally accessible and "
+            "appears to contain container orchestration settings. This can "
+            "disclose services, internal ports, and deployment structure."
+        ),
+        recommendation=(
+            "Avoid serving docker-compose files from the public web root and "
+            "keep deployment configuration outside exposed paths."
+        ),
+        paths=("/docker-compose.yml", "/docker-compose.yaml"),
+        body_matchers=(BodyMatcher("regex", r"(?im)^\s*services\s*:"),),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed docker-compose configuration file."
+        ),
+        order=757,
+        metadata_recommendation="Do not serve docker-compose files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.mercurial_metadata_exposed",
+        title="Mercurial metadata exposed",
+        severity="medium",
+        description=(
+            "The /.hg/requires file is externally accessible and appears to "
+            "contain Mercurial repository metadata. This can disclose repository "
+            "format details and confirm version-control metadata leakage."
+        ),
+        recommendation=(
+            "Block public access to .hg directories and remove Mercurial "
+            "repository metadata from deployed web roots."
+        ),
+        paths=("/.hg/requires",),
+        body_matchers=(BodyMatcher("regex", r"(?im)^(?:revlogv1|store)\s*$"),),
+        standards=_information_disclosure_standards(),
+        order=758,
+        metadata_recommendation="Block public access to Mercurial metadata.",
+    ),
+    SafePathRule(
+        rule_id="external.bazaar_metadata_exposed",
+        title="Bazaar metadata exposed",
+        severity="medium",
+        description=(
+            "The /.bzr/branch/format file is externally accessible and appears "
+            "to contain Bazaar repository metadata. This can confirm repository "
+            "metadata leakage and aid source-code reconnaissance."
+        ),
+        recommendation=(
+            "Block public access to .bzr directories and remove Bazaar "
+            "repository metadata from deployed web roots."
+        ),
+        paths=("/.bzr/branch/format",),
+        body_matchers=(
+            BodyMatcher("contains", "Bazaar branch format", case_sensitive=True),
+        ),
+        standards=_information_disclosure_standards(),
+        order=759,
+        metadata_recommendation="Block public access to Bazaar metadata.",
     ),
 )
 
