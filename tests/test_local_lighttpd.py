@@ -17,6 +17,7 @@ from tests.lighttpd_helpers import (
     pytest,
     url_access_deny_directive,
 )
+from webconf_audit.local.lighttpd.parser import LighttpdSourceSpan
 
 _LIGHTTPD_REDIRECT_ONLY_NOISE_RULE_IDS = frozenset(
     {
@@ -159,6 +160,7 @@ def test_parse_condition_http_host_equality() -> None:
         variable='$HTTP["host"]',
         operator="==",
         value="example.test",
+        source=LighttpdSourceSpan(line=1),
     )
 
 
@@ -174,6 +176,7 @@ def test_parse_condition_server_socket() -> None:
         variable='$SERVER["socket"]',
         operator="==",
         value=":443",
+        source=LighttpdSourceSpan(line=1),
     )
 
 
@@ -189,6 +192,7 @@ def test_parse_condition_url_regex_match() -> None:
         variable='$HTTP["url"]',
         operator="=~",
         value="^/api/",
+        source=LighttpdSourceSpan(line=1),
     )
 
 
@@ -204,6 +208,7 @@ def test_parse_condition_negated_regex() -> None:
         variable='$HTTP["host"]',
         operator="!~",
         value="^www\\.",
+        source=LighttpdSourceSpan(line=1),
     )
 
 
@@ -219,6 +224,7 @@ def test_parse_condition_inequality() -> None:
         variable='$HTTP["host"]',
         operator="!=",
         value="blocked.test",
+        source=LighttpdSourceSpan(line=1),
     )
 
 
@@ -306,11 +312,13 @@ def test_parse_condition_prefix_suffix_and_request_header() -> None:
         variable='$REQUEST_HEADER["X-Forwarded-Proto"]',
         operator="=^",
         value="https",
+        source=LighttpdSourceSpan(line=1),
     )
     assert second.condition == LighttpdCondition(
         variable='$HTTP["url"]',
         operator="=$",
         value=".php",
+        source=LighttpdSourceSpan(line=4),
     )
 
 

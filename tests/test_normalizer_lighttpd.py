@@ -86,6 +86,7 @@ def test_conditional_socket_scope():
         variable='$SERVER["socket"]',
         operator="==",
         value='":443"',
+        source=_span(line=5),
     )
     eff = LighttpdEffectiveConfig(
         global_directives={
@@ -111,6 +112,50 @@ def test_conditional_socket_scope():
     assert len(cond_scope.listen_points) == 1
     assert cond_scope.listen_points[0].port == 443
     assert cond_scope.listen_points[0].tls is True
+
+
+def test_conditional_socket_scope_without_ssl_engine_uses_condition_source():
+    """Regression: a $SERVER["socket"] block without ssl.engine must still
+    yield a listen point whose source points at the condition line, not an
+    empty span (which was the behaviour before LighttpdCondition.source
+    was introduced)."""
+    cond = LighttpdCondition(
+        variable='$SERVER["socket"]',
+        operator="==",
+        value='":80"',
+        source=_span(line=12),
+    )
+    eff = LighttpdEffectiveConfig(
+        global_directives={
+            "server.port": _eff_dir("server.port", '"80"'),
+        },
+        conditional_scopes=[
+            LighttpdConditionalScope(
+                condition=cond,
+                header='$SERVER["socket"] == ":80"',
+                directives={
+                    "server.document-root": _eff_dir(
+                        "server.document-root",
+                        '"/var/www"',
+                        scope="conditional",
+                        condition=cond,
+                    ),
+                },
+            ),
+        ],
+    )
+    ast = LighttpdConfigAst(nodes=[], main_file_path="/etc/lighttpd/lighttpd.conf")
+    cfg = normalize_lighttpd(ast, effective_config=eff)
+
+    assert len(cfg.scopes) == 2
+    cond_scope = cfg.scopes[1]
+    assert len(cond_scope.listen_points) == 1
+    lp = cond_scope.listen_points[0]
+    assert lp.port == 80
+    assert lp.tls is False
+    assert lp.source is not None
+    assert lp.source.line == 12
+    assert lp.source.file_path == "/etc/lighttpd/lighttpd.conf"
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ class LighttpdCondition:
     variable: str
     operator: str
     value: str
+    source: LighttpdSourceSpan
 
 
 @dataclass(slots=True)
@@ -641,7 +642,7 @@ def _parse_block_header(
 
     if_match = _IF_PATTERN.match(stripped)
     if if_match is not None:
-        condition = _parse_condition(if_match.group(1))
+        condition = _parse_condition(if_match.group(1), line=line, file_path=file_path)
         if condition is None:
             raise LighttpdParseError(
                 f"Invalid conditional block header: {header}",
@@ -652,7 +653,7 @@ def _parse_block_header(
 
     else_if_match = _ELSE_IF_PATTERN.match(stripped)
     if else_if_match is not None:
-        condition = _parse_condition(else_if_match.group(1))
+        condition = _parse_condition(else_if_match.group(1), line=line, file_path=file_path)
         if condition is None:
             raise LighttpdParseError(
                 f"Invalid conditional block header: {header}",
@@ -661,11 +662,16 @@ def _parse_block_header(
             )
         return condition, "else_if"
 
-    condition = _parse_condition(stripped)
+    condition = _parse_condition(stripped, line=line, file_path=file_path)
     return condition, "if" if condition is not None else "block"
 
 
-def _parse_condition(header: str) -> LighttpdCondition | None:
+def _parse_condition(
+    header: str,
+    *,
+    line: int | None = None,
+    file_path: str | None = None,
+) -> LighttpdCondition | None:
     match = _CONDITION_PATTERN.match(header.strip())
     if match is None:
         return None
@@ -674,6 +680,7 @@ def _parse_condition(header: str) -> LighttpdCondition | None:
         variable=match.group(1),
         operator=match.group(2),
         value=_unescape_quoted_value(value or "", quote='"' if match.group(3) is not None else "'"),
+        source=LighttpdSourceSpan(file_path=file_path, line=line),
     )
 
 

@@ -1,39 +1,23 @@
 # Possible Follow-Up
 
-## CodeRabbit note: Lighttpd listen-point source fallback
+No pending follow-ups at this time.
 
-CodeRabbit suggested improving traceability in
-`src/webconf_audit/local/normalizers/lighttpd_normalizer.py` inside
-`_listen_point_from_socket_condition()`.
+## Resolved
 
-Current behavior:
+### Lighttpd listen-point source fallback (CodeRabbit note, 2026-05-04)
 
-- When `ssl_engine` is present, the resulting `NormalizedListenPoint.source`
-  uses `ssl_engine.source`.
-- When `ssl_engine` is absent, the code falls back to an empty
-  `LighttpdSourceSpan()`.
+Closed by PR-2 of plan
+`docs/superpowers/plans/2026-05-14-open-items-followup.md` (O-05).
 
-Suggested improvement from CodeRabbit:
-
-- Use the source of the socket condition itself instead of an empty fallback,
-  i.e. conceptually `ssl_engine.source if ssl_engine else condition.source`.
-
-Why this was skipped in the current PR:
-
-- `LighttpdCondition` currently does not carry source metadata.
-- The current model only stores:
-  `variable`, `operator`, and `value`.
-- Because of that, `condition.source` does not exist today.
-- Implementing the suggestion correctly would require a broader follow-up:
-  adding source/span metadata to the parsed Lighttpd condition model and
-  propagating it through the parser/effective-config layers.
-
-Possible future follow-up scope:
-
-1. Add `source: LighttpdSourceSpan` to `LighttpdCondition` or store equivalent
-   source metadata on the conditional scope.
-2. Populate that source in the Lighttpd parser when block headers are parsed.
-3. Update `_listen_point_from_socket_condition()` to use the condition source as
-   the non-`ssl_engine` fallback.
-4. Add/adjust tests to verify improved source traceability for
-   `$SERVER["socket"]`-derived listen points.
+- `LighttpdCondition` now carries a required
+  `source: LighttpdSourceSpan` field populated by the parser.
+- `_listen_point_from_socket_condition()` in
+  `src/webconf_audit/local/normalizers/lighttpd_normalizer.py` falls
+  back on `condition.source` when `ssl.engine` is absent.
+- A regression test in `tests/test_normalizer_lighttpd.py`
+  (`test_conditional_socket_scope_without_ssl_engine_uses_condition_source`)
+  pins the fix.
+- The traceability invariant in
+  `tests/test_lighttpd_condition_traceability.py` prevents future
+  regressions where a rule emits a conditional-block finding at an
+  unrelated line (closing brace, blank line, comment).

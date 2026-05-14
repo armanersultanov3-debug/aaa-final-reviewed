@@ -91,7 +91,12 @@ class TestConditionVariableMap:
 
 
 def _cond(variable: str, operator: str, value: str) -> LighttpdCondition:
-    return LighttpdCondition(variable=variable, operator=operator, value=value)
+    return LighttpdCondition(
+        variable=variable,
+        operator=operator,
+        value=value,
+        source=LighttpdSourceSpan(),
+    )
 
 
 class TestEvaluateCondition:

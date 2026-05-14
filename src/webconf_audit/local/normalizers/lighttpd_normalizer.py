@@ -423,7 +423,7 @@ def _listen_point_from_socket_condition(
     port = int(match.group(2))
     has_ssl = ssl_engine is not None and unquote(ssl_engine.value).lower() == "enable"
 
-    source_span = ssl_engine.source if ssl_engine else LighttpdSourceSpan()
+    source_span = ssl_engine.source if ssl_engine else condition.source
     return NormalizedListenPoint(
         port=port,
         protocol="https" if has_ssl else "http",
