@@ -116,7 +116,12 @@ def _collect_valid_lines(nodes: list) -> set[int]:
         elif isinstance(node, LighttpdBlockNode):
             if node.condition is not None and node.condition.source.line is not None:
                 valid.add(node.condition.source.line)
-            if node.source.line is not None:
+            if (
+                node.source.line is not None
+                and node.condition is not None
+                and node.condition.source.line is not None
+                and node.source.line == node.condition.source.line
+            ):
                 # Block opening line — only valid when it coincides with the
                 # condition line, which is the parser's normal behaviour for
                 # single-line headers.

@@ -669,7 +669,7 @@ plain HTTP-listen), normalizer создаёт listen point с **пустым**
 source — line/file_path = None. Это ломает report-precision: finding
 указывает на listen point без позиции в файле.
 
-Причина: текущая `LighttpdCondition` ([parser.py:14-18](src/webconf_audit/local/lighttpd/parser/parser.py:14))
+Причина: текущая `LighttpdCondition` ([parser.py:14-18](src/webconf_audit/local/lighttpd/parser/parser.py#L14-L18))
 — frozen dataclass с тремя полями `variable / operator / value` и без
 source. Хотя `_parse_block_header()` уже знает `line` и `file_path`,
 эта информация дальше не пробрасывается в `_parse_condition()`.
