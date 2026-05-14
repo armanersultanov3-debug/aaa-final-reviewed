@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from webconf_audit.local.nginx.include import resolve_includes
 from webconf_audit.local.nginx.parser.ast import AstNode, BlockNode
 from webconf_audit.local.nginx.parser.parser import NginxParser, NginxTokenizer
 from webconf_audit.local.nginx.rules._variable_taint_utils import TaintAnalyzer
@@ -127,6 +128,41 @@ def test_nginx_variable_taint_prefers_location_scope_over_server_scope() -> None
     )
 
     assert not analyzer.is_user_controlled("$backend", location_block)
+
+
+def test_nginx_variable_taint_prefers_later_include_definition_with_same_line_number(
+    tmp_path,
+) -> None:
+    base_config = tmp_path / "nginx.conf"
+    first_include = tmp_path / "safe.conf"
+    second_include = tmp_path / "tainted.conf"
+
+    first_include.write_text("set $backend static_backend;\n", encoding="utf-8")
+    second_include.write_text("set $backend $arg_target;\n", encoding="utf-8")
+    base_config.write_text(
+        "http {\n"
+        "    server {\n"
+        "        include safe.conf;\n"
+        "        include tainted.conf;\n"
+        "        location / {\n"
+        "            proxy_pass http://$backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    tokens = NginxTokenizer(
+        base_config.read_text(encoding="utf-8"),
+        file_path=str(base_config),
+    ).tokenize()
+    config_ast = NginxParser(tokens).parse()
+    issues = resolve_includes(config_ast, base_config)
+    analyzer = TaintAnalyzer(config_ast)
+    location_block = _find_first_block(config_ast.nodes, "location", "/")
+
+    assert issues == []
+    assert analyzer.is_user_controlled("$backend", location_block)
 
 
 def _analyzer_and_location(

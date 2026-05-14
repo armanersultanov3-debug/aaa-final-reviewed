@@ -26,6 +26,7 @@ _NON_USER_CONTROLLED_NAMES = frozenset({"$binary_remote_addr", "$realip_remote_a
 class VariableDefinition:
     kind: str
     scope: BlockNode | None
+    order: int
     line: int
     value: str | None = None
     input_var: str | None = None
@@ -35,6 +36,7 @@ class VariableDefinition:
 class TaintAnalyzer:
     def __init__(self, config_ast: ConfigAst) -> None:
         self._definitions_by_var: dict[str, list[VariableDefinition]] = defaultdict(list)
+        self._definition_order = 0
         self._parent_by_block_id: dict[int, BlockNode | None] = {}
         self._scope_by_node_id: dict[int, BlockNode | None] = {}
         self._index_nodes(config_ast.nodes, parent_scope=None)
@@ -71,6 +73,10 @@ class TaintAnalyzer:
             visited=frozenset(),
         )
 
+    def _next_definition_order(self) -> int:
+        self._definition_order += 1
+        return self._definition_order
+
     def _index_nodes(
         self,
         nodes: list[AstNode],
@@ -100,6 +106,7 @@ class TaintAnalyzer:
             VariableDefinition(
                 kind="set",
                 scope=scope,
+                order=self._next_definition_order(),
                 line=directive.source.line,
                 value=" ".join(directive.args[1:]),
             )
@@ -134,6 +141,7 @@ class TaintAnalyzer:
             VariableDefinition(
                 kind="map",
                 scope=scope,
+                order=self._next_definition_order(),
                 line=block.source.line,
                 input_var=input_var,
                 branch_values=branch_values,
@@ -152,6 +160,7 @@ class TaintAnalyzer:
             VariableDefinition(
                 kind="non_user_controlled",
                 scope=scope,
+                order=self._next_definition_order(),
                 line=line,
             )
         )
@@ -240,7 +249,7 @@ class TaintAnalyzer:
                 if definition.scope is visible_scope
             ]
             if scoped_definitions:
-                return max(scoped_definitions, key=lambda definition: definition.line)
+                return max(scoped_definitions, key=lambda definition: definition.order)
         return None
 
     def _visible_scopes(self, scope: BlockNode | None) -> list[BlockNode | None]:
