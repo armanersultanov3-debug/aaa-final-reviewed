@@ -13,7 +13,9 @@ from webconf_audit.standards import (
     fstec_mera,
     iso_27002_2022,
     mitre_attack,
+    nist_csf_2,
     nist_sp,
+    owasp_api_top10_2023,
     pci_dss_4,
 )
 
@@ -160,3 +162,68 @@ def test_fstec_bdu_canonicalizes_reference_without_prefix() -> None:
 def test_fstec_bdu_rejects_prefix_without_number() -> None:
     with pytest.raises(ValueError, match="non-empty number"):
         fstec_bdu("UBI.")
+
+
+def test_nist_csf_2_marks_reference_as_secondary() -> None:
+    ref = nist_csf_2("PR.DS-01")
+
+    assert ref.standard == "NIST CSF"
+    assert ref.reference == "CSF v2.0 PR.DS-01"
+    assert ref.url == "https://www.nist.gov/cyberframework"
+    assert ref.tier == "secondary"
+
+
+def test_nist_csf_2_normalizes_lowercase_input() -> None:
+    ref = nist_csf_2("pr.ds-02")
+
+    assert ref.reference == "CSF v2.0 PR.DS-02"
+
+
+def test_nist_csf_2_accepts_optional_note() -> None:
+    ref = nist_csf_2("GV.OC-03", note="Govern function alignment")
+
+    assert ref.note == "Govern function alignment"
+
+
+@pytest.mark.parametrize(
+    "subcategory",
+    [
+        "XX.YY-01",
+        "PR.DS-1",
+        "PR.DS-123",
+        "PR-DS-01",
+        "PR.D-01",
+        "PR.DSDS-01",
+    ],
+)
+def test_nist_csf_2_rejects_invalid_subcategory(subcategory: str) -> None:
+    with pytest.raises(ValueError, match="PR.DS-01 or GV.OC-03"):
+        nist_csf_2(subcategory)
+
+
+def test_owasp_api_top10_2023_marks_reference_as_secondary() -> None:
+    ref = owasp_api_top10_2023("API7:2023")
+
+    assert ref.standard == "OWASP API Security Top 10"
+    assert ref.reference == "API7:2023"
+    assert ref.url == (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa7-server-side-request-forgery/"
+    )
+    assert ref.tier == "secondary"
+
+
+def test_owasp_api_top10_2023_accepts_each_canonical_category() -> None:
+    for index in range(1, 11):
+        ref = owasp_api_top10_2023(f"API{index}:2023")
+        assert ref.reference == f"API{index}:2023"
+
+
+def test_owasp_api_top10_2023_rejects_unknown_categories() -> None:
+    with pytest.raises(ValueError, match="API1:2023"):
+        owasp_api_top10_2023("API11:2023")
+
+
+def test_owasp_api_top10_2023_rejects_year_drift() -> None:
+    with pytest.raises(ValueError, match="API1:2023"):
+        owasp_api_top10_2023("API7:2019")

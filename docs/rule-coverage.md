@@ -47,8 +47,9 @@ Columns:
 - **Tags** -- registry tags used for filtering (`webconf-audit list-rules --tag ...`).
 - **CWE / OWASP / ASVS / CIS / Vendor / Standards (other)** -- primary standards
   mapping. `Standards (other)` carries typed NIST / PCI / ISO / ФСТЭК /
-  cheat-sheet companions that do not fit the shorter legacy columns; ATT&CK and
-  БДУ stay in `standards_secondary` JSON metadata only.
+  cheat-sheet companions that do not fit the shorter legacy columns;
+  NIST CSF 2.0, OWASP API Security Top 10 (2023), MITRE ATT&CK, and ФСТЭК БДУ
+  stay in `standards_secondary` JSON metadata only.
 
 ### Universal Rules
 

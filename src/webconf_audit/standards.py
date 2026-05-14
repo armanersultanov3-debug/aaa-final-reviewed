@@ -38,6 +38,55 @@ _CIS_NGINX_V3_0_0_URL = "https://www.cisecurity.org/benchmark/nginx"
 _CIS_IIS_10_V1_2_1_URL = "https://www.cisecurity.org/benchmark/microsoft_iis"
 _MITRE_ATTACK_TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
+_NIST_CSF_FUNCTIONS = frozenset({"GV", "ID", "PR", "DE", "RS", "RC"})
+_NIST_CSF_2_URL = "https://www.nist.gov/cyberframework"
+_NIST_CSF_2_SUBCATEGORY_RE = re.compile(
+    r"^(?P<function>GV|ID|PR|DE|RS|RC)\.[A-Z]{2,3}-\d{2}$",
+)
+
+_OWASP_API_TOP10_2023_URLS = {
+    "API1:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa1-broken-object-level-authorization/"
+    ),
+    "API2:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa2-broken-authentication/"
+    ),
+    "API3:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa3-broken-object-property-level-authorization/"
+    ),
+    "API4:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa4-unrestricted-resource-consumption/"
+    ),
+    "API5:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa5-broken-function-level-authorization/"
+    ),
+    "API6:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa6-unrestricted-access-to-sensitive-business-flows/"
+    ),
+    "API7:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa7-server-side-request-forgery/"
+    ),
+    "API8:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa8-security-misconfiguration/"
+    ),
+    "API9:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xa9-improper-inventory-management/"
+    ),
+    "API10:2023": (
+        "https://owasp.org/API-Security/editions/2023/en/"
+        "0xaa-unsafe-consumption-of-apis/"
+    ),
+}
+
 
 def cwe(
     cwe_id: int,
@@ -352,6 +401,79 @@ def fstec_bdu(
     )
 
 
+def nist_csf_2(
+    subcategory: str,
+    *,
+    note: str | None = None,
+) -> StandardReference:
+    """Return a NIST Cybersecurity Framework 2.0 secondary reference.
+
+    ``subcategory`` must follow the canonical NIST CSF 2.0 form
+    ``<FUNCTION>.<CATEGORY>-<NN>``, for example ``PR.DS-01`` or
+    ``GV.OC-03``. The six valid function prefixes are GV (Govern),
+    ID (Identify), PR (Protect), DE (Detect), RS (Respond), RC (Recover).
+
+    CSF references are alignment-level mappings: a single CSF subcategory
+    typically covers many concrete rules. They are stored with
+    ``tier="secondary"`` so they do not displace primary CWE / OWASP /
+    ASVS / CIS / vendor mappings.
+    """
+    normalized_subcategory = _normalize_non_empty_text(
+        subcategory,
+        fn_name="nist_csf_2",
+        field_name="subcategory",
+    ).upper()
+    match = _NIST_CSF_2_SUBCATEGORY_RE.fullmatch(normalized_subcategory)
+    if match is None:
+        raise ValueError(
+            "nist_csf_2: subcategory must look like PR.DS-01 or GV.OC-03 "
+            "(function in {GV, ID, PR, DE, RS, RC}, 2-3 letter category, "
+            "two-digit subcategory)."
+        )
+    return StandardReference(
+        standard="NIST CSF",
+        reference=f"CSF v2.0 {normalized_subcategory}",
+        url=_NIST_CSF_2_URL,
+        note=note,
+        tier="secondary",
+    )
+
+
+def owasp_api_top10_2023(
+    category: str,
+    *,
+    note: str | None = None,
+) -> StandardReference:
+    """Return an OWASP API Security Top 10 (2023) secondary reference.
+
+    ``category`` must be the canonical short identifier such as
+    ``"API7:2023"``. Only the ten canonical 2023-edition identifiers are
+    accepted; arbitrary strings are rejected to keep mappings honest.
+
+    Stored with ``tier="secondary"`` because the OWASP API Top 10 is
+    application-layer alignment, while webconf-audit's primary mappings
+    are at the web-server configuration layer.
+    """
+    normalized_category = _normalize_non_empty_text(
+        category,
+        fn_name="owasp_api_top10_2023",
+        field_name="category",
+    ).upper()
+    if normalized_category not in _OWASP_API_TOP10_2023_URLS:
+        raise ValueError(
+            "owasp_api_top10_2023: category must be one of "
+            f"{sorted(_OWASP_API_TOP10_2023_URLS.keys())}, got "
+            f"{normalized_category!r}."
+        )
+    return StandardReference(
+        standard="OWASP API Security Top 10",
+        reference=normalized_category,
+        url=_OWASP_API_TOP10_2023_URLS[normalized_category],
+        note=note,
+        tier="secondary",
+    )
+
+
 def rfc(
     number: int,
     *,
@@ -394,8 +516,10 @@ __all__ = [
     "fstec_gis",
     "iso_27002_2022",
     "mitre_attack",
+    "nist_csf_2",
     "nist_sp",
     "nist_sp_800_53_rev5",
+    "owasp_api_top10_2023",
     "owasp_top10_2021",
     "pci_dss_4",
     "rfc",

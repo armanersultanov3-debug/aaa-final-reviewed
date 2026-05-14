@@ -13,7 +13,9 @@ from webconf_audit.standards import (
     fstec_mera,
     iso_27002_2022,
     mitre_attack,
+    nist_csf_2,
     nist_sp,
+    owasp_api_top10_2023,
     pci_dss_4,
 )
 
@@ -882,6 +884,76 @@ _MITRE_T1574_RULES = {
     "iis.handler_write_script_execute_enabled",
 }
 
+# ---------------------------------------------------------------------------
+# NIST Cybersecurity Framework 2.0 — secondary alignment.
+#
+# CSF subcategories are framework-level: a single subcategory typically
+# covers many concrete rules. Mappings are intentionally narrow to keep
+# CSF tags useful as a high-level cross-reference rather than noisy
+# per-rule decoration. Universal rules are the natural anchor because
+# they apply across all servers; selected representative external rules
+# from PR-3 receive PR.DS-01 alignment to demonstrate the same
+# alignment on new safe-probe content. Per-server rules inherit CSF
+# alignment through the universal layer.
+#
+# Source: NIST Cybersecurity Framework version 2.0, "Cybersecurity
+# Framework Core" subcategory list (https://www.nist.gov/cyberframework).
+# ---------------------------------------------------------------------------
+
+# PR.DS-02 — Data-in-transit is protected.
+_NIST_CSF_PR_DS_02_RULES = {
+    "universal.tls_intent_without_config",
+    "universal.weak_tls_protocol",
+    "universal.weak_tls_ciphers",
+    "universal.missing_hsts",
+}
+
+# PR.DS-01 — Data-at-rest is protected. Applied to the highest-value
+# secret-exposure probes introduced by PR-3.
+_NIST_CSF_PR_DS_01_RULES = {
+    "external.aws_credentials_exposed",
+    "external.ssh_private_key_exposed",
+    "external.kube_config_exposed",
+    "external.gcp_service_account_exposed",
+    "external.rails_master_key_exposed",
+    "external.springboot_actuator_heapdump_exposed",
+}
+
+# PR.AA-03 — Users, services, and hardware are authenticated.
+_NIST_CSF_PR_AA_03_RULES = {
+    "universal.tls_required_for_authenticated_routes",
+}
+
+# PR.AA-05 — Access permissions, entitlements, and authorizations are
+# defined, managed, enforced, and reviewed.
+_NIST_CSF_PR_AA_05_RULES = {
+    "universal.directory_listing_enabled",
+}
+
+# PR.PS-01 — Configuration management practices are established and
+# applied (response-hardening headers + server identification posture).
+_NIST_CSF_PR_PS_01_RULES = {
+    "universal.missing_x_content_type_options",
+    "universal.missing_x_frame_options",
+    "universal.missing_content_security_policy",
+    "universal.missing_referrer_policy",
+    "universal.referrer_policy_unsafe",
+    "universal.permissions_policy_unsafe",
+    "universal.server_identification_disclosed",
+}
+
+# ---------------------------------------------------------------------------
+# OWASP API Security Top 10 (2023) — secondary alignment.
+#
+# Most API Top 10 entries live at the application layer, but
+# API7:2023 (Server-Side Request Forgery) maps directly to the
+# `proxy_pass`-with-user-controlled-host check landed in PR-4.
+# ---------------------------------------------------------------------------
+
+_OWASP_API7_2023_RULES = {
+    "nginx.proxy_pass_user_controlled_destination",
+}
+
 _PCI_225_RULES = {
     "apache.trace_enable_not_off",
     "apache.options_execcgi_enabled",
@@ -1688,4 +1760,18 @@ def _secondary_references(rule_id: str) -> list[StandardReference]:
         "iis.basic_auth_without_ssl",
     }:
         refs.append(fstec_bdu("УБИ.184"))
+    # NIST CSF 2.0 — alignment-level secondary references.
+    if rule_id in _NIST_CSF_PR_DS_02_RULES:
+        refs.append(nist_csf_2("PR.DS-02"))
+    if rule_id in _NIST_CSF_PR_DS_01_RULES:
+        refs.append(nist_csf_2("PR.DS-01"))
+    if rule_id in _NIST_CSF_PR_AA_03_RULES:
+        refs.append(nist_csf_2("PR.AA-03"))
+    if rule_id in _NIST_CSF_PR_AA_05_RULES:
+        refs.append(nist_csf_2("PR.AA-05"))
+    if rule_id in _NIST_CSF_PR_PS_01_RULES:
+        refs.append(nist_csf_2("PR.PS-01"))
+    # OWASP API Security Top 10 (2023) — application-layer alignment.
+    if rule_id in _OWASP_API7_2023_RULES:
+        refs.append(owasp_api_top10_2023("API7:2023"))
     return refs
