@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 391
+        assert len(full_reg._catalog) == 396
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 295
+        assert len(full_reg._executable) == 300
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 85
+        assert len(rules) == 90
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
@@ -265,6 +265,43 @@ class TestStandardsMetadata:
             },
             "nginx.proxy_missing_source_ip_headers": {
                 ("CIS", "NGINX v3.0.0 §3.4"),
+            },
+        }
+
+        for rule_id, expected_refs in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            references = {(ref.standard, ref.reference) for ref in meta.standards}
+            assert expected_refs.issubset(references)
+
+    def test_nginx_gixy_parity_rules_have_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "nginx.crlf_in_return": {
+                ("CWE", "CWE-113"),
+                ("OWASP Top 10", "A03:2021"),
+                ("OWASP ASVS", "v5.0.0-1.1.2"),
+            },
+            "nginx.crlf_in_add_header": {
+                ("CWE", "CWE-113"),
+                ("OWASP Top 10", "A03:2021"),
+                ("OWASP ASVS", "v5.0.0-1.1.2"),
+            },
+            "nginx.proxy_pass_user_controlled_destination": {
+                ("CWE", "CWE-918"),
+                ("OWASP Top 10", "A10:2021"),
+                ("OWASP ASVS", "v5.0.0-1.3.6"),
+            },
+            "nginx.server_block_accepts_unknown_host": {
+                ("CWE", "CWE-346"),
+                ("OWASP Top 10", "A05:2021"),
+            },
+            "nginx.alias_traversal_classic_pattern": {
+                ("CWE", "CWE-22"),
+                ("OWASP Top 10", "A01:2021"),
             },
         }
 

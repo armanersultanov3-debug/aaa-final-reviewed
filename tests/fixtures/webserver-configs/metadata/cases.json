@@ -18,15 +18,16 @@
         "https://github.com/detectify/vulnerable-nginx",
         "https://github.com/tkmru/nginx-alias-traversal-sample"
       ],
-      "coverage_notes": [
-        "webconf-audit currently detects the location-slash/alias-no-slash variant as nginx.alias_without_trailing_slash.",
-        "The classic Gixy alias_traversal shape is kept as a reference gap in the documentation."
-      ],
       "expected_findings": [
         {
           "rule_id": "nginx.alias_without_trailing_slash",
           "severity": "medium",
           "title_contains": "Alias",
+          "location_contains": "detectify-off-by-slash-alias.conf"
+        },
+        {
+          "rule_id": "nginx.alias_traversal_classic_pattern",
+          "severity": "medium",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
         {
@@ -61,10 +62,17 @@
         "https://github.com/vulhub/vulhub/tree/master/nginx/insecure-configuration",
         "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-open-to-attack/"
       ],
-      "coverage_notes": [
-        "HTTP response splitting through return ... $uri is documented as a reference class; this rule is not currently implemented by webconf-audit."
-      ],
       "expected_findings": [
+        {
+          "rule_id": "nginx.crlf_in_return",
+          "severity": "high",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        },
+        {
+          "rule_id": "nginx.crlf_in_add_header",
+          "severity": "high",
+          "location_contains": "vulhub-crlf-autoindex.conf"
+        },
         {
           "rule_id": "nginx.autoindex_on",
           "severity": "medium",
@@ -137,15 +145,22 @@
       "description": "Reverse proxy and sensitive location example with missing access controls and rate limits.",
       "entrypoint": "nginx/vulnerable/gixy-proxy-sensitive-locations.conf",
       "synthetic_or_original": "synthetic-derived",
-      "notes_about_modifications": "Uses placeholder upstreams and localhost-only internal names.",
+      "notes_about_modifications": "Uses placeholder upstreams, localhost-only internal names, and synthetic taint-propagation examples for proxy_pass destination handling.",
       "references": [
         "https://github.com/yandex/gixy",
         "https://blog.detectify.com/industry-insights/common-nginx-misconfigurations-that-leave-your-web-server-open-to-attack/"
       ],
-      "coverage_notes": [
-        "User-controlled proxy_pass SSRF and Host header spoofing are represented as reference classes; expected assertions focus on implemented proxy and sensitive-location rules."
-      ],
       "expected_findings": [
+        {
+          "rule_id": "nginx.proxy_pass_user_controlled_destination",
+          "severity": "high",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        },
+        {
+          "rule_id": "nginx.server_block_accepts_unknown_host",
+          "severity": "medium",
+          "location_contains": "gixy-proxy-sensitive-locations.conf"
+        },
         {
           "rule_id": "nginx.proxy_missing_source_ip_headers",
           "severity": "low",
