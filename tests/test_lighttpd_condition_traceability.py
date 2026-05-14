@@ -22,8 +22,10 @@ from webconf_audit.local.lighttpd.parser import (
     LighttpdBlockNode,
     LighttpdConfigAst,
     LighttpdDirectiveNode,
+    LighttpdParser,
     parse_lighttpd_config,
 )
+from webconf_audit.local.lighttpd.parser.parser import _is_block_start
 
 _FIXTURE_ROOT = Path(__file__).parent / "fixtures" / "webserver-configs" / "lighttpd"
 
@@ -35,14 +37,17 @@ def _iter_fixtures() -> list[Path]:
 def _collect_conditional_block_ranges(
     nodes: list,
     file_path: str,
+    block_end_lines: dict[int, int],
 ) -> list[tuple[int, int, frozenset[int]]]:
     """Walk the AST and return, for every conditional block, a tuple of
-    ``(condition_line, block_end_line, valid_lines)``.
+    ``(condition_line, closing_brace_line, valid_lines)``.
 
     ``valid_lines`` are the lines a rule is allowed to point at when it
     emits a finding tied to this block — i.e. the condition line itself
     and the line of every directive/assignment/nested-condition
-    *inside* the block.
+    *inside* the block. The inclusive range extends through the block's
+    closing brace so findings that drift onto blank lines or ``}`` are
+    still validated and rejected.
     """
     ranges: list[tuple[int, int, frozenset[int]]] = []
 
@@ -50,7 +55,13 @@ def _collect_conditional_block_ranges(
         if not isinstance(node, LighttpdBlockNode):
             continue
         if node.condition is None:
-            ranges.extend(_collect_conditional_block_ranges(node.children, file_path))
+            ranges.extend(
+                _collect_conditional_block_ranges(
+                    node.children,
+                    file_path,
+                    block_end_lines,
+                )
+            )
             continue
 
         condition_line = node.condition.source.line
@@ -61,14 +72,39 @@ def _collect_conditional_block_ranges(
 
         inner_valid_lines = _collect_valid_lines(node.children)
         valid_lines: frozenset[int] = frozenset({condition_line, *inner_valid_lines})
-        end_line = max(valid_lines)
+        end_line = block_end_lines.get(condition_line, max(valid_lines))
         ranges.append((condition_line, end_line, valid_lines))
 
         # Recurse into nested blocks so their own conditional invariants
         # are also checked.
-        ranges.extend(_collect_conditional_block_ranges(node.children, file_path))
+        ranges.extend(
+            _collect_conditional_block_ranges(
+                node.children,
+                file_path,
+                block_end_lines,
+            )
+        )
 
     return ranges
+
+
+def _collect_block_end_lines(text: str, file_path: str) -> dict[int, int]:
+    """Map each block header's logical start line to its closing brace line."""
+    parser = LighttpdParser(text, file_path=file_path)
+    block_end_lines: dict[int, int] = {}
+    block_stack: list[int] = []
+
+    for statement in parser.statements:
+        if _is_block_start(statement.text):
+            block_stack.append(statement.line)
+            continue
+        if statement.text != "}":
+            continue
+        assert block_stack, f"Unexpected closing brace while scanning {file_path}"
+        block_end_lines[block_stack.pop()] = statement.line
+
+    assert not block_stack, f"Unclosed block while scanning {file_path}"
+    return block_end_lines
 
 
 def _collect_valid_lines(nodes: list) -> set[int]:
@@ -120,14 +156,17 @@ def test_conditional_findings_point_at_condition_or_directive_line() -> None:
     emitting a finding tied to a conditional scope but using
     ``block.source.line`` (the ``{`` line, which currently coincides
     with the condition line, but could drift) or some unrelated number
-    such as the closing brace.
+    such as the closing brace or blank padding before it.
     """
     for fixture in _iter_fixtures():
-        ast = parse_lighttpd_config(
-            fixture.read_text(encoding="utf-8"),
-            file_path=str(fixture),
+        fixture_text = fixture.read_text(encoding="utf-8")
+        ast = parse_lighttpd_config(fixture_text, file_path=str(fixture))
+        block_end_lines = _collect_block_end_lines(fixture_text, str(fixture))
+        ranges = _collect_conditional_block_ranges(
+            ast.nodes,
+            str(fixture),
+            block_end_lines,
         )
-        ranges = _collect_conditional_block_ranges(ast.nodes, str(fixture))
         if not ranges:
             continue
 
