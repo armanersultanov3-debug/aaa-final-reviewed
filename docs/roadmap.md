@@ -282,26 +282,26 @@ hardcoded finder per path.
 
 ## Backlog Status (as of 2026-05-14)
 
-- Rule count: 396 total, with the repeated counters and registry expected to
+- Rule count: 426 total, with the repeated counters and registry expected to
   stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
-  `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`, `STD-GAP-027`,
-  `STD-GAP-029`-`STD-GAP-032`, `STD-GAP-035`, `STD-GAP-036`, and
-  `STD-GAP-038` (closed by PR-01).
+  `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,
+  `STD-GAP-035`, `STD-GAP-036`, and `STD-GAP-038` (closed by PR-01 / PR-6).
 - Closed as not pursued (plan
   `docs/superpowers/plans/2026-05-14-open-items-followup.md`):
   `STD-GAP-017`, `STD-GAP-018`, `STD-GAP-019`, `STD-GAP-022`, `STD-GAP-023`,
   `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`. Each carries an explicit
   rationale in `docs/benchmarks-covering.md §9`.
-- Docs-only alignment (plan 2026-05-14): `STD-GAP-020` (NIST CSF 2.0
-  topic-grouped block in `docs/rule-coverage.md`).
-- Active backlog driven by plan 2026-05-14:
-  - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 in the plan,
-    ~30 rules).
-  - `STD-GAP-037` — ASVS V8 / V11 deepening, accepted as a follow-up that
-    rides on top of the O-03 / O-05 parser work (PR-3 / PR-4 / PR-6).
-  - Documentation synchronization items not tied to a single STD-GAP — see
-    plan §«Документная синхронизация».
+- Active backlog:
+  - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 of plan
+    2026-05-14 landed batch-2 with ~30 new external rules; further growth
+    remains open as new candidate paths surface).
+  - `STD-GAP-037` — ASVS V8 / V11 deepening. PR-6 audit (2026-05-14) found
+    that the existing `asvs_5` references in the codebase use V3 / V12 / V13
+    only; no V8 or V11 attachments exist today. The plan's V8/V11 mapping was
+    heuristic and not verified against canonical ASVS 5.0.0 chapter
+    numbering. Deferred to a dedicated research PR that cross-checks the
+    5.0.0 release before committing to specific chapter IDs.
 
 ## Current Priority
 
