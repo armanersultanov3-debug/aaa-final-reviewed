@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, find_child_directives, iter_nodes
+from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, find_child_directives
 from webconf_audit.local.nginx.rules._default_server_rejection_utils import rejects_unknown_hosts
 from webconf_audit.local.nginx.rules.tls_listener_utils import listen_is_default_server
 from webconf_audit.models import Finding, SourceLocation
@@ -50,9 +50,7 @@ _NEGATIVE_HOST_TOKENS = frozenset({"!=", "!~", "!~*"})
 def find_server_block_accepts_unknown_host(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
 
-    for node in iter_nodes(config_ast.nodes):
-        if not isinstance(node, BlockNode) or node.name != "server":
-            continue
+    for node in _iter_http_server_blocks(config_ast):
         if _is_default_server(node):
             continue
         if not _has_loose_server_name(node):
@@ -78,6 +76,23 @@ def find_server_block_accepts_unknown_host(config_ast: ConfigAst) -> list[Findin
         )
 
     return findings
+
+
+def _iter_http_server_blocks(config_ast: ConfigAst) -> list[BlockNode]:
+    servers: list[BlockNode] = []
+
+    def walk(nodes: list[BlockNode | DirectiveNode], *, in_http: bool = False) -> None:
+        for node in nodes:
+            if not isinstance(node, BlockNode):
+                continue
+            child_in_http = in_http or node.name == "http"
+            if node.name == "server" and in_http:
+                servers.append(node)
+                continue
+            walk(node.children, in_http=child_in_http)
+
+    walk(config_ast.nodes)
+    return servers
 
 
 def _is_default_server(server_block: BlockNode) -> bool:

@@ -152,3 +152,28 @@ def test_analyze_nginx_config_does_not_report_server_block_accepts_unknown_host_
         finding.rule_id == "nginx.server_block_accepts_unknown_host"
         for finding in result.findings
     )
+
+
+def test_analyze_nginx_config_does_not_report_server_block_accepts_unknown_host_in_stream_context(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "stream {\n"
+        "    upstream backend {\n"
+        "        server 127.0.0.1:9001;\n"
+        "    }\n"
+        "    server {\n"
+        "        listen 9000;\n"
+        "        proxy_pass backend;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.server_block_accepts_unknown_host"
+        for finding in result.findings
+    )
