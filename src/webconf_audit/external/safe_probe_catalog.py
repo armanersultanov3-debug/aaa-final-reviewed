@@ -87,7 +87,7 @@ def _credential_exposure_standards(note: str) -> tuple[StandardReference, ...]:
     return (
         cwe(522),
         owasp_top10_2021("A07:2021"),
-        _partial_asvs("8.3.1", note),
+        _partial_asvs("13.4.7", note),
     )
 
 

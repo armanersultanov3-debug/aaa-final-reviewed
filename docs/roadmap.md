@@ -280,13 +280,13 @@ keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
 work can add curated safe probes from external sources without adding another
 hardcoded finder per path.
 
-## Backlog Status (as of 2026-05-14)
+## Backlog Status (local snapshot date: 2026-05-15)
 
 - Rule count: 426 total, with the repeated counters and registry expected to
   stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,
-  `STD-GAP-035`, `STD-GAP-036`, and `STD-GAP-038` (closed by PR-01 / PR-6).
+  `STD-GAP-035`, `STD-GAP-036`, `STD-GAP-037`, and `STD-GAP-038`.
 - Closed as not pursued (plan
   `docs/superpowers/plans/2026-05-14-open-items-followup.md`):
   `STD-GAP-017`, `STD-GAP-018`, `STD-GAP-019`, `STD-GAP-022`, `STD-GAP-023`,
@@ -296,12 +296,6 @@ hardcoded finder per path.
   - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 of plan
     2026-05-14 landed batch-2 with ~30 new external rules; further growth
     remains open as new candidate paths surface).
-  - `STD-GAP-037` — ASVS V8 / V11 deepening. PR-6 audit (2026-05-14) found
-    that the existing `asvs_5` references in the codebase use V3 / V12 / V13
-    only; no V8 or V11 attachments exist today. The plan's V8/V11 mapping was
-    heuristic and not verified against canonical ASVS 5.0.0 chapter
-    numbering. Deferred to a dedicated research PR that cross-checks the
-    5.0.0 release before committing to specific chapter IDs.
 
 ## Current Priority
 

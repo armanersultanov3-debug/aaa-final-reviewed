@@ -14,6 +14,7 @@ from webconf_audit.local.iis.rules.rule_utils import (
 )
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import StandardReference, rule
+from webconf_audit.standards import asvs_5
 
 FORMS_PROTECTION_RULE_ID = "iis.forms_auth_protection_unsafe"
 CREDENTIALS_FORMAT_RULE_ID = "iis.credentials_password_format_clear"
@@ -245,6 +246,13 @@ def find_trust_level_full(
     category="local",
     server_type="iis",
     input_kind="effective",
+    standards=(
+        asvs_5(
+            "11.4.1",
+            coverage="partial",
+            note="MachineKey validation HMAC/hash selection only.",
+        ),
+    ),
     order=532,
 )
 def find_machine_key_validation_weak(

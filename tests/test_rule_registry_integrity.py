@@ -275,6 +275,55 @@ class TestStandardsMetadata:
             references = {(ref.standard, ref.reference) for ref in meta.standards}
             assert expected_refs.issubset(references)
 
+    def test_secret_exposure_safe_probes_use_asvs_configuration_mapping(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for rule_id in (
+            "external.aws_credentials_exposed",
+            "external.docker_config_exposed",
+            "external.kube_config_exposed",
+            "external.ssh_private_key_exposed",
+            "external.gcp_service_account_exposed",
+            "external.rails_master_key_exposed",
+        ):
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            asvs_refs = [
+                ref
+                for ref in meta.standards
+                if ref.standard == "OWASP ASVS"
+            ]
+            assert len(asvs_refs) == 1
+            assert asvs_refs[0].reference == "v5.0.0-13.4.7"
+            assert asvs_refs[0].coverage == "partial"
+            assert "v5.0.0-8.3.1" not in {ref.reference for ref in asvs_refs}
+
+    def test_iis_machine_key_rules_have_expected_asvs_v11_mapping(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        meta = full_reg.get_meta("iis.machine_key_validation_weak")
+        assert meta is not None
+
+        asvs_refs = [
+            ref
+            for ref in meta.standards
+            if ref.standard == "OWASP ASVS" and ref.reference == "v5.0.0-11.4.1"
+        ]
+        assert len(asvs_refs) == 1
+        assert asvs_refs[0].coverage == "partial"
+
+        legacy_meta = full_reg.get_meta("iis.machine_key_legacy_validation_weak")
+        assert legacy_meta is not None
+        legacy_refs = {
+            ref.reference
+            for ref in legacy_meta.standards
+            if ref.standard == "OWASP ASVS"
+        }
+        assert "v5.0.0-11.4.1" not in legacy_refs
+
     def test_nginx_gixy_parity_rules_have_expected_standards(
         self,
         full_reg: RuleRegistry,
