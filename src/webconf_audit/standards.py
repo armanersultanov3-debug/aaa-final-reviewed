@@ -35,6 +35,7 @@ _PCI_DSS_4_URL = (
     "https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf"
 )
 _CIS_NGINX_V3_0_0_URL = "https://www.cisecurity.org/benchmark/nginx"
+_CIS_IIS_10_V1_2_1_URL = "https://www.cisecurity.org/benchmark/microsoft_iis"
 _MITRE_ATTACK_TECHNIQUE_ID_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")
 
 
@@ -115,6 +116,32 @@ def cis_nginx_v3_0_0(
         standard="CIS",
         reference=f"NGINX v3.0.0 \N{SECTION SIGN}{normalized_section}",
         url=_CIS_NGINX_V3_0_0_URL,
+        coverage=coverage,
+        note=note,
+    )
+
+
+def cis_iis_10_v1_2_1(
+    section: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    normalized_section = _normalize_non_empty_text(
+        section,
+        fn_name="cis_iis_10_v1_2_1",
+        field_name="section",
+    )
+    if normalized_section.startswith("\N{SECTION SIGN}"):
+        normalized_section = normalized_section[1:].strip()
+    if not normalized_section:
+        raise ValueError(
+            "cis_iis_10_v1_2_1: section must include a section number after §."
+        )
+    return StandardReference(
+        standard="CIS",
+        reference=f"Microsoft IIS 10 v1.2.1 \N{SECTION SIGN}{normalized_section}",
+        url=_CIS_IIS_10_V1_2_1_URL,
         coverage=coverage,
         note=note,
     )
@@ -359,6 +386,7 @@ def rfc(
 __all__ = [
     "asvs_5",
     "bsi_app_3_2",
+    "cis_iis_10_v1_2_1",
     "cis_nginx_v3_0_0",
     "cwe",
     "fstec_bdu",

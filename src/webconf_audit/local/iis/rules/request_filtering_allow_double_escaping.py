@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from webconf_audit.local.iis.effective import IISEffectiveConfig
+from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISConfigDocument
-from webconf_audit.local.iis.rules.rule_utils import effective_location, is_pure_inheritance, location_context, raw_location
+from webconf_audit.local.iis.rules.rule_utils import (
+    effective_request_filtering_section,
+    effective_location,
+    is_pure_inheritance,
+    location_context,
+    raw_location,
+)
 from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "iis.request_filtering_allow_double_escaping"
+_REQUEST_FILTERING_PATH = "system.webServer/security/requestFiltering"
 
 
 @rule(
@@ -26,11 +33,7 @@ def find_request_filtering_allow_double_escaping(
     findings: list[Finding] = []
 
     if effective_config is not None:
-        for section in effective_config.all_sections:
-            if section.section_path_suffix != "/requestFiltering":
-                continue
-            if is_pure_inheritance(section):
-                continue
+        for section in _effective_request_filtering_sections(effective_config):
             if section.attributes.get("allowDoubleEscaping", "").lower() == "true":
                 ctx = location_context(section)
                 findings.append(Finding(
@@ -54,3 +57,30 @@ def find_request_filtering_allow_double_escaping(
                 ))
 
     return findings
+
+
+def _effective_request_filtering_sections(
+    effective_config: IISEffectiveConfig,
+) -> list[IISEffectiveSection]:
+    sections: list[IISEffectiveSection] = []
+    for scope in effective_config.all_sections:
+        if scope.section_path != "system.webServer" or is_pure_inheritance(scope):
+            continue
+        section = _effective_request_filtering_section(
+            effective_config,
+            location_path=scope.location_path,
+        )
+        if section is not None:
+            sections.append(section)
+    return sections
+
+
+def _effective_request_filtering_section(
+    effective_config: IISEffectiveConfig,
+    *,
+    location_path: str | None,
+) -> IISEffectiveSection | None:
+    return effective_request_filtering_section(
+        effective_config,
+        location_path=location_path,
+    )

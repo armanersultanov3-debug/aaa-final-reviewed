@@ -211,7 +211,7 @@ Key elements:
   that do not have an executable implementation (used for
   meta-only external rules).
 
-Current catalog: 420 rules total.
+Current catalog: 421 rules total.
 
 | Category | Rules |
 |----------|------:|
@@ -220,7 +220,7 @@ Current catalog: 420 rules total.
 | Local — Lighttpd | 49 |
 | Local — IIS | 52 |
 | Universal (local) | 14 |
-| External | 136 |
+| External | 137 |
 
 ## 9. Reporting model
 
@@ -255,5 +255,6 @@ Reporting features:
   from the local Windows SChannel registry or an explicit JSON export.
   Missing registry keys remain "unknown" because effective OS defaults
   depend on the Windows version.
-- The Nginx tokenizer does not yet support single-quoted directive
-  arguments.
+- The Nginx tokenizer supports both double- and single-quoted directive
+  arguments. Single-quoted values follow the same un-escaping rules as
+  double quotes (see `tests/test_nginx_tokenizer.py`).

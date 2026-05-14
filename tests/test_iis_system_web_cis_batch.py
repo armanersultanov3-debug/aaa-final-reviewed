@@ -382,7 +382,9 @@ def test_machine_key_validation_weak_fires(tmp_path: Path) -> None:
     result = analyze_iis_config(str(config_path))
 
     _assert_no_analysis_issues(result)
-    assert "iis.machine_key_validation_weak" in _rule_ids(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_validation_weak" not in rule_ids
+    assert "iis.machine_key_legacy_validation_weak" not in rule_ids
 
 
 def test_machine_key_validation_aes_fires(tmp_path: Path) -> None:
@@ -400,7 +402,9 @@ def test_machine_key_validation_aes_fires(tmp_path: Path) -> None:
     result = analyze_iis_config(str(config_path))
 
     _assert_no_analysis_issues(result)
-    assert "iis.machine_key_validation_weak" in _rule_ids(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_validation_weak" not in rule_ids
+    assert "iis.machine_key_legacy_validation_weak" not in rule_ids
 
 
 def test_machine_key_validation_sha256_without_hmac_fires(tmp_path: Path) -> None:
@@ -418,7 +422,9 @@ def test_machine_key_validation_sha256_without_hmac_fires(tmp_path: Path) -> Non
     result = analyze_iis_config(str(config_path))
 
     _assert_no_analysis_issues(result)
-    assert "iis.machine_key_validation_weak" in _rule_ids(result)
+    rule_ids = _rule_ids(result)
+    assert "iis.machine_key_validation_weak" not in rule_ids
+    assert "iis.machine_key_legacy_validation_weak" in rule_ids
 
 
 @pytest.mark.parametrize(
@@ -452,6 +458,24 @@ def test_machine_key_validation_absent_silent(tmp_path: Path) -> None:
 <configuration>
     <system.web>
         <machineKey decryption="AES" />
+    </system.web>
+</configuration>
+"""
+    config_path = tmp_path / "web.config"
+    config_path.write_text(config, encoding="utf-8")
+
+    result = analyze_iis_config(str(config_path))
+
+    _assert_no_analysis_issues(result)
+    assert "iis.machine_key_validation_weak" not in _rule_ids(result)
+
+
+def test_machine_key_validation_blank_uses_default(tmp_path: Path) -> None:
+    config = """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.web>
+        <machineKey validation=" " />
     </system.web>
 </configuration>
 """

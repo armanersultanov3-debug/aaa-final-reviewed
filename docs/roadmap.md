@@ -183,7 +183,7 @@ Applicability:
 |--------|--------|-----------------------|-------|
 | Nginx | Confirmed / covered | Reproduced from the real `Новая папка` report and covered by `tests/test_nginx_roadmap1_noise.py`. | Common `server { return 301 ...; }` and rewrite-only redirect hosts. |
 | Apache | Confirmed / covered | Covered by Apache redirect-only VirtualHost regression tests. | Common `Redirect`, `RedirectMatch`, and rewrite-only virtual hosts. |
-| Lighttpd | Confirmed / partially covered | Covered for fully redirect-only configs; add `$SERVER["socket"] == ":80"` and host-conditional `url.redirect` fixtures before changing conditional scope behavior. | Redirect-only conditional scopes can be modeled conservatively. |
+| Lighttpd | Covered | `tests/fixtures/webserver-configs/lighttpd/edge-cases/` plus `tests/test_lighttpd_redirect_inheritance_fixtures.py` exercise redirect-only `$SERVER["socket"] == ":80"` conditional blocks and host-conditional `url.redirect`. | Redirect-only conditional scopes can be modeled conservatively. |
 | IIS | Confirmed / covered | Covered for global `httpRedirect enabled="true"` with `childOnly` guard. | Applies to `httpRedirect` and rewrite-only sites, while respecting XML inheritance. |
 
 ### Inheritance-aware missing checks
@@ -197,10 +197,10 @@ Applicability:
 
 | Server | Status | Evidence / next proof | Notes |
 |--------|--------|-----------------------|-------|
-| Nginx | Partially covered | Logging, timeout, header, TLS, stapling, HTTP/2, and fragment-only notes have regression coverage; `nginx -T` dump context reconstruction remains open. | Add effective `main -> http -> server -> location` handling for inherited directives. |
-| Apache | Partially covered | Effective helpers exist, but more rules still need to consume inherited `VirtualHost`, `Directory`, and `Location` state. | Extend existing effective helpers so more rules consume inherited state. |
-| Lighttpd | Confirmed gap | Conditional logging/header findings showed host/default scope noise; keep adding request-context fixtures. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
-| IIS | Partially covered | Cross-file collection merge was fixed for custom headers; extend regression coverage to handlers, modules, and requestFiltering. | Prefer effective merged XML sections for rules that currently inspect only the local document. |
+| Nginx | Partially covered | Logging, timeout, header, TLS, stapling, HTTP/2, and fragment-only notes have regression coverage; the current parser already resolves includes and effective config for the supported input model, so `nginx -T` dump reconstruction is out of scope until user demand because it reduces source-location quality. | Continue extending effective `main -> http -> server -> location` handling within the current parser model rather than adding an alternative `nginx -T` input mode. |
+| Apache | Covered for current model | Apache effective helpers are consumed by the log-presence, log-value, LogFormat resolution, `directory_without_allowoverride`, deny-list, header, TLS, timeout, limit, and method-policy rule families; `tests/test_apache_inheritance_*.py` exercise the inheritance scenarios end-to-end. | Remaining rule migrations are tracked rule-by-rule rather than as a backlog item. |
+| Lighttpd | Covered | Request-context inheritance fixtures (`tests/test_lighttpd_redirect_inheritance_fixtures.py`) exercise global directives with conditional scopes for logging and security headers. | Combine global directives with conditional scopes where the directive semantics allow inheritance. |
+| IIS | Confirmed / covered | Covered by `tests/test_iis_inheritance_fixtures.py` and the IIS inheritance-edge fixtures for handlers, modules, and requestFiltering. | Effective merged XML sections now have cross-file regression coverage across `machine.config`, `applicationHost.config`, and `web.config`. |
 
 ### TLS hardening expansion
 
@@ -226,7 +226,7 @@ Server notes:
 |--------|--------|-----------------------|-------|
 | Nginx | Covered for current model | Protocol policy, session cache, session timeout, OCSP stapling completeness, and default TLS catch-all handling all have targeted local regression coverage. | No mandatory Nginx-local TLS baseline tail remains in the current model; deeper runtime TLS posture is covered by external probes, while deployment-specific exceptions stay operator context. |
 | Apache | Covered for current model | Apache TLS tests cover protocol policy, cipher policy, stapling cache, session cache, session cache timeout, default TLS VirtualHost unknown-host rejection, and the Apache CIS precision tail around request-policy and upstream proxy trust. | No mandatory Apache-local CIS baseline tail remains in the current model; deployment-specific exceptions stay documentation/operator context, while deeper runtime TLS posture is covered by external probes. |
-| Lighttpd | Research needed | Confirm which directives are reliable across supported TLS backends. | Coverage depends on the TLS backend and modeled OpenSSL directives. |
+| Lighttpd | Out-of-scope for now | Lighttpd supports multiple TLS backends (`mod_openssl`, `mod_gnutls`, `mod_wolfssl`, `mod_mbedtls`), so a generic cross-backend rule would be inaccurate. | Revisit per-backend rule extensions in a future cycle if backend-specific semantics become worth modeling. |
 | IIS | External-first | Local XML often cannot prove Schannel policy; external probing is the more reliable signal. | TLS protocol and cipher policy often lives outside XML; local rules should mark it unknown, while runtime certificate, protocol, cipher-preference, and OCSP evidence now come from external probes. |
 
 ### Severity calibration and report grouping
@@ -279,6 +279,31 @@ Status: initial fixed-path exposure checks are catalog-backed by
 keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
 work can add curated safe probes from external sources without adding another
 hardcoded finder per path.
+
+## Backlog Status (as of 2026-05-14)
+
+- Rule count: 391 total, with the repeated counters and registry expected to
+  stay aligned.
+- Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
+  `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`, `STD-GAP-027`,
+  `STD-GAP-029`-`STD-GAP-032`, `STD-GAP-035`, `STD-GAP-036`, and
+  `STD-GAP-038` (closed by PR-01).
+- Closed as not pursued (plan
+  `docs/superpowers/plans/2026-05-14-open-items-followup.md`):
+  `STD-GAP-017`, `STD-GAP-018`, `STD-GAP-019`, `STD-GAP-022`, `STD-GAP-023`,
+  `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`. Each carries an explicit
+  rationale in `docs/benchmarks-covering.md §9`.
+- Docs-only alignment (plan 2026-05-14): `STD-GAP-020` (NIST CSF 2.0
+  topic-grouped block in `docs/rule-coverage.md`), `STD-GAP-028` (OWASP API
+  Security Top 10 secondary alignment as a footnote after the O-03 SSRF
+  rule lands).
+- Active backlog driven by plan 2026-05-14:
+  - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 in the plan,
+    ~30 rules).
+  - `STD-GAP-037` — ASVS V8 / V11 deepening, accepted as a follow-up that
+    rides on top of the O-03 / O-05 parser work (PR-3 / PR-4 / PR-6).
+  - Documentation synchronization items not tied to a single STD-GAP — see
+    plan §«Документная синхронизация».
 
 ## Current Priority
 

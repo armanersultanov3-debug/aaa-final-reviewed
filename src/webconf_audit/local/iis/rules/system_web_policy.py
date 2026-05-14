@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISConfigDocument, IISSection
 from webconf_audit.local.iis.rules.rule_utils import (
@@ -36,6 +37,7 @@ _LEGACY_FRAMEWORK_PATH_MARKERS = (
     "/v2.0.50727/config/",
     "/v3.5/config/",
 )
+_MACHINE_KEY_PATH = "system.web/machineKey"
 
 
 @rule(
@@ -257,7 +259,7 @@ def find_machine_key_validation_weak(
             tag="machineKey",
         )
         if not _is_legacy_machine_key_context(section)
-        if _has_non_sha2_machine_key_validation(section.attributes.get("validation"))
+        if _has_non_sha2_machine_key_validation(_machine_key_validation(section))
     ]
 
 
@@ -296,9 +298,7 @@ def find_machine_key_legacy_validation_weak(
             tag="machineKey",
         )
         if _is_legacy_machine_key_context(section)
-        if _has_non_legacy_machine_key_validation(
-            section.attributes.get("validation"),
-        )
+        if _has_non_legacy_machine_key_validation(_machine_key_validation(section))
     ]
 
 
@@ -456,7 +456,7 @@ def _has_non_legacy_machine_key_validation(value: object) -> bool:
 def _is_legacy_machine_key_context(
     section: IISEffectiveSection | IISSection,
 ) -> bool:
-    compatibility_mode = _lower_value(section.attributes.get("compatibilityMode", ""))
+    compatibility_mode = _lower_value(_machine_key_compatibility_mode(section) or "")
     if compatibility_mode in _LEGACY_COMPATIBILITY_MODES:
         return True
     return any(_is_legacy_framework_config_path(path) for path in _source_paths(section))
@@ -660,14 +660,15 @@ def _trust_missing_finding(section: IISEffectiveSection | IISSection) -> Finding
 
 
 def _machine_key_finding(section: IISEffectiveSection | IISSection) -> Finding:
-    validation = section.attributes.get("validation", "")
+    validation = _machine_key_validation(section) or ""
     ctx = _context(section)
+    default_text = _defaulted_machine_key_context(section, "validation")
     return Finding(
         rule_id=MACHINE_KEY_RULE_ID,
         title="MachineKey validation algorithm is not an HMAC using SHA-2",
         severity="medium",
         description=(
-            f'ASP.NET machineKey validation uses "{validation}"{ctx}. '
+            f'ASP.NET machineKey validation uses "{validation}"{default_text}{ctx}. '
             "CIS IIS hardening recommends SHA-2 HMAC validation for "
             "MachineKey integrity protection."
         ),
@@ -679,14 +680,15 @@ def _machine_key_finding(section: IISEffectiveSection | IISSection) -> Finding:
 def _legacy_machine_key_finding(
     section: IISEffectiveSection | IISSection,
 ) -> Finding:
-    validation = section.attributes.get("validation", "")
+    validation = _machine_key_validation(section) or ""
     ctx = _context(section)
+    default_text = _defaulted_machine_key_context(section, "validation")
     return Finding(
         rule_id=LEGACY_MACHINE_KEY_RULE_ID,
         title="Legacy MachineKey validation algorithm is unsafe",
         severity="medium",
         description=(
-            f'ASP.NET 2.0/3.5 machineKey validation uses "{validation}"{ctx}. '
+            f'ASP.NET 2.0/3.5 machineKey validation uses "{validation}"{default_text}{ctx}. '
             "CIS IIS hardening recommends AES or SHA1 for legacy "
             "MachineKey validation."
         ),
@@ -705,3 +707,38 @@ def _location(section: IISEffectiveSection | IISSection):
     if isinstance(section, IISEffectiveSection):
         return effective_location(section)
     return raw_location(section)
+
+
+def _machine_key_validation(section: IISEffectiveSection | IISSection) -> str | None:
+    value = section.attributes.get("validation")
+    if value is not None and value.strip():
+        return value
+    return load_defaults().get_section_attribute_default(_MACHINE_KEY_PATH, "validation")
+
+
+def _machine_key_compatibility_mode(
+    section: IISEffectiveSection | IISSection,
+) -> str | None:
+    value = section.attributes.get("compatibilityMode")
+    if value is not None and value.strip():
+        return value
+    return load_defaults().get_section_attribute_default(
+        _MACHINE_KEY_PATH,
+        "compatibilityMode",
+    )
+
+
+def _defaulted_machine_key_context(
+    section: IISEffectiveSection | IISSection,
+    attribute_name: str,
+) -> str:
+    value = section.attributes.get(attribute_name)
+    if value is not None and value.strip():
+        return ""
+    default_value = load_defaults().get_section_attribute_default(
+        _MACHINE_KEY_PATH,
+        attribute_name,
+    )
+    if default_value is None:
+        return ""
+    return " by default"

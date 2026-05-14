@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 420
+        assert len(full_reg._catalog) == 421
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 294
+        assert len(full_reg._executable) == 295
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 136
+        assert len(rules) == 137
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()

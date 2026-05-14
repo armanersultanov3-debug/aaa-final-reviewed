@@ -1234,6 +1234,8 @@ def test_batch_2_sensitive_path_rules_fire_on_accessible_match(
     body_snippet: str | None,
     raw_body_prefix: bytes | None,
 ) -> None:
+    from webconf_audit.external.safe_probe_catalog import SAFE_PATH_RULES
+
     sp = SensitivePathProbe(
         url=f"https://example.com{path}",
         path=path,
@@ -1253,10 +1255,15 @@ def test_batch_2_sensitive_path_rules_fire_on_accessible_match(
         sensitive_path_probes=[sp],
     )
 
-    findings = [f for f in result.findings if f.rule_id == rule_id]
-    assert len(findings) == 1
-    assert findings[0].location.target == f"https://example.com{path}"
-    assert findings[0].location.details == path
+    sensitive_rule_ids = {rule.rule_id for rule in SAFE_PATH_RULES}
+    sensitive_findings = [
+        finding for finding in result.findings if finding.rule_id in sensitive_rule_ids
+    ]
+
+    assert len(sensitive_findings) == 1
+    assert sensitive_findings[0].rule_id == rule_id
+    assert sensitive_findings[0].location.target == f"https://example.com{path}"
+    assert sensitive_findings[0].location.details == path
 
 
 @pytest.mark.parametrize(
@@ -1374,6 +1381,30 @@ def test_batch_2_body_matched_sensitive_path_rules_require_expected_content(
     )
 
     assert rule_id not in {f.rule_id for f in result.findings}
+
+
+def test_heapdump_rule_requires_expected_binary_prefix(monkeypatch) -> None:
+    sp = SensitivePathProbe(
+        url="https://example.com/actuator/heapdump",
+        path="/actuator/heapdump",
+        status_code=200,
+        content_type="application/octet-stream",
+        raw_body_prefix=b"<html>Custom page</html>",
+    )
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    assert "external.springboot_actuator_heapdump_exposed" not in {
+        f.rule_id for f in result.findings
+    }
 
 
 # ---------------------------------------------------------------------------

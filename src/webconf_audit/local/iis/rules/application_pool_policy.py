@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from webconf_audit.local.iis.iis_defaults import load_defaults
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import (
     IISChildElement,
@@ -21,6 +22,10 @@ SHARED_APP_POOL_RULE_ID = "iis.sites_share_application_pool"
 _APPLICATION_POOL_IDENTITY_VALUES = frozenset({"applicationpoolidentity", "4"})
 _DEFAULT_APP_POOL = "DefaultAppPool"
 _SITE_XML_PATH = "configuration/system.applicationHost/sites/site"
+_APPLICATION_POOLS_XML_PATH = "configuration/system.applicationHost/applicationPools"
+_DEFAULT_PROCESS_MODEL_PATH = (
+    "system.applicationHost/applicationPools/applicationPoolDefaults/processModel"
+)
 
 _IDENTITY_LABELS = {
     "0": "LocalSystem",
@@ -75,7 +80,8 @@ class _SiteApplication:
             note=(
                 "Detects explicit app-pool processModel identities and "
                 "applicationPoolDefaults identities that are not "
-                "ApplicationPoolIdentity."
+                "ApplicationPoolIdentity; absent applicationPoolDefaults "
+                "inherit the embedded IIS schema default."
             ),
         ),
     ),
@@ -147,19 +153,47 @@ def _application_pool_default_process_model(
     doc: IISConfigDocument,
 ) -> _DefaultProcessModel | None:
     default_process_model: _DefaultProcessModel | None = None
+    fallback_source: IISSourceRef | None = None
     for section in doc.sections:
+        if section.xml_path == _APPLICATION_POOLS_XML_PATH:
+            fallback_source = section.source
         if section.tag != "processModel":
             continue
         if not section.xml_path.endswith("/applicationPoolDefaults/processModel"):
             continue
         identity_type = section.attributes.get("identityType")
-        if identity_type is None:
+        if identity_type is not None:
+            default_process_model = _DefaultProcessModel(
+                identity_type=identity_type,
+                source=section.source,
+            )
+            continue
+
+        schema_identity = load_defaults().get_element_default(
+            _DEFAULT_PROCESS_MODEL_PATH,
+        ).get("identityType")
+        if schema_identity is None:
             continue
         default_process_model = _DefaultProcessModel(
-            identity_type=identity_type,
+            identity_type=schema_identity,
             source=section.source,
         )
-    return default_process_model
+    if default_process_model is not None:
+        return default_process_model
+
+    schema_identity = load_defaults().get_element_default(
+        _DEFAULT_PROCESS_MODEL_PATH,
+    ).get("identityType")
+    if schema_identity is None:
+        return None
+    return _DefaultProcessModel(
+        identity_type=schema_identity,
+        source=fallback_source
+        or IISSourceRef(
+            file_path=doc.file_path,
+            xml_path="configuration/system.applicationHost/applicationPools",
+        ),
+    )
 
 
 def _application_pool_identities(

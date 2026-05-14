@@ -648,7 +648,9 @@ def test_request_filtering_length_limits_safe_silent(tmp_path: Path) -> None:
     assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
-def test_request_filtering_length_limits_missing_fire(tmp_path: Path) -> None:
+def test_request_filtering_length_limits_missing_use_schema_defaults(
+    tmp_path: Path,
+) -> None:
     config = """\
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -668,11 +670,11 @@ def test_request_filtering_length_limits_missing_fire(tmp_path: Path) -> None:
 
     _assert_no_analysis_issues(result)
     rule_ids = _rule_ids(result)
-    assert "iis.request_filtering_max_url_missing" in rule_ids
-    assert "iis.request_filtering_max_query_string_missing" in rule_ids
+    assert "iis.request_filtering_max_url_missing" not in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
-def test_request_filtering_missing_request_limits_fires_length_limits(
+def test_request_filtering_missing_request_limits_use_schema_defaults(
     tmp_path: Path,
 ) -> None:
     config = """\
@@ -692,8 +694,8 @@ def test_request_filtering_missing_request_limits_fires_length_limits(
 
     _assert_no_analysis_issues(result)
     rule_ids = _rule_ids(result)
-    assert "iis.request_filtering_max_url_missing" in rule_ids
-    assert "iis.request_filtering_max_query_string_missing" in rule_ids
+    assert "iis.request_filtering_max_url_missing" not in rule_ids
+    assert "iis.request_filtering_max_query_string_missing" not in rule_ids
 
 
 def test_raw_request_filtering_remove_server_header_inherits_parent_true() -> None:
@@ -751,6 +753,27 @@ def test_raw_request_limits_missing_checks_inherited_length_attributes() -> None
 
     assert find_request_filtering_max_url_missing(doc) == []
     assert find_request_filtering_max_query_string_missing(doc) == []
+
+
+def test_raw_request_limits_missing_without_parent_value_still_fires() -> None:
+    doc = parse_iis_config(
+        """\
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+    <system.webServer>
+        <security>
+            <requestFiltering>
+                <requestLimits maxAllowedContentLength="4194304" />
+            </requestFiltering>
+        </security>
+    </system.webServer>
+</configuration>
+""",
+        file_path="web.config",
+    )
+
+    assert len(find_request_filtering_max_url_missing(doc)) == 1
+    assert len(find_request_filtering_max_query_string_missing(doc)) == 1
 
 
 def test_file_extensions_allow_unlisted_fires(tmp_path: Path) -> None:

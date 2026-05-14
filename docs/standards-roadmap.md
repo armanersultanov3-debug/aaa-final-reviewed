@@ -37,7 +37,7 @@ Sources checked on 2026-04-28:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 420 rules (synchronized with
+The current project inventory is 421 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -47,7 +47,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 84
 - Lighttpd local: 49
 - IIS local: 52
-- External probes: 136
+- External probes: 137
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -56,9 +56,10 @@ existing-rule references plus their server-specific gap tables are recorded in
 `docs/rule-coverage.md`. ASVS requirements that need deeper probe/parser
 coverage or a stricter policy interpretation stay in the follow-up gap list.
 Direct ASVS v5.0.0-3.7.1 coverage now includes
-`universal.tls_required_for_authenticated_routes` for Apache and Nginx
-auth-requiring routes; IIS and Lighttpd auth normalization remains deferred to
-PR-08b.
+`universal.tls_required_for_authenticated_routes` for Apache, Nginx, IIS, and
+Lighttpd auth-requiring routes. IIS and Lighttpd auth-location normalization
+landed on top of the original PR-08 work (see
+`tests/test_normalized_auth_locations_iis_lighttpd.py`).
 
 ## Mapping Rules
 
@@ -345,7 +346,10 @@ until the listed follow-up exists:
   evidence through `external.ocsp_stapling_not_observed`.
 - `v5.0.0-12.1.5` - ECH stays documented as a probe limitation. The current
   safe external probe stack does not evaluate ECH portably, and the project
-  should not invent a noisy "ECH missing" finding.
+  should not invent a noisy "ECH missing" finding. Reconsider when both
+  (a) OpenSSL >= 3.5 stable with ECH support is mainstream on supported
+  platforms AND (b) DNS-based ECHConfig discovery (RFC 9460 SVCB/HTTPS
+  resource records) becomes part of the safe-probe infrastructure.
 - `v5.0.0-13.4.7` - current partial coverage now includes Nginx/Apache
   sensitive config/data extension deny-lists plus external backup/temp file
   probes. A true positive application allowlist model is still broader than
@@ -365,14 +369,14 @@ standard section before implementation.
 | --- | --- | --- | --- | --- |
 | STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
-| STD-GAP-003 | Nginx CIS | covered | P2 | Unknown-host default-server rejection, first/default TLS catch-all rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, whole-scope request-method policy, unsafe explicit method allowlists, and sensitive config/data extension deny-lists are now present. Remaining work focuses on deeper cipher/TLS posture and context-specific runtime/probe checks rather than another direct local rule. |
+| STD-GAP-003 | Nginx CIS | covered | P2 | Unknown-host default-server rejection, first/default TLS catch-all rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, whole-scope request-method policy, unsafe explicit method allowlists, and sensitive config/data extension deny-lists are now present. Remaining direct-rule follow-up is narrow: HTTP/3 directive signals stay a deferred candidate keyed off `quic=on` / `http3` on `listen`, while `load_module` allow-lists, approved-port policy, and TLS 1.3 DH-group posture are explicitly out of scope because they require operator-specific policy. |
 | STD-GAP-004 | Nginx CIS | out-of-scope | P3 | Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations require OS/package/filesystem inspection, which is outside this web-server config / safe external analysis tool. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
 | STD-GAP-006 | Apache CIS | covered | P2 | Apache direct-rule coverage now includes site-wide request-scope method policy, explicit unsafe method allowlists, `AllowOverride None` and OS-root `Options None` baselines, sensitive-file and environment-specific path deny rules, DocumentRoot default-content probing, IP-based request denial, default TLS and non-TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, primary security headers including runtime-safe `Permissions-Policy`, timeout/keepalive default pinning, `RequestReadTimeout` module semantics, TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and conservative weak cipher / FS / AEAD posture. Remaining runtime corroboration is documented as operator context or external-probe evidence rather than a missing local rule. |
 | STD-GAP-007 | Apache CIS | covered | P2 | Explicit `LoadModule` inventory, `IfModule`-aware traversal, HTTPS upstream proxy/TLS directive modeling, request-scope `Location` matching, richer effective `RequireAll` / `RequireAny` IP+method semantics, legacy `Order` / `Allow` / `Deny` / `Satisfy` defaults, and visible ModSecurity / CRS inventory now back the Apache standards rules, including upstream TLS trust checks and current authorization-location coverage. Remaining benchmark follow-up is broader module minimization or deployment-specific authorization context, not an unresolved parser-depth blocker. |
 | STD-GAP-008 | IIS / Windows Server | covered | P1 | Existing IIS rule CIS references and IIS/SChannel universal mappings are recorded in `docs/rule-coverage.md` from the CIS Microsoft IIS 10 Benchmark v1.2.1 walk. Broader Windows Server host policy is out of scope. |
-| STD-GAP-009 | IIS / vendor docs | direct-rule | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, and requestFiltering default/absence policy are now covered where the current effective XML model exposes the signal. Remaining follow-up work is runtime native-header verification, deeper application-pool shared-hosting exceptions, and parser/effective-depth only where the current model cannot materialize defaults. |
-| STD-GAP-010 | IIS legacy CIS | research | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only and must not be primary references unless a future PR explicitly scopes legacy IIS. |
+| STD-GAP-009 | IIS / vendor docs | covered | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, requestFiltering default/absence policy, and runtime IIS native-header corroboration are now covered where the current model exposes the signal. Remaining follow-up work is deeper application-pool shared-hosting exceptions and parser/effective-depth only where the current model cannot materialize defaults. |
+| STD-GAP-010 | IIS legacy CIS | out-of-scope | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only. IIS 7/8 is not actively maintained, so those archive references stay out of scope unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper TLS probe work is tracked in `STD-GAP-014`. |
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
 | STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation, repeated CSP nonce detection corroborated by parsed inline scripts, and cross-origin SRI detection on eligible HTML responses. Remaining CSP honesty notes are limited to deeper nonce/hash authorization semantics, not another header-only direct rule. |

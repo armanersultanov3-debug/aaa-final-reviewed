@@ -1,6 +1,10 @@
 # Effective Scope Semantics Fixes Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Status: completed.** All tasks below were implemented and merged before
+> 2026-05-14; `needfix.md` reports the entire backlog as closed. The plan is
+> kept as a historical record of the migration to effective/inherited/
+> conditional-scope precision. New related work goes through
+> `docs/superpowers/plans/2026-05-14-open-items-followup.md`.
 
 **Goal:** Fix the confirmed effective/inherited/conditional-scope precision bugs collected in `needfix.md`.
 
@@ -23,11 +27,11 @@
 - Test: `tests/test_nginx_limits_timeouts.py`
 - Test: `tests/test_nginx_tls_headers.py`
 
-- [ ] Step 1: Change existing regression expectations so inherited `http` access/error logs and `limit_req`/`limit_conn` suppress missing findings.
-- [ ] Step 2: Add inherited header and inherited `ssl_ciphers` tests.
-- [ ] Step 3: Run targeted Nginx tests and confirm the new/changed tests fail before production changes.
-- [ ] Step 4: Update rules to resolve inherited `http` directives with last effective server override where applicable.
-- [ ] Step 5: Re-run targeted Nginx tests and confirm they pass.
+- [x] Step 1: Change existing regression expectations so inherited `http` access/error logs and `limit_req`/`limit_conn` suppress missing findings.
+- [x] Step 2: Add inherited header and inherited `ssl_ciphers` tests.
+- [x] Step 3: Run targeted Nginx tests and confirm the new/changed tests fail before production changes.
+- [x] Step 4: Update rules to resolve inherited `http` directives with last effective server override where applicable.
+- [x] Step 5: Re-run targeted Nginx tests and confirm they pass.
 
 ## Task 2: Lighttpd Conditional Missing Rules
 
@@ -39,12 +43,12 @@
 - Test: `tests/test_lighttpd_rule_controls.py`
 - Test: `tests/test_lighttpd_conditions.py`
 
-- [ ] Step 1: Add tests where host-conditional access/error log settings do not suppress findings for other hosts.
-- [ ] Step 2: Add tests where no-host analysis still reports missing security headers when the header only exists in one host branch.
-- [ ] Step 3: Run targeted Lighttpd tests and confirm failures.
-- [ ] Step 4: Mark logging rules as effective rules and use `merged_directives` for concrete host behavior.
-- [ ] Step 5: Require global header presence for no-host missing-header silence; keep host-targeted behavior using `merged_directives`.
-- [ ] Step 6: Re-run targeted Lighttpd tests.
+- [x] Step 1: Add tests where host-conditional access/error log settings do not suppress findings for other hosts.
+- [x] Step 2: Add tests where no-host analysis still reports missing security headers when the header only exists in one host branch.
+- [x] Step 3: Run targeted Lighttpd tests and confirm failures.
+- [x] Step 4: Mark logging rules as effective rules and use `merged_directives` for concrete host behavior.
+- [x] Step 5: Require global header presence for no-host missing-header silence; keep host-targeted behavior using `merged_directives`.
+- [x] Step 6: Re-run targeted Lighttpd tests.
 
 ## Task 3: IIS Cross-File Collection Merge
 
@@ -52,10 +56,10 @@
 - Modify: `src/webconf_audit/local/iis/effective.py`
 - Test: `tests/test_iis_discovery.py`
 
-- [ ] Step 1: Add regression tests proving cross-file custom headers are merged, removed, and cleared with IIS collection semantics.
-- [ ] Step 2: Run the targeted IIS tests and confirm failures.
-- [ ] Step 3: Replace cross-file child replacement with `_merge_children(base.children, override.children)`.
-- [ ] Step 4: Re-run targeted IIS tests.
+- [x] Step 1: Add regression tests proving cross-file custom headers are merged, removed, and cleared with IIS collection semantics.
+- [x] Step 2: Run the targeted IIS tests and confirm failures.
+- [x] Step 3: Replace cross-file child replacement with `_merge_children(base.children, override.children)`.
+- [x] Step 4: Re-run targeted IIS tests.
 
 ## Task 4: Apache Options Regression Coverage
 
@@ -63,15 +67,15 @@
 - Test: `tests/test_normalizer_apache.py`
 - Test: `tests/test_apache_effective_vhosts.py`
 
-- [ ] Step 1: Add tests for `Options Indexes -Indexes` and `Options -Indexes Indexes` in normalizer and rule output.
-- [ ] Step 2: Run targeted Apache tests. If implementation already passes, keep tests as coverage; otherwise fix `apache_normalizer.py`.
+- [x] Step 1: Add tests for `Options Indexes -Indexes` and `Options -Indexes Indexes` in normalizer and rule output.
+- [x] Step 2: Run targeted Apache tests. If implementation already passes, keep tests as coverage; otherwise fix `apache_normalizer.py`.
 
 ## Task 5: Verification And Cleanup
 
 **Files:**
 - Modify: `needfix.md`
 
-- [ ] Step 1: Mark fixed items in `needfix.md` with implementation notes.
-- [ ] Step 2: Run targeted suites for Nginx, Lighttpd, IIS, Apache.
-- [ ] Step 3: Run `ruff check .`.
-- [ ] Step 4: Run broader fast pytest suite if targeted checks are green.
+- [x] Step 1: Mark fixed items in `needfix.md` with implementation notes.
+- [x] Step 2: Run targeted suites for Nginx, Lighttpd, IIS, Apache.
+- [x] Step 3: Run `ruff check .`.
+- [x] Step 4: Run broader fast pytest suite if targeted checks are green.
