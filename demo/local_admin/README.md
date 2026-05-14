@@ -300,10 +300,10 @@ The current scenario was executed in the local environment and confirmed that:
 
 Observed findings in the confirmed run (server-specific + universal):
 
-- Nginx: `4 findings / 0 issues` (3 server-specific + 1 universal, 1 suppressed)
-- Apache: `19 findings / 0 issues` (14 server-specific + 5 universal)
-- Lighttpd: `16 findings / 0 issues` (11 server-specific + 5 universal, 3 suppressed)
-- IIS: `20 findings / 0 issues` (20 server-specific + 0 universal, 6 suppressed)
+- Nginx: `9 findings / 0 issues` (8 server-specific + 1 universal, 1 suppressed)
+- Apache: `39 findings / 0 issues` (35 server-specific + 4 universal)
+- Lighttpd: `28 findings / 0 issues` (21 server-specific + 7 universal, 1 suppressed)
+- IIS: `52 findings / 1 issue` (47 server-specific + 5 universal, 2 suppressed)
 
 Universal findings (rule IDs starting with `universal.`) come from the
 normalization layer and are common across all servers. They cover TLS

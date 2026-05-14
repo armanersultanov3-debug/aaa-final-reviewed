@@ -56,9 +56,10 @@ existing-rule references plus their server-specific gap tables are recorded in
 `docs/rule-coverage.md`. ASVS requirements that need deeper probe/parser
 coverage or a stricter policy interpretation stay in the follow-up gap list.
 Direct ASVS v5.0.0-3.7.1 coverage now includes
-`universal.tls_required_for_authenticated_routes` for Apache and Nginx
-auth-requiring routes; IIS and Lighttpd auth normalization remains deferred to
-PR-08b.
+`universal.tls_required_for_authenticated_routes` for Apache, Nginx, IIS, and
+Lighttpd auth-requiring routes. IIS and Lighttpd auth-location normalization
+landed on top of the original PR-08 work (see
+`tests/test_normalized_auth_locations_iis_lighttpd.py`).
 
 ## Mapping Rules
 
@@ -345,7 +346,10 @@ until the listed follow-up exists:
   evidence through `external.ocsp_stapling_not_observed`.
 - `v5.0.0-12.1.5` - ECH stays documented as a probe limitation. The current
   safe external probe stack does not evaluate ECH portably, and the project
-  should not invent a noisy "ECH missing" finding.
+  should not invent a noisy "ECH missing" finding. Reconsider when both
+  (a) OpenSSL >= 3.5 stable with ECH support is mainstream on supported
+  platforms AND (b) DNS-based ECHConfig discovery (RFC 9460 SVCB/HTTPS
+  resource records) becomes part of the safe-probe infrastructure.
 - `v5.0.0-13.4.7` - current partial coverage now includes Nginx/Apache
   sensitive config/data extension deny-lists plus external backup/temp file
   probes. A true positive application allowlist model is still broader than

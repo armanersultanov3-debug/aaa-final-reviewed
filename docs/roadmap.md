@@ -280,7 +280,7 @@ keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
 work can add curated safe probes from external sources without adding another
 hardcoded finder per path.
 
-## Backlog Status (as of 2026-05-13)
+## Backlog Status (as of 2026-05-14)
 
 - Rule count: 391 total, with the repeated counters and registry expected to
   stay aligned.
@@ -288,13 +288,22 @@ hardcoded finder per path.
   `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`, `STD-GAP-027`,
   `STD-GAP-029`-`STD-GAP-032`, `STD-GAP-035`, `STD-GAP-036`, and
   `STD-GAP-038` (closed by PR-01).
-- Deferred or out-of-scope decisions are recorded for `STD-GAP-017`-`STD-GAP-020`,
-  `STD-GAP-022`, `STD-GAP-023`, `STD-GAP-025`, `STD-GAP-028`,
-  `STD-GAP-034`, and `STD-GAP-037`.
-- Remaining active backlog: `STD-GAP-015` (ongoing safe-probe catalog growth).
-- Blocked: `STD-GAP-033` (ГОСТ TLS / RFC 9189 detection). Research is complete,
-  but implementation stays blocked pending ИСПДн user feedback surfaced through
-  `STD-GAP-031`.
+- Closed as not pursued (plan
+  `docs/superpowers/plans/2026-05-14-open-items-followup.md`):
+  `STD-GAP-017`, `STD-GAP-018`, `STD-GAP-019`, `STD-GAP-022`, `STD-GAP-023`,
+  `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`. Each carries an explicit
+  rationale in `docs/benchmarks-covering.md §9`.
+- Docs-only alignment (plan 2026-05-14): `STD-GAP-020` (NIST CSF 2.0
+  topic-grouped block in `docs/rule-coverage.md`), `STD-GAP-028` (OWASP API
+  Security Top 10 secondary alignment as a footnote after the O-03 SSRF
+  rule lands).
+- Active backlog driven by plan 2026-05-14:
+  - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 in the plan,
+    ~30 rules).
+  - `STD-GAP-037` — ASVS V8 / V11 deepening, accepted as a follow-up that
+    rides on top of the O-03 / O-05 parser work (PR-3 / PR-4 / PR-6).
+  - Documentation synchronization items not tied to a single STD-GAP — see
+    plan §«Документная синхронизация».
 
 ## Current Priority
 
