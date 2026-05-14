@@ -367,7 +367,7 @@ visible parts:
 | --- | --- | --- | --- |
 | API2:2023 Broken Authentication | Auth transport / storage | Same set as §5.2 IA-2. | — |
 | API4:2023 Unrestricted Resource Consumption | Rate / size limits | All `*.missing_limit_*`, `*.timeout_*`, `iis.max_allowed_content_length_missing`, `apache.limit_request_*`. | — |
-| API7:2023 Server Side Request Forgery | out-of-scope (application). | — | — |
+| API7:2023 Server Side Request Forgery | Server-side misconfiguration signal (web-server proxy with user-controlled destination). Application-layer SSRF stays out of scope. | `nginx.proxy_pass_user_controlled_destination` via `owasp_api_top10_2023("API7:2023")` (secondary-only; see `rule_standards._secondary_references()`). | Closed by `STD-GAP-028` (PR-6, 2026-05-14). |
 | API8:2023 Security Misconfiguration | Catch-all hardening. | All hardening rules. | — |
 | API9:2023 Improper Inventory Management | out-of-scope. | — | — |
 | API10:2023 Unsafe Consumption of APIs | out-of-scope. | — | — |
