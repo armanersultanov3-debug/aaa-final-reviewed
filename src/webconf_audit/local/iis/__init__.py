@@ -266,9 +266,11 @@ def _analyze_application_host(
                 if vdir.web_config_path is None:
                     continue
 
+                child_application_path = _child_application_path(site.name, app.app_path)
                 site_findings, site_issues = _analyze_web_config_with_base(
                     vdir.web_config_path,
                     base_effective,
+                    child_application_path=child_application_path,
                 )
                 all_findings.extend(site_findings)
                 all_issues.extend(site_issues)
@@ -315,8 +317,18 @@ def _analyze_application_host(
 def _analyze_web_config_with_base(
     web_config_path: str,
     base_effective: IISEffectiveConfig,
+    *,
+    child_application_path: str | None = None,
 ) -> tuple[list[Finding], list[AnalysisIssue]]:
-    """Parse and analyze a web.config, merging with base effective config."""
+    """Parse and analyze a web.config, merging with base effective config.
+
+    ``child_application_path`` identifies where the web.config is rooted
+    inside the IIS hierarchy (e.g. ``"Default Web Site/api"``).  It is
+    used by ``merge_effective_configs`` to honour
+    ``inheritInChildApplications="false"`` blocks on parent ``<location>``
+    sections: such blocks must not cascade into deeper-nested child
+    applications.
+    """
     findings: list[Finding] = []
     issues: list[AnalysisIssue] = []
 
@@ -331,13 +343,30 @@ def _analyze_web_config_with_base(
         return findings, issues
 
     site_effective = build_effective_config(site_doc)
-    merged = merge_effective_configs(base_effective, site_effective)
+    merged = merge_effective_configs(
+        base_effective,
+        site_effective,
+        child_application_path=child_application_path,
+    )
 
     findings.extend(run_iis_rules(site_doc, effective_config=merged, issues=issues))
     normalized = normalize_config("iis", doc=site_doc, effective_config=merged)
     findings.extend(run_universal_rules(normalized, issues=issues))
 
     return findings, issues
+
+
+def _child_application_path(site_name: str, app_path: str) -> str:
+    """Build the IIS location path key for a site/application pair.
+
+    IIS encodes the location of an application as ``"<SiteName>/<AppPath>"``
+    with the leading slash stripped from the application path.  An app
+    at the site root (``"/"``) collapses to just ``"<SiteName>"``.
+    """
+    cleaned_app_path = app_path.strip("/")
+    if not cleaned_app_path:
+        return site_name
+    return f"{site_name}/{cleaned_app_path}"
 
 
 def _load_optional_machine_config(
