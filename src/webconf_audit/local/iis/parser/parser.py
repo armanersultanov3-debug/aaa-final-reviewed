@@ -50,6 +50,12 @@ class IISSection:
     children: list[IISChildElement] = field(default_factory=list)
     location_path: str | None = None
     source: IISSourceRef = field(default_factory=IISSourceRef)
+    # ``inheritInChildApplications`` lives on the ``<location>`` block in
+    # ``applicationHost.config`` / parent ``web.config``.  When ``False``,
+    # settings inside the location apply to the path itself but do NOT
+    # cascade into deeper-nested child applications.  Default ``True``
+    # mirrors IIS's documented behaviour for an absent attribute.
+    location_inherit_in_child_applications: bool = True
 
 
 @dataclass(slots=True)
@@ -129,6 +135,9 @@ def _extract_sections(
         if child.tag == "location":
             loc_path = child.attrib.get("path", "")
             loc_prefix = f"{root.tag}/location[@path='{loc_path}']"
+            inherit_in_child = _parse_inherit_in_child_applications(
+                child.attrib.get("inheritInChildApplications"),
+            )
             for grandchild in child:
                 _append_section_tree(
                     grandchild,
@@ -136,6 +145,7 @@ def _extract_sections(
                     sections=sections,
                     file_path=file_path,
                     location_path=loc_path or None,
+                    location_inherit_in_child_applications=inherit_in_child,
                 )
         else:
             _append_section_tree(
@@ -144,9 +154,22 @@ def _extract_sections(
                 sections=sections,
                 file_path=file_path,
                 location_path=None,
+                location_inherit_in_child_applications=True,
             )
 
     return sections
+
+
+def _parse_inherit_in_child_applications(value: str | None) -> bool:
+    """Parse the ``inheritInChildApplications`` attribute value.
+
+    IIS treats anything other than a literal ``false`` (case-insensitive,
+    stripped) as the default ``true``.  This matches the schema-typed
+    boolean attribute semantics used elsewhere in IIS XML.
+    """
+    if value is None:
+        return True
+    return value.strip().casefold() != "false"
 
 
 def _looks_like_machine_config(child_tags: set[str]) -> bool:
@@ -173,6 +196,7 @@ def _append_section_tree(
     sections: list[IISSection],
     file_path: str | None,
     location_path: str | None = None,
+    location_inherit_in_child_applications: bool = True,
 ) -> None:
     xml_path = f"{parent_path}/{element.tag}"
     child_elements: list[IISChildElement] = []
@@ -201,6 +225,9 @@ def _append_section_tree(
                 file_path=file_path,
                 xml_path=xml_path,
             ),
+            location_inherit_in_child_applications=(
+                location_inherit_in_child_applications
+            ),
         )
     )
 
@@ -211,6 +238,9 @@ def _append_section_tree(
             sections=sections,
             file_path=file_path,
             location_path=location_path,
+            location_inherit_in_child_applications=(
+                location_inherit_in_child_applications
+            ),
         )
 
 

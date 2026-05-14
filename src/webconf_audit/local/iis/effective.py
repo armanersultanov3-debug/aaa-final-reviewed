@@ -40,6 +40,11 @@ class IISEffectiveSection:
     child_operations: list[IISChildElement] = field(default_factory=list)
     section_path: str | None = None
     materialized_from_defaults: bool = False
+    # When the section was contributed by a parent ``<location>`` block
+    # with ``inheritInChildApplications="false"`` (default ``True``).
+    # Used by ``merge_effective_configs`` to gate cross-file inheritance
+    # into deeper-nested child applications.
+    inherit_in_child_applications: bool = True
 
     @property
     def source(self) -> IISSourceRef:
@@ -116,6 +121,7 @@ class IISEffectiveConfig:
                 child_operations=list(section.child_operations),
                 section_path=section.section_path,
                 materialized_from_defaults=True,
+                inherit_in_child_applications=section.inherit_in_child_applications,
             )
 
         if not defaults:
@@ -246,6 +252,7 @@ def _merge_location_section_overrides(
     base_children = list(base.children) if base else []
     base_child_operations = list(base.child_operations) if base else []
     base_origin = list(base.origin_chain) if base else []
+    base_inherit = base.inherit_in_child_applications if base else True
     return _merge_sections(
         overrides,
         location_path=location_path,
@@ -253,6 +260,7 @@ def _merge_location_section_overrides(
         base_children=base_children,
         base_child_operations=base_child_operations,
         base_origin=base_origin,
+        base_inherit_in_child_applications=base_inherit,
     )
 
 
@@ -278,6 +286,7 @@ def _merge_sections(
     base_children: list[IISChildElement] | None = None,
     base_child_operations: list[IISChildElement] | None = None,
     base_origin: list[IISSourceRef] | None = None,
+    base_inherit_in_child_applications: bool = True,
 ) -> IISEffectiveSection:
     """Merge multiple raw sections into one effective section."""
     attrs = dict(base_attrs) if base_attrs else {}
@@ -285,12 +294,21 @@ def _merge_sections(
     child_operations = list(base_child_operations) if base_child_operations else []
     origin = list(base_origin) if base_origin else []
     tag = sections[-1].tag
+    inherit_in_child_applications = base_inherit_in_child_applications
 
     for section in sections:
         attrs.update(section.attributes)
         origin.append(section.source)
         child_operations.extend(section.children)
         children = _merge_children(children, section.children)
+        # AND-fold: a single ``inheritInChildApplications="false"`` on any
+        # contributing source blocks the cascade into child applications.
+        # This is the conservative interpretation when multiple ``<location>``
+        # blocks for the same path contradict each other.
+        inherit_in_child_applications = (
+            inherit_in_child_applications
+            and section.location_inherit_in_child_applications
+        )
 
     suffix = _section_suffix(sections[-1].xml_path)
     return IISEffectiveSection(
@@ -302,6 +320,7 @@ def _merge_sections(
         origin_chain=origin,
         child_operations=child_operations,
         section_path=_strip_configuration_path(sections[-1].xml_path),
+        inherit_in_child_applications=inherit_in_child_applications,
     )
 
 
@@ -376,18 +395,35 @@ def _section_suffix(xml_path: str) -> str:
 def merge_effective_configs(
     base: IISEffectiveConfig,
     override: IISEffectiveConfig,
+    *,
+    child_application_path: str | None = None,
 ) -> IISEffectiveConfig:
-    """Merge two effective configs such as applicationHost.config and web.config."""
+    """Merge two effective configs such as applicationHost.config and web.config.
+
+    When ``child_application_path`` is given, the merge represents inheriting
+    the ``base`` (parent) configuration into a deeper-nested child application
+    rooted at that path.  Sections from the ``base`` that are scoped to an
+    ancestor ``<location>`` with ``inheritInChildApplications="false"`` are
+    dropped from the inherited view to honour IIS's cascade-blocking semantic.
+    """
+    filtered_base = (
+        _filter_for_child_application(base, child_application_path)
+        if child_application_path is not None
+        else base
+    )
+
     merged_global = _merge_section_dicts(
-        base.global_sections,
+        filtered_base.global_sections,
         override.global_sections,
         location_path=None,
     )
 
     merged_locations: dict[str, dict[str, IISEffectiveSection]] = {}
-    all_location_paths = set(base.location_sections) | set(override.location_sections)
+    all_location_paths = (
+        set(filtered_base.location_sections) | set(override.location_sections)
+    )
     for location_path in sorted(all_location_paths, key=lambda path: (path.count("/"), path)):
-        base_loc = _effective_sections_for_location(base, location_path)
+        base_loc = _effective_sections_for_location(filtered_base, location_path)
         override_loc = _effective_sections_for_location(override, location_path)
         merged_locations[location_path] = _merge_section_dicts(
             base_loc,
@@ -399,6 +435,69 @@ def merge_effective_configs(
         global_sections=merged_global,
         location_sections=merged_locations,
     )
+
+
+def _filter_for_child_application(
+    base: IISEffectiveConfig,
+    child_application_path: str,
+) -> IISEffectiveConfig:
+    """Drop base sections that should not cascade into a child application.
+
+    A section is dropped when:
+
+    * It is scoped to a ``<location path=...>`` whose path is an *ancestor*
+      (or equal) of ``child_application_path`` AND that location declared
+      ``inheritInChildApplications="false"``.
+
+    A section scoped to the same path as the child application itself is
+    also dropped on the same grounds — IIS treats the gating block as
+    not extending into child applications, which includes the child
+    application's own root scope.
+    """
+    normalized_child = _normalize_location_path(child_application_path)
+
+    filtered_globals: dict[str, IISEffectiveSection] = {
+        suffix: section
+        for suffix, section in base.global_sections.items()
+        if section.inherit_in_child_applications
+    }
+    filtered_locations: dict[str, dict[str, IISEffectiveSection]] = {}
+    for loc_path, sections in base.location_sections.items():
+        if _is_ancestor_or_equal_location(loc_path, normalized_child):
+            kept = {
+                suffix: section
+                for suffix, section in sections.items()
+                if section.inherit_in_child_applications
+            }
+            if kept:
+                filtered_locations[loc_path] = kept
+        else:
+            filtered_locations[loc_path] = dict(sections)
+
+    return IISEffectiveConfig(
+        global_sections=filtered_globals,
+        location_sections=filtered_locations,
+    )
+
+
+def _is_ancestor_or_equal_location(
+    candidate: str | None,
+    descendant: str | None,
+) -> bool:
+    """Return True when ``candidate`` is the same as ``descendant`` or an ancestor."""
+    norm_candidate = _normalize_location_path(candidate or "")
+    norm_descendant = _normalize_location_path(descendant or "")
+    if not norm_candidate or not norm_descendant:
+        return False
+    if norm_candidate == norm_descendant:
+        return True
+    return norm_descendant.startswith(norm_candidate + "/")
+
+
+def _normalize_location_path(path: str | None) -> str:
+    if path is None:
+        return ""
+    return path.replace("\\", "/").strip("/")
 
 
 def _merge_section_dicts(
@@ -461,6 +560,12 @@ def _merge_effective_section_pair(
         materialized_from_defaults=(
             base.materialized_from_defaults and override.materialized_from_defaults
         ),
+        # Most-restrictive AND-fold: if either contributor blocks cascade,
+        # the merged effective section blocks it as well.
+        inherit_in_child_applications=(
+            base.inherit_in_child_applications
+            and override.inherit_in_child_applications
+        ),
     )
 
 
@@ -492,6 +597,7 @@ def _clone_effective_section(
         child_operations=list(section.child_operations),
         section_path=section.section_path,
         materialized_from_defaults=section.materialized_from_defaults,
+        inherit_in_child_applications=section.inherit_in_child_applications,
     )
 
 
