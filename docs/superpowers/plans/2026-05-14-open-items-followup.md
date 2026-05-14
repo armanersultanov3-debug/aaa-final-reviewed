@@ -924,8 +924,8 @@ migrate conditional rules to it`), порядок коммитов:
 ### Зависимости
 
 Реальная зависимость одна: PR-6 (O-06 follow-ups: OWASP API #7 SSRF tag,
-ASVS V8/V11 теги) ждёт landing’а PR-3 (новый `proxy_pass` SSRF rule_id)
-и PR-4 (новые external rule_id из O-01). Всё остальное независимо по
+ASVS V8/V11 теги) ждёт landing’а PR-4 (новый `proxy_pass` SSRF rule_id)
+и PR-3 (новые external rule_id из O-01). Всё остальное независимо по
 модулям.
 
 ### Очередь PR
