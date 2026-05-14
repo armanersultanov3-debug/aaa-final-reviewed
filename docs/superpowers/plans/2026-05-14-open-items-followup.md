@@ -870,7 +870,7 @@ migrate conditional rules to it`), порядок коммитов:
       не колонка, не `StandardReference`). Объём — одна врезка ~30 строк.
 - [ ] STD-GAP-028 (OWASP API Top 10): после закрытия SSRF из O-03 добавить
       одну строчку «вторичное соответствие API7:2023 SSRF» к правилу
-      `nginx.proxy_pass_ssrf` (или как оно будет названо).
+      `nginx.proxy_pass_user_controlled_destination`.
 - [ ] STD-GAP-037 (ASVS V8/V11): после landing O-03 / O-05 добавить
       ASVS-теги к новым правилам и обновить блок ASVS в `docs/rule-coverage.md`.
 - [ ] Обновить `docs/roadmap.md`: убрать перечисленные STD-GAP-* из
