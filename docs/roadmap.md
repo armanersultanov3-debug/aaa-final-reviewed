@@ -280,7 +280,7 @@ keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
 work can add curated safe probes from external sources without adding another
 hardcoded finder per path.
 
-## Backlog Status (as of 2026-05-15)
+## Backlog Status (local snapshot date: 2026-05-15)
 
 - Rule count: 426 total, with the repeated counters and registry expected to
   stay aligned.
