@@ -236,6 +236,7 @@ when the scanner can see the relevant deployment signal.
 Primary ASVS chapters for the current rule set:
 
 - [V3 Web Frontend Security](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x12-V3-Web-Frontend-Security.md)
+- [V11 Cryptography](https://cornucopia.owasp.org/taxonomy/asvs-5.0/11-cryptography)
 - [V12 Secure Communication](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x21-V12-Secure-Communication.md)
 - [V13 Configuration](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x22-V13-Configuration.md)
 - [V16 Security Logging and Error Handling](https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x25-V16-Security-Logging-and-Error-Handling.md)
@@ -269,6 +270,17 @@ limit recorded with the reference or moved to the gap list:
   `external.cert_chain_incomplete`, `external.cert_san_mismatch`,
   `external.certificate_expired`, `external.tls_ct_log_evidence_missing`,
   and `external.tls_weak_signature_algorithm`.
+- `v5.0.0-11.4.1` - approved hash/HMAC selection for cryptographic integrity.
+  Partial coverage: `iis.machine_key_validation_weak` flags ASP.NET
+  `machineKey` validation algorithms that are not SHA-2 HMAC, but this only
+  covers MachineKey validation HMAC/hash selection rather than broader
+  application cryptography inventory.
+- `v5.0.0-13.4.7` - publicly exposed secret or credential material. Partial
+  coverage: external safe-probe rules now detect several deployment artifacts
+  that should not be publicly reachable, including AWS shared credentials,
+  Docker and Kubernetes client configs, SSH private keys, GCP service-account
+  keys, and Rails master keys. This proves exposure of specific secret-bearing
+  files, not the full application-wide secret-handling posture.
 - `v5.0.0-3.3.1`, `v5.0.0-3.3.2`, and `v5.0.0-3.3.4` - observable cookie
   security attributes. Partial coverage: external cookie rules check `Secure`,
   `SameSite`, `SameSite=None` plus `Secure`, `HttpOnly`, and the browser
@@ -354,6 +366,11 @@ until the listed follow-up exists:
   sensitive config/data extension deny-lists plus external backup/temp file
   probes. A true positive application allowlist model is still broader than
   the current deny-list/probe signal.
+- `v5.0.0-11.x` broader cryptography coverage - direct coverage now starts at
+  `iis.machine_key_validation_weak -> v5.0.0-11.4.1` (partial: MachineKey
+  validation HMAC/hash selection only). Remaining V11 requirements mostly
+  depend on application code, crypto inventory, key lifecycle, or runtime
+  semantics outside current web-server config / safe external visibility.
 - `v5.0.0-16.1.1` through `v5.0.0-16.4.3` - application security logging
   inventory, event semantics, and log protection are mostly outside current
   web server config/probe visibility. Local access/error-log presence can be
