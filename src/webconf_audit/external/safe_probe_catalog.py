@@ -1486,6 +1486,707 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         order=759,
         metadata_recommendation="Block public access to Bazaar metadata.",
     ),
+    # ------------------------------------------------------------------
+    # Batch-3: CMS admin / install surfaces (STD-GAP-015).
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.joomla_admin_panel_exposed",
+        title="Joomla administrator panel exposed",
+        severity="low",
+        description=(
+            "The /administrator/ endpoint is externally reachable and returns "
+            "the Joomla administrator login surface. Public access to the "
+            "administrative surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict the Joomla /administrator/ path to trusted networks or "
+            "place it behind an identity proxy."
+        ),
+        paths=("/administrator/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)joomla(?:[^a-z]|!|\s|<)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=760,
+        metadata_recommendation="Restrict access to /administrator/.",
+    ),
+    SafePathRule(
+        rule_id="external.drupal_user_login_exposed",
+        title="Drupal user-login page exposed",
+        severity="low",
+        description=(
+            "The /user/login endpoint returns a Drupal-branded login form and "
+            "is externally reachable. Public access to authentication surfaces "
+            "increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict /user/login (and the Drupal admin surface generally) to "
+            "trusted networks or place it behind an identity proxy."
+        ),
+        paths=("/user/login",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:drupal\.settings|name=\"form_id\"\s+value=\"user_login)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=761,
+        metadata_recommendation="Restrict access to /user/login.",
+    ),
+    SafePathRule(
+        rule_id="external.drupal_install_php_exposed",
+        title="Drupal install.php exposed",
+        severity="high",
+        description=(
+            "A Drupal install.php endpoint is externally reachable and returns "
+            "the installer welcome page. Public access to the installer can "
+            "allow unauthenticated site takeover during a re-install window."
+        ),
+        recommendation=(
+            "Remove install.php from production deployments or block external "
+            "access to it once the site is installed."
+        ),
+        paths=("/core/install.php", "/install.php"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)drupal\s+\d+(?:\.\d+)?\s*installation"),
+        ),
+        standards=_admin_surface_standards(),
+        order=762,
+        metadata_recommendation="Remove or block external access to install.php.",
+    ),
+    SafePathRule(
+        rule_id="external.magento_admin_panel_exposed",
+        title="Magento admin panel exposed",
+        severity="low",
+        description=(
+            "The /admin/ endpoint returns a Magento administrator login page "
+            "and is externally reachable. Public access to the administrative "
+            "surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Rename the Magento admin path (or block /admin/) and restrict it "
+            "to trusted networks or an identity proxy."
+        ),
+        paths=("/admin/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:magento[\s_-]+admin|var\s+BASE_URL\s*=)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=763,
+        metadata_recommendation="Restrict access to the Magento admin path.",
+    ),
+    SafePathRule(
+        rule_id="external.ghost_admin_exposed",
+        title="Ghost admin panel exposed",
+        severity="low",
+        description=(
+            "The /ghost/ endpoint returns the Ghost CMS administrator surface "
+            "and is externally reachable. Public access to the administrative "
+            "surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict /ghost/ to trusted networks or place it behind an "
+            "identity proxy."
+        ),
+        paths=("/ghost/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:ghost[-_]admin|<title>[^<]*ghost[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=764,
+        metadata_recommendation="Restrict access to /ghost/.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: Database admin panels.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.pgadmin_panel_exposed",
+        title="pgAdmin panel exposed",
+        severity="high",
+        description=(
+            "The /pgadmin4/ endpoint returns a pgAdmin PostgreSQL administration "
+            "surface and is externally reachable. Public exposure of a database "
+            "administration panel increases the risk of credential brute-force "
+            "and direct database compromise."
+        ),
+        recommendation=(
+            "Restrict pgAdmin to trusted administrators or remove it from "
+            "production deployments."
+        ),
+        paths=("/pgadmin4/", "/pgadmin4/login"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)pgadmin\s*(?:4|<)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=765,
+        metadata_recommendation="Restrict access to pgAdmin.",
+    ),
+    SafePathRule(
+        rule_id="external.phppgadmin_exposed",
+        title="phpPgAdmin panel exposed",
+        severity="high",
+        description=(
+            "The /phppgadmin/ endpoint returns a phpPgAdmin PostgreSQL "
+            "administration surface and is externally reachable. Public exposure "
+            "of a database administration panel increases the risk of credential "
+            "brute-force and direct database compromise."
+        ),
+        recommendation=(
+            "Restrict phpPgAdmin to trusted administrators or remove it from "
+            "production deployments."
+        ),
+        paths=("/phppgadmin/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)phppgadmin"),
+        ),
+        standards=_admin_surface_standards(),
+        order=766,
+        metadata_recommendation="Restrict access to phpPgAdmin.",
+    ),
+    SafePathRule(
+        rule_id="external.mongo_express_exposed",
+        title="Mongo Express panel exposed",
+        severity="high",
+        description=(
+            "The /mongo-express endpoint returns a Mongo Express MongoDB "
+            "administration surface and is externally reachable. Mongo Express "
+            "frequently ships without authentication; public exposure can grant "
+            "unauthenticated database access."
+        ),
+        recommendation=(
+            "Enable authentication on Mongo Express, restrict it to trusted "
+            "administrators, or remove it from production deployments."
+        ),
+        paths=("/mongo-express", "/mongo-express/"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)mongo[\s-]?express"),
+        ),
+        standards=_admin_surface_standards(),
+        order=767,
+        metadata_recommendation="Restrict access to Mongo Express.",
+    ),
+    SafePathRule(
+        rule_id="external.elasticsearch_head_exposed",
+        title="Elasticsearch head plugin exposed",
+        severity="high",
+        description=(
+            "The /_plugin/head/ endpoint returns the Elasticsearch head cluster "
+            "administration UI. Public exposure typically indicates that the "
+            "Elasticsearch cluster itself is reachable without authentication, "
+            "which can grant unauthenticated read/write access to indices."
+        ),
+        recommendation=(
+            "Disable the head plugin in production, place Elasticsearch behind "
+            "authentication, and restrict cluster access to trusted networks."
+        ),
+        paths=("/_plugin/head/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:elasticsearch[\s-]+head|cluster_overview)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=768,
+        metadata_recommendation="Disable or restrict access to the Elasticsearch head plugin.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: Webmail surfaces.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.roundcube_webmail_exposed",
+        title="Roundcube webmail login exposed",
+        severity="low",
+        description=(
+            "The /roundcube/ endpoint returns a Roundcube webmail login form "
+            "and is externally reachable. Public exposure of a webmail login "
+            "surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict the Roundcube login surface to trusted networks or "
+            "place it behind an identity proxy."
+        ),
+        paths=("/roundcube/", "/webmail/"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)roundcube"),
+        ),
+        standards=_admin_surface_standards(),
+        order=769,
+        metadata_recommendation="Restrict access to the Roundcube login.",
+    ),
+    SafePathRule(
+        rule_id="external.squirrelmail_exposed",
+        title="SquirrelMail login exposed",
+        severity="low",
+        description=(
+            "The /squirrelmail/ endpoint returns a SquirrelMail webmail login "
+            "form. SquirrelMail is no longer actively maintained; public "
+            "exposure carries both enumeration and unpatched-vulnerability risk."
+        ),
+        recommendation=(
+            "Migrate off SquirrelMail and restrict the login surface to "
+            "trusted networks in the interim."
+        ),
+        paths=("/squirrelmail/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)squirrelmail"),
+        ),
+        standards=_admin_surface_standards(),
+        order=770,
+        metadata_recommendation="Restrict or remove the SquirrelMail surface.",
+    ),
+    SafePathRule(
+        rule_id="external.horde_webmail_exposed",
+        title="Horde webmail login exposed",
+        severity="low",
+        description=(
+            "The /horde/ endpoint returns a Horde webmail / groupware login "
+            "form and is externally reachable. Public exposure of the login "
+            "surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict the Horde login surface to trusted networks or place it "
+            "behind an identity proxy."
+        ),
+        paths=("/horde/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)horde(?:[\s_-]+application|[\s_-]+webmail|[\s_-]+groupware|</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=771,
+        metadata_recommendation="Restrict access to the Horde login.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: Monitoring / metrics dashboards.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.grafana_dashboard_exposed",
+        title="Grafana dashboard exposed",
+        severity="low",
+        description=(
+            "The /login endpoint returns the Grafana login surface and is "
+            "externally reachable. Public exposure of the login surface "
+            "increases enumeration and brute-force exposure; Grafana "
+            "deployments with anonymous access enabled additionally leak "
+            "dashboards directly."
+        ),
+        recommendation=(
+            "Restrict Grafana to trusted networks, disable anonymous access, "
+            "and place the login surface behind an identity proxy."
+        ),
+        paths=("/login",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:grafanaBootData|<title>[^<]*grafana[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=772,
+        metadata_recommendation="Restrict access to the Grafana login.",
+    ),
+    SafePathRule(
+        rule_id="external.prometheus_metrics_exposed",
+        title="Prometheus metrics endpoint exposed",
+        severity="medium",
+        description=(
+            "The /metrics endpoint is externally reachable and returns a "
+            "Prometheus exposition-format scrape body. Public metrics expose "
+            "internal counters, hostnames, build versions, and request paths "
+            "that aid reconnaissance."
+        ),
+        recommendation=(
+            "Restrict /metrics to trusted scrape sources (e.g. internal "
+            "Prometheus servers) using network controls or an authenticating "
+            "reverse proxy."
+        ),
+        paths=("/metrics",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?m)^#\s+(?:HELP|TYPE)\s+\w+"),
+        ),
+        standards=_information_disclosure_standards(),
+        order=773,
+        metadata_recommendation="Restrict /metrics to trusted scrape sources.",
+    ),
+    SafePathRule(
+        rule_id="external.kibana_dashboard_exposed",
+        title="Kibana dashboard exposed",
+        severity="low",
+        description=(
+            "The /api/status endpoint returns a Kibana status JSON document "
+            "and is externally reachable. Public exposure of the Kibana surface "
+            "leaks version information and increases the attack surface against "
+            "an unauthenticated or weakly authenticated Elasticsearch cluster."
+        ),
+        recommendation=(
+            "Restrict Kibana to trusted networks and require authentication, "
+            "for example via Elastic Stack security or a reverse proxy."
+        ),
+        paths=("/api/status",),
+        body_matchers=(
+            # Require both the Kibana product name AND a Kibana-status
+            # neighbour field (version / build_number / status). A bare
+            # ``"build_number"`` JSON field alone is too generic — many
+            # CI/build-info endpoints expose it.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"name\"\s*:\s*\"kibana\".*\"(?:version|build_number|status)\"\s*:",
+            ),
+        ),
+        standards=_information_disclosure_standards(),
+        order=774,
+        metadata_recommendation="Restrict access to the Kibana status endpoint.",
+    ),
+    SafePathRule(
+        rule_id="external.zabbix_dashboard_exposed",
+        title="Zabbix login exposed",
+        severity="low",
+        description=(
+            "The /zabbix/ endpoint returns a Zabbix monitoring frontend login "
+            "form and is externally reachable. Public exposure of the login "
+            "surface increases enumeration and brute-force exposure."
+        ),
+        recommendation=(
+            "Restrict the Zabbix frontend to trusted networks or place it "
+            "behind an identity proxy."
+        ),
+        paths=("/zabbix/", "/zabbix/index.php"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:zabbix\s*sia|<title>[^<]*zabbix[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=775,
+        metadata_recommendation="Restrict access to the Zabbix frontend.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: CI/CD and source-review dashboards.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.sonarqube_dashboard_exposed",
+        title="SonarQube dashboard exposed",
+        severity="medium",
+        description=(
+            "The /sonarqube/ (or /sonar/) endpoint returns a SonarQube code-quality "
+            "dashboard and is externally reachable. Public exposure can leak "
+            "internal project structure, code-quality metrics, and (when anonymous "
+            "browse is enabled) source-code snippets."
+        ),
+        recommendation=(
+            "Restrict SonarQube to trusted networks, disable anonymous browse, "
+            "and require authentication for all read access."
+        ),
+        paths=("/sonar/", "/sonarqube/"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:sonarqube|data-sonar-version)"),
+        ),
+        standards=_information_disclosure_standards(),
+        order=776,
+        metadata_recommendation="Restrict access to SonarQube.",
+    ),
+    SafePathRule(
+        rule_id="external.jenkins_dashboard_exposed",
+        title="Jenkins dashboard exposed",
+        severity="medium",
+        description=(
+            "The /jenkins/ endpoint returns the Jenkins CI dashboard and is "
+            "externally reachable. Public exposure (especially with anonymous "
+            "read enabled) can leak build configurations, job names, "
+            "environment variables, and source-code paths."
+        ),
+        recommendation=(
+            "Restrict Jenkins to trusted networks, disable anonymous read, "
+            "and require authentication for all access."
+        ),
+        paths=("/jenkins/", "/jenkins/login"),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:<title>[^<]*jenkins[^<]*</title>|x-jenkins)"),
+        ),
+        standards=_information_disclosure_standards(),
+        order=777,
+        metadata_recommendation="Restrict access to Jenkins.",
+    ),
+    SafePathRule(
+        rule_id="external.teamcity_login_exposed",
+        title="TeamCity login exposed",
+        severity="medium",
+        description=(
+            "The /login.html endpoint returns a TeamCity CI login surface and "
+            "is externally reachable. Public exposure of the login surface "
+            "increases enumeration and brute-force exposure against build "
+            "infrastructure."
+        ),
+        recommendation=(
+            "Restrict TeamCity to trusted networks or place its login surface "
+            "behind an identity proxy."
+        ),
+        paths=("/login.html",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:teamcity|data-teamcity-version)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=778,
+        metadata_recommendation="Restrict access to TeamCity.",
+    ),
+    SafePathRule(
+        rule_id="external.gitlab_self_hosted_signin_exposed",
+        title="Self-hosted GitLab sign-in exposed",
+        severity="low",
+        description=(
+            "The /users/sign_in endpoint returns a self-hosted GitLab sign-in "
+            "form and is externally reachable. Self-hosted GitLab instances "
+            "host internal source code; public exposure of the sign-in surface "
+            "increases enumeration and brute-force exposure against developer "
+            "credentials."
+        ),
+        recommendation=(
+            "Restrict the GitLab sign-in surface to trusted networks or "
+            "place it behind an identity proxy with SSO."
+        ),
+        paths=("/users/sign_in",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:gitlab|<meta\s+content=\"GitLab)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=779,
+        metadata_recommendation="Restrict access to the GitLab sign-in surface.",
+    ),
+    SafePathRule(
+        rule_id="external.jupyter_notebook_exposed",
+        title="Jupyter Notebook tree exposed",
+        severity="high",
+        description=(
+            "The /tree endpoint returns a Jupyter Notebook file tree and is "
+            "externally reachable. A reachable Jupyter tree without authentication "
+            "typically allows opening notebooks and executing arbitrary code "
+            "on the server."
+        ),
+        recommendation=(
+            "Require authentication for Jupyter (set a token / password), "
+            "restrict the surface to trusted networks, and never expose the "
+            "/tree endpoint anonymously."
+        ),
+        paths=("/tree",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:jupyter|<title>[^<]*home page[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=780,
+        metadata_recommendation="Require authentication on Jupyter and restrict /tree.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: Orchestration / service-discovery UIs.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.consul_ui_exposed",
+        title="Consul agent self-info exposed",
+        severity="high",
+        description=(
+            "The /v1/agent/self endpoint returns Consul agent configuration "
+            "JSON and is externally reachable. Public exposure typically "
+            "indicates that the Consul HTTP API is reachable without ACLs, "
+            "which can leak service catalog data and configuration."
+        ),
+        recommendation=(
+            "Enable Consul ACLs, restrict the HTTP API to trusted networks, "
+            "and require authentication for all /v1/ endpoints."
+        ),
+        paths=("/v1/agent/self",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)\"Config\"\s*:\s*\{[^}]*\"Server\""),
+        ),
+        standards=_information_disclosure_standards(),
+        order=781,
+        metadata_recommendation="Enable ACLs and restrict the Consul HTTP API.",
+    ),
+    SafePathRule(
+        rule_id="external.vault_ui_exposed",
+        title="Vault sys/health endpoint exposed",
+        severity="high",
+        description=(
+            "The /v1/sys/health endpoint returns HashiCorp Vault status JSON "
+            "and is externally reachable. Public exposure of the Vault API "
+            "indicates the secret-store control plane is reachable from the "
+            "internet, which dramatically increases the attack surface against "
+            "the credentials it protects."
+        ),
+        recommendation=(
+            "Restrict Vault to trusted networks, place its API behind a "
+            "mutual-TLS gateway, and never expose the HTTP API publicly."
+        ),
+        paths=("/v1/sys/health",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)\"(?:initialized|sealed|version)\"\s*:"),
+        ),
+        standards=_information_disclosure_standards(),
+        order=782,
+        metadata_recommendation="Restrict Vault to trusted networks.",
+    ),
+    SafePathRule(
+        rule_id="external.nomad_ui_exposed",
+        title="Nomad agent health endpoint exposed",
+        severity="high",
+        description=(
+            "The /v1/agent/health endpoint returns HashiCorp Nomad agent "
+            "status JSON and is externally reachable. Public exposure typically "
+            "indicates the Nomad HTTP API is reachable without ACLs, which can "
+            "allow workload introspection and (when write ACLs are disabled) "
+            "job submission."
+        ),
+        recommendation=(
+            "Enable Nomad ACLs, restrict the HTTP API to trusted networks, "
+            "and require authentication for all /v1/ endpoints."
+        ),
+        paths=("/v1/agent/health",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)\"(?:server|client)\"\s*:\s*\{\s*\"ok\""),
+        ),
+        standards=_information_disclosure_standards(),
+        order=783,
+        metadata_recommendation="Enable ACLs and restrict the Nomad HTTP API.",
+    ),
+    SafePathRule(
+        rule_id="external.etcd_v2_keys_exposed",
+        title="etcd v2 keys API exposed",
+        severity="high",
+        description=(
+            "The /v2/keys/ endpoint returns the etcd v2 key-value listing JSON "
+            "and is externally reachable. Public exposure of the etcd API "
+            "without authentication grants unauthenticated read access (and "
+            "frequently write access) to the cluster's coordination state."
+        ),
+        recommendation=(
+            "Enable client-cert authentication on etcd, restrict the API to "
+            "trusted networks, and migrate from the v2 API to v3 where "
+            "supported."
+        ),
+        paths=("/v2/keys/",),
+        body_matchers=(
+            BodyMatcher("regex", r"\"action\"\s*:\s*\"get\""),
+        ),
+        standards=_information_disclosure_standards(),
+        order=784,
+        metadata_recommendation="Enable etcd authentication and restrict the API.",
+    ),
+    # ------------------------------------------------------------------
+    # Batch-3: Spring Actuator complements + dataops UIs.
+    # ------------------------------------------------------------------
+    SafePathRule(
+        rule_id="external.spring_actuator_info_exposed",
+        title="Spring Boot actuator /info exposed",
+        severity="low",
+        description=(
+            "The /actuator/info endpoint is externally reachable and returns a "
+            "Spring Boot actuator info JSON document. The endpoint typically "
+            "leaks build metadata (Git commit, version, project name) that aid "
+            "reconnaissance."
+        ),
+        recommendation=(
+            "Restrict /actuator/* endpoints to trusted scrape sources or "
+            "require authentication via the actuator security configuration."
+        ),
+        paths=("/actuator/info",),
+        body_matchers=(
+            # Require an actuator-info-shaped top-level key. ``content_type_matchers``
+            # is intentionally NOT added here: the runner OR-combines body and
+            # content-type matchers, so adding ``application/json`` would fire
+            # the rule on every JSON 200 response on /actuator/info, defeating
+            # the body-matcher precision.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"(?:build|git|app|java|os)\"\s*:\s*\{",
+            ),
+        ),
+        standards=_information_disclosure_standards(),
+        order=785,
+        metadata_recommendation="Restrict access to Spring actuator endpoints.",
+    ),
+    SafePathRule(
+        rule_id="external.spring_actuator_metrics_exposed",
+        title="Spring Boot actuator /metrics exposed",
+        severity="medium",
+        description=(
+            "The /actuator/metrics endpoint is externally reachable and returns "
+            "the Spring Boot actuator metrics inventory. Public access enables "
+            "detailed reconnaissance against the application and its database / "
+            "HTTP-client behaviour."
+        ),
+        recommendation=(
+            "Restrict /actuator/* endpoints to trusted scrape sources or "
+            "require authentication via the actuator security configuration."
+        ),
+        paths=("/actuator/metrics",),
+        body_matchers=(
+            BodyMatcher("regex", r"\"names\"\s*:\s*\["),
+        ),
+        standards=_information_disclosure_standards(),
+        order=786,
+        metadata_recommendation="Restrict access to Spring actuator endpoints.",
+    ),
+    SafePathRule(
+        rule_id="external.airflow_home_exposed",
+        title="Apache Airflow home page exposed",
+        severity="high",
+        description=(
+            "The /home endpoint returns an Apache Airflow web UI and is "
+            "externally reachable. Public exposure of the Airflow UI without "
+            "authentication can allow viewing or triggering DAGs, which often "
+            "translates to arbitrary code execution on workers."
+        ),
+        recommendation=(
+            "Enable Airflow's authentication backend, restrict the UI to "
+            "trusted networks, and never expose /home anonymously."
+        ),
+        paths=("/home",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:airflow|<title>[^<]*airflow[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=787,
+        metadata_recommendation="Require authentication on the Airflow UI.",
+    ),
+    SafePathRule(
+        rule_id="external.kubernetes_dashboard_exposed",
+        title="Kubernetes Dashboard exposed",
+        severity="high",
+        description=(
+            "The root endpoint returns the Kubernetes Dashboard UI and is "
+            "externally reachable. Public exposure of the Dashboard, especially "
+            "with cluster-admin bindings, can grant cluster-wide control without "
+            "authentication."
+        ),
+        recommendation=(
+            "Restrict the Kubernetes Dashboard to trusted networks, require "
+            "token authentication, and never expose it to the public internet."
+        ),
+        paths=("/",),
+        body_matchers=(
+            BodyMatcher("regex", r"(?i)(?:kubernetes[\s-]+dashboard|<title>[^<]*kubernetes\s+dashboard[^<]*</title>)"),
+        ),
+        standards=_admin_surface_standards(),
+        order=788,
+        metadata_recommendation="Restrict access to the Kubernetes Dashboard.",
+    ),
+    SafePathRule(
+        rule_id="external.rancher_dashboard_exposed",
+        title="Rancher API root exposed",
+        severity="high",
+        description=(
+            "The /v3 endpoint returns the Rancher management API root JSON and "
+            "is externally reachable. Public exposure of the Rancher management "
+            "plane increases the risk of cluster takeover, especially when "
+            "authentication is misconfigured or token-less default credentials "
+            "remain."
+        ),
+        recommendation=(
+            "Restrict the Rancher management plane to trusted networks and "
+            "require strong authentication for all /v3 access."
+        ),
+        paths=("/v3",),
+        body_matchers=(
+            # Require both the Rancher collection envelope AND a
+            # Rancher-specific neighbour field. ``"type":"collection"``
+            # alone is also used by some other resource-style APIs.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"type\"\s*:\s*\"collection\".*\"(?:resourceType|links|schemas)\"\s*:",
+            ),
+        ),
+        standards=_information_disclosure_standards(),
+        order=789,
+        metadata_recommendation="Restrict access to the Rancher management API.",
+    ),
 )
 
 CONDITIONAL_SAFE_PATH_PROBES: tuple[ConditionalSafePathProbe, ...] = (
