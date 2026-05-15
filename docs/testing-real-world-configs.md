@@ -20,11 +20,24 @@ tests/fixtures/webserver-configs/
   apache/
     vulnerable/
     secure/
+  lighttpd/
+    vulnerable/
+    secure/
+    edge-cases/
+  iis/
+    vulnerable/
+    secure/
+    inheritance-edge-cases/
   external-targets/
     badssl.json
   metadata/
     cases.json
 ```
+
+All four supported servers (Nginx, Apache, Lighttpd, IIS) carry both
+`vulnerable/` and `secure/` profiles plus optional `*-edge-cases/`
+folders for parser/inheritance regression fixtures that have their
+own targeted test files.
 
 `metadata/cases.json` is the authoritative index. Each case records:
 
@@ -53,8 +66,11 @@ The security corpus uses these sources as public references:
 - Vulhub Nginx insecure-configuration examples
 - tkmru Nginx alias traversal sample
 - Gixy rule concepts for Nginx misconfiguration analysis
-- DevSec nginx-baseline and apache-baseline
+- DevSec nginx-baseline, apache-baseline, and lighttpd-baseline
 - CIS Apache HTTP Server Benchmark as hardening category reference
+- CIS Microsoft IIS 10 Benchmark v1.2.1 as hardening category reference for IIS fixtures
+- Lighttpd Security wiki and ``mod_*`` documentation
+- Microsoft Learn IIS configuration documentation (httpErrors, requestFiltering, authentication, machineKey)
 - OWASP Secure Headers Project
 - Apache HTTP Server Security Tips and .htaccess documentation
 - Mozilla SSL Configuration Generator
@@ -95,6 +111,31 @@ Apache fixtures cover:
 - weak TLS protocol/cipher configuration
 - TLS compression
 - insecure TLS renegotiation
+
+Lighttpd fixtures cover:
+
+- public `mod_status` exposure without `url.access-deny`
+- directory listing enabled (`dir-listing.activate = "enable"`)
+- non-blank `server.tag` (version disclosure)
+- weak / permissive `ssl.cipher-list`
+- explicit `UnsafeLegacyRenegotiation` in `ssl.openssl.ssl-conf-cmd`
+- missing TLS protocol minimum pinning + missing `ssl.honor-cipher-order`
+- HTTP Basic authentication on a plain-HTTP listener
+- `mod_webdav` with write access enabled on a public path
+- missing access log / error log destinations
+
+IIS fixtures cover:
+
+- ASP.NET `compilation debug="true"` and `<trace enabled="true"/>`
+- `<httpErrors errorMode="Detailed"/>` and `<customErrors mode="Off"/>`
+- `<directoryBrowse enabled="true"/>`
+- `<deployment retail="false"/>`
+- `requestFiltering` with `allowDoubleEscaping="true"`, `allowHighBitCharacters="true"`, `removeServerHeader="false"`, oversized `maxUrl` / `maxQueryString`, and `fileExtensions allowUnlisted="true"`
+- anonymous authentication enabled under a specific privileged user
+- `basicAuthentication` enabled without an SSL requirement
+- `<authorization>` rule allowing anonymous users (`users="?"`)
+- forms authentication without `requireSSL`, with `cookieless="UseUri"` and `protection="None"`
+- weak `<machineKey validation="MD5"/>`
 
 The secure baseline fixtures are positive controls. Tests assert that they do
 not produce high or critical findings and that selected known-bad rule IDs stay
