@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,20 @@ from webconf_audit.local.iis import analyze_iis_config
 from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
 from webconf_audit.models import AnalysisResult, Finding
+
+
+# Dispatch table for ``_analyze_case``. Keeping the per-server invokers
+# in one place removes the duplicate ``server_type`` string literals the
+# previous if/elif chain carried.
+_CORPUS_ANALYZERS: dict[str, Callable[[str], AnalysisResult]] = {
+    "nginx": analyze_nginx_config,
+    "apache": analyze_apache_config,
+    "lighttpd": analyze_lighttpd_config,
+    # The IIS analyzer is invoked with ``use_tls_registry=False`` so the
+    # security corpus stays deterministic across CI hosts (no live
+    # SChannel registry enrichment).
+    "iis": lambda entrypoint: analyze_iis_config(entrypoint, use_tls_registry=False),
+}
 
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -54,17 +69,12 @@ def _entrypoint(case: dict[str, Any]) -> Path:
 def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
     entrypoint = _entrypoint(case)
     server_type = case["server_type"]
-    if server_type == "nginx":
-        return analyze_nginx_config(str(entrypoint))
-    if server_type == "apache":
-        return analyze_apache_config(str(entrypoint))
-    if server_type == "lighttpd":
-        return analyze_lighttpd_config(str(entrypoint))
-    if server_type == "iis":
-        # Disable live SChannel registry enrichment so the security
-        # corpus stays deterministic across CI hosts.
-        return analyze_iis_config(str(entrypoint), use_tls_registry=False)
-    raise AssertionError(f"unsupported security corpus server_type: {server_type!r}")
+    analyzer = _CORPUS_ANALYZERS.get(server_type)
+    if analyzer is None:
+        raise AssertionError(
+            f"unsupported security corpus server_type: {server_type!r}"
+        )
+    return analyzer(str(entrypoint))
 
 
 def _finding_by_rule_id(result: AnalysisResult) -> dict[str, list[Finding]]:
