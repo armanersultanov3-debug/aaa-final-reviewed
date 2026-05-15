@@ -23,12 +23,14 @@ from webconf_audit.models import Finding
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "iis.logging_fields_review"
+RULE_TITLE = "IIS HTTP logging posture needs operator review"
+RULE_SEVERITY = "info"
 
 
 @rule(
     rule_id=RULE_ID,
-    title="IIS HTTP logging posture needs operator review",
-    severity="info",
+    title=RULE_TITLE,
+    severity=RULE_SEVERITY,
     description=(
         "IIS HTTP logging is configured. The chosen logFormat (W3C / IIS / "
         "NCSA / Custom), selectedFields, and any selectiveLogging modes "
@@ -87,8 +89,8 @@ def _effective_finding(section: IISEffectiveSection) -> Finding:
     attrs = _format_attributes(section.attributes)
     return Finding(
         rule_id=RULE_ID,
-        title="IIS HTTP logging posture needs operator review",
-        severity="info",
+        title=RULE_TITLE,
+        severity=RULE_SEVERITY,
         description=(
             f"IIS HTTP logging is configured{ctx} with: {attrs}. Confirm "
             "that the selected log format and fields satisfy your SIEM "
@@ -106,8 +108,8 @@ def _raw_finding(section: IISSection) -> Finding:
     attrs = _format_attributes(section.attributes)
     return Finding(
         rule_id=RULE_ID,
-        title="IIS HTTP logging posture needs operator review",
-        severity="info",
+        title=RULE_TITLE,
+        severity=RULE_SEVERITY,
         description=(
             f"IIS HTTP logging is configured with: {attrs}. Confirm that "
             "the selected log format and fields satisfy your SIEM and "

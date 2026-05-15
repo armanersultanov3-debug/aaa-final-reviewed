@@ -41,21 +41,37 @@ RULE_ID = "nginx.limit_conn_zone_review"
     order=282,
 )
 def find_limit_conn_zone_review(config_ast: ConfigAst) -> list[Finding]:
+    caps_by_zone: dict[str, list[str]] = {}
+    for limit_conn in iter_directives(config_ast, "limit_conn"):
+        if len(limit_conn.args) >= 2:
+            zone, cap = limit_conn.args[0], limit_conn.args[1]
+            caps_by_zone.setdefault(zone, []).append(cap)
+
     findings: list[Finding] = []
     for directive in iter_directives(config_ast, "limit_conn_zone"):
         zone_name = find_zone_name(directive.args)
         if zone_name is None:
             continue
+        caps = caps_by_zone.get(zone_name, [])
+        if not caps:
+            cap_display = "no matching limit_conn directive found"
+        elif len(caps) == 1:
+            cap_display = f"limit_conn cap={caps[0]}"
+        else:
+            cap_display = f"limit_conn caps={', '.join(caps)}"
+
         findings.append(
             Finding(
                 rule_id=RULE_ID,
-                title=f"limit_conn_zone '{zone_name}' needs operator review",
+                title=(
+                    f"limit_conn_zone '{zone_name}' ({cap_display}) "
+                    "needs operator review"
+                ),
                 severity="info",
                 description=(
-                    f"limit_conn_zone '{zone_name}' is defined here. "
-                    "Review whether the per-client connection limit set "
-                    "on the matching limit_conn directive(s) fits the "
-                    "expected workload."
+                    f"limit_conn_zone '{zone_name}' is defined here; "
+                    f"{cap_display}. Review whether the per-client "
+                    "connection cap fits the expected workload."
                 ),
                 recommendation=(
                     "Confirm the configured per-zone limit_conn cap "

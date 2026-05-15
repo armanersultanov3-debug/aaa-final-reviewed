@@ -44,19 +44,21 @@ NOT issue a default finding. They are not "todo" — they are explicit
 project boundaries. Reviewers should treat each row as accepted scope,
 not as open work, unless the listed trigger condition becomes true.
 
-Categories:
+Categories (canonical tags used in the table below):
 
-- **Operator-judgment** — the scanner can see the value but the "right
+- **operator-judgment** — the scanner can see the value but the "right
   answer" depends on the deployment's application context, SIEM policy,
   or workload profile. Surfaced via opt-in `policy-review` tagged rules
   (see `--enable-policy-review` on each `analyze-*` command).
-- **Probe/parser fundamentals** — the signal lives outside the data
-  surface webconf-audit reads (registry, OS-level package state, runtime
-  TLS stack capability). External probes cover the runtime-observable
-  subset where possible.
-- **Closed (not pursued)** — explicit decision not to implement; kept
+- **probe-depth** — the signal is observable at runtime but lives
+  outside the safe-probe surface webconf-audit ships (registry exports,
+  TLS-stack capabilities, external certificate trust). External probes
+  cover the runtime-observable subset where possible.
+- **parser-depth** — the signal lives outside the local config parser's
+  data surface (OS-level package/module inventory, build state).
+- **closed (not pursued)** — explicit decision not to implement; kept
   here as historical context with a trigger condition for revisit.
-- **Application-layer** — the signal lives in application code or
+- **application-layer** — the signal lives in application code or
   business logic that a web-server-config / safe-probe tool cannot see.
 
 | ID | Category | Source | Notes |
@@ -74,8 +76,8 @@ Categories:
 | Nginx CIS §4.1.2 (TLS chain validation) | probe-depth | `docs/rule-coverage.md` (Nginx CIS gap table) | Runtime certificate posture lives in `external.cert_chain_incomplete` / `external.cert_san_mismatch` / `external.certificate_expired` / `external.tls_certificate_self_signed` and seven related external probes. Local config alone cannot prove chain validity. |
 | IIS CIS §7.1-§7.6/§7.10-§7.12 (SChannel TLS) | probe-depth | `docs/rule-coverage.md` (IIS CIS gap table) | SChannel evidence is registry-based (`HKLM\...\SCHANNEL\...`), not IIS XML. Local rules cover the registry-export view; external TLS probes corroborate runtime negotiation, FS, OCSP, cipher preference, cert chain, and CT-log evidence. |
 | ECH (Encrypted ClientHello, ASVS v5.0.0-12.1.5) | probe-depth | `docs/standards-roadmap.md` (Partial Or Follow-up Gaps) | Safe-probe stack does not have OpenSSL ≥ 3.5 with ECH support or RFC 9460 DNS SVCB resolution. Documented limitation; no false-positive rule shipped. |
-| Apache CIS §2.1-§2.9 (benchmark-wide module minimization) | parser/inventory-depth | `docs/rule-coverage.md` (Apache CIS gap table) | Visible ModSecurity / CRS inventory is covered by `apache.modsecurity_module_missing` / `apache.modsecurity_crs_not_configured`; benchmark-wide minimization needs package-manager state outside config-only analysis. |
-| Apache CIS §5.x/§6.x/§9.x/§10.x deployment tuning | operator-judgment / tail | `docs/rule-coverage.md` (Apache CIS gap table) | Baseline coverage shipped; remaining tuning is deployment-specific and stays in the existing rule rows' explicit-value notes. |
+| Apache CIS §2.1-§2.9 (benchmark-wide module minimization) | parser-depth | `docs/rule-coverage.md` (Apache CIS gap table) | Visible ModSecurity / CRS inventory is covered by `apache.modsecurity_module_missing` / `apache.modsecurity_crs_not_configured`; benchmark-wide minimization needs package-manager state outside config-only analysis. |
+| Apache CIS §5.x/§6.x/§9.x/§10.x deployment tuning | operator-judgment | `docs/rule-coverage.md` (Apache CIS gap table) | Baseline coverage shipped; remaining tuning is deployment-specific and stays in the existing rule rows' explicit-value notes. |
 | Nginx raw backend response reading | closed (not pursued, 2026-05-15) | `docs/testing-real-world-configs.md` | No clear directive-level marker that survives normal proxy configurations. Trigger: concrete fixture with confirmed false negative. |
 | Nginx HTTP/3 detection (CIS §4.1.12) | closed (not pursued, 2026-05-15) | `docs/rule-coverage.md` (§4.1.12 row) | HTTP/3 is not widely deployed in audited configurations and CIS §4.1.12 itself acknowledges low priority. Trigger: user configs with QUIC listeners surfacing false negatives, OR CIS update promoting HTTP/3 to required. |
 | ГОСТ TLS / RFC 9189 (STD-GAP-033) | closed (not pursued) | `docs/benchmarks-covering.md §9` | Russian fintech / ИСПДн audience not in current target set. Trigger: confirmed user request. |

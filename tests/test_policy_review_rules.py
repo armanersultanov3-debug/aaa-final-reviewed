@@ -53,7 +53,14 @@ def test_opt_in_tags_constant_contains_policy_review() -> None:
 
 
 def test_every_shipped_policy_review_rule_carries_the_tag() -> None:
-    """Each rule listed above must actually carry tag=policy-review."""
+    """Each rule listed above must carry tag=policy-review, and the
+    registry must not contain any unexpected policy-review rules.
+
+    The bidirectional check pins the contract: adding a new policy-review
+    rule without updating ``POLICY_REVIEW_RULE_IDS`` (and the docs that
+    enumerate the opt-in set) will fail this test instead of silently
+    expanding what the ``--enable-policy-review`` flag activates.
+    """
     registry.ensure_loaded("webconf_audit.local.nginx.rules")
     registry.ensure_loaded("webconf_audit.local.apache.rules")
     registry.ensure_loaded("webconf_audit.local.lighttpd.rules")
@@ -68,6 +75,17 @@ def test_every_shipped_policy_review_rule_carries_the_tag() -> None:
         assert meta.severity == "info", (
             f"Rule {rule_id} must be severity=info (was {meta.severity})"
         )
+
+    tagged_rule_ids = {
+        meta.rule_id
+        for meta in registry.list_rules()
+        if "policy-review" in meta.tags
+    }
+    assert tagged_rule_ids == POLICY_REVIEW_RULE_IDS, (
+        "Mismatch between policy-review-tagged rules and POLICY_REVIEW_RULE_IDS. "
+        f"Extra in registry: {sorted(tagged_rule_ids - POLICY_REVIEW_RULE_IDS)!r}. "
+        f"Missing from registry: {sorted(POLICY_REVIEW_RULE_IDS - tagged_rule_ids)!r}."
+    )
 
 
 def test_rules_for_excludes_policy_review_by_default() -> None:
@@ -243,6 +261,24 @@ def test_nginx_limit_conn_zone_review_positive(tmp_path: Path) -> None:
     config_path.write_text(
         "http {\n"
         "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server { listen 80; access_log off; limit_conn addr 5; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.limit_conn_zone_review")
+    assert len(findings) == 1
+    # Title and description must surface the configured cap so the operator
+    # can review the value without re-grepping the config.
+    assert "cap=5" in findings[0].title
+    assert "cap=5" in findings[0].description
+
+
+def test_nginx_limit_conn_zone_review_notes_missing_cap(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
         "    server { listen 80; access_log off; }\n"
         "}\n",
         encoding="utf-8",
@@ -250,6 +286,7 @@ def test_nginx_limit_conn_zone_review_positive(tmp_path: Path) -> None:
     result = analyze_nginx_config(str(config_path), enable_policy_review=True)
     findings = _findings_for(result, "nginx.limit_conn_zone_review")
     assert len(findings) == 1
+    assert "no matching limit_conn" in findings[0].title
 
 
 def test_nginx_csp_value_review_positive(tmp_path: Path) -> None:
