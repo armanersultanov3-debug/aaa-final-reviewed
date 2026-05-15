@@ -1,3 +1,5 @@
+"""nginx.missing_hsts_header -- Missing HSTS header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

@@ -1,3 +1,12 @@
+"""Apache path-matching helpers for ``Directory`` / ``DocumentRoot``
+covering.
+
+Decides whether a discovered ``.htaccess`` directory falls under a
+parent ``Directory`` block or matches a VirtualHost's effective
+DocumentRoot, normalising case and separators for cross-platform
+parity.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

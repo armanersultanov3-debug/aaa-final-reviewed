@@ -1,3 +1,5 @@
+"""nginx.duplicate_listen -- Duplicate listen directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

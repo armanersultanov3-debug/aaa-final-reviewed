@@ -1,3 +1,10 @@
+"""Helpers for parsing OpenSSL ``SSL_CONF`` option strings.
+
+Used by Nginx ``ssl_conf_command Options`` and Lighttpd
+``ssl.openssl.ssl-conf-cmd`` rules to determine the final explicit
+state of options such as ``Compression`` or ``UnsafeLegacyRenegotiation``.
+"""
+
 from __future__ import annotations
 
 import re

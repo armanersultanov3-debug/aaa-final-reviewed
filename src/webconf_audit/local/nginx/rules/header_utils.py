@@ -1,3 +1,8 @@
+"""Rule module: header utils.
+
+Location: ``src/webconf_audit/local/nginx/rules/header_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

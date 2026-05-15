@@ -1,3 +1,8 @@
+"""Rule module: header tuple utils.
+
+Location: ``src/webconf_audit/local/lighttpd/rules/header_tuple_utils.py``.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

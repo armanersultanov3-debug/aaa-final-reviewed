@@ -1,3 +1,11 @@
+"""Core result and reporting data models shared by local and external
+analysis pipelines.
+
+Defines :class:`Finding`, :class:`AnalysisIssue`, :class:`SourceLocation`,
+and :class:`AnalysisResult` plus the literal type aliases used across
+the analyzer surface (severity, mode, issue level, location kind).
+"""
+
 from __future__ import annotations
 
 from typing import Any, Literal

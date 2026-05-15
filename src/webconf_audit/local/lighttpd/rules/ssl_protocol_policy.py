@@ -1,3 +1,5 @@
+"""lighttpd.ssl_protocol_policy_missing_or_weak -- Lighttpd TLS protocol policy is missing or weak."""
+
 from __future__ import annotations
 
 import re

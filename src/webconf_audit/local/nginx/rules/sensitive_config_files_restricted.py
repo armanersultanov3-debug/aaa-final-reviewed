@@ -1,3 +1,5 @@
+"""nginx.sensitive_config_files_not_restricted -- Sensitive config/data file extensions not restricted."""
+
 from __future__ import annotations
 
 import re

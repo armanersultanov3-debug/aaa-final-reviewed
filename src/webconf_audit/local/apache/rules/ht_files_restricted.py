@@ -1,3 +1,5 @@
+"""apache.ht_files_not_restricted -- .ht* files not restricted."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

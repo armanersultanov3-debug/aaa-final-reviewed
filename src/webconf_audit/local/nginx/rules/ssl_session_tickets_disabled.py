@@ -1,3 +1,5 @@
+"""nginx.ssl_session_tickets_disabled -- TLS session tickets are disabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

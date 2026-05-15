@@ -1,3 +1,8 @@
+"""Rule module: security header utils.
+
+Location: ``src/webconf_audit/local/apache/rules/security_header_utils.py``.
+"""
+
 from __future__ import annotations
 
 import logging

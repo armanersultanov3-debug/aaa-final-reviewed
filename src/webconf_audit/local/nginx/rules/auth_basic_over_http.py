@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.auth_basic_over_http``.
+
+Location: ``src/webconf_audit/local/nginx/rules/auth_basic_over_http.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

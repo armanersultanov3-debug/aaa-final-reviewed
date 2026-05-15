@@ -1,3 +1,5 @@
+"""iis.missing_hsts_header -- HSTS header not configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

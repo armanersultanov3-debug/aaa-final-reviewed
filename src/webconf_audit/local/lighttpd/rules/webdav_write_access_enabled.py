@@ -1,3 +1,5 @@
+"""lighttpd.webdav_write_access_enabled -- WebDAV write access enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

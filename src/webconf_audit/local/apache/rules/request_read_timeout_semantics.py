@@ -1,3 +1,8 @@
+"""Implements rule ``apache.request_read_timeout_semantics``.
+
+Location: ``src/webconf_audit/local/apache/rules/request_read_timeout_semantics.py``.
+"""
+
 from __future__ import annotations
 
 import re

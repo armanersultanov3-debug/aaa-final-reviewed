@@ -1,3 +1,5 @@
+"""lighttpd.access_log_format_missing_fields -- Access log format misses audit fields."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext

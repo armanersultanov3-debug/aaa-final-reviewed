@@ -1,3 +1,5 @@
+"""nginx.content_security_policy_unsafe -- Content-Security-Policy is weak."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

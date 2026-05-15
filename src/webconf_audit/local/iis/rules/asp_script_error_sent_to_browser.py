@@ -1,3 +1,5 @@
+"""iis.asp_script_error_sent_to_browser -- Classic ASP script errors sent to browser."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

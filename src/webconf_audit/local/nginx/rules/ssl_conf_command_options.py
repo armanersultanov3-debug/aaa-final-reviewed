@@ -1,3 +1,8 @@
+"""Implements rules: ``nginx.ssl_conf_command_tls_compression_enabled``, ``nginx.ssl_conf_command_unsafe_renegotiation_enabled``.
+
+Location: ``src/webconf_audit/local/nginx/rules/ssl_conf_command_options.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

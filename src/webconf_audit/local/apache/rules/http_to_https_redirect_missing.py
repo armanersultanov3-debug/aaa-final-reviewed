@@ -1,3 +1,8 @@
+"""Implements rule ``apache.missing_http_to_https_redirect``.
+
+Location: ``src/webconf_audit/local/apache/rules/http_to_https_redirect_missing.py``.
+"""
+
 from __future__ import annotations
 
 from fnmatch import fnmatchcase

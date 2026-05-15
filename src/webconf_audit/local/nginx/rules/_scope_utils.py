@@ -1,3 +1,8 @@
+"""Internal helpers for the scope utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_scope_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, DirectiveNode

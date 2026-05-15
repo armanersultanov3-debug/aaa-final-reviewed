@@ -1,3 +1,5 @@
+"""lighttpd.dir_listing_enabled -- Directory listing enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.effective import (

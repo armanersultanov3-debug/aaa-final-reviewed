@@ -1,3 +1,5 @@
+"""nginx.missing_client_max_body_size -- Missing client_max_body_size directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

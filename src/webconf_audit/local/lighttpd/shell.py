@@ -1,3 +1,11 @@
+"""Opt-in subprocess execution for Lighttpd ``include_shell`` directives.
+
+Only invoked when the user passes ``--execute-shell`` on the CLI;
+otherwise the parser records a warning and leaves the directive
+unexpanded. Centralising the spawn call here keeps the safety
+boundary auditable.
+"""
+
 from __future__ import annotations
 
 import shlex

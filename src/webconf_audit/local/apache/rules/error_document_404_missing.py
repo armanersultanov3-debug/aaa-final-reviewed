@@ -1,3 +1,5 @@
+"""apache.error_document_404_missing -- ErrorDocument 404 not configured safely."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

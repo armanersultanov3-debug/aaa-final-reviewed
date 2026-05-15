@@ -1,3 +1,5 @@
+"""nginx.allow_all_with_deny_all -- Conflicting allow/deny all directives."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, find_child_directives, iter_nodes

@@ -1,3 +1,13 @@
+"""Declarative catalog of safe external sensitive-path probes.
+
+Each :class:`SafePathRule` describes a single ``GET``/``HEAD``/``OPTIONS``
+probe with a body matcher, severity, and standards metadata. The
+catalog backs the ``external.*_exposed`` rule family; new safe-probe
+rules are added by extending the catalog rather than by adding a
+bespoke finder per path. See ``docs/roadmap.md`` STD-GAP-015 for the
+growth policy and the safety rules each entry must satisfy.
+"""
+
 from __future__ import annotations
 
 import re

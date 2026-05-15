@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.public_autoindex_rate_limit_policy_weak``.
+
+Location: ``src/webconf_audit/local/nginx/rules/public_autoindex_rate_limit_policy_weak.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

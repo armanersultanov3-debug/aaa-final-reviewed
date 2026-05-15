@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_stapling_cache_missing``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_stapling_cache_missing.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

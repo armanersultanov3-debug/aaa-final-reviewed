@@ -1,3 +1,5 @@
+"""iis.ssl_not_required -- SSL not required."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

@@ -1,3 +1,11 @@
+"""Shared TLS cipher-string parser and weakness classifier.
+
+Backs the ``weak_tls_ciphers`` family of rules across Nginx, Apache,
+Lighttpd, and IIS. Parses OpenSSL-style cipher lists, recognises
+disabled tokens (``!``/``-``), and classifies tokens by the weakness
+they introduce (no forward secrecy, no AEAD, known-broken primitives).
+"""
+
 from __future__ import annotations
 
 import re

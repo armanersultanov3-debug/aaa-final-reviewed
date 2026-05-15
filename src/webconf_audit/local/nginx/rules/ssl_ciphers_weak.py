@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.ssl_ciphers_weak``.
+
+Location: ``src/webconf_audit/local/nginx/rules/ssl_ciphers_weak.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

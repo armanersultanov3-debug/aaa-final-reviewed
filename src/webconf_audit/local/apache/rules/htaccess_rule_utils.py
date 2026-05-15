@@ -1,3 +1,8 @@
+"""Rule module: htaccess rule utils.
+
+Location: ``src/webconf_audit/local/apache/rules/htaccess_rule_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import (

@@ -1,3 +1,5 @@
+"""apache.trace_enable_not_off -- TraceEnable not set to Off."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

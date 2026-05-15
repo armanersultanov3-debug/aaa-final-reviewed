@@ -1,3 +1,5 @@
+"""apache.log_format_missing_fields -- LogFormat misses detailed audit fields."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

@@ -1,3 +1,5 @@
+"""iis.logging_not_configured -- HTTP logging disabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

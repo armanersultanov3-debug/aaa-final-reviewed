@@ -1,3 +1,8 @@
+"""Implements rule ``apache.listen_requires_explicit_address``.
+
+Location: ``src/webconf_audit/local/apache/rules/listen_requires_explicit_address.py``.
+"""
+
 from __future__ import annotations
 
 from ipaddress import IPv4Address, ip_address

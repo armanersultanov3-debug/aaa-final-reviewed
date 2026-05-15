@@ -1,3 +1,5 @@
+"""lighttpd.missing_http_to_https_redirect -- HTTP host does not redirect to HTTPS."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

@@ -1,3 +1,8 @@
+"""Implements rule ``apache.timeout_keepalive_default_policy``.
+
+Location: ``src/webconf_audit/local/apache/rules/timeout_keepalive_default_policy.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

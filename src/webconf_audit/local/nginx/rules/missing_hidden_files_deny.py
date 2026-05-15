@@ -1,3 +1,5 @@
+"""nginx.missing_hidden_files_deny -- Missing hidden files deny location."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

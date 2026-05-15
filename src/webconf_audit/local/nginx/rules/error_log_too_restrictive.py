@@ -1,3 +1,5 @@
+"""nginx.error_log_too_restrictive -- error_log level is too restrictive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

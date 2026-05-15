@@ -1,3 +1,8 @@
+"""Implements rule ``external.iis.server_header_removal_not_applied``.
+
+Location: ``src/webconf_audit/external/rules/iis_native_header_probe.py``.
+"""
+
 from __future__ import annotations
 
 import re

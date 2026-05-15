@@ -1,3 +1,5 @@
+"""iis.binding_without_host_header -- Binding without host header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

@@ -1,3 +1,8 @@
+"""Internal helpers for the variable taint utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_variable_taint_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict

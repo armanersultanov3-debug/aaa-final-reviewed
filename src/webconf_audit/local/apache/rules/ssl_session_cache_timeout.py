@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_session_cache_timeout_missing_or_invalid``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_session_cache_timeout.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

@@ -1,3 +1,5 @@
+"""nginx.missing_allowed_methods_restriction_for_uploads -- Missing allowed methods restriction for upload-like location."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes

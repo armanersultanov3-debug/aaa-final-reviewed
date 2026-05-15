@@ -1,3 +1,5 @@
+"""nginx.limit_conn_invalid_limit -- Invalid limit_conn connection limit."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

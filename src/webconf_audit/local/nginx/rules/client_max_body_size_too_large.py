@@ -1,3 +1,5 @@
+"""nginx.client_max_body_size_too_large -- client_max_body_size is unusually large."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

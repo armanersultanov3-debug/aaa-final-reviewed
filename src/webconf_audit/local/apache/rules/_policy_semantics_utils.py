@@ -1,3 +1,8 @@
+"""Internal helpers for the policy semantics utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_policy_semantics_utils.py``.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

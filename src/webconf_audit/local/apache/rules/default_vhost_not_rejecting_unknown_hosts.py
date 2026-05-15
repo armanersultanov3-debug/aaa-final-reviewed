@@ -1,3 +1,8 @@
+"""Implements rule ``apache.default_vhost_not_rejecting_unknown_hosts``.
+
+Location: ``src/webconf_audit/local/apache/rules/default_vhost_not_rejecting_unknown_hosts.py``.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict

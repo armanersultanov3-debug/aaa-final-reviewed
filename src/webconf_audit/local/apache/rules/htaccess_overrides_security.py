@@ -1,3 +1,5 @@
+"""apache.htaccess_contains_security_directive -- .htaccess contains security directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import (

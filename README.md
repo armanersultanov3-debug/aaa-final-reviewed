@@ -286,7 +286,14 @@ uv run --locked ruff check .
 uv run --locked python -m compileall -q src
 uv run --locked pytest tests --ignore=tests/integration_external --ignore=tests/integration_local --ignore=tests/integration_rule_coverage -q
 uv run --locked webconf-audit list-rules
+uv run --locked interrogate -c pyproject.toml
 ```
+
+The `interrogate` check enforces a 40% docstring coverage floor over
+`src/` with sensible exclusions (private / dunder / nested helpers).
+The threshold reflects the project's "default to no comments, only
+explain non-obvious WHY" convention while still requiring docstrings
+on module entries, data models, and the public API surface.
 
 Run the Docker-backed integration slice when Docker Engine is available:
 

@@ -1,3 +1,11 @@
+"""Apache HTTP Server configuration tokenizer and parser.
+
+Produces an :class:`ApacheConfigAst` of directives and container
+blocks with per-token source locations. The parser is permissive
+about line continuations, quoting, and case so it can ingest
+real-world distro configs without preprocessing.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

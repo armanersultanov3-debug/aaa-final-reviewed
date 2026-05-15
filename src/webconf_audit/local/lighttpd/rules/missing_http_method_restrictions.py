@@ -1,3 +1,5 @@
+"""lighttpd.missing_http_method_restrictions -- Missing HTTP method restrictions."""
+
 from __future__ import annotations
 
 import re

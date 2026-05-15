@@ -1,3 +1,5 @@
+"""nginx.large_client_header_buffers_too_large -- large_client_header_buffers is unusually large."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

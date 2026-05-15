@@ -1,3 +1,5 @@
+"""apache.error_log_unsafe_destination -- ErrorLog destination is unsafe."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

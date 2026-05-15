@@ -1,3 +1,8 @@
+"""Implements rules: ``iis.request_filtering_max_url_too_high``, ``iis.request_filtering_max_query_string_too_high``, ``iis.request_filtering_max_url_missing``, ``iis.request_filtering_max_query_string_missing``, ``iis.file_extensions_allow_unlisted``, ``iis.isapi_cgi_restrictions_allow_unlisted``, ``iis.request_filtering_remove_server_header_disabled``.
+
+Location: ``src/webconf_audit/local/iis/rules/request_filtering_policy.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

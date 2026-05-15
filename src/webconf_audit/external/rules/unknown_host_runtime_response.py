@@ -1,3 +1,8 @@
+"""Implements rule ``external.unknown_host_runtime_response``.
+
+Location: ``src/webconf_audit/external/rules/unknown_host_runtime_response.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

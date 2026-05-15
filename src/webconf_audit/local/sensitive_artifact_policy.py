@@ -1,3 +1,11 @@
+"""Shared catalogue of sensitive file extensions and metadata paths.
+
+Centralises the deny-list constants (backup/temp extensions, dotfile
+artefacts, package-manager metadata) consumed by the per-server
+``sensitive_config_files_not_restricted`` and ``backup_temp_files_*``
+rules, plus the matching external-probe expectations.
+"""
+
 from __future__ import annotations
 
 BACKUP_TEMP_EXTENSIONS = ("bak", "old", "backup", "orig", "save", "swp", "tmp")

@@ -1,3 +1,5 @@
+"""nginx.ssl_stapling_disabled -- OCSP stapling is not enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

@@ -1,3 +1,5 @@
+"""nginx.missing_content_security_policy -- Missing Content-Security-Policy header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

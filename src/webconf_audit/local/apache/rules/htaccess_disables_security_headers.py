@@ -1,3 +1,5 @@
+"""apache.htaccess_disables_security_headers -- .htaccess unsets security header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import HtaccessFile

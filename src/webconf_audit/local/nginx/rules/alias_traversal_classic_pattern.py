@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.alias_traversal_classic_pattern``.
+
+Location: ``src/webconf_audit/local/nginx/rules/alias_traversal_classic_pattern.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, find_child_directives, iter_nodes

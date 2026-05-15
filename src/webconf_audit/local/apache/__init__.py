@@ -63,6 +63,17 @@ def analyze_apache_config(
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
+    """Run the full Apache local-analysis pipeline against ``config_path``.
+
+    Resolves ``Include`` / ``IncludeOptional``, discovers ``.htaccess``
+    files filtered by effective ``AllowOverride``, builds per-VirtualHost
+    analysis contexts, then runs Apache AST rules, htaccess-aware rules,
+    and universal rules over the normalized view.
+
+    Set ``enable_policy_review=True`` to additionally include rules
+    tagged ``policy-review`` (operator-judgment items surfaced via the
+    ``--enable-policy-review`` CLI flag).
+    """
     path = Path(config_path)
 
     if not path.is_file():

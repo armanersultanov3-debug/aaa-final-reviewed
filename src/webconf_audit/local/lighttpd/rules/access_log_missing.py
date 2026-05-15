@@ -1,3 +1,5 @@
+"""lighttpd.access_log_missing -- Access log file not configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext

@@ -1,3 +1,5 @@
+"""apache.limit_request_fields_missing_or_invalid -- LimitRequestFields not configured safely."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

@@ -1,3 +1,5 @@
+"""iis.directory_browse_enabled -- Directory browsing enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

@@ -1,3 +1,8 @@
+"""Implements rules: ``iis.authorization_allows_anonymous_users``, ``iis.authorization_policy_missing``, ``iis.basic_auth_without_ssl``, ``iis.anonymous_auth_uses_specific_user``.
+
+Location: ``src/webconf_audit/local/iis/rules/auth_policy.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.iis_defaults import load_defaults

@@ -1,3 +1,5 @@
+"""nginx.limit_req_unknown_zone -- limit_req references an undefined zone."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

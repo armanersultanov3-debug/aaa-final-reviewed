@@ -1,3 +1,5 @@
+"""nginx.autoindex_on -- Autoindex enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

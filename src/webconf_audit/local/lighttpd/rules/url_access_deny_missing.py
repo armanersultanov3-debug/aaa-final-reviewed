@@ -1,3 +1,5 @@
+"""lighttpd.url_access_deny_missing -- No file extension access restrictions."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

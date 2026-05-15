@@ -1,3 +1,5 @@
+"""lighttpd.ssl_honor_cipher_order_missing -- SSL cipher order not enforced."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.effective import (

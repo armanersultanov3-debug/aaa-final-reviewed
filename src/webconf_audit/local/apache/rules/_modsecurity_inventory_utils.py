@@ -1,3 +1,8 @@
+"""Internal helpers for the modsecurity inventory utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_modsecurity_inventory_utils.py``.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

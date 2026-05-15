@@ -1,3 +1,5 @@
+"""apache.content_security_policy_missing_frame_ancestors -- Content-Security-Policy missing frame-ancestors."""
+
 from __future__ import annotations
 
 from webconf_audit.header_policy import content_security_policy_has_frame_ancestors

@@ -1,3 +1,8 @@
+"""Implements rule ``apache.missing_permissions_policy_header``.
+
+Location: ``src/webconf_audit/local/apache/rules/missing_permissions_policy_header.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

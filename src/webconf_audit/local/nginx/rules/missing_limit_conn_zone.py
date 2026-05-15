@@ -1,3 +1,5 @@
+"""nginx.missing_limit_conn_zone -- Missing or undefined limit_conn_zone."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

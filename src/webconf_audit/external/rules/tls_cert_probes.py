@@ -1,3 +1,8 @@
+"""Implements rules: ``external.tls_ct_log_evidence_missing``, ``external.tls_weak_signature_algorithm``, ``external.tls_must_staple_not_observed``.
+
+Location: ``src/webconf_audit/external/rules/tls_cert_probes.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

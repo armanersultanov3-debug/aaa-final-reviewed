@@ -1,3 +1,11 @@
+"""Lighttpd ``var.*`` variable expansion for the parsed AST.
+
+Substitutes ``var.<name>`` references, environment lookups, and
+literal string concatenations so directive values match what Lighttpd
+itself would see at runtime. Emits analysis issues for unresolved
+references rather than crashing.
+"""
+
 from __future__ import annotations
 
 import os

@@ -1,3 +1,8 @@
+"""Implements rules: ``iis.schannel_tls12_not_enabled``, ``iis.schannel_weak_protocol_enabled``, ``iis.schannel_aes128_enabled``, ``iis.schannel_aes256_not_enabled``, ``iis.schannel_cipher_suite_order_not_preferred``.
+
+Location: ``src/webconf_audit/local/iis/rules/schannel_tls_policy.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

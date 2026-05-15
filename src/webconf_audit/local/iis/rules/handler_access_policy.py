@@ -1,3 +1,5 @@
+"""iis.handler_write_script_execute_enabled -- Handler permissions grant Write with Script or Execute."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

@@ -1,3 +1,5 @@
+"""lighttpd.ssl_insecure_renegotiation_enabled -- Lighttpd insecure TLS renegotiation is enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

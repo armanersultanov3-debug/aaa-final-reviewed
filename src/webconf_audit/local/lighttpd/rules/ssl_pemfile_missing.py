@@ -1,3 +1,5 @@
+"""lighttpd.ssl_pemfile_missing -- SSL certificate file not configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.parser import (

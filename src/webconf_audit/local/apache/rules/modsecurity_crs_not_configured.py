@@ -1,3 +1,8 @@
+"""Implements rule ``apache.modsecurity_crs_not_configured``.
+
+Location: ``src/webconf_audit/local/apache/rules/modsecurity_crs_not_configured.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

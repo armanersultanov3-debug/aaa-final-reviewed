@@ -1,3 +1,5 @@
+"""nginx.client_max_body_size_unlimited -- client_max_body_size disables request body limits."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

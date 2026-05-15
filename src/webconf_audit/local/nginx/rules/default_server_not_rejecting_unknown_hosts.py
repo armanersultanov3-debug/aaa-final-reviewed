@@ -1,3 +1,5 @@
+"""nginx.default_server_not_rejecting_unknown_hosts -- Default server does not reject unknown hosts."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

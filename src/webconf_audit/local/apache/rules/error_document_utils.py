@@ -1,3 +1,8 @@
+"""Rule module: error document utils.
+
+Location: ``src/webconf_audit/local/apache/rules/error_document_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst, ApacheDirectiveNode

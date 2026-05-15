@@ -1,3 +1,8 @@
+"""Internal helpers for the value utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_value_utils.py``.
+"""
+
 from __future__ import annotations
 
 import re

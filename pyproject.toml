@@ -26,6 +26,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "interrogate>=1.7.0,<2",
     "pytest>=9.0.3,<10",
     "ruff>=0.15.12,<1",
 ]
@@ -44,3 +45,24 @@ norecursedirs = [
     "pytest-run-*",
     "pytest-tmp-*",
 ]
+
+# Docstring coverage. The 40% floor reflects the project convention
+# "Default to writing no comments. Only add one when the WHY is
+# non-obvious." Public API surfaces, data models, and module-level
+# docstrings are documented; small internal helpers with
+# self-documenting names are intentionally left bare. The exclusions
+# below skip categories where docstrings add noise rather than value
+# (private/dunder methods, nested helpers, overloaded stubs).
+[tool.interrogate]
+fail-under = 40
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+ignore-overloaded-functions = true
+ignore-property-decorators = true
+ignore-property-setters = true
+exclude = ["tests", ".tmp", ".venv"]

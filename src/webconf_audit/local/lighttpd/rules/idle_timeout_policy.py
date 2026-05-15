@@ -1,3 +1,5 @@
+"""lighttpd.max_keep_alive_idle_too_high -- Keep-alive idle timeout is high."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

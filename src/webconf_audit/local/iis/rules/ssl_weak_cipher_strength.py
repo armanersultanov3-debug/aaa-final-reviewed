@@ -1,3 +1,5 @@
+"""iis.ssl_weak_cipher_strength -- 128-bit SSL not required."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

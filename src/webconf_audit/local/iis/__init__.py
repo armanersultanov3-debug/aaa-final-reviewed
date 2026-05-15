@@ -28,6 +28,26 @@ def analyze_iis_config(
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
+    """Run the full IIS local-analysis pipeline against ``config_path``.
+
+    Accepts a ``web.config`` / ``applicationHost.config`` /
+    ``machine.config`` file, or a directory containing one. Walks the
+    full inheritance chain (``machine.config`` →
+    ``applicationHost.config`` → ``web.config``, plus ``<location>``
+    precedence and ``inheritInChildApplications="false"`` cascade
+    blocking) to build the effective view consumed by every IIS rule.
+
+    ``machine_config_path`` overrides automatic ``machine.config``
+    discovery for offline or single-file analysis. TLS protocol /
+    cipher posture is enriched from the local Windows SChannel
+    registry by default; pass ``tls_registry_path`` to use a JSON
+    export from another host, or ``use_tls_registry=False`` to skip
+    registry enrichment.
+
+    Set ``enable_policy_review=True`` to additionally include rules
+    tagged ``policy-review`` (operator-judgment items surfaced via the
+    ``--enable-policy-review`` CLI flag).
+    """
     path = Path(config_path)
 
     if path.is_dir():

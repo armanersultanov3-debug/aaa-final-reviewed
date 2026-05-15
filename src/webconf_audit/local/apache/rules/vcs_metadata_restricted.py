@@ -1,3 +1,5 @@
+"""apache.vcs_metadata_not_restricted -- Version-control metadata not restricted."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

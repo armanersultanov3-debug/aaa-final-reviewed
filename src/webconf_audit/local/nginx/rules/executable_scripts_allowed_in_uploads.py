@@ -1,3 +1,5 @@
+"""nginx.executable_scripts_allowed_in_uploads -- Executable scripts allowed in upload-like location."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, find_child_directives, iter_nodes

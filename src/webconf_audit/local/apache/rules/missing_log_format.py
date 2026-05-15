@@ -1,3 +1,5 @@
+"""apache.missing_log_format -- CustomLog references undefined LogFormat."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

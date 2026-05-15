@@ -1,3 +1,5 @@
+"""nginx.alias_without_trailing_slash -- Alias path missing trailing slash."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, find_child_directives, iter_nodes

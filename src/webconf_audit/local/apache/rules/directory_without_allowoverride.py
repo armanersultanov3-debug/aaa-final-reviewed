@@ -1,3 +1,5 @@
+"""apache.directory_without_allowoverride -- Directory block lacks explicit AllowOverride."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

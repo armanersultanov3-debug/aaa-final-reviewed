@@ -1,3 +1,5 @@
+"""lighttpd.missing_x_content_type_options -- X-Content-Type-Options header missing."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext

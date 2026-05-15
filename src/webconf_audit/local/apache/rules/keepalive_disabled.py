@@ -1,3 +1,5 @@
+"""apache.keepalive_disabled -- KeepAlive is not enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

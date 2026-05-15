@@ -1,3 +1,8 @@
+"""Implements rule ``apache.default_content_probe``.
+
+Location: ``src/webconf_audit/local/apache/rules/default_content_probe.py``.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

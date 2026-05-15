@@ -1,3 +1,8 @@
+"""Implements rule ``apache.sensitive_path_environment_policy``.
+
+Location: ``src/webconf_audit/local/apache/rules/sensitive_path_environment_policy.py``.
+"""
+
 from __future__ import annotations
 
 import re

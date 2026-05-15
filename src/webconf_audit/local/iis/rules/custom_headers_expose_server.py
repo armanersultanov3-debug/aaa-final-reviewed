@@ -1,3 +1,5 @@
+"""iis.custom_headers_expose_server -- Server-revealing custom headers present."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

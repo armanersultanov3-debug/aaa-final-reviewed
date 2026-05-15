@@ -58,3 +58,6 @@ jobs:
 
       - name: Load rule catalog
         run: uv run --locked webconf-audit list-rules
+
+      - name: Check docstring coverage
+        run: uv run --locked interrogate -c pyproject.toml

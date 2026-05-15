@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_cipher_suite_weak``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_cipher_suite_weak.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

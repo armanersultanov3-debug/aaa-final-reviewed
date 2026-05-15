@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.ssl_session_timeout_missing_or_invalid``.
+
+Location: ``src/webconf_audit/local/nginx/rules/ssl_session_timeout_missing_or_invalid.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

@@ -1,3 +1,5 @@
+"""lighttpd.missing_content_security_policy -- Content-Security-Policy header missing."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

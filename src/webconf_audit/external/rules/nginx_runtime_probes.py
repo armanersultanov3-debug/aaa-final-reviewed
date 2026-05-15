@@ -1,3 +1,8 @@
+"""Implements rules: ``external.nginx.redirect_target_unexpected``, ``external.nginx.default_index_page_body``.
+
+Location: ``src/webconf_audit/external/rules/nginx_runtime_probes.py``.
+"""
+
 from __future__ import annotations
 
 import re

@@ -1,3 +1,5 @@
+"""apache.generated_artifacts_not_restricted -- Generated artifacts not restricted."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

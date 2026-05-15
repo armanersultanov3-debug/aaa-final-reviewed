@@ -1,3 +1,5 @@
+"""nginx.missing_ssl_protocols -- Missing ssl_protocols directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

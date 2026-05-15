@@ -1,3 +1,5 @@
+"""nginx.limit_req_zone_not_per_ip -- limit_req_zone is not keyed by client IP."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

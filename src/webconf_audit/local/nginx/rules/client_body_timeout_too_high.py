@@ -1,3 +1,5 @@
+"""nginx.client_body_timeout_too_high -- client_body_timeout is too high."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

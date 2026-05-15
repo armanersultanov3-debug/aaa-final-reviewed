@@ -1,3 +1,8 @@
+"""Internal helpers for the headers rule family.
+
+Location: ``src/webconf_audit/external/rules/_headers.py``.
+"""
+
 from __future__ import annotations
 
 import hashlib

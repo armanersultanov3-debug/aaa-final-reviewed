@@ -1,3 +1,8 @@
+"""Internal helpers for the proxy tls utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_proxy_tls_utils.py``.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

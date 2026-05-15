@@ -1,3 +1,11 @@
+"""Bounded HTML reconnaissance helpers for safe external probes.
+
+Parses a fixed prefix of an HTML response body to inventory inline
+scripts, cross-origin script sources, and CSP nonce usage. Used by
+the CSP-quality and SRI external rules to corroborate header-only
+findings against the actual document the server returned.
+"""
+
 from __future__ import annotations
 
 import hashlib

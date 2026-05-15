@@ -1,3 +1,5 @@
+"""lighttpd.mod_cgi_enabled -- CGI module loaded."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.parser import (

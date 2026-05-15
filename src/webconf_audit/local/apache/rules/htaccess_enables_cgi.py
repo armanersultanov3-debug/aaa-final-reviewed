@@ -1,3 +1,5 @@
+"""apache.htaccess_enables_cgi -- .htaccess enables ExecCGI."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import HtaccessFile

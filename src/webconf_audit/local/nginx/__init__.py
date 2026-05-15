@@ -24,6 +24,19 @@ def analyze_nginx_config(
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
+    """Run the full Nginx local-analysis pipeline against ``config_path``.
+
+    Resolves ``include`` directives, builds the effective AST, runs the
+    Nginx-specific rule pack, then runs universal rules over the
+    normalized view (filtered to drop Nginx-superseded universal
+    duplicates). Read errors and parse errors are returned as
+    :class:`AnalysisIssue` entries on the result instead of being
+    raised.
+
+    Set ``enable_policy_review=True`` to additionally include rules
+    tagged ``policy-review`` (operator-judgment items surfaced via the
+    ``--enable-policy-review`` CLI flag).
+    """
     path = Path(config_path)
 
     if not path.is_file():

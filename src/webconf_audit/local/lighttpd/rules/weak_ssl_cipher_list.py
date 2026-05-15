@@ -1,3 +1,5 @@
+"""lighttpd.weak_ssl_cipher_list -- Weak SSL ciphers configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.parser import (

@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.default_tls_server_not_rejecting_unknown_hosts``.
+
+Location: ``src/webconf_audit/local/nginx/rules/default_tls_server_not_rejecting_unknown_hosts.py``.
+"""
+
 from __future__ import annotations
 
 from collections import defaultdict

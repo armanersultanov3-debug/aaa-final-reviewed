@@ -1,3 +1,5 @@
+"""apache.log_level_too_restrictive -- LogLevel is too restrictive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

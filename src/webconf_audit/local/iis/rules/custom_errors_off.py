@@ -1,3 +1,5 @@
+"""iis.custom_errors_off -- ASP.NET custom errors disabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig
