@@ -97,6 +97,12 @@ def _finding_location_text(finding: Finding) -> str:
 def test_security_corpus_metadata_covers_vulnerable_and_secure_cases() -> None:
     profile_counts = Counter(case["profile"] for case in _CASES)
     server_counts = Counter(case["server_type"] for case in _CASES)
+    # Pinning per-server profile balance prevents a silent regression
+    # where one server's secure baseline (or vulnerable cases) is
+    # deleted while the global totals still pass.
+    server_profile_counts = Counter(
+        (case["server_type"], case["profile"]) for case in _CASES
+    )
 
     assert profile_counts["vulnerable"] >= 6
     assert profile_counts["secure"] >= 2
@@ -104,6 +110,14 @@ def test_security_corpus_metadata_covers_vulnerable_and_secure_cases() -> None:
     assert server_counts["apache"] >= 4
     assert server_counts["lighttpd"] >= 3
     assert server_counts["iis"] >= 3
+
+    for server_type in ("nginx", "apache", "lighttpd", "iis"):
+        assert server_profile_counts[(server_type, "vulnerable")] >= 1, (
+            f"{server_type} has no vulnerable fixture"
+        )
+        assert server_profile_counts[(server_type, "secure")] >= 1, (
+            f"{server_type} has no secure baseline fixture"
+        )
 
 
 @pytest.mark.parametrize("case", _CASES, ids=_case_id)
