@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from webconf_audit.cli import app
@@ -782,6 +783,76 @@ def test_analyze_lighttpd_cli_passes_execute_shell_option(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured["config_path"] == "lighttpd.conf"
     assert captured["execute_shell"] is True
+
+
+# ---------------------------------------------------------------------------
+# --enable-policy-review CLI flag
+# ---------------------------------------------------------------------------
+
+
+def _make_fake_analyzer(captured: dict[str, object], server_type: str):
+    """Capture invocation kwargs and return an empty AnalysisResult."""
+
+    def fake(config_path: str, **kwargs) -> AnalysisResult:
+        captured["config_path"] = config_path
+        captured.update(kwargs)
+        return AnalysisResult(
+            mode="local",
+            target=config_path,
+            server_type=server_type,
+            findings=[],
+            issues=[],
+        )
+
+    return fake
+
+
+@pytest.mark.parametrize(
+    ("command", "analyzer_path", "server_type", "extra_args"),
+    [
+        ("analyze-nginx", "webconf_audit.cli.analyze_nginx_config", "nginx", ()),
+        ("analyze-apache", "webconf_audit.cli.analyze_apache_config", "apache", ()),
+        ("analyze-lighttpd", "webconf_audit.cli.analyze_lighttpd_config", "lighttpd", ()),
+        ("analyze-iis", "webconf_audit.cli.analyze_iis_config", "iis", ()),
+    ],
+)
+def test_analyze_cli_default_excludes_policy_review(
+    monkeypatch, command: str, analyzer_path: str, server_type: str,
+    extra_args: tuple[str, ...],
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(analyzer_path, _make_fake_analyzer(captured, server_type))
+
+    result = runner.invoke(app, [command, "config.txt", *extra_args])
+
+    assert result.exit_code == 0
+    # Default behaviour: the CLI must not pass enable_policy_review at all
+    # when the flag is off, preserving the legacy analyzer signatures.
+    assert "enable_policy_review" not in captured
+
+
+@pytest.mark.parametrize(
+    ("command", "analyzer_path", "server_type", "extra_args"),
+    [
+        ("analyze-nginx", "webconf_audit.cli.analyze_nginx_config", "nginx", ()),
+        ("analyze-apache", "webconf_audit.cli.analyze_apache_config", "apache", ()),
+        ("analyze-lighttpd", "webconf_audit.cli.analyze_lighttpd_config", "lighttpd", ()),
+        ("analyze-iis", "webconf_audit.cli.analyze_iis_config", "iis", ()),
+    ],
+)
+def test_analyze_cli_enables_policy_review_when_flag_set(
+    monkeypatch, command: str, analyzer_path: str, server_type: str,
+    extra_args: tuple[str, ...],
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(analyzer_path, _make_fake_analyzer(captured, server_type))
+
+    result = runner.invoke(
+        app, [command, "config.txt", *extra_args, "--enable-policy-review"],
+    )
+
+    assert result.exit_code == 0
+    assert captured["enable_policy_review"] is True
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,11 @@ _NGINX_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
 )
 
 
-def analyze_nginx_config(config_path: str) -> AnalysisResult:
+def analyze_nginx_config(
+    config_path: str,
+    *,
+    enable_policy_review: bool = False,
+) -> AnalysisResult:
     path = Path(config_path)
 
     if not path.is_file():
@@ -88,9 +92,15 @@ def analyze_nginx_config(config_path: str) -> AnalysisResult:
 
     load_ctx = LoadContext(root_file=str(path))
     issues = resolve_includes(ast, path, load_context=load_ctx)
-    findings = run_nginx_rules(ast, issues=issues)
+    findings = run_nginx_rules(
+        ast, issues=issues, enable_policy_review=enable_policy_review,
+    )
     normalized = normalize_config("nginx", ast=ast)
-    findings.extend(_universal_nginx_findings(normalized, issues))
+    findings.extend(
+        _universal_nginx_findings(
+            normalized, issues, enable_policy_review=enable_policy_review,
+        )
+    )
 
     return AnalysisResult(
         mode="local",
@@ -110,9 +120,15 @@ def read_text_file(path: str) -> str:
 def _universal_nginx_findings(
     normalized: NormalizedConfig,
     issues: list[AnalysisIssue],
+    *,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     return [
         finding
-        for finding in run_universal_rules(normalized, issues=issues)
+        for finding in run_universal_rules(
+            normalized,
+            issues=issues,
+            enable_policy_review=enable_policy_review,
+        )
         if finding.rule_id not in _NGINX_SPECIFIC_UNIVERSAL_REPLACEMENTS
     ]

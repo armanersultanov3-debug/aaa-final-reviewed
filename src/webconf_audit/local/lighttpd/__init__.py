@@ -31,6 +31,8 @@ def analyze_lighttpd_config(
     config_path: str | PathLike[str],
     execute_shell: bool = False,
     host: str | None = None,
+    *,
+    enable_policy_review: bool = False,
 ) -> AnalysisResult:
     config_path_str = str(config_path)
     path = Path(config_path_str)
@@ -96,12 +98,15 @@ def analyze_lighttpd_config(
             merged_directives=merged_directives,
             request_context=context,
             issues=issues,
+            enable_policy_review=enable_policy_review,
         )
         normalized = normalize_config(
             "lighttpd", ast=ast, effective_config=effective,
             merged_directives=merged_directives,
         )
-        universal_findings = run_universal_rules(normalized, issues=issues)
+        universal_findings = run_universal_rules(
+            normalized, issues=issues, enable_policy_review=enable_policy_review,
+        )
         if is_redirect_only_config(ast):
             universal_findings = [
                 finding

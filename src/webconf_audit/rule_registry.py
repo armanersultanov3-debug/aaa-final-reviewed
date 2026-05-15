@@ -31,6 +31,12 @@ RuleCategory = Literal["local", "external", "universal"]
 StandardCoverage = Literal["direct", "partial", "related"]
 StandardTier = Literal["primary", "secondary"]
 
+# Tags that mark rules as opt-in: they are excluded from default analyzer
+# runs and only included when the runner is invoked with an explicit
+# opt-in flag (e.g. ``--enable-policy-review``).  Findings still surface
+# in ``list-rules`` so users can discover them.
+OPT_IN_TAGS: frozenset[str] = frozenset({"policy-review"})
+
 InputKind = Literal[
     "ast",         # server-specific AST (Nginx / Apache / Lighttpd)
     "effective",   # AST + effective config (Lighttpd effective-aware rules)
@@ -174,13 +180,24 @@ class RuleRegistry:
         self,
         category: RuleCategory,
         server_type: str | None = None,
+        *,
+        include_opt_in_tags: tuple[str, ...] = (),
     ) -> list[RuleEntry]:
-        """Return executable rules for the given category/server, sorted by order then rule_id."""
+        """Return executable rules for the given category/server, sorted by order then rule_id.
+
+        Rules tagged with any tag in ``OPT_IN_TAGS`` are excluded by default.
+        Pass ``include_opt_in_tags=("policy-review",)`` (or other opt-in
+        tag names) to include those rules in the result.
+        """
+        include = set(include_opt_in_tags)
         result: list[RuleEntry] = []
         for entry in self._executable.values():
             if entry.meta.category != category:
                 continue
             if server_type is not None and entry.meta.server_type != server_type:
+                continue
+            opt_in_on_rule = set(entry.meta.tags) & OPT_IN_TAGS
+            if opt_in_on_rule and not opt_in_on_rule.issubset(include):
                 continue
             result.append(entry)
         result.sort(key=lambda e: (e.meta.order, e.meta.rule_id))

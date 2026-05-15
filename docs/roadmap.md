@@ -282,8 +282,9 @@ hardcoded finder per path.
 
 ## Backlog Status (local snapshot date: 2026-05-15)
 
-- Rule count: 426 total, with the repeated counters and registry expected to
-  stay aligned.
+- Rule count: 435 total (including 9 opt-in `policy-review` rules excluded
+  from default analyzer runs), with the repeated counters and registry
+  expected to stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,
   `STD-GAP-035`, `STD-GAP-036`, `STD-GAP-037`, and `STD-GAP-038`.
@@ -316,9 +317,10 @@ reporting.
 
 Current step: continue standards mapping and curated safe external probe
 additions on top of the now-implemented Apache precision, TLS/runtime
-evidence slices, and the landed Nginx O-03 Gixy-parity work. The only
-documented Nginx-local deferred gap from that slice is raw backend response
-reading.
+evidence slices, and the landed Nginx O-03 Gixy-parity work. Two Nginx-local
+items are explicitly **closed as not pursued (2026-05-15)**: raw backend
+response reading (see `docs/testing-real-world-configs.md` for trigger
+conditions) and HTTP/3 detection (see `docs/rule-coverage.md` §4.1.12).
 
 The TLS runtime-evidence slice of the external-safe track is implemented:
 certificate-chain/trust probing, negotiated forward secrecy posture, bounded

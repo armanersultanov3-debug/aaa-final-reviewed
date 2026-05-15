@@ -74,7 +74,7 @@ def test_run_universal_rules_collects_rule_execution_issue_and_continues(monkeyp
     monkeypatch.setattr(
         module.registry,
         "rules_for",
-        lambda _category, server_type=None: [bad_entry, good_entry],
+        lambda _category, server_type=None, **_kwargs: [bad_entry, good_entry],
     )
 
     findings = module.run_universal_rules(cfg, issues=issues)
@@ -108,7 +108,7 @@ def test_run_universal_rules_reraises_without_issue_collector(monkeypatch):
     monkeypatch.setattr(
         module.registry,
         "rules_for",
-        lambda _category, server_type=None: [bad_entry],
+        lambda _category, server_type=None, **_kwargs: [bad_entry],
     )
 
     with pytest.raises(RuntimeError, match="boom"):
@@ -142,7 +142,7 @@ def test_run_lighttpd_rules_collects_effective_rule_execution_issue(monkeypatch)
     monkeypatch.setattr(
         module.registry,
         "rules_for",
-        lambda _category, server_type=None: [bad_entry, good_entry],
+        lambda _category, server_type=None, **_kwargs: [bad_entry, good_entry],
     )
 
     findings = module.run_lighttpd_rules(
@@ -184,7 +184,7 @@ def test_run_iis_rules_collects_rule_execution_issue_and_continues(monkeypatch):
     monkeypatch.setattr(
         module.registry,
         "rules_for",
-        lambda _category, server_type=None: [bad_entry, good_entry],
+        lambda _category, server_type=None, **_kwargs: [bad_entry, good_entry],
     )
 
     findings = module.run_iis_rules(object(), effective_config=object(), issues=issues)
@@ -232,10 +232,11 @@ def test_analyze_nginx_config_reports_rule_execution_issue(monkeypatch, tmp_path
     def _fake_rules_for(
         category: str,
         server_type: str | None = None,
+        **kwargs,
     ) -> list[RuleEntry]:
         if category == "local" and server_type == "nginx":
             return [bad_entry]
-        return original_rules_for(category, server_type)
+        return original_rules_for(category, server_type, **kwargs)
 
     monkeypatch.setattr(module.registry, "ensure_loaded", _fake_ensure_loaded)
     monkeypatch.setattr(module.registry, "rules_for", _fake_rules_for)

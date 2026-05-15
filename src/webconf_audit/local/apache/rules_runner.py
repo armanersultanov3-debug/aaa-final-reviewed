@@ -22,6 +22,7 @@ def run_apache_ast_rules(
     config_ast: ApacheConfigAst,
     *,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     """Run Apache rules that only need the parsed AST.
 
@@ -29,8 +30,13 @@ def run_apache_ast_rules(
     so they are invoked once on the full AST.
     """
     registry.ensure_loaded(_APACHE_PKG)
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
     findings: list[Finding] = []
-    for entry in registry.rules_for("local", server_type="apache"):
+    for entry in registry.rules_for(
+        "local",
+        server_type="apache",
+        include_opt_in_tags=include_opt_in,
+    ):
         if entry.meta.input_kind == "ast":
             findings.extend(
                 run_rule_entry(
@@ -48,13 +54,19 @@ def run_apache_htaccess_rules(
     config_dir: Path | None = None,
     *,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     """Run Apache rules that need htaccess files (htaccess and mixed kinds)."""
     registry.ensure_loaded(_APACHE_PKG)
     findings: list[Finding] = []
     if not htaccess_files:
         return findings
-    for entry in registry.rules_for("local", server_type="apache"):
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
+    for entry in registry.rules_for(
+        "local",
+        server_type="apache",
+        include_opt_in_tags=include_opt_in,
+    ):
         ik = entry.meta.input_kind
         if ik == "htaccess":
             findings.extend(
@@ -85,9 +97,12 @@ def run_apache_rules(
     config_dir: str | None = None,
     *,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     """Run all Apache rules (backward-compatible entry point)."""
-    findings = run_apache_ast_rules(config_ast, issues=issues)
+    findings = run_apache_ast_rules(
+        config_ast, issues=issues, enable_policy_review=enable_policy_review,
+    )
     if htaccess_files:
         findings.extend(
             run_apache_htaccess_rules(
@@ -95,6 +110,7 @@ def run_apache_rules(
                 htaccess_files,
                 config_dir=Path(config_dir) if config_dir else None,
                 issues=issues,
+                enable_policy_review=enable_policy_review,
             )
         )
     return findings

@@ -109,16 +109,20 @@ dedicated local rules for them:
 
 - raw backend response reading
 
-These gaps are useful future rule candidates, but tests should not pretend that
-the current analyzer detects them.
+These gaps stay as research notes; tests should not pretend that the current
+analyzer detects them.
 
-## Deferred rule candidates
+## Closed: not pursued
 
-These reference gaps stay documented as deferred follow-up ideas rather than
-current expected findings:
+The following reference gaps are explicitly **closed as not pursued**
+(decision recorded 2026-05-15). The project will not attempt these rules
+unless the listed trigger conditions surface; the entries are kept here as
+historical context for future auditors.
 
-- Raw backend response reading: `research` (deferred) - signal design is still
-  incomplete and there is no clear directive-level marker yet.
+- **Raw backend response reading** (`research`, closed not-pursued).
+  Reason: signal design is incomplete and there is no clear directive-level
+  marker that survives normal proxy configurations. Reconsider when a
+  concrete fixture with a confirmed false negative becomes available.
 
 ## Run Static Tests
 

@@ -27,11 +27,17 @@ def run_iis_rules(
     effective_config: IISEffectiveConfig | None = None,
     registry_tls: IISRegistryTLS | None = None,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     registry.ensure_loaded(_IIS_PKG)
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
     findings: list[Finding] = []
 
-    for entry in registry.rules_for("local", server_type="iis"):
+    for entry in registry.rules_for(
+        "local",
+        server_type="iis",
+        include_opt_in_tags=include_opt_in,
+    ):
         findings.extend(
             run_rule_entry(
                 entry,

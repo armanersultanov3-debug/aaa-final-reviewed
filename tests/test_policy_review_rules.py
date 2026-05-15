@@ -1,0 +1,440 @@
+"""Tests for the opt-in ``policy-review`` rule family.
+
+Covers:
+
+1. The runtime contract: ``policy-review`` tagged rules are EXCLUDED
+   from default analyzer runs and INCLUDED only when
+   ``enable_policy_review=True`` is passed through the runner /
+   ``analyze_*_config`` API.
+2. The rule registry honours the same ``OPT_IN_TAGS`` filter for
+   ``rules_for(...)``.
+3. Each of the nine shipped policy-review rules surfaces a finding on a
+   matching configuration and stays silent on a non-matching one when
+   policy review IS enabled.
+
+The CLI flag itself is wired in
+``src/webconf_audit/cli/__init__.py`` and re-uses the same code path
+that these tests exercise; see ``tests/test_cli.py`` for the CLI
+surface coverage of related opt-in flags.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+from webconf_audit.local.apache import analyze_apache_config
+from webconf_audit.local.iis import analyze_iis_config
+from webconf_audit.local.lighttpd import analyze_lighttpd_config
+from webconf_audit.local.nginx import analyze_nginx_config
+from webconf_audit.rule_registry import OPT_IN_TAGS, registry
+
+
+POLICY_REVIEW_RULE_IDS = {
+    "nginx.access_log_uses_default_format",
+    "nginx.limit_req_zone_rate_review",
+    "nginx.limit_conn_zone_review",
+    "nginx.csp_value_review",
+    "apache.custom_log_uses_default_format",
+    "apache.csp_value_review",
+    "apache.limit_request_body_value_review",
+    "lighttpd.access_log_format_review",
+    "iis.logging_fields_review",
+}
+
+
+# ---------------------------------------------------------------------------
+# Registry-level contract
+# ---------------------------------------------------------------------------
+
+
+def test_opt_in_tags_constant_contains_policy_review() -> None:
+    """policy-review must be a registered opt-in tag."""
+    assert "policy-review" in OPT_IN_TAGS
+
+
+def test_every_shipped_policy_review_rule_carries_the_tag() -> None:
+    """Each rule listed above must actually carry tag=policy-review."""
+    registry.ensure_loaded("webconf_audit.local.nginx.rules")
+    registry.ensure_loaded("webconf_audit.local.apache.rules")
+    registry.ensure_loaded("webconf_audit.local.lighttpd.rules")
+    registry.ensure_loaded("webconf_audit.local.iis.rules")
+
+    for rule_id in POLICY_REVIEW_RULE_IDS:
+        meta = registry.get_meta(rule_id)
+        assert meta is not None, f"Rule {rule_id} not registered"
+        assert "policy-review" in meta.tags, (
+            f"Rule {rule_id} missing the policy-review tag"
+        )
+        assert meta.severity == "info", (
+            f"Rule {rule_id} must be severity=info (was {meta.severity})"
+        )
+
+
+def test_rules_for_excludes_policy_review_by_default() -> None:
+    """Default rules_for() must not return policy-review rules."""
+    registry.ensure_loaded("webconf_audit.local.nginx.rules")
+    entries = registry.rules_for("local", server_type="nginx")
+    returned_ids = {entry.meta.rule_id for entry in entries}
+    assert "nginx.access_log_uses_default_format" not in returned_ids
+    assert "nginx.csp_value_review" not in returned_ids
+
+
+def test_rules_for_includes_policy_review_when_opted_in() -> None:
+    """Passing include_opt_in_tags=('policy-review',) must include them."""
+    registry.ensure_loaded("webconf_audit.local.nginx.rules")
+    entries = registry.rules_for(
+        "local", server_type="nginx", include_opt_in_tags=("policy-review",),
+    )
+    returned_ids = {entry.meta.rule_id for entry in entries}
+    assert "nginx.access_log_uses_default_format" in returned_ids
+    assert "nginx.csp_value_review" in returned_ids
+
+
+# ---------------------------------------------------------------------------
+# Default-off behaviour at the analyzer level
+# ---------------------------------------------------------------------------
+
+
+def test_nginx_analyzer_excludes_policy_review_by_default(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log /var/log/nginx/access.log;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "nginx.access_log_uses_default_format"
+        for finding in result.findings
+    )
+
+
+def test_nginx_analyzer_includes_policy_review_when_enabled(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log /var/log/nginx/access.log;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+
+    assert any(
+        finding.rule_id == "nginx.access_log_uses_default_format"
+        for finding in result.findings
+    )
+
+
+def test_apache_analyzer_excludes_policy_review_by_default(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'DocumentRoot "/var/www/html"\n'
+        'CustomLog logs/access.log combined\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path))
+
+    assert not any(
+        finding.rule_id == "apache.custom_log_uses_default_format"
+        for finding in result.findings
+    )
+
+
+def test_apache_analyzer_includes_policy_review_when_enabled(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'DocumentRoot "/var/www/html"\n'
+        'CustomLog logs/access.log combined\n',
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+
+    assert any(
+        finding.rule_id == "apache.custom_log_uses_default_format"
+        for finding in result.findings
+    )
+
+
+# ---------------------------------------------------------------------------
+# Per-rule positive / negative cases (with policy review enabled)
+# ---------------------------------------------------------------------------
+
+
+def _findings_for(result, rule_id: str) -> list:
+    return [f for f in result.findings if f.rule_id == rule_id]
+
+
+def test_nginx_access_log_default_format_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log /var/log/nginx/access.log;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert len(_findings_for(result, "nginx.access_log_uses_default_format")) == 1
+
+
+def test_nginx_access_log_default_format_negative_named_format(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        '    log_format main "$time_iso8601 $remote_addr $request $status";\n'
+        "    server {\n"
+        "        listen 80;\n"
+        "        access_log /var/log/nginx/access.log main;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "nginx.access_log_uses_default_format") == []
+
+
+def test_nginx_access_log_default_format_silent_for_off(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n    listen 80;\n    access_log off;\n}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "nginx.access_log_uses_default_format") == []
+
+
+def test_nginx_limit_req_zone_rate_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;\n"
+        "    server { listen 80; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.limit_req_zone_rate_review")
+    assert len(findings) == 1
+    assert "rate=10r/s" in findings[0].title
+
+
+def test_nginx_limit_req_zone_rate_review_negative(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server { listen 80; access_log off; }\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "nginx.limit_req_zone_rate_review") == []
+
+
+def test_nginx_limit_conn_zone_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    limit_conn_zone $binary_remote_addr zone=addr:10m;\n"
+        "    server { listen 80; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.limit_conn_zone_review")
+    assert len(findings) == 1
+
+
+def test_nginx_csp_value_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "    access_log off;\n"
+        "    add_header Content-Security-Policy \"default-src 'self'\" always;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.csp_value_review")
+    assert len(findings) == 1
+    assert "default-src" in findings[0].description.lower()
+
+
+def test_nginx_csp_value_review_negative_when_no_csp(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server { listen 80; access_log off; }\n",
+        encoding="utf-8",
+    )
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "nginx.csp_value_review") == []
+
+
+def test_apache_custom_log_default_format_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'CustomLog logs/access.log combined\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    assert len(_findings_for(result, "apache.custom_log_uses_default_format")) == 1
+
+
+def test_apache_custom_log_default_format_negative_named_format(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'LogFormat "%h %t \\"%r\\" %>s %b %{User-Agent}i" auditfmt\n'
+        'CustomLog logs/access.log auditfmt\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "apache.custom_log_uses_default_format") == []
+
+
+def test_apache_csp_value_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'Header always set Content-Security-Policy "default-src \'self\'"\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "apache.csp_value_review")
+    assert len(findings) == 1
+
+
+def test_apache_csp_value_review_negative_when_no_csp(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'Header always set X-Frame-Options DENY\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "apache.csp_value_review") == []
+
+
+def test_apache_limit_request_body_value_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n'
+        'LimitRequestBody 102400\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "apache.limit_request_body_value_review")
+    assert len(findings) == 1
+    assert "102400" in findings[0].title
+
+
+def test_apache_limit_request_body_value_review_negative(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        'ServerName example.com\n',
+        encoding="utf-8",
+    )
+    result = analyze_apache_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "apache.limit_request_body_value_review") == []
+
+
+def test_lighttpd_access_log_format_review_positive_with_explicit_format(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ( "mod_accesslog" )\n'
+        'accesslog.filename = "/var/log/lighttpd/access.log"\n'
+        'accesslog.format = "%h %V %u %t \\"%r\\" %>s %b"\n',
+        encoding="utf-8",
+    )
+    result = analyze_lighttpd_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "lighttpd.access_log_format_review")
+    assert len(findings) == 1
+
+
+def test_lighttpd_access_log_format_review_positive_implicit_default(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.modules = ( "mod_accesslog" )\n'
+        'accesslog.filename = "/var/log/lighttpd/access.log"\n',
+        encoding="utf-8",
+    )
+    result = analyze_lighttpd_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "lighttpd.access_log_format_review")
+    assert len(findings) == 1
+    assert "default" in findings[0].title.lower()
+
+
+def test_lighttpd_access_log_format_review_negative_when_module_missing(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'server.document-root = "/var/www"\n',
+        encoding="utf-8",
+    )
+    result = analyze_lighttpd_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "lighttpd.access_log_format_review") == []
+
+
+def test_iis_logging_fields_review_positive(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        "<?xml version='1.0'?>\n"
+        "<configuration>\n"
+        "  <system.webServer>\n"
+        "    <httpLogging dontLog=\"false\" />\n"
+        "  </system.webServer>\n"
+        "</configuration>\n",
+        encoding="utf-8",
+    )
+    result = analyze_iis_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "iis.logging_fields_review")
+    assert len(findings) == 1
+
+
+def test_iis_logging_fields_review_negative_when_logging_disabled(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        "<?xml version='1.0'?>\n"
+        "<configuration>\n"
+        "  <system.webServer>\n"
+        "    <httpLogging dontLog=\"true\" />\n"
+        "  </system.webServer>\n"
+        "</configuration>\n",
+        encoding="utf-8",
+    )
+    result = analyze_iis_config(str(config_path), enable_policy_review=True)
+    # Disabled logging is reported by iis.logging_not_configured (medium),
+    # not by the policy-review rule. The review rule stays silent so it
+    # does not double-surface the same configuration state.
+    assert _findings_for(result, "iis.logging_fields_review") == []
+
+
+def test_iis_logging_fields_review_default_off(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(
+        "<?xml version='1.0'?>\n"
+        "<configuration>\n"
+        "  <system.webServer>\n"
+        "    <httpLogging dontLog=\"false\" />\n"
+        "  </system.webServer>\n"
+        "</configuration>\n",
+        encoding="utf-8",
+    )
+    result = analyze_iis_config(str(config_path))
+    assert _findings_for(result, "iis.logging_fields_review") == []

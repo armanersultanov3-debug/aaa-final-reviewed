@@ -21,11 +21,15 @@ def run_universal_rules(
     normalized: NormalizedConfig,
     *,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     """Run all universal rules against a normalized config."""
     registry.ensure_loaded(_UNIVERSAL_PKG)
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
     findings: list[Finding] = []
-    for entry in registry.rules_for("universal"):
+    for entry in registry.rules_for(
+        "universal", include_opt_in_tags=include_opt_in,
+    ):
         findings.extend(
             run_rule_entry(
                 entry,

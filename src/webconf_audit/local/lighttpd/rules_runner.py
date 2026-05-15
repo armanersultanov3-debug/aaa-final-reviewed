@@ -31,11 +31,17 @@ def run_lighttpd_rules(
     merged_directives: dict[str, LighttpdEffectiveDirective] | None = None,
     request_context: LighttpdRequestContext | None = None,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     registry.ensure_loaded(_LIGHTTPD_PKG)
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
     findings: list[Finding] = []
 
-    for entry in registry.rules_for("local", server_type="lighttpd"):
+    for entry in registry.rules_for(
+        "local",
+        server_type="lighttpd",
+        include_opt_in_tags=include_opt_in,
+    ):
         if entry.meta.input_kind == "effective":
             findings.extend(
                 run_rule_entry(

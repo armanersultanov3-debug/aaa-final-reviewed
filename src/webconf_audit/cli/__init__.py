@@ -98,6 +98,21 @@ def _group_repeated_option() -> bool:
     )
 
 
+def _enable_policy_review_option() -> bool:
+    return typer.Option(
+        False,
+        "--enable-policy-review/--no-enable-policy-review",
+        help=(
+            "Include opt-in rules tagged 'policy-review'. These surface "
+            "configuration choices that require manual operator judgment "
+            "(e.g. log format selection, rate-limit value review, CSP "
+            "policy review) and are excluded by default to avoid noise. "
+            "All such findings are severity 'info' and do not affect "
+            "--fail-on at higher thresholds."
+        ),
+    )
+
+
 def _group_by_cause_option() -> bool:
     return typer.Option(
         False,
@@ -347,8 +362,12 @@ def analyze_nginx(
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
     group_by_cause: bool = _group_by_cause_option(),
+    enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
-    result = analyze_nginx_config(config_path)
+    kwargs: dict[str, object] = {}
+    if enable_policy_review:
+        kwargs["enable_policy_review"] = True
+    result = analyze_nginx_config(config_path, **kwargs)
     _output_result(
         result,
         output_format,
@@ -381,8 +400,12 @@ def analyze_apache(
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
     group_by_cause: bool = _group_by_cause_option(),
+    enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
-    result = analyze_apache_config(config_path)
+    kwargs: dict[str, object] = {}
+    if enable_policy_review:
+        kwargs["enable_policy_review"] = True
+    result = analyze_apache_config(config_path, **kwargs)
     _output_result(
         result,
         output_format,
@@ -425,9 +448,13 @@ def analyze_lighttpd(
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
     group_by_cause: bool = _group_by_cause_option(),
+    enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
+    extra_kwargs: dict[str, object] = {}
+    if enable_policy_review:
+        extra_kwargs["enable_policy_review"] = True
     result = analyze_lighttpd_config(
-        config_path, execute_shell=execute_shell, host=host,
+        config_path, execute_shell=execute_shell, host=host, **extra_kwargs,
     )
     _output_result(
         result,
@@ -479,6 +506,7 @@ def analyze_iis(
     group_by: GroupBy = _group_by_option(),
     group_repeated: bool = _group_repeated_option(),
     group_by_cause: bool = _group_by_cause_option(),
+    enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
     if machine_config is not None:
@@ -488,6 +516,8 @@ def analyze_iis(
     if no_tls_registry:
         kwargs["use_tls_registry"] = False
 
+    if enable_policy_review:
+        kwargs["enable_policy_review"] = True
     result = analyze_iis_config(config_path, **kwargs)
     _output_result(
         result,
