@@ -1816,7 +1816,14 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         paths=("/api/status",),
         body_matchers=(
-            BodyMatcher("regex", r"(?i)(?:\"name\"\s*:\s*\"kibana\"|\"build_number\"\s*:)"),
+            # Require both the Kibana product name AND a Kibana-status
+            # neighbour field (version / build_number / status). A bare
+            # ``"build_number"`` JSON field alone is too generic — many
+            # CI/build-info endpoints expose it.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"name\"\s*:\s*\"kibana\".*\"(?:version|build_number|status)\"\s*:",
+            ),
         ),
         standards=_information_disclosure_standards(),
         order=774,
@@ -2071,9 +2078,16 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         paths=("/actuator/info",),
         body_matchers=(
-            BodyMatcher("regex", r"^\s*\{"),
+            # Require an actuator-info-shaped top-level key. ``content_type_matchers``
+            # is intentionally NOT added here: the runner OR-combines body and
+            # content-type matchers, so adding ``application/json`` would fire
+            # the rule on every JSON 200 response on /actuator/info, defeating
+            # the body-matcher precision.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"(?:build|git|app|java|os)\"\s*:\s*\{",
+            ),
         ),
-        content_type_matchers=("application/json",),
         standards=_information_disclosure_standards(),
         order=785,
         metadata_recommendation="Restrict access to Spring actuator endpoints.",
@@ -2161,7 +2175,13 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         paths=("/v3",),
         body_matchers=(
-            BodyMatcher("regex", r"\"type\"\s*:\s*\"collection\""),
+            # Require both the Rancher collection envelope AND a
+            # Rancher-specific neighbour field. ``"type":"collection"``
+            # alone is also used by some other resource-style APIs.
+            BodyMatcher(
+                "regex",
+                r"(?is)\"type\"\s*:\s*\"collection\".*\"(?:resourceType|links|schemas)\"\s*:",
+            ),
         ),
         standards=_information_disclosure_standards(),
         order=789,

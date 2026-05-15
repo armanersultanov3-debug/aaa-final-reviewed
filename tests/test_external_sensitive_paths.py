@@ -1671,22 +1671,28 @@ def test_batch_3_sensitive_path_rules_do_not_fire_on_404(
 
 
 @pytest.mark.parametrize(
-    ("path", "rule_id"),
-    [(case[0], case[1]) for case in _BATCH_3_RULE_CASES],
+    ("path", "rule_id", "content_type"),
+    [(case[0], case[1], case[2]) for case in _BATCH_3_RULE_CASES],
 )
 def test_batch_3_sensitive_path_rules_require_body_matcher(
     monkeypatch,
     path: str,
     rule_id: str,
+    content_type: str,
 ) -> None:
     """A 200 response on the rule's path without the matching body must
     NOT fire the rule. This guards against false positives on generic
     SPA fallback / WAF / custom 200-OK responses that happen to share
-    the path."""
+    the path.
+
+    The content-type matches the rule's expected one (so rules that
+    require ``application/json`` via ``content_type_matchers`` are not
+    accidentally suppressed by the test's content-type alone — the
+    body matcher must do the rejecting work)."""
     sp = _sensitive_path_probe(
         path,
         status_code=200,
-        content_type="text/html",
+        content_type=content_type,
         body_snippet="<html><body>This response does not match any catalog body matcher.</body></html>",
     )
     probe_attempts = [
