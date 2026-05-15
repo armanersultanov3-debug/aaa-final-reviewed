@@ -380,6 +380,353 @@
         "apache.options_indexes",
         "apache.server_status_exposed"
       ]
+    },
+    {
+      "id": "lighttpd-devsec-mod-status-public",
+      "server_type": "lighttpd",
+      "profile": "vulnerable",
+      "source": "DevSec lighttpd-baseline and lighttpd Security wiki",
+      "source_url": "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+      "license": "DevSec baseline guidance and Lighttpd Security wiki used as context; this is a synthetic-derived fixture, not a copied recipe.",
+      "description": "Lighttpd serving mod_status / mod_dirlisting publicly without url.access-deny and without server.tag minimization.",
+      "entrypoint": "lighttpd/vulnerable/devsec-mod-status-public.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Paths and ports are placeholders. Targets rules implemented by webconf-audit for mod_status exposure and missing dir-listing controls.",
+      "references": [
+        "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+        "https://github.com/dev-sec/lighttpd-baseline"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "lighttpd.mod_status_public",
+          "severity": "medium",
+          "location_contains": "devsec-mod-status-public.conf"
+        },
+        {
+          "rule_id": "lighttpd.dir_listing_enabled",
+          "severity": "medium",
+          "location_contains": "devsec-mod-status-public.conf"
+        },
+        {
+          "rule_id": "lighttpd.url_access_deny_missing",
+          "severity": "medium",
+          "location_contains": "devsec-mod-status-public.conf"
+        },
+        {
+          "rule_id": "lighttpd.server_tag_not_blank",
+          "severity": "low",
+          "location_contains": "devsec-mod-status-public.conf"
+        },
+        {
+          "rule_id": "universal.directory_listing_enabled",
+          "severity": "medium",
+          "location_contains": "devsec-mod-status-public.conf"
+        }
+      ]
+    },
+    {
+      "id": "lighttpd-devsec-weak-tls",
+      "server_type": "lighttpd",
+      "profile": "vulnerable",
+      "source": "DevSec lighttpd-baseline and Mozilla SSL Configuration Generator counter-example",
+      "source_url": "https://github.com/dev-sec/lighttpd-baseline",
+      "license": "DevSec baseline guidance used as context; synthetic-derived fixture.",
+      "description": "Lighttpd TLS listener with a permissive cipher list, explicit UnsafeLegacyRenegotiation, and no minimum protocol pinning.",
+      "entrypoint": "lighttpd/vulnerable/devsec-weak-tls.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Certificate paths and ciphers are placeholders. Targets rules for weak cipher policy, missing protocol policy, and explicit unsafe-renegotiation.",
+      "references": [
+        "https://github.com/dev-sec/lighttpd-baseline",
+        "https://ssl-config.mozilla.org/",
+        "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_SSL"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "lighttpd.weak_ssl_cipher_list",
+          "severity": "high",
+          "location_contains": "devsec-weak-tls.conf"
+        },
+        {
+          "rule_id": "lighttpd.ssl_protocol_policy_missing_or_weak",
+          "severity": "medium",
+          "location_contains": "devsec-weak-tls.conf"
+        },
+        {
+          "rule_id": "lighttpd.ssl_insecure_renegotiation_enabled",
+          "severity": "high",
+          "location_contains": "devsec-weak-tls.conf"
+        },
+        {
+          "rule_id": "lighttpd.ssl_honor_cipher_order_missing",
+          "severity": "medium",
+          "location_contains": "devsec-weak-tls.conf"
+        },
+        {
+          "rule_id": "universal.weak_tls_ciphers",
+          "severity": "medium",
+          "location_contains": "devsec-weak-tls.conf"
+        },
+        {
+          "rule_id": "universal.missing_hsts",
+          "severity": "medium",
+          "location_contains": "devsec-weak-tls.conf"
+        }
+      ]
+    },
+    {
+      "id": "lighttpd-devsec-basic-auth-over-http",
+      "server_type": "lighttpd",
+      "profile": "vulnerable",
+      "source": "DevSec lighttpd-baseline and lighttpd Security wiki",
+      "source_url": "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+      "license": "DevSec baseline guidance and Lighttpd Security wiki used as context; synthetic-derived fixture.",
+      "description": "Lighttpd serving HTTP Basic auth on a plain-HTTP listener with WebDAV write access enabled on a public path and no error log.",
+      "entrypoint": "lighttpd/vulnerable/devsec-basic-auth-over-http.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "User file and upload paths are placeholders. Targets rules for plain-HTTP authentication, WebDAV write access, and missing logging.",
+      "references": [
+        "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security",
+        "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_ModWebDAV",
+        "https://github.com/dev-sec/lighttpd-baseline"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "lighttpd.basic_auth_over_http",
+          "severity": "medium",
+          "location_contains": "devsec-basic-auth-over-http.conf"
+        },
+        {
+          "rule_id": "lighttpd.mod_webdav_enabled",
+          "severity": "low",
+          "location_contains": "devsec-basic-auth-over-http.conf"
+        },
+        {
+          "rule_id": "lighttpd.webdav_write_access_enabled",
+          "severity": "low",
+          "location_contains": "devsec-basic-auth-over-http.conf"
+        },
+        {
+          "rule_id": "lighttpd.error_log_missing",
+          "severity": "medium",
+          "location_contains": "devsec-basic-auth-over-http.conf"
+        },
+        {
+          "rule_id": "universal.tls_required_for_authenticated_routes",
+          "severity": "high",
+          "location_contains": "devsec-basic-auth-over-http.conf"
+        }
+      ]
+    },
+    {
+      "id": "lighttpd-devsec-hardened-secure-baseline",
+      "server_type": "lighttpd",
+      "profile": "secure",
+      "source": "DevSec lighttpd-baseline, Mozilla SSL Configuration Generator, and lighttpd Security wiki",
+      "source_url": "https://github.com/dev-sec/lighttpd-baseline",
+      "license": "DevSec baseline, Mozilla generator, and Lighttpd Security wiki used as guidance; synthetic-derived fixture.",
+      "description": "Positive-control Lighttpd baseline with blank server.tag, structured access log, hardened TLS (TLS 1.2+, modern ciphers, cipher-order preference), full security-header set, sensitive-path deny list, and method allowlist.",
+      "entrypoint": "lighttpd/secure/devsec-hardened-baseline.conf",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The test asserts no high or critical findings; some medium operator-judgment defaults may remain (e.g. no-host scope deny lists). Test only requires no high/critical.",
+      "references": [
+        "https://github.com/dev-sec/lighttpd-baseline",
+        "https://ssl-config.mozilla.org/",
+        "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_Security"
+      ],
+      "expected_findings": [],
+      "expected_absent_rule_ids": [
+        "lighttpd.weak_ssl_cipher_list",
+        "lighttpd.ssl_protocol_policy_missing_or_weak",
+        "lighttpd.ssl_insecure_renegotiation_enabled",
+        "lighttpd.dir_listing_enabled",
+        "lighttpd.mod_status_public",
+        "lighttpd.basic_auth_over_http",
+        "lighttpd.server_tag_not_blank"
+      ]
+    },
+    {
+      "id": "iis-cis-debug-detailed-errors",
+      "server_type": "iis",
+      "profile": "vulnerable",
+      "source": "CIS Microsoft IIS 10 Benchmark v1.2.1 §3.1 / §3.7 / §3.8 and Microsoft Learn IIS error-handling docs",
+      "source_url": "https://www.cisecurity.org/benchmark/microsoft_iis",
+      "license": "CIS Benchmark used as a hardening reference; synthetic-derived fixture, not a copied recipe.",
+      "description": "IIS web.config exposing ASP.NET compilation debug, detailed HTTP errors, customErrors=Off, trace, directoryBrowse, and retail=false.",
+      "entrypoint": "iis/vulnerable/cis-debug-detailed-errors.config",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Paths and identifiers are placeholders. Targets rules for IIS debug / detailed-error / trace exposure.",
+      "references": [
+        "https://www.cisecurity.org/benchmark/microsoft_iis",
+        "https://learn.microsoft.com/iis/configuration/system.webserver/httperrors/",
+        "https://learn.microsoft.com/iis/configuration/system.webserver/directorybrowse"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "iis.compilation_debug_enabled",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        },
+        {
+          "rule_id": "iis.http_errors_detailed",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        },
+        {
+          "rule_id": "iis.custom_errors_off",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        },
+        {
+          "rule_id": "iis.trace_enabled",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        },
+        {
+          "rule_id": "iis.directory_browse_enabled",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        },
+        {
+          "rule_id": "iis.deployment_retail_not_enabled",
+          "severity": "medium",
+          "location_contains": "cis-debug-detailed-errors.config"
+        }
+      ]
+    },
+    {
+      "id": "iis-cis-weak-request-filtering",
+      "server_type": "iis",
+      "profile": "vulnerable",
+      "source": "CIS Microsoft IIS 10 Benchmark v1.2.1 §4.2 / §4.3 / §4.7 / §4.9 and Microsoft Learn requestFiltering docs",
+      "source_url": "https://www.cisecurity.org/benchmark/microsoft_iis",
+      "license": "CIS Benchmark used as a hardening reference; synthetic-derived fixture, not a copied recipe.",
+      "description": "IIS requestFiltering left in a maximally-permissive state: double escape allowed, high-bit allowed, unlisted extensions allowed, oversized limits, and removeServerHeader disabled.",
+      "entrypoint": "iis/vulnerable/cis-weak-request-filtering.config",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Limits are intentionally oversized to trip the threshold rules. Targets the requestFiltering rule family.",
+      "references": [
+        "https://www.cisecurity.org/benchmark/microsoft_iis",
+        "https://learn.microsoft.com/iis/configuration/system.webserver/security/requestfiltering/"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "iis.request_filtering_allow_double_escaping",
+          "severity": "medium",
+          "location_contains": "cis-weak-request-filtering.config"
+        },
+        {
+          "rule_id": "iis.file_extensions_allow_unlisted",
+          "severity": "medium",
+          "location_contains": "cis-weak-request-filtering.config"
+        },
+        {
+          "rule_id": "iis.request_filtering_max_url_too_high",
+          "severity": "low",
+          "location_contains": "cis-weak-request-filtering.config"
+        },
+        {
+          "rule_id": "iis.request_filtering_max_query_string_too_high",
+          "severity": "low",
+          "location_contains": "cis-weak-request-filtering.config"
+        },
+        {
+          "rule_id": "iis.request_filtering_remove_server_header_disabled",
+          "severity": "low",
+          "location_contains": "cis-weak-request-filtering.config"
+        }
+      ]
+    },
+    {
+      "id": "iis-cis-anonymous-everything",
+      "server_type": "iis",
+      "profile": "vulnerable",
+      "source": "CIS Microsoft IIS 10 Benchmark v1.2.1 §1.4 / §2.1 / §2.5 / §2.6 / §2.7 and Microsoft Learn IIS authentication docs",
+      "source_url": "https://www.cisecurity.org/benchmark/microsoft_iis",
+      "license": "CIS Benchmark used as a hardening reference; synthetic-derived fixture, not a copied recipe.",
+      "description": "IIS web.config with anonymous auth enabled under a specific privileged user, basic auth over plain HTTP, forms auth without requireSSL, MD5 machineKey, and an allow-anonymous authorization rule.",
+      "entrypoint": "iis/vulnerable/cis-anonymous-everything.config",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "Account names and credentials are placeholders. Targets the authentication / authorization rule family.",
+      "references": [
+        "https://www.cisecurity.org/benchmark/microsoft_iis",
+        "https://learn.microsoft.com/iis/configuration/system.webserver/security/authentication/",
+        "https://learn.microsoft.com/dotnet/api/system.web.configuration.machinekeysection"
+      ],
+      "expected_findings": [
+        {
+          "rule_id": "iis.anonymous_auth_enabled",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.anonymous_auth_uses_specific_user",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.basic_auth_without_ssl",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.authorization_allows_anonymous_users",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.forms_auth_require_ssl_missing",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.forms_auth_protection_unsafe",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "iis.machine_key_legacy_validation_weak",
+          "severity": "medium",
+          "location_contains": "cis-anonymous-everything.config"
+        },
+        {
+          "rule_id": "universal.tls_required_for_authenticated_routes",
+          "severity": "high",
+          "location_contains": "cis-anonymous-everything.config"
+        }
+      ]
+    },
+    {
+      "id": "iis-cis-hardened-secure-baseline",
+      "server_type": "iis",
+      "profile": "secure",
+      "source": "CIS Microsoft IIS 10 Benchmark v1.2.1 (transport-encryption + authentication + request-filtering chapters) and OWASP Secure Headers Project",
+      "source_url": "https://www.cisecurity.org/benchmark/microsoft_iis",
+      "license": "CIS Benchmark and OWASP guidance used as references; synthetic-derived fixture.",
+      "description": "Positive-control IIS baseline with anonymous auth disabled, debug / trace / detailed errors disabled, HSTS configured, SSL required, request filtering tightened, server header removed, and retail mode enabled.",
+      "entrypoint": "iis/secure/cis-hardened-baseline.config",
+      "synthetic_or_original": "synthetic-derived",
+      "notes_about_modifications": "The test asserts no high or critical findings; some medium hardening heuristics may still evolve over time.",
+      "references": [
+        "https://www.cisecurity.org/benchmark/microsoft_iis",
+        "https://owasp.org/www-project-secure-headers/",
+        "https://learn.microsoft.com/iis/configuration/"
+      ],
+      "expected_findings": [],
+      "expected_absent_rule_ids": [
+        "iis.compilation_debug_enabled",
+        "iis.http_errors_detailed",
+        "iis.custom_errors_off",
+        "iis.trace_enabled",
+        "iis.directory_browse_enabled",
+        "iis.anonymous_auth_enabled",
+        "iis.basic_auth_without_ssl",
+        "iis.authorization_allows_anonymous_users",
+        "iis.deployment_retail_not_enabled",
+        "iis.request_filtering_allow_double_escaping",
+        "iis.file_extensions_allow_unlisted",
+        "iis.request_filtering_remove_server_header_disabled",
+        "iis.missing_hsts_header"
+      ]
     }
   ]
 }

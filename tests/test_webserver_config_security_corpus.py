@@ -8,6 +8,8 @@ from typing import Any
 import pytest
 
 from webconf_audit.local.apache import analyze_apache_config
+from webconf_audit.local.iis import analyze_iis_config
+from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
 from webconf_audit.models import AnalysisResult, Finding
 
@@ -56,6 +58,12 @@ def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
         return analyze_nginx_config(str(entrypoint))
     if server_type == "apache":
         return analyze_apache_config(str(entrypoint))
+    if server_type == "lighttpd":
+        return analyze_lighttpd_config(str(entrypoint))
+    if server_type == "iis":
+        # Disable live SChannel registry enrichment so the security
+        # corpus stays deterministic across CI hosts.
+        return analyze_iis_config(str(entrypoint), use_tls_registry=False)
     raise AssertionError(f"unsupported security corpus server_type: {server_type!r}")
 
 
@@ -94,6 +102,8 @@ def test_security_corpus_metadata_covers_vulnerable_and_secure_cases() -> None:
     assert profile_counts["secure"] >= 2
     assert server_counts["nginx"] >= 4
     assert server_counts["apache"] >= 4
+    assert server_counts["lighttpd"] >= 3
+    assert server_counts["iis"] >= 3
 
 
 @pytest.mark.parametrize("case", _CASES, ids=_case_id)
