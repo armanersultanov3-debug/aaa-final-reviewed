@@ -1,3 +1,5 @@
+"""nginx.missing_server_name -- Missing server_name directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

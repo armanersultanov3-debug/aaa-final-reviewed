@@ -1,3 +1,5 @@
+"""nginx.server_tokens_on -- Server tokens enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

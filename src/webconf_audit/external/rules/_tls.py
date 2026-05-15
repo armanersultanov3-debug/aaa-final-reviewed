@@ -1,3 +1,8 @@
+"""Internal helpers for the tls rule family.
+
+Location: ``src/webconf_audit/external/rules/_tls.py``.
+"""
+
 from __future__ import annotations
 
 import ipaddress

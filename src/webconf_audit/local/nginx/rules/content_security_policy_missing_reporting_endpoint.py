@@ -1,3 +1,5 @@
+"""nginx.content_security_policy_missing_reporting_endpoint -- Content-Security-Policy missing reporting endpoint."""
+
 from __future__ import annotations
 
 from webconf_audit.csp import content_security_policy_has_reporting_endpoint

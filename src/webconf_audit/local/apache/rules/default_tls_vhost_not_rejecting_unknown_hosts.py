@@ -1,3 +1,8 @@
+"""Implements rule ``apache.default_tls_vhost_not_rejecting_unknown_hosts``.
+
+Location: ``src/webconf_audit/local/apache/rules/default_tls_vhost_not_rejecting_unknown_hosts.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

@@ -1,3 +1,8 @@
+"""Implements rule ``iis.hsts_header_unsafe``.
+
+Location: ``src/webconf_audit/local/iis/rules/hsts_header_unsafe.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.hsts_policy import hsts_policy_reason

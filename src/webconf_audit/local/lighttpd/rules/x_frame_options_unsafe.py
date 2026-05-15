@@ -1,3 +1,5 @@
+"""lighttpd.x_frame_options_unsafe -- X-Frame-Options header is weak."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

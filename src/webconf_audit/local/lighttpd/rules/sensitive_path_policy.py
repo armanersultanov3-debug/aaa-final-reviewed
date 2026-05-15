@@ -1,3 +1,5 @@
+"""lighttpd.backup_temp_files_access_not_denied -- Backup and temporary files are not denied."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable

@@ -1,3 +1,13 @@
+"""Lighttpd configuration tokenizer and parser.
+
+Produces a :class:`LighttpdConfigAst` of assignments, conditional
+``$HTTP[...]`` / ``$SERVER[...]`` blocks, and ``else``/``else if``
+chains with per-token source spans. The parser is intentionally
+conservative about exotic condition operators; uncovered shapes fall
+into :class:`LighttpdParseError` so the rule layer never sees
+ambiguous input.
+"""
+
 from __future__ import annotations
 
 import re

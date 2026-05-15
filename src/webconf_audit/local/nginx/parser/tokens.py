@@ -1,3 +1,10 @@
+"""Nginx tokenizer token types and the :class:`Token` data model.
+
+Shared between :class:`NginxTokenizer` and :class:`NginxParser` so
+tests and helpers can construct synthetic tokens with the same
+source-span shape the production parser sees.
+"""
+
 from __future__ import annotations
 
 from enum import Enum

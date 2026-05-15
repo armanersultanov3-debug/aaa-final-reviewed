@@ -1,3 +1,5 @@
+"""apache.allowoverride_all_in_directory -- Directory block leaves AllowOverride too broad."""
+
 from __future__ import annotations
 
 from pathlib import Path

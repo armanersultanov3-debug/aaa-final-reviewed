@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.crlf_in_add_header``.
+
+Location: ``src/webconf_audit/local/nginx/rules/crlf_in_add_header.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

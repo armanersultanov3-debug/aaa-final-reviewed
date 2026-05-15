@@ -1,3 +1,5 @@
+"""apache.options_not_none_in_root_directory -- OS-root Directory scope does not enforce Options None."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

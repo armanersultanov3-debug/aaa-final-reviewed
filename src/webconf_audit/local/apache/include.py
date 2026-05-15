@@ -1,3 +1,10 @@
+"""Apache ``Include`` / ``IncludeOptional`` directive resolution.
+
+Expands glob-style include directives into the parsed AST and records
+the load context (file edges, cycles, missing files) so downstream
+rules see the effective merged configuration with source traceability.
+"""
+
 from __future__ import annotations
 
 import glob

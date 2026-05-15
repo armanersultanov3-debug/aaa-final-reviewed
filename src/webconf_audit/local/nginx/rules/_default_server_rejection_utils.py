@@ -1,3 +1,8 @@
+"""Internal helpers for the default server rejection utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_default_server_rejection_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, find_child_directives

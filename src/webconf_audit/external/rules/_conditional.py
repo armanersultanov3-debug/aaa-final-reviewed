@@ -1,3 +1,8 @@
+"""Internal helpers for the conditional rule family.
+
+Location: ``src/webconf_audit/external/rules/_conditional.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

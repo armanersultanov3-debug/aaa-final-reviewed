@@ -1,3 +1,5 @@
+"""apache.limit_request_field_size_too_high -- LimitRequestFieldSize is too high."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

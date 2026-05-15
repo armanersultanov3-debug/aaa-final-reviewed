@@ -1,3 +1,11 @@
+"""IIS XML configuration parser.
+
+Uses :mod:`defusedxml` to safely ingest ``web.config`` /
+``applicationHost.config`` / ``machine.config`` files and produces a
+structured :class:`IISConfigDocument` of sections, children, and
+``<location>`` overlays with full XML-path and line traceability.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -1,3 +1,8 @@
+"""Implements rules: ``iis.forms_auth_protection_unsafe``, ``iis.credentials_password_format_clear``, ``iis.credentials_stored_in_config``, ``iis.http_cookies_http_only_disabled``, ``iis.http_cookies_require_ssl_missing``, ``iis.deployment_retail_not_enabled``, ``iis.trust_level_full``, ``iis.machine_key_validation_weak``, ``iis.machine_key_legacy_validation_weak``.
+
+Location: ``src/webconf_audit/local/iis/rules/system_web_policy.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

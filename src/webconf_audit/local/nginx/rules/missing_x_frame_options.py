@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.missing_x_frame_options``.
+
+Location: ``src/webconf_audit/local/nginx/rules/missing_x_frame_options.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.header_policy import (

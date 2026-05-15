@@ -1,3 +1,8 @@
+"""Internal helpers for the log policy utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_log_policy_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator

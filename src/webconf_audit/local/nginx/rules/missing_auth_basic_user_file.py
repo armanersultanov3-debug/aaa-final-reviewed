@@ -1,3 +1,5 @@
+"""nginx.missing_auth_basic_user_file -- Missing auth_basic_user_file directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

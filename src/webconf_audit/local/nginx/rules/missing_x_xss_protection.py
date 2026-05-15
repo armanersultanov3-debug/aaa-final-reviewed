@@ -1,3 +1,5 @@
+"""nginx.missing_x_xss_protection -- Missing X-XSS-Protection header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

@@ -1,3 +1,5 @@
+"""nginx.missing_ssl_certificate_key -- Missing ssl_certificate_key directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

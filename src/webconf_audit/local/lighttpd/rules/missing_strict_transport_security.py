@@ -1,3 +1,5 @@
+"""lighttpd.missing_strict_transport_security -- Strict-Transport-Security header missing."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.conditions import LighttpdRequestContext

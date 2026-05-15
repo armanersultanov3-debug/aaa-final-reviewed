@@ -1,3 +1,5 @@
+"""nginx.missing_limit_conn -- Missing limit_conn directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

@@ -1,3 +1,5 @@
+"""apache.htaccess_enables_directory_listing -- .htaccess enables directory listing."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import HtaccessFile

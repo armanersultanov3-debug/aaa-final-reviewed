@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.http_method_policy_allows_unapproved``.
+
+Location: ``src/webconf_audit/local/nginx/rules/http_method_policy_allows_unapproved.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes

@@ -1,3 +1,5 @@
+"""lighttpd.mod_webdav_enabled -- WebDAV module loaded."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

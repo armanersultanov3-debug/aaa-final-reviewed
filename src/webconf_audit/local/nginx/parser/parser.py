@@ -1,3 +1,11 @@
+"""Nginx configuration parser.
+
+Consumes the token stream produced by :class:`NginxTokenizer` and
+emits a :class:`ConfigAst` of nested blocks and directives with
+per-token source spans. Raises :class:`NginxParseError` (with file
+path + line) on malformed input.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, SourceSpan

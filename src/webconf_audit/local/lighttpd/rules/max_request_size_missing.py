@@ -1,3 +1,5 @@
+"""lighttpd.max_request_size_missing -- Maximum request size not configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.parser import LighttpdConfigAst

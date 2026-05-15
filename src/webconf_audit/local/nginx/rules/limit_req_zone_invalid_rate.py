@@ -1,3 +1,5 @@
+"""nginx.limit_req_zone_invalid_rate -- Invalid limit_req_zone rate."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

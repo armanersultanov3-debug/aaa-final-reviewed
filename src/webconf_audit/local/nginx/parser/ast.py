@@ -1,3 +1,10 @@
+"""Nginx AST node types and traversal helpers.
+
+Defines :class:`ConfigAst`, :class:`BlockNode`, :class:`DirectiveNode`,
+the source-span dataclass, and the depth-first iteration utilities
+that every Nginx rule uses to walk the parsed configuration.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

@@ -1,3 +1,5 @@
+"""lighttpd.ssl_compression_enabled -- Lighttpd TLS compression is enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

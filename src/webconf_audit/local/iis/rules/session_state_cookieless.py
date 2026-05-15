@@ -1,3 +1,5 @@
+"""iis.session_state_cookieless -- Cookieless session state enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

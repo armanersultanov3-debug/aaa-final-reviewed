@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.sitewide_http_method_policy_missing``.
+
+Location: ``src/webconf_audit/local/nginx/rules/sitewide_http_method_policy_missing.py``.
+"""
+
 from __future__ import annotations
 
 import re

@@ -1,3 +1,5 @@
+"""nginx.missing_limit_req -- Missing limit_req directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

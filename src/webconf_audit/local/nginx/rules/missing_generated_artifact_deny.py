@@ -1,3 +1,5 @@
+"""nginx.missing_generated_artifact_deny -- Generated artifacts not denied."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

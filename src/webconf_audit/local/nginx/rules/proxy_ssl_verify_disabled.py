@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.proxy_ssl_verify_disabled``.
+
+Location: ``src/webconf_audit/local/nginx/rules/proxy_ssl_verify_disabled.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst

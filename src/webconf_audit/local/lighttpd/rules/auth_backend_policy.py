@@ -1,3 +1,5 @@
+"""lighttpd.auth_backend_missing -- Authentication backend missing."""
+
 from __future__ import annotations
 
 from collections.abc import Callable

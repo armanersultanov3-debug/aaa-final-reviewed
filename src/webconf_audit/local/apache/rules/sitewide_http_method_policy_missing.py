@@ -1,3 +1,8 @@
+"""Implements rule ``apache.sitewide_http_method_policy_missing``.
+
+Location: ``src/webconf_audit/local/apache/rules/sitewide_http_method_policy_missing.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

@@ -34,6 +34,20 @@ def analyze_lighttpd_config(
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
+    """Run the full Lighttpd local-analysis pipeline against ``config_path``.
+
+    Resolves ``include`` directives (and, when ``execute_shell=True``,
+    ``include_shell``), expands ``var.*`` references, builds the
+    effective conditional-scope view, then runs Lighttpd-specific rules
+    and universal rules. ``host`` narrows conditional evaluation to a
+    single request context for targeted analysis; when omitted, the
+    no-host model is used and conditional-only signals are surfaced
+    conservatively.
+
+    Set ``enable_policy_review=True`` to additionally include rules
+    tagged ``policy-review`` (operator-judgment items surfaced via the
+    ``--enable-policy-review`` CLI flag).
+    """
     config_path_str = str(config_path)
     path = Path(config_path_str)
 

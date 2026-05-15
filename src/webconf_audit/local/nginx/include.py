@@ -1,3 +1,11 @@
+"""Nginx ``include`` directive resolution.
+
+Expands glob-style includes into the parsed AST, detects cycles,
+records the load context, and emits analysis issues for missing
+files so downstream rules see the effective merged configuration
+with full source traceability.
+"""
+
 from __future__ import annotations
 
 import glob

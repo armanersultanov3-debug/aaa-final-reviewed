@@ -1,3 +1,5 @@
+"""nginx.missing_ssl_ciphers -- Missing ssl_ciphers directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

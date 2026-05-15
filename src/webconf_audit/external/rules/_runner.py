@@ -1,3 +1,8 @@
+"""Internal helpers for the runner rule family.
+
+Location: ``src/webconf_audit/external/rules/_runner.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

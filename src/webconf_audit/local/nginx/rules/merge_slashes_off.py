@@ -1,3 +1,5 @@
+"""nginx.merge_slashes_off -- Merge slashes disabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

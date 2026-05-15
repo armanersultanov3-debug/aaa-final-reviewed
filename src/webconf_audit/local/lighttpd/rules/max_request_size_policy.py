@@ -1,3 +1,5 @@
+"""lighttpd.max_request_size_unlimited -- Maximum request size is unlimited."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

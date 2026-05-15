@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.ssl_session_cache_missing``.
+
+Location: ``src/webconf_audit/local/nginx/rules/ssl_session_cache_missing.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

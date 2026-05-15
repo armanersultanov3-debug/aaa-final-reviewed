@@ -1,3 +1,5 @@
+"""lighttpd.max_connections_missing -- Maximum connections not configured."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.parser import LighttpdConfigAst

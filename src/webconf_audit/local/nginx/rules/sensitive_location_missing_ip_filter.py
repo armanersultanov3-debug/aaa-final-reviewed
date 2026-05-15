@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.sensitive_location_missing_ip_filter``.
+
+Location: ``src/webconf_audit/local/nginx/rules/sensitive_location_missing_ip_filter.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

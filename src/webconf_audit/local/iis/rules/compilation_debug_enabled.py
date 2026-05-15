@@ -1,3 +1,5 @@
+"""iis.compilation_debug_enabled -- ASP.NET compilation debug mode enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

@@ -1,3 +1,8 @@
+"""Internal helpers for the block policy utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_block_policy_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

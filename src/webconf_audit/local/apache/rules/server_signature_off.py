@@ -1,3 +1,5 @@
+"""apache.server_signature_not_off -- ServerSignature not set to Off."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

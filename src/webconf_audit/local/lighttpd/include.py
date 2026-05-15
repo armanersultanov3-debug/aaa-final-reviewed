@@ -1,3 +1,11 @@
+"""Lighttpd ``include`` / ``include_shell`` resolution.
+
+Expands glob-style includes and, when explicitly opted into via
+``--execute-shell``, runs ``include_shell`` commands. By default
+shell-style includes are skipped with a warning so static analysis
+stays safe against untrusted configs.
+"""
+
 from __future__ import annotations
 
 import glob

@@ -1,3 +1,5 @@
+"""nginx.ssl_stapling_missing_resolver -- SSL stapling enabled without resolver."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

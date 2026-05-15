@@ -1,3 +1,8 @@
+"""Implements rule ``apache.error_log_missing``.
+
+Location: ``src/webconf_audit/local/apache/rules/error_log_missing.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

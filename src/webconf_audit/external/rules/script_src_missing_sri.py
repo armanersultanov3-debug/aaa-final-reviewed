@@ -1,3 +1,8 @@
+"""Implements rule ``external.script_src_missing_sri``.
+
+Location: ``src/webconf_audit/external/rules/script_src_missing_sri.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

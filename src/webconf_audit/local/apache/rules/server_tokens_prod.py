@@ -1,3 +1,5 @@
+"""apache.server_tokens_not_prod -- ServerTokens not set to Prod."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

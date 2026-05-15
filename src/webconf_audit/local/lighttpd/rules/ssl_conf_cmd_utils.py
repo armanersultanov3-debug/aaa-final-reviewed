@@ -1,3 +1,8 @@
+"""Rule module: ssl conf cmd utils.
+
+Location: ``src/webconf_audit/local/lighttpd/rules/ssl_conf_cmd_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.openssl_conf_policy import ssl_conf_option_state

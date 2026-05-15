@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.proxy_pass_user_controlled_destination``.
+
+Location: ``src/webconf_audit/local/nginx/rules/proxy_pass_user_controlled_destination.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

@@ -1,3 +1,5 @@
+"""apache.server_status_exposed -- server-status endpoint exposed."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

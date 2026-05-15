@@ -1,3 +1,5 @@
+"""lighttpd.server_tag_not_blank -- Server banner not suppressed."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.effective import (

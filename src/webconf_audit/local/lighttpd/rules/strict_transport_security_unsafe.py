@@ -1,3 +1,5 @@
+"""lighttpd.strict_transport_security_unsafe -- Strict-Transport-Security header is weak."""
+
 from __future__ import annotations
 
 from webconf_audit.finding_factory import finding_from_rule

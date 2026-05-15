@@ -1,3 +1,8 @@
+"""Implements rule ``apache.basic_auth_over_http``.
+
+Location: ``src/webconf_audit/local/apache/rules/basic_auth_over_http.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import (

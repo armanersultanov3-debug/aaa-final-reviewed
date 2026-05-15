@@ -1,3 +1,5 @@
+"""nginx.missing_send_timeout -- Missing send_timeout directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, iter_nodes

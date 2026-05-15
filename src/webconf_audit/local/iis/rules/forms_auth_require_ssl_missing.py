@@ -1,3 +1,5 @@
+"""iis.forms_auth_require_ssl_missing -- Forms authentication does not require SSL."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

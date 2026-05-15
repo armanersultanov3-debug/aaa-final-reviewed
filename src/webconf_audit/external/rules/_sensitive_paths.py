@@ -1,3 +1,8 @@
+"""Internal helpers for the sensitive paths rule family.
+
+Location: ``src/webconf_audit/external/rules/_sensitive_paths.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

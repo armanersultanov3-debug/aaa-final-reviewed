@@ -1,3 +1,8 @@
+"""Rule module: directive value utils.
+
+Location: ``src/webconf_audit/local/lighttpd/rules/directive_value_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

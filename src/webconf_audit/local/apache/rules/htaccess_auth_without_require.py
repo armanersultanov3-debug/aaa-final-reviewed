@@ -1,3 +1,5 @@
+"""apache.htaccess_auth_without_require -- .htaccess configures auth without Require."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import HtaccessFile

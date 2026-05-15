@@ -1,3 +1,8 @@
+"""Implements rule ``apache.http_protocol_options_unsafe``.
+
+Location: ``src/webconf_audit/local/apache/rules/http_protocol_options_unsafe.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

@@ -1,3 +1,8 @@
+"""Rule module: server directive utils.
+
+Location: ``src/webconf_audit/local/apache/rules/server_directive_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterator

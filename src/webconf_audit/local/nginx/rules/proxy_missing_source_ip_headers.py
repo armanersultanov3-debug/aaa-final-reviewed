@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.proxy_missing_source_ip_headers``.
+
+Location: ``src/webconf_audit/local/nginx/rules/proxy_missing_source_ip_headers.py``.
+"""
+
 from __future__ import annotations
 
 from typing import NamedTuple

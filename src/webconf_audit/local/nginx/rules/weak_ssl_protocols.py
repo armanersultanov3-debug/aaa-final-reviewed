@@ -1,3 +1,5 @@
+"""nginx.weak_ssl_protocols -- Weak SSL/TLS protocols enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

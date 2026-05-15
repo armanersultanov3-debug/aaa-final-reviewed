@@ -1,3 +1,5 @@
+"""lighttpd.content_security_policy_unsafe -- Content-Security-Policy is weak."""
+
 from __future__ import annotations
 
 from webconf_audit.csp import content_security_policy_directives

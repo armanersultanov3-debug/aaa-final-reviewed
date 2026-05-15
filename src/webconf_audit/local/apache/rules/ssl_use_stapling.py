@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_use_stapling_not_on``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_use_stapling.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

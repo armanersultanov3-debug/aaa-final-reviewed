@@ -1,3 +1,5 @@
+"""nginx.missing_limit_req_zone -- Missing limit_req_zone directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

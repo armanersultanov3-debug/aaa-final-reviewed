@@ -1,3 +1,8 @@
+"""Implements rules: ``external.tls_secure_renegotiation_not_observed``, ``external.tls_negotiated_compression``, ``external.tls_aead_cipher_not_negotiated``.
+
+Location: ``src/webconf_audit/external/rules/tls_handshake_probes.py``.
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

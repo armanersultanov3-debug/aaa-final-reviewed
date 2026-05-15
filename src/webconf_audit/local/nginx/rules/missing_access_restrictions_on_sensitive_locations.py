@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.missing_access_restrictions_on_sensitive_locations``.
+
+Location: ``src/webconf_audit/local/nginx/rules/missing_access_restrictions_on_sensitive_locations.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

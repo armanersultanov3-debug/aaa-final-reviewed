@@ -1,3 +1,8 @@
+"""Implements rule ``apache.x_frame_options_unsafe``.
+
+Location: ``src/webconf_audit/local/apache/rules/x_frame_options_unsafe.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

@@ -1,3 +1,5 @@
+"""nginx.missing_error_log -- Missing error_log directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

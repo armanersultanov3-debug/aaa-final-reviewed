@@ -1,3 +1,8 @@
+"""Rule module: redirect scope utils.
+
+Location: ``src/webconf_audit/local/iis/rules/redirect_scope_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

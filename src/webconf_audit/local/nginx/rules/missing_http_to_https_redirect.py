@@ -1,3 +1,5 @@
+"""nginx.missing_http_to_https_redirect -- HTTP server block does not redirect to HTTPS."""
+
 from __future__ import annotations
 
 from urllib.parse import urlparse

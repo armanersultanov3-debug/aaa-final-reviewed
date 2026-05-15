@@ -1,3 +1,5 @@
+"""apache.keepalive_timeout_too_high -- KeepAliveTimeout is too high."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

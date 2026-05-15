@@ -1,3 +1,5 @@
+"""nginx.missing_permissions_policy -- Missing Permissions-Policy header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

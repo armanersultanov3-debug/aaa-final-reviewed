@@ -1,3 +1,11 @@
+"""Apache ``.htaccess`` discovery and parsing.
+
+Walks ``Directory`` blocks and ``DocumentRoot`` paths to find
+``.htaccess`` files, parses their contents, and respects the effective
+``AllowOverride`` filtering so the ``htaccess_*`` rule family only sees
+directives the parent config actually permits.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

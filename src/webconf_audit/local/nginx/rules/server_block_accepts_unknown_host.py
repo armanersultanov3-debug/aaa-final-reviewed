@@ -1,3 +1,8 @@
+"""Implements rule ``nginx.server_block_accepts_unknown_host``.
+
+Location: ``src/webconf_audit/local/nginx/rules/server_block_accepts_unknown_host.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode, find_child_directives

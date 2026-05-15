@@ -1,3 +1,5 @@
+"""nginx.missing_x_content_type_options -- Missing X-Content-Type-Options header."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, DirectiveNode

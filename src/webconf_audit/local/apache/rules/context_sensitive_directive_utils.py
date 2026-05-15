@@ -1,3 +1,8 @@
+"""Rule module: context sensitive directive utils.
+
+Location: ``src/webconf_audit/local/apache/rules/context_sensitive_directive_utils.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

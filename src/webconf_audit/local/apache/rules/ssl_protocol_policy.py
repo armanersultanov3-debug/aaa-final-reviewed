@@ -1,3 +1,5 @@
+"""apache.ssl_protocol_missing_or_weak -- Apache explicitly enables legacy TLS versions."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

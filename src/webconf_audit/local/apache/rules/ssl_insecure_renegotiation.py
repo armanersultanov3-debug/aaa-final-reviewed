@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_insecure_renegotiation_enabled``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_insecure_renegotiation.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

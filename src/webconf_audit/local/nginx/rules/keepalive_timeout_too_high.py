@@ -1,3 +1,5 @@
+"""nginx.keepalive_timeout_too_high -- keepalive_timeout is too high."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst

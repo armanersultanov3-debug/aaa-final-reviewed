@@ -1,3 +1,8 @@
+"""Rule module: tls listener utils.
+
+Location: ``src/webconf_audit/local/nginx/rules/tls_listener_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, DirectiveNode, find_child_directives

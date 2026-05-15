@@ -1,3 +1,8 @@
+"""Internal helpers for the vhost rejection utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_vhost_rejection_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext

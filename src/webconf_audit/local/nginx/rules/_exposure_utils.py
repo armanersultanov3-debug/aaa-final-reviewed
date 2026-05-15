@@ -1,3 +1,8 @@
+"""Internal helpers for the exposure utils rule family.
+
+Location: ``src/webconf_audit/local/nginx/rules/_exposure_utils.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

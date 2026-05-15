@@ -1,3 +1,5 @@
+"""iis.http_errors_detailed -- Detailed HTTP errors enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

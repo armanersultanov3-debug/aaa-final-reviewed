@@ -1,3 +1,5 @@
+"""iis.cgi_handler_enabled -- CGI handler mapping enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

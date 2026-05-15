@@ -1,3 +1,8 @@
+"""Implements rules: ``apache.missing_hsts_header``, ``apache.hsts_header_unsafe``.
+
+Location: ``src/webconf_audit/local/apache/rules/hsts_header_policy.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.hsts_policy import hsts_policy_reason

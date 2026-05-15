@@ -1,3 +1,5 @@
+"""nginx.missing_http2_on_tls_listener -- TLS listener missing http2 parameter."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import (

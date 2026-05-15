@@ -1,3 +1,5 @@
+"""iis.http_runtime_version_header_enabled -- ASP.NET version header enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

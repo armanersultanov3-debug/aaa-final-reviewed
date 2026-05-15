@@ -1,3 +1,8 @@
+"""Implements rule ``apache.missing_http_method_restrictions``.
+
+Location: ``src/webconf_audit/local/apache/rules/missing_http_method_restrictions.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import (

@@ -1,3 +1,5 @@
+"""apache.limit_request_line_too_high -- LimitRequestLine is too high."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

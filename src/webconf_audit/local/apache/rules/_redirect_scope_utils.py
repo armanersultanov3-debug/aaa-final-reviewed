@@ -1,3 +1,8 @@
+"""Internal helpers for the redirect scope utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_redirect_scope_utils.py``.
+"""
+
 from __future__ import annotations
 
 from urllib.parse import urlparse

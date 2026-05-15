@@ -1,3 +1,5 @@
+"""lighttpd.basic_auth_over_http -- Basic authentication is enabled without SSL."""
+
 from __future__ import annotations
 
 import re

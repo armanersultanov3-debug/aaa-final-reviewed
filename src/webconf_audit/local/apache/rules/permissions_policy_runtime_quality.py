@@ -1,3 +1,8 @@
+"""Implements rule ``apache.permissions_policy_runtime_quality``.
+
+Location: ``src/webconf_audit/local/apache/rules/permissions_policy_runtime_quality.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.header_policy import permissions_policy_is_safe

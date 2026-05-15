@@ -1,3 +1,5 @@
+"""iis.trace_enabled -- ASP.NET trace enabled."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig

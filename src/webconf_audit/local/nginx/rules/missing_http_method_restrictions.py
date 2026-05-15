@@ -1,3 +1,5 @@
+"""nginx.missing_http_method_restrictions -- Missing HTTP method restrictions."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes

@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_proxy_verify_not_required``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_proxy_verify_disabled.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

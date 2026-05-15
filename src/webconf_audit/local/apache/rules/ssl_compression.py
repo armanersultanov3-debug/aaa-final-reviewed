@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_compression_enabled``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_compression.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst

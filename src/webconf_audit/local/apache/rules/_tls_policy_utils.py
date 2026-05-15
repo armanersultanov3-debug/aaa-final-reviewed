@@ -1,3 +1,8 @@
+"""Internal helpers for the tls policy utils rule family.
+
+Location: ``src/webconf_audit/local/apache/rules/_tls_policy_utils.py``.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

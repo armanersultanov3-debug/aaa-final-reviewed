@@ -1,3 +1,5 @@
+"""lighttpd.mod_status_public -- Server status endpoint publicly accessible."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.effective import (

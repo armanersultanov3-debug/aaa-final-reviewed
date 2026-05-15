@@ -1,3 +1,8 @@
+"""Implements rule ``apache.missing_x_frame_options_header``.
+
+Location: ``src/webconf_audit/local/apache/rules/missing_x_frame_options_header.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.header_policy import content_security_policy_has_frame_ancestors

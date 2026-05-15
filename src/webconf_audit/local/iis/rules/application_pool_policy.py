@@ -1,3 +1,8 @@
+"""Implements rules: ``iis.application_pool_identity_not_application_pool_identity``, ``iis.sites_share_application_pool``.
+
+Location: ``src/webconf_audit/local/iis/rules/application_pool_policy.py``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

@@ -1,3 +1,10 @@
+"""Shared HSTS (Strict-Transport-Security) policy helpers.
+
+Centralises the minimum ``max-age`` value and the policy-strength
+evaluation used by both local and external HSTS rules so the wording
+of "weak HSTS" stays consistent across server families.
+"""
+
 from __future__ import annotations
 
 import re

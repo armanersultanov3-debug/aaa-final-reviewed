@@ -1,3 +1,5 @@
+"""nginx.log_format_missing_fields -- log_format misses detailed audit fields."""
+
 from __future__ import annotations
 
 import re

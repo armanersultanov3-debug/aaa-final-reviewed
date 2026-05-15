@@ -1,3 +1,11 @@
+"""Cookie header parsing helpers for external probes.
+
+Splits ``Set-Cookie`` response headers into structured tokens so the
+external cookie-attribute rules can reason about ``Secure``, ``HttpOnly``,
+``SameSite``, and the ``__Host-``/``__Secure-`` browser prefix contracts
+without re-implementing the parser in every rule.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

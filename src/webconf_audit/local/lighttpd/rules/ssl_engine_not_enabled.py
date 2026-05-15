@@ -1,3 +1,5 @@
+"""lighttpd.ssl_engine_not_enabled -- SSL engine not enabled for HTTPS port."""
+
 from __future__ import annotations
 
 from webconf_audit.local.lighttpd.effective import (

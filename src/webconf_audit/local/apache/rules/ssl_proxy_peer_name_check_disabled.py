@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ssl_proxy_peer_name_check_disabled``.
+
+Location: ``src/webconf_audit/local/apache/rules/ssl_proxy_peer_name_check_disabled.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.effective import (

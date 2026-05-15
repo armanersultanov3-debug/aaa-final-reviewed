@@ -1,3 +1,5 @@
+"""apache.allowoverride_not_none -- Directory scope allows .htaccess overrides."""
+
 from __future__ import annotations
 
 from pathlib import Path

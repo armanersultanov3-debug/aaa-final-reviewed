@@ -1,3 +1,8 @@
+"""Implements rule ``apache.http_method_policy_allows_unapproved``.
+
+Location: ``src/webconf_audit/local/apache/rules/http_method_policy_unsafe.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import (

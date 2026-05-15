@@ -1,3 +1,5 @@
+"""apache.file_etag_inodes -- FileETag includes inode data."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import (

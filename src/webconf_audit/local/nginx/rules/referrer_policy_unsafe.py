@@ -1,3 +1,5 @@
+"""nginx.referrer_policy_unsafe -- Referrer-Policy is weak."""
+
 from __future__ import annotations
 
 from webconf_audit.header_policy import referrer_policy_is_safe

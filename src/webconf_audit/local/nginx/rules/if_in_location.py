@@ -1,3 +1,5 @@
+"""nginx.if_in_location -- if inside location block."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import BlockNode, ConfigAst, iter_nodes

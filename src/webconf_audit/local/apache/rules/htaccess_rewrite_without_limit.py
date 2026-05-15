@@ -1,3 +1,5 @@
+"""apache.htaccess_rewrite_without_limit -- .htaccess uses RewriteRule without RewriteCond."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.htaccess import HtaccessFile

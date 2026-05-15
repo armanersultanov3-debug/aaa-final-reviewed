@@ -1,3 +1,8 @@
+"""Internal helpers for the helpers rule family.
+
+Location: ``src/webconf_audit/external/rules/_helpers.py``.
+"""
+
 from __future__ import annotations
 
 import re

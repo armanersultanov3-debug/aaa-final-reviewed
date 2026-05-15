@@ -1,3 +1,8 @@
+"""Implements rule ``apache.ip_based_requests_allowed``.
+
+Location: ``src/webconf_audit/local/apache/rules/ip_based_requests_allowed.py``.
+"""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import (

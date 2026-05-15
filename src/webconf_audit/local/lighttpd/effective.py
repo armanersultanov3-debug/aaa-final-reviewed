@@ -1,3 +1,12 @@
+"""Lighttpd effective-configuration computation.
+
+Combines global directives with ``$HTTP[...]`` / ``$SERVER[...]``
+conditional scopes to produce an effective view per request context.
+Rules consume :class:`LighttpdEffectiveConfig` plus merged directive
+maps (per-host or no-host) so the same checker code can answer both
+targeted ``--host`` queries and global "any branch" questions.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable

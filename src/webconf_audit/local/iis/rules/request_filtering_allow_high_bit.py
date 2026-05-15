@@ -1,3 +1,5 @@
+"""iis.request_filtering_allow_high_bit -- Request filtering allows high-bit characters."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

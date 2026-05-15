@@ -1,3 +1,5 @@
+"""iis.anonymous_auth_enabled -- Anonymous authentication enabled alongside other schemes."""
+
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection

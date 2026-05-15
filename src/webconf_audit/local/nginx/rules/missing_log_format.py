@@ -1,3 +1,5 @@
+"""nginx.missing_log_format -- Missing log_format directive."""
+
 from __future__ import annotations
 
 from webconf_audit.local.nginx.parser.ast import ConfigAst, DirectiveNode, iter_nodes

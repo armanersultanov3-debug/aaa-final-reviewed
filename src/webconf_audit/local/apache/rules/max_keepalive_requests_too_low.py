@@ -1,3 +1,5 @@
+"""apache.max_keepalive_requests_too_low -- MaxKeepAliveRequests is too low."""
+
 from __future__ import annotations
 
 from webconf_audit.local.apache.parser import ApacheConfigAst
