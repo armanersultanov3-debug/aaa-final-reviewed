@@ -58,7 +58,11 @@ class ApacheAnalysisContext:
     effective_server_config: EffectiveConfig
 
 
-def analyze_apache_config(config_path: str) -> AnalysisResult:
+def analyze_apache_config(
+    config_path: str,
+    *,
+    enable_policy_review: bool = False,
+) -> AnalysisResult:
     path = Path(config_path)
 
     if not path.is_file():
@@ -70,7 +74,13 @@ def analyze_apache_config(config_path: str) -> AnalysisResult:
         htaccess_result = discover_htaccess_files(ast, path)
         issues.extend(htaccess_result.issues)
         contexts = _build_analysis_contexts(ast, path.parent, htaccess_result.found)
-        findings = _collect_apache_findings(ast, path.parent, contexts, issues)
+        findings = _collect_apache_findings(
+            ast,
+            path.parent,
+            contexts,
+            issues,
+            enable_policy_review=enable_policy_review,
+        )
     except UnicodeDecodeError as exc:
         return _apache_config_read_error_result(
             config_path,
@@ -132,10 +142,24 @@ def _collect_apache_findings(
     config_dir: Path,
     contexts: list[ApacheAnalysisContext],
     issues: list[AnalysisIssue],
+    *,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
-    findings = run_apache_ast_rules(ast, issues=issues)
-    findings.extend(_context_htaccess_findings(ast, contexts, config_dir, issues))
-    findings.extend(_universal_apache_findings(ast, config_dir, issues))
+    findings = run_apache_ast_rules(
+        ast, issues=issues, enable_policy_review=enable_policy_review,
+    )
+    findings.extend(
+        _context_htaccess_findings(
+            ast, contexts, config_dir, issues,
+            enable_policy_review=enable_policy_review,
+        )
+    )
+    findings.extend(
+        _universal_apache_findings(
+            ast, config_dir, issues,
+            enable_policy_review=enable_policy_review,
+        )
+    )
     return findings
 
 
@@ -144,6 +168,8 @@ def _context_htaccess_findings(
     contexts: list[ApacheAnalysisContext],
     config_dir: Path,
     issues: list[AnalysisIssue],
+    *,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     findings: list[Finding] = []
     seen_findings: set[tuple[str, str | None, int | None]] = set()
@@ -154,6 +180,7 @@ def _context_htaccess_findings(
             htaccess_files=context.htaccess_files,
             config_dir=config_dir,
             issues=issues,
+            enable_policy_review=enable_policy_review,
         )
         for finding in context_findings:
             key = _finding_key(finding)
@@ -177,6 +204,8 @@ def _universal_apache_findings(
     ast: ApacheConfigAst,
     config_dir: Path,
     issues: list[AnalysisIssue],
+    *,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     normalized = normalize_config(
         "apache",
@@ -185,7 +214,9 @@ def _universal_apache_findings(
     )
     return [
         finding
-        for finding in run_universal_rules(normalized, issues=issues)
+        for finding in run_universal_rules(
+            normalized, issues=issues, enable_policy_review=enable_policy_review,
+        )
         if finding.rule_id not in _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS
     ]
 

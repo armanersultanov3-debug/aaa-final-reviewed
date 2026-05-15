@@ -25,6 +25,8 @@ def analyze_iis_config(
     machine_config_path: str | None = None,
     tls_registry_path: str | None = None,
     use_tls_registry: bool = True,
+    *,
+    enable_policy_review: bool = False,
 ) -> AnalysisResult:
     path = Path(config_path)
 
@@ -131,6 +133,7 @@ def analyze_iis_config(
             machine_config_path=machine_config_path,
             registry_tls=registry_tls,
             registry_issues=registry_issues,
+            enable_policy_review=enable_policy_review,
         )
 
     return _analyze_single_config(
@@ -139,6 +142,7 @@ def analyze_iis_config(
         machine_config_path=machine_config_path,
         registry_tls=registry_tls,
         registry_issues=registry_issues,
+        enable_policy_review=enable_policy_review,
     )
 
 
@@ -149,6 +153,7 @@ def _analyze_single_config(
     machine_config_path: str | None = None,
     registry_tls: IISRegistryTLS | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> AnalysisResult:
     """Analyze a single IIS config file (web.config, machine.config, standalone)."""
     issues: list[AnalysisIssue] = list(registry_issues or [])
@@ -185,6 +190,7 @@ def _analyze_single_config(
         effective_config=effective,
         registry_tls=registry_tls,
         issues=issues,
+        enable_policy_review=enable_policy_review,
     )
     normalized = normalize_config(
         "iis",
@@ -192,7 +198,11 @@ def _analyze_single_config(
         effective_config=effective,
         registry_tls=registry_tls,
     )
-    findings.extend(run_universal_rules(normalized, issues=issues))
+    findings.extend(
+        run_universal_rules(
+            normalized, issues=issues, enable_policy_review=enable_policy_review,
+        )
+    )
 
     return AnalysisResult(
         mode="local",
@@ -211,6 +221,7 @@ def _analyze_application_host(
     machine_config_path: str | None = None,
     registry_tls: IISRegistryTLS | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> AnalysisResult:
     """Analyze applicationHost.config with discovered sites/apps and optional machine.config."""
     all_findings: list[Finding] = []
@@ -242,6 +253,7 @@ def _analyze_application_host(
             effective_config=base_effective,
             registry_tls=registry_tls,
             issues=all_issues,
+            enable_policy_review=enable_policy_review,
         )
     )
     normalized = normalize_config(
@@ -250,7 +262,11 @@ def _analyze_application_host(
         effective_config=base_effective,
         registry_tls=registry_tls,
     )
-    all_findings.extend(run_universal_rules(normalized, issues=all_issues))
+    all_findings.extend(
+        run_universal_rules(
+            normalized, issues=all_issues, enable_policy_review=enable_policy_review,
+        )
+    )
 
     site_details: list[dict[str, object]] = []
     inheritance_chains: list[list[str]] = []
@@ -271,6 +287,7 @@ def _analyze_application_host(
                     vdir.web_config_path,
                     base_effective,
                     child_application_path=child_application_path,
+                    enable_policy_review=enable_policy_review,
                 )
                 all_findings.extend(site_findings)
                 all_issues.extend(site_issues)
@@ -319,6 +336,7 @@ def _analyze_web_config_with_base(
     base_effective: IISEffectiveConfig,
     *,
     child_application_path: str | None = None,
+    enable_policy_review: bool = False,
 ) -> tuple[list[Finding], list[AnalysisIssue]]:
     """Parse and analyze a web.config, merging with base effective config.
 
@@ -349,9 +367,18 @@ def _analyze_web_config_with_base(
         child_application_path=child_application_path,
     )
 
-    findings.extend(run_iis_rules(site_doc, effective_config=merged, issues=issues))
+    findings.extend(
+        run_iis_rules(
+            site_doc, effective_config=merged, issues=issues,
+            enable_policy_review=enable_policy_review,
+        )
+    )
     normalized = normalize_config("iis", doc=site_doc, effective_config=merged)
-    findings.extend(run_universal_rules(normalized, issues=issues))
+    findings.extend(
+        run_universal_rules(
+            normalized, issues=issues, enable_policy_review=enable_policy_review,
+        )
+    )
 
     return findings, issues
 

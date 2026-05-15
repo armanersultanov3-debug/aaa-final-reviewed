@@ -211,16 +211,34 @@ Key elements:
   that do not have an executable implementation (used for
   meta-only external rules).
 
-Current catalog: 426 rules total.
+Current catalog: 435 rules total.
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 90 |
-| Local — Apache | 84 |
-| Local — Lighttpd | 49 |
-| Local — IIS | 52 |
+| Local — Nginx | 94 |
+| Local — Apache | 87 |
+| Local — Lighttpd | 50 |
+| Local — IIS | 53 |
 | Universal (local) | 14 |
 | External | 137 |
+
+### 8.1 Opt-in tags
+
+The registry treats a small set of tags as **opt-in**: rules carrying
+them are excluded from default analyzer runs and only included when the
+caller explicitly opts in. Currently `OPT_IN_TAGS = {"policy-review"}`.
+
+`policy-review` rules surface configuration choices that depend on
+manual operator judgment (default log-format selection, rate-limit
+value review, CSP policy review, IIS logging field selection). They
+all use `severity="info"` and are activated via the
+`--enable-policy-review` flag on every `analyze-*` command. The opt-in
+contract is enforced by `rule_registry.rules_for(...,
+include_opt_in_tags=...)` and threaded through every server runner and
+`analyze_*_config()` entry point.
+
+The `list-rules --tag policy-review` command always surfaces these
+rules so users can discover them.
 
 ## 9. Reporting model
 

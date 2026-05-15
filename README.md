@@ -223,16 +223,22 @@ Use `--format json` to get a machine-readable inventory with the full
 input_kind, tags, standards, order, etc.). The full inventory and the
 standards mapping plan live in [docs/rule-coverage.md](docs/rule-coverage.md).
 
-The catalog currently contains 426 rules:
+The catalog currently contains 435 rules:
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 90 |
-| Local — Apache | 84 |
-| Local — Lighttpd | 49 |
-| Local — IIS | 52 |
+| Local — Nginx | 94 |
+| Local — Apache | 87 |
+| Local — Lighttpd | 50 |
+| Local — IIS | 53 |
 | Universal (local) | 14 |
 | External | 137 |
+
+Nine rules in the inventory above are opt-in `policy-review` rules.
+They are excluded from default `analyze-*` runs and surfaced only when
+`--enable-policy-review` is passed. See
+[docs/rule-coverage.md](docs/rule-coverage.md#documented-scope-limits)
+for the rationale.
 
 ## Reporting
 

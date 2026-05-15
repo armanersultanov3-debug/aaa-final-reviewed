@@ -19,10 +19,16 @@ def run_nginx_rules(
     config_ast: ConfigAst,
     *,
     issues: list[AnalysisIssue] | None = None,
+    enable_policy_review: bool = False,
 ) -> list[Finding]:
     registry.ensure_loaded(_NGINX_PKG)
+    include_opt_in = ("policy-review",) if enable_policy_review else ()
     findings: list[Finding] = []
-    for entry in registry.rules_for("local", server_type="nginx"):
+    for entry in registry.rules_for(
+        "local",
+        server_type="nginx",
+        include_opt_in_tags=include_opt_in,
+    ):
         findings.extend(
             run_rule_entry(
                 entry,
