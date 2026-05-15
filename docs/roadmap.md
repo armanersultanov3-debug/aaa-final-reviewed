@@ -282,8 +282,9 @@ hardcoded finder per path.
 
 ## Backlog Status (local snapshot date: 2026-05-15)
 
-- Rule count: 435 total (including 9 opt-in `policy-review` rules excluded
-  from default analyzer runs), with the repeated counters and registry
+- Rule count: 465 total (including 9 opt-in `policy-review` rules excluded
+  from default analyzer runs; safe-probe batch-3 added 30 new external
+  rules per STD-GAP-015), with the repeated counters and registry
   expected to stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,

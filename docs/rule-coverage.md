@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **435**
+Total rules: **465**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (284), external (137), universal (14) |
-| Severity | high (39), medium (147), low (229), info (20) |
-| Input kind | ast (182), effective (90), probe (137), normalized (14), htaccess (6), mixed (6) |
+| Category | local (284), external (167), universal (14) |
+| Severity | high (52), medium (152), low (241), info (20) |
+| Input kind | ast (182), effective (90), probe (167), normalized (14), htaccess (6), mixed (6) |
 
 ## Documented Scope Limits
 
@@ -1111,7 +1111,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 137
+Count: 167
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1250,6 +1250,36 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.docker_compose_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed docker-compose configuration file.) | - | - |
 | `external.mercurial_metadata_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
 | `external.bazaar_metadata_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.joomla_admin_panel_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.drupal_user_login_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.drupal_install_php_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.magento_admin_panel_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.ghost_admin_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.pgadmin_panel_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.phppgadmin_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.mongo_express_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.elasticsearch_head_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.roundcube_webmail_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.squirrelmail_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.horde_webmail_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.grafana_dashboard_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.prometheus_metrics_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.kibana_dashboard_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.zabbix_dashboard_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.sonarqube_dashboard_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.jenkins_dashboard_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.teamcity_login_exposed` | medium | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.gitlab_self_hosted_signin_exposed` | low | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.jupyter_notebook_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.consul_ui_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.vault_ui_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.nomad_ui_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.etcd_v2_keys_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.spring_actuator_info_exposed` | low | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.spring_actuator_metrics_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
+| `external.airflow_home_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.kubernetes_dashboard_exposed` | high | probe | - | [CWE-306](https://cwe.mitre.org/data/definitions/306.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
+| `external.rancher_dashboard_exposed` | high | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
 | `external.certificate_expired` | high | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.certificate_expires_soon` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |
 | `external.tls_certificate_self_signed` | medium | probe | - | - | - | - | - | [PCI DSS v4.0.1 Req. 2.2.1](https://docs-prv.pcisecuritystandards.org/PCI%20DSS/Standard/PCI-DSS-v4_0_1.pdf)<br>[NIST SP 800-52 Rev. 2 3.4](https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final)<br>[ФСТЭК "Меры защиты информации в ГИС" ЗИС.32](https://fstec.ru/dokumenty/vse-dokumenty/prikazy/prikaz-fstek-rossii-ot-11-fevralya-2013-g-n-17)<br>[ISO/IEC 27002:2022 8.24](https://www.iso.org/standard/75652.html)<br>[ISO/IEC 27002:2022 8.27](https://www.iso.org/standard/75652.html)<br>[Cheat Sheet: Transport Layer Security](https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html) |

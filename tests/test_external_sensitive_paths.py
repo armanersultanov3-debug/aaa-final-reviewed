@@ -105,6 +105,46 @@ def test_sensitive_paths_phase_1_4_1_set() -> None:
         "/docker-compose.yaml",
         "/.hg/requires",
         "/.bzr/branch/format",
+        # Batch-3 (STD-GAP-015): CMS admins, DB admin panels, webmail,
+        # monitoring dashboards, CI/CD dashboards, orchestration UIs,
+        # Spring actuator complements, dataops UIs.
+        "/administrator/",
+        "/user/login",
+        "/core/install.php",
+        "/install.php",
+        "/admin/",
+        "/ghost/",
+        "/pgadmin4/",
+        "/pgadmin4/login",
+        "/phppgadmin/",
+        "/mongo-express",
+        "/mongo-express/",
+        "/_plugin/head/",
+        "/roundcube/",
+        "/webmail/",
+        "/squirrelmail/",
+        "/horde/",
+        "/login",
+        "/metrics",
+        "/api/status",
+        "/zabbix/",
+        "/zabbix/index.php",
+        "/sonar/",
+        "/sonarqube/",
+        "/jenkins/",
+        "/jenkins/login",
+        "/login.html",
+        "/users/sign_in",
+        "/tree",
+        "/v1/agent/self",
+        "/v1/sys/health",
+        "/v1/agent/health",
+        "/v2/keys/",
+        "/actuator/info",
+        "/actuator/metrics",
+        "/home",
+        "/",
+        "/v3",
     )
 
 
@@ -1475,6 +1515,192 @@ def test_heapdump_rule_requires_expected_binary_prefix(monkeypatch) -> None:
     assert "external.springboot_actuator_heapdump_exposed" not in {
         f.rule_id for f in result.findings
     }
+
+
+# ---------------------------------------------------------------------------
+# Batch-3 sensitive-path rules (STD-GAP-015 growth)
+# ---------------------------------------------------------------------------
+
+
+# Each row pins one batch-3 rule: (path, rule_id, content_type,
+# matching body snippet). The body snippet MUST satisfy the rule's
+# body_matcher and ONLY the matching rule's; the parametrized test
+# below also asserts no other catalog rule fires on the same response.
+_BATCH_3_RULE_CASES = [
+    # CMS admin / install
+    ("/administrator/", "external.joomla_admin_panel_exposed",
+     "text/html", "<html><title>Login - Joomla! Administrator</title></html>"),
+    ("/user/login", "external.drupal_user_login_exposed",
+     "text/html", '<form name="form_id" value="user_login_form"></form>'),
+    ("/core/install.php", "external.drupal_install_php_exposed",
+     "text/html", "<html><body>Drupal 10 installation</body></html>"),
+    ("/install.php", "external.drupal_install_php_exposed",
+     "text/html", "<html><body>Drupal 10 installation</body></html>"),
+    ("/admin/", "external.magento_admin_panel_exposed",
+     "text/html", "<html><body>Magento Admin var BASE_URL = '/admin/';</body></html>"),
+    ("/ghost/", "external.ghost_admin_exposed",
+     "text/html", "<html><title>Ghost Admin</title></html>"),
+    # Database admin panels
+    ("/pgadmin4/", "external.pgadmin_panel_exposed",
+     "text/html", "<html><title>pgAdmin 4</title></html>"),
+    ("/phppgadmin/", "external.phppgadmin_exposed",
+     "text/html", "<html><body>phpPgAdmin login</body></html>"),
+    ("/mongo-express", "external.mongo_express_exposed",
+     "text/html", "<html><title>Mongo Express</title></html>"),
+    ("/_plugin/head/", "external.elasticsearch_head_exposed",
+     "text/html", "<html><body>elasticsearch-head cluster_overview</body></html>"),
+    # Webmail
+    ("/roundcube/", "external.roundcube_webmail_exposed",
+     "text/html", "<html><title>Roundcube Webmail</title></html>"),
+    ("/squirrelmail/", "external.squirrelmail_exposed",
+     "text/html", "<html><body>SquirrelMail login</body></html>"),
+    ("/horde/", "external.horde_webmail_exposed",
+     "text/html", "<html><body>Horde Application Framework</body></html>"),
+    # Monitoring dashboards
+    ("/login", "external.grafana_dashboard_exposed",
+     "text/html", "<html><body>window.grafanaBootData = {};</body></html>"),
+    ("/metrics", "external.prometheus_metrics_exposed",
+     "text/plain", "# HELP go_gc_duration_seconds A summary\n# TYPE go_gc_duration_seconds summary\n"),
+    ("/api/status", "external.kibana_dashboard_exposed",
+     "application/json", '{"name":"kibana","build_number":12345}'),
+    ("/zabbix/", "external.zabbix_dashboard_exposed",
+     "text/html", "<html><title>Zabbix SIA</title></html>"),
+    # CI/CD dashboards
+    ("/sonarqube/", "external.sonarqube_dashboard_exposed",
+     "text/html", '<html><body data-sonar-version="10.4">SonarQube</body></html>'),
+    ("/jenkins/", "external.jenkins_dashboard_exposed",
+     "text/html", "<html><title>Dashboard [Jenkins]</title></html>"),
+    ("/login.html", "external.teamcity_login_exposed",
+     "text/html", '<html><body data-teamcity-version="2023.05">TeamCity</body></html>'),
+    ("/users/sign_in", "external.gitlab_self_hosted_signin_exposed",
+     "text/html", '<html><body>GitLab Community Edition</body></html>'),
+    ("/tree", "external.jupyter_notebook_exposed",
+     "text/html", "<html><title>Home Page - Select or create a notebook</title></html>"),
+    # Orchestration UIs
+    ("/v1/agent/self", "external.consul_ui_exposed",
+     "application/json", '{"Config":{"Server":true,"Datacenter":"dc1"}}'),
+    ("/v1/sys/health", "external.vault_ui_exposed",
+     "application/json", '{"initialized":true,"sealed":false,"version":"1.15.0"}'),
+    ("/v1/agent/health", "external.nomad_ui_exposed",
+     "application/json", '{"server":{"ok":true},"client":{"ok":true}}'),
+    ("/v2/keys/", "external.etcd_v2_keys_exposed",
+     "application/json", '{"action":"get","node":{"dir":true,"nodes":[]}}'),
+    # Spring + dataops
+    ("/actuator/info", "external.spring_actuator_info_exposed",
+     "application/json", '{"build":{"version":"1.0.0"}}'),
+    ("/actuator/metrics", "external.spring_actuator_metrics_exposed",
+     "application/json", '{"names":["jvm.memory.used","http.server.requests"]}'),
+    ("/home", "external.airflow_home_exposed",
+     "text/html", "<html><title>DAGs - Airflow</title></html>"),
+    ("/", "external.kubernetes_dashboard_exposed",
+     "text/html", "<html><title>Kubernetes Dashboard</title></html>"),
+    ("/v3", "external.rancher_dashboard_exposed",
+     "application/json", '{"type":"collection","resourceType":"schema"}'),
+]
+
+
+@pytest.mark.parametrize(
+    ("path", "rule_id", "content_type", "body_snippet"),
+    _BATCH_3_RULE_CASES,
+)
+def test_batch_3_sensitive_path_rules_fire_on_accessible_match(
+    monkeypatch,
+    path: str,
+    rule_id: str,
+    content_type: str,
+    body_snippet: str,
+) -> None:
+    """Each batch-3 rule must fire when its path returns 200 with a body
+    matching its declared body_matcher, and must be the only sensitive-
+    path rule that fires on that exact response."""
+    from webconf_audit.external.safe_probe_catalog import SAFE_PATH_RULES
+
+    sp = SensitivePathProbe(
+        url=f"https://example.com{path}",
+        path=path,
+        status_code=200,
+        content_type=content_type,
+        body_snippet=body_snippet,
+    )
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    sensitive_rule_ids = {rule.rule_id for rule in SAFE_PATH_RULES}
+    sensitive_findings = [
+        finding for finding in result.findings if finding.rule_id in sensitive_rule_ids
+    ]
+
+    assert len(sensitive_findings) == 1
+    assert sensitive_findings[0].rule_id == rule_id
+    assert sensitive_findings[0].location.target == f"https://example.com{path}"
+    assert sensitive_findings[0].location.details == path
+
+
+@pytest.mark.parametrize(
+    ("path", "rule_id"),
+    [(case[0], case[1]) for case in _BATCH_3_RULE_CASES],
+)
+def test_batch_3_sensitive_path_rules_do_not_fire_on_404(
+    monkeypatch,
+    path: str,
+    rule_id: str,
+) -> None:
+    """Each batch-3 rule must stay silent when its path returns 404 —
+    sensitive-path findings must come from accessible responses only."""
+    sp = _sensitive_path_probe(path, status_code=404, body_snippet="Not Found")
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    assert rule_id not in {f.rule_id for f in result.findings}
+
+
+@pytest.mark.parametrize(
+    ("path", "rule_id"),
+    [(case[0], case[1]) for case in _BATCH_3_RULE_CASES],
+)
+def test_batch_3_sensitive_path_rules_require_body_matcher(
+    monkeypatch,
+    path: str,
+    rule_id: str,
+) -> None:
+    """A 200 response on the rule's path without the matching body must
+    NOT fire the rule. This guards against false positives on generic
+    SPA fallback / WAF / custom 200-OK responses that happen to share
+    the path."""
+    sp = _sensitive_path_probe(
+        path,
+        status_code=200,
+        content_type="text/html",
+        body_snippet="<html><body>This response does not match any catalog body matcher.</body></html>",
+    )
+    probe_attempts = [
+        _https_probe_with_headers(),
+        _http_redirect_probe(),
+    ]
+
+    result = _analyze_with_probe_attempts(
+        monkeypatch,
+        probe_attempts,
+        sensitive_path_probes=[sp],
+    )
+
+    assert rule_id not in {f.rule_id for f in result.findings}
 
 
 # ---------------------------------------------------------------------------
