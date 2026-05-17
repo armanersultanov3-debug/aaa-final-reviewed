@@ -19,6 +19,12 @@ _ROOT = Path(__file__).resolve().parents[1]
 _FIXTURE_ROOT = (_ROOT / "tests" / "fixtures" / "rule-corpus").resolve()
 _MANIFEST_PATH = _FIXTURE_ROOT / "manifest.json"
 _LOCAL_SERVER_TYPES = frozenset({"nginx", "apache", "lighttpd", "iis"})
+_ALLOWED_ANALYZER_OPTIONS = {
+    "nginx": frozenset[str](),
+    "apache": frozenset[str](),
+    "lighttpd": frozenset({"host"}),
+    "iis": frozenset({"tls_registry_path", "use_tls_registry"}),
+}
 _RULE_PACKAGES = (
     "webconf_audit.local.nginx.rules",
     "webconf_audit.local.apache.rules",
@@ -93,13 +99,19 @@ def _string_field(case: dict[str, Any], field_name: str) -> str:
     return value
 
 
+def _server_type(case: dict[str, Any]) -> str:
+    value = _string_field(case, "server_type")
+    assert value in _LOCAL_SERVER_TYPES, f"{_case_id(case)} unsupported server_type"
+    return value
+
+
 def _string_list_field(
     case: dict[str, Any],
     field_name: str,
     *,
     required: bool = True,
 ) -> list[str]:
-    case_id = case.get("id", "<unknown>")
+    case_id = _case_id(case)
     if field_name not in case:
         if required:
             raise AssertionError(f"{case_id} missing {field_name}")
@@ -119,6 +131,19 @@ def _analyzer_options(case: dict[str, Any]) -> dict[str, Any]:
         f"{_case_id(case)} analyzer_options must be an object"
     )
     return dict(raw_options)
+
+
+def _validate_analyzer_options(
+    case: dict[str, Any],
+    server_type: str,
+    options: dict[str, Any],
+) -> None:
+    allowed_keys = _ALLOWED_ANALYZER_OPTIONS[server_type]
+    unknown_keys = sorted(set(options) - allowed_keys)
+    assert not unknown_keys, (
+        f"{_case_id(case)} unsupported analyzer_options for {server_type}: "
+        f"{unknown_keys}"
+    )
 
 
 def _optional_string_option(
@@ -174,8 +199,9 @@ def _fixture_path(value: str, *, field_name: str) -> Path:
 
 def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
     entrypoint = _entrypoint(case)
-    server_type = _string_field(case, "server_type")
+    server_type = _server_type(case)
     options = _analyzer_options(case)
+    _validate_analyzer_options(case, server_type, options)
 
     if server_type == "nginx":
         return analyze_nginx_config(str(entrypoint))
@@ -231,7 +257,7 @@ def test_rule_corpus_metadata_shape() -> None:
     assert _MANIFEST["excluded_scope"] == ["external"]
 
     profile_counts = Counter(_string_field(case, "profile") for case in _CASES)
-    server_counts = Counter(_string_field(case, "server_type") for case in _CASES)
+    server_counts = Counter(_server_type(case) for case in _CASES)
     id_counts = Counter(_string_field(case, "id") for case in _CASES)
     duplicate_ids = sorted(
         case_id for case_id, count in id_counts.items() if count > 1
@@ -260,9 +286,9 @@ def test_rule_corpus_metadata_entries_are_complete(case: dict[str, Any]) -> None
         "references",
         "expected_findings",
     ):
-        assert key in case, f"{case.get('id', '<unknown>')} missing {key}"
+        assert key in case, f"{_case_id(case)} missing {key}"
 
-    server_type = _string_field(case, "server_type")
+    server_type = _server_type(case)
     profile = _string_field(case, "profile")
     provenance = _string_field(case, "provenance")
 
@@ -279,6 +305,7 @@ def test_rule_corpus_metadata_entries_are_complete(case: dict[str, Any]) -> None
     assert _entrypoint(case).is_file()
 
     options = _analyzer_options(case)
+    _validate_analyzer_options(case, server_type, options)
     _optional_string_option(case, options, "host")
     _bool_option(case, options, "use_tls_registry")
     tls_registry_path = _optional_string_option(case, options, "tls_registry_path")
@@ -299,7 +326,7 @@ def test_rule_corpus_expected_findings_are_detected(case: dict[str, Any]) -> Non
     )
 
     assert result.mode == "local"
-    assert result.server_type == case["server_type"]
+    assert result.server_type == _server_type(case)
     assert Path(result.target).resolve() == _entrypoint(case)
     assert not any(issue.level == "error" for issue in result.issues)
     assert not [
@@ -310,7 +337,7 @@ def test_rule_corpus_expected_findings_are_detected(case: dict[str, Any]) -> Non
 
     for rule_id in _string_list_field(case, "expected_findings"):
         assert rule_id in grouped_findings, (
-            f"{case['id']} did not produce expected {rule_id}; "
+            f"{_case_id(case)} did not produce expected {rule_id}; "
             f"observed={sorted(observed_ids)}"
         )
 
@@ -318,7 +345,7 @@ def test_rule_corpus_expected_findings_are_detected(case: dict[str, Any]) -> Non
         case, "expected_absent_rule_ids", required=False
     ):
         assert absent_rule_id not in observed_ids, (
-            f"{case['id']} unexpectedly produced {absent_rule_id}; "
+            f"{_case_id(case)} unexpectedly produced {absent_rule_id}; "
             f"observed={sorted(observed_ids)}"
         )
 
