@@ -82,7 +82,11 @@ def _fixture_path(value: str, *, field_name: str) -> Path:
 def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
     entrypoint = _entrypoint(case)
     server_type = case["server_type"]
-    options = dict(case.get("analyzer_options", {}))
+    raw_options = case.get("analyzer_options", {})
+    assert isinstance(raw_options, dict), (
+        f"{case.get('id', '<unknown>')} analyzer_options must be an object"
+    )
+    options = dict(raw_options)
 
     if server_type == "nginx":
         return analyze_nginx_config(str(entrypoint))
