@@ -50,6 +50,22 @@ def _load_manifest() -> dict[str, Any]:
             f"{_MANIFEST_PATH}: cases must be a list, "
             f"got {type(cases).__name__}"
         )
+    for index, case in enumerate(cases):
+        if not isinstance(case, dict):
+            raise TypeError(
+                f"{_MANIFEST_PATH}: cases[{index}] must be an object, "
+                f"got {type(case).__name__}"
+            )
+    for field_name in ("scope", "excluded_scope"):
+        if field_name not in payload:
+            raise ValueError(f"{_MANIFEST_PATH}: missing {field_name}")
+        value = payload[field_name]
+        if not isinstance(value, list) or not all(
+            isinstance(item, str) for item in value
+        ):
+            raise TypeError(
+                f"{_MANIFEST_PATH}: {field_name} must be a list of strings"
+            )
     return payload
 
 
@@ -58,7 +74,23 @@ _CASES: list[dict[str, Any]] = _MANIFEST["cases"]
 
 
 def _case_id(case: dict[str, Any]) -> str:
-    return str(case["id"])
+    value = case.get("id")
+    if isinstance(value, str) and value:
+        return value
+    if value is None:
+        return "<no-id>"
+    return f"<invalid-id:{type(value).__name__}>"
+
+
+def _string_field(case: dict[str, Any], field_name: str) -> str:
+    case_id = _case_id(case)
+    if field_name not in case:
+        raise AssertionError(f"{case_id} missing {field_name}")
+
+    value = case[field_name]
+    assert isinstance(value, str), f"{case_id} {field_name} must be a string"
+    assert value, f"{case_id} {field_name} must not be empty"
+    return value
 
 
 def _string_list_field(
@@ -81,8 +113,52 @@ def _string_list_field(
     return value
 
 
+def _analyzer_options(case: dict[str, Any]) -> dict[str, Any]:
+    raw_options = case.get("analyzer_options", {})
+    assert isinstance(raw_options, dict), (
+        f"{_case_id(case)} analyzer_options must be an object"
+    )
+    return dict(raw_options)
+
+
+def _optional_string_option(
+    case: dict[str, Any],
+    options: dict[str, Any],
+    field_name: str,
+) -> str | None:
+    if field_name not in options:
+        return None
+    value = options[field_name]
+    assert isinstance(value, str), (
+        f"{_case_id(case)} analyzer_options.{field_name} must be a string"
+    )
+    assert value, f"{_case_id(case)} analyzer_options.{field_name} must not be empty"
+    return value
+
+
+def _bool_option(
+    case: dict[str, Any],
+    options: dict[str, Any],
+    field_name: str,
+    *,
+    default: bool = False,
+) -> bool:
+    value = options.get(field_name, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized == "true":
+            return True
+        if normalized == "false":
+            return False
+    raise AssertionError(
+        f"{_case_id(case)} analyzer_options.{field_name} must be a boolean"
+    )
+
+
 def _entrypoint(case: dict[str, Any]) -> Path:
-    return _fixture_path(str(case["entrypoint"]), field_name="entrypoint")
+    return _fixture_path(_string_field(case, "entrypoint"), field_name="entrypoint")
 
 
 def _fixture_path(value: str, *, field_name: str) -> Path:
@@ -98,30 +174,27 @@ def _fixture_path(value: str, *, field_name: str) -> Path:
 
 def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
     entrypoint = _entrypoint(case)
-    server_type = case["server_type"]
-    raw_options = case.get("analyzer_options", {})
-    assert isinstance(raw_options, dict), (
-        f"{case.get('id', '<unknown>')} analyzer_options must be an object"
-    )
-    options = dict(raw_options)
+    server_type = _string_field(case, "server_type")
+    options = _analyzer_options(case)
 
     if server_type == "nginx":
         return analyze_nginx_config(str(entrypoint))
     if server_type == "apache":
         return analyze_apache_config(str(entrypoint))
     if server_type == "lighttpd":
-        host = options.get("host")
+        host = _optional_string_option(case, options, "host")
         return analyze_lighttpd_config(str(entrypoint), host=host)
     if server_type == "iis":
-        tls_registry_path = options.get("tls_registry_path")
+        tls_registry_path = _optional_string_option(case, options, "tls_registry_path")
         if tls_registry_path is not None:
             tls_registry_path = str(
-                _fixture_path(str(tls_registry_path), field_name="tls_registry_path")
+                _fixture_path(tls_registry_path, field_name="tls_registry_path")
             )
+        use_tls_registry = _bool_option(case, options, "use_tls_registry")
         return analyze_iis_config(
             str(entrypoint),
             tls_registry_path=tls_registry_path,
-            use_tls_registry=bool(options.get("use_tls_registry", False)),
+            use_tls_registry=use_tls_registry,
         )
 
     raise AssertionError(f"unsupported rule corpus server_type: {server_type!r}")
@@ -157,9 +230,9 @@ def test_rule_corpus_metadata_shape() -> None:
     assert _MANIFEST["scope"] == ["local", "universal"]
     assert _MANIFEST["excluded_scope"] == ["external"]
 
-    profile_counts = Counter(case["profile"] for case in _CASES)
-    server_counts = Counter(case["server_type"] for case in _CASES)
-    id_counts = Counter(case["id"] for case in _CASES)
+    profile_counts = Counter(_string_field(case, "profile") for case in _CASES)
+    server_counts = Counter(_string_field(case, "server_type") for case in _CASES)
+    id_counts = Counter(_string_field(case, "id") for case in _CASES)
     duplicate_ids = sorted(
         case_id for case_id, count in id_counts.items() if count > 1
     )
@@ -189,19 +262,29 @@ def test_rule_corpus_metadata_entries_are_complete(case: dict[str, Any]) -> None
     ):
         assert key in case, f"{case.get('id', '<unknown>')} missing {key}"
 
-    assert case["server_type"] in _LOCAL_SERVER_TYPES
-    assert case["profile"] in {"hybrid-vulnerable", "targeted-vulnerable"}
-    assert case["provenance"] in {"synthetic-derived", "synthetic-targeted"}
+    server_type = _string_field(case, "server_type")
+    profile = _string_field(case, "profile")
+    provenance = _string_field(case, "provenance")
+
+    _string_field(case, "id")
+    _string_field(case, "description")
+    _string_field(case, "entrypoint")
+    assert server_type in _LOCAL_SERVER_TYPES
+    assert profile in {"hybrid-vulnerable", "targeted-vulnerable"}
+    assert provenance in {"synthetic-derived", "synthetic-targeted"}
     _string_list_field(case, "references")
     _string_list_field(case, "expected_findings")
     _string_list_field(case, "allowed_issue_codes", required=False)
     _string_list_field(case, "expected_absent_rule_ids", required=False)
     assert _entrypoint(case).is_file()
 
-    options = case.get("analyzer_options", {})
-    if "tls_registry_path" in options:
+    options = _analyzer_options(case)
+    _optional_string_option(case, options, "host")
+    _bool_option(case, options, "use_tls_registry")
+    tls_registry_path = _optional_string_option(case, options, "tls_registry_path")
+    if tls_registry_path is not None:
         assert _fixture_path(
-            str(options["tls_registry_path"]),
+            tls_registry_path,
             field_name="tls_registry_path",
         ).is_file()
 
