@@ -6,6 +6,7 @@ import io
 import socket
 import ssl
 import uuid
+import warnings
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal, NamedTuple
@@ -1272,6 +1273,20 @@ def _build_observed_tls_context(
 ) -> _OSSL.Context:
     context = _OSSL.Context(_OSSL.TLS_METHOD)
     context.set_verify(_OSSL.VERIFY_NONE, lambda *_: True)
+    # Detect servers still speaking TLS 1.0/1.1. pyOpenSSL inherits modern
+    # OpenSSL defaults (minimum TLS 1.2 + SECLEVEL>=1), so without these knobs
+    # the very first HTTPS handshake against a legacy endpoint fails before
+    # any rule can observe it.
+    if hasattr(context, "set_min_proto_version") and hasattr(_OSSL, "TLS1_VERSION"):
+        try:
+            context.set_min_proto_version(_OSSL.TLS1_VERSION)
+        except _OSSL.Error:
+            pass
+    if hasattr(context, "set_cipher_list"):
+        try:
+            context.set_cipher_list(b"ALL:@SECLEVEL=0")
+        except _OSSL.Error:
+            pass
 
     if hasattr(context, "set_ocsp_client_callback"):
         def _capture_ocsp(_conn, response: bytes, _data) -> bool:
@@ -2309,6 +2324,24 @@ def _probe_tls_context() -> ssl.SSLContext:
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     context.check_hostname = False
     context.verify_mode = ssl.CERT_NONE
+    # Probing legacy TLS endpoints (e.g. servers still on TLS 1.0/1.1) is a
+    # primary use case of the external analyzer. PROTOCOL_TLS_CLIENT defaults
+    # to minimum_version=TLSv1.2 and modern OpenSSL hides legacy ciphers
+    # behind SECLEVEL>=1, so the initial HEAD/GET handshake fails before the
+    # version-probe loop ever runs. We relax both knobs here; certificate
+    # verification stays off because rule findings rely on observed
+    # handshake metadata rather than trust.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            category=DeprecationWarning,
+            message=r"ssl\.TLSVersion\.TLSv1(?:_1)? is deprecated",
+        )
+        context.minimum_version = ssl.TLSVersion.TLSv1
+    try:
+        context.set_ciphers("ALL:@SECLEVEL=0")
+    except ssl.SSLError:
+        pass
     return context
 
 
