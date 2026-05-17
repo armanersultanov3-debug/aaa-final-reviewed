@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from os import PathLike
+import os
 from pathlib import Path
 
 from webconf_audit.local.iis.discovery import discover_iis_sites, locate_machine_config
@@ -22,7 +22,7 @@ from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceL
 
 
 def analyze_iis_config(
-    config_path: str | PathLike[str],
+    config_path: str | os.PathLike[str],
     machine_config_path: str | None = None,
     tls_registry_path: str | None = None,
     use_tls_registry: bool = True,
@@ -49,7 +49,7 @@ def analyze_iis_config(
     tagged ``policy-review`` (operator-judgment items surfaced via the
     ``--enable-policy-review`` CLI flag).
     """
-    config_path_str = str(config_path)
+    config_path_str = os.fspath(config_path)
     path = Path(config_path_str)
 
     if path.is_dir():

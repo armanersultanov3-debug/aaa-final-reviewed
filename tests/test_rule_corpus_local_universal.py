@@ -44,6 +44,26 @@ def _case_id(case: dict[str, Any]) -> str:
     return str(case["id"])
 
 
+def _string_list_field(
+    case: dict[str, Any],
+    field_name: str,
+    *,
+    required: bool = True,
+) -> list[str]:
+    case_id = case.get("id", "<unknown>")
+    if field_name not in case:
+        if required:
+            raise AssertionError(f"{case_id} missing {field_name}")
+        return []
+
+    value = case[field_name]
+    assert isinstance(value, list), f"{case_id} {field_name} must be a list"
+    assert all(isinstance(item, str) for item in value), (
+        f"{case_id} {field_name} must contain only strings"
+    )
+    return value
+
+
 def _entrypoint(case: dict[str, Any]) -> Path:
     return _fixture_path(str(case["entrypoint"]), field_name="entrypoint")
 
@@ -118,7 +138,12 @@ def test_rule_corpus_metadata_shape() -> None:
 
     profile_counts = Counter(case["profile"] for case in _CASES)
     server_counts = Counter(case["server_type"] for case in _CASES)
+    id_counts = Counter(case["id"] for case in _CASES)
+    duplicate_ids = sorted(
+        case_id for case_id, count in id_counts.items() if count > 1
+    )
 
+    assert duplicate_ids == [], f"duplicate rule corpus case ids: {duplicate_ids}"
     assert profile_counts["hybrid-vulnerable"] >= 4
     assert profile_counts["targeted-vulnerable"] >= 12
     assert server_counts == {
@@ -146,8 +171,10 @@ def test_rule_corpus_metadata_entries_are_complete(case: dict[str, Any]) -> None
     assert case["server_type"] in _LOCAL_SERVER_TYPES
     assert case["profile"] in {"hybrid-vulnerable", "targeted-vulnerable"}
     assert case["provenance"] in {"synthetic-derived", "synthetic-targeted"}
-    assert isinstance(case["references"], list)
-    assert isinstance(case["expected_findings"], list)
+    _string_list_field(case, "references")
+    _string_list_field(case, "expected_findings")
+    _string_list_field(case, "allowed_issue_codes", required=False)
+    _string_list_field(case, "expected_absent_rule_ids", required=False)
     assert _entrypoint(case).is_file()
 
     options = case.get("analyzer_options", {})
@@ -163,7 +190,9 @@ def test_rule_corpus_expected_findings_are_detected(case: dict[str, Any]) -> Non
     result = _analyze_case(case)
     grouped_findings = _finding_by_rule_id(result)
     observed_ids = _observed_rule_ids(result)
-    allowed_issue_codes = set(case.get("allowed_issue_codes", []))
+    allowed_issue_codes = set(
+        _string_list_field(case, "allowed_issue_codes", required=False)
+    )
 
     assert result.mode == "local"
     assert result.server_type == case["server_type"]
@@ -175,13 +204,15 @@ def test_rule_corpus_expected_findings_are_detected(case: dict[str, Any]) -> Non
         if issue.level == "warning" and issue.code not in allowed_issue_codes
     ]
 
-    for rule_id in case["expected_findings"]:
+    for rule_id in _string_list_field(case, "expected_findings"):
         assert rule_id in grouped_findings, (
             f"{case['id']} did not produce expected {rule_id}; "
             f"observed={sorted(observed_ids)}"
         )
 
-    for absent_rule_id in case.get("expected_absent_rule_ids", []):
+    for absent_rule_id in _string_list_field(
+        case, "expected_absent_rule_ids", required=False
+    ):
         assert absent_rule_id not in observed_ids, (
             f"{case['id']} unexpectedly produced {absent_rule_id}; "
             f"observed={sorted(observed_ids)}"
@@ -193,7 +224,7 @@ def test_rule_corpus_covers_every_local_and_universal_rule() -> None:
     covered_rule_ids = {
         rule_id
         for case in _CASES
-        for rule_id in case["expected_findings"]
+        for rule_id in _string_list_field(case, "expected_findings")
     }
 
     assert covered_rule_ids <= expected_rule_ids

@@ -1,4 +1,4 @@
-from os import PathLike
+import os
 from pathlib import Path
 
 from webconf_audit.local.load_context import LoadContext
@@ -21,7 +21,7 @@ _NGINX_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
 
 
 def analyze_nginx_config(
-    config_path: str | PathLike[str],
+    config_path: str | os.PathLike[str],
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
@@ -38,7 +38,7 @@ def analyze_nginx_config(
     tagged ``policy-review`` (operator-judgment items surfaced via the
     ``--enable-policy-review`` CLI flag).
     """
-    config_path_str = str(config_path)
+    config_path_str = os.fspath(config_path)
     path = Path(config_path_str)
 
     if not path.is_file():
