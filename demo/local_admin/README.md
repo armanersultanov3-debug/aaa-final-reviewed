@@ -159,7 +159,8 @@ Example findings:
 - `iis.session_state_cookieless` (cookieless="UseUri")
 - `iis.anonymous_auth_enabled` (anonymous + basic auth combination)
 
-The IIS demo exercises all 20 IIS local rules, including attribute-based
+The IIS demo exercises 20 representative IIS local rules from the current
+53-rule IIS catalog, including attribute-based
 checks, collection/children-based checks (WebDAV, CGI, custom headers),
 absence checks (HSTS, logging, content length), cross-section checks
 (anonymous auth combination), and location-scoped findings (weak TLS at

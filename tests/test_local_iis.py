@@ -174,6 +174,18 @@ def test_analyze_valid_web_config(tmp_path: Path) -> None:
     assert result.metadata["inheritance_chain"] == [str(config_path)]
 
 
+def test_analyze_iis_config_accepts_pathlike_config_path(tmp_path: Path) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text(MINIMAL_WEB_CONFIG, encoding="utf-8")
+
+    result = analyze_iis_config(config_path, use_tls_registry=False)
+
+    assert result.target == str(config_path)
+    assert result.server_type == "iis"
+    assert result.issues == []
+    assert result.metadata["inheritance_chain"] == [str(config_path)]
+
+
 def test_analyze_iis_http_redirect_only_suppresses_content_absence_noise(
     tmp_path: Path,
 ) -> None:

@@ -35,6 +35,38 @@ def test_analyze_nginx_config_reports_proxy_pass_user_controlled_destination(
     )
 
 
+def test_analyze_nginx_config_reports_proxy_pass_host_variable_destination(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_text = (
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name app.example.test;\n"
+        "        location /fetch {\n"
+        "            proxy_pass http://$host;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_pass_user_controlled_destination"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.line == _line_number(
+        config_text,
+        "proxy_pass http://$host;",
+    )
+
+
 def test_analyze_nginx_config_reports_proxy_pass_user_controlled_destination_through_set(
     tmp_path: Path,
 ) -> None:
@@ -170,4 +202,37 @@ def test_analyze_nginx_config_reports_proxy_pass_uri_in_host_position(
     assert any(
         finding.rule_id == "nginx.proxy_pass_user_controlled_destination"
         for finding in result.findings
+    )
+
+
+def test_analyze_nginx_config_reports_proxy_pass_named_capture_destination(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_text = (
+        "http {\n"
+        "    server {\n"
+        "        listen 80;\n"
+        "        server_name app.example.test;\n"
+        "        location ~ ^/internal-proxy/(?<proxy_proto>https?)/(?<proxy_host>.*?)/(?<proxy_path>.*)$ {\n"
+        "            internal;\n"
+        "            proxy_pass $proxy_proto://$proxy_host/$proxy_path;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+    config_path.write_text(config_text, encoding="utf-8")
+
+    result = analyze_nginx_config(str(config_path))
+
+    matching = [
+        finding
+        for finding in result.findings
+        if finding.rule_id == "nginx.proxy_pass_user_controlled_destination"
+    ]
+    assert len(matching) == 1
+    assert matching[0].location is not None
+    assert matching[0].location.line == _line_number(
+        config_text,
+        "proxy_pass $proxy_proto://$proxy_host/$proxy_path;",
     )

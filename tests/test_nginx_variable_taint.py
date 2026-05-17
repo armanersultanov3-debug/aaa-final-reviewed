@@ -26,6 +26,21 @@ def test_nginx_variable_taint_detects_builtin_user_controlled_variables() -> Non
     assert analyzer.is_user_controlled("$uri", location_block, in_proxy_pass_host=True)
 
 
+def test_nginx_variable_taint_treats_named_location_captures_as_user_controlled() -> None:
+    analyzer, location_block = _analyzer_and_location(
+        "http {\n"
+        "    server {\n"
+        "        location ~ ^/v1/(?<action>[^.]*)\\.json$ {\n"
+        "            add_header X-Action $action;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        location_arg="~",
+    )
+
+    assert analyzer.is_user_controlled("$action", location_block)
+
+
 def test_nginx_variable_taint_resolves_set_assignments() -> None:
     analyzer, location_block = _analyzer_and_location(
         "http {\n"

@@ -106,6 +106,17 @@ def test_analyze_nginx_config_returns_empty_result_for_existing_file(tmp_path: P
     assert result.issues == []
 
 
+def test_analyze_nginx_config_accepts_pathlike_config_path(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text("worker_processes 1;\n", encoding="utf-8")
+
+    result = analyze_nginx_config(config_path)
+
+    assert result.target == str(config_path)
+    assert result.server_type == "nginx"
+    assert result.issues == []
+
+
 # include resolution
 def test_analyze_nginx_config_resolves_simple_relative_include(tmp_path: Path) -> None:
     config_path = tmp_path / "nginx.conf"

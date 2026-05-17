@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -59,7 +60,7 @@ class ApacheAnalysisContext:
 
 
 def analyze_apache_config(
-    config_path: str,
+    config_path: str | os.PathLike[str],
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
@@ -74,10 +75,11 @@ def analyze_apache_config(
     tagged ``policy-review`` (operator-judgment items surfaced via the
     ``--enable-policy-review`` CLI flag).
     """
-    path = Path(config_path)
+    config_path_str = os.fspath(config_path)
+    path = Path(config_path_str)
 
     if not path.is_file():
-        return _config_not_found_result(config_path)
+        return _config_not_found_result(config_path_str)
 
     try:
         text = path.read_text(encoding="utf-8")
@@ -94,22 +96,22 @@ def analyze_apache_config(
         )
     except UnicodeDecodeError as exc:
         return _apache_config_read_error_result(
-            config_path,
+            config_path_str,
             path,
-            f"Cannot decode config file {config_path}: {exc}",
+            f"Cannot decode config file {config_path_str}: {exc}",
         )
     except OSError as exc:
         return _apache_config_read_error_result(
-            config_path,
+            config_path_str,
             path,
-            f"Cannot read config file {config_path}: {exc}",
+            f"Cannot read config file {config_path_str}: {exc}",
         )
     except ApacheParseError as exc:
-        return _apache_parse_error_result(config_path, path, exc)
+        return _apache_parse_error_result(config_path_str, path, exc)
 
     return AnalysisResult(
         mode="local",
-        target=config_path,
+        target=config_path_str,
         server_type="apache",
         findings=findings,
         issues=issues,

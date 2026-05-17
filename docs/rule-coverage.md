@@ -29,13 +29,13 @@ file.
 
 ## Summary
 
-Total rules: **465**
+Total rules: **466**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (284), external (167), universal (14) |
-| Severity | high (52), medium (152), low (241), info (20) |
-| Input kind | ast (182), effective (90), probe (167), normalized (14), htaccess (6), mixed (6) |
+| Category | local (285), external (167), universal (14) |
+| Severity | high (52), medium (153), low (241), info (20) |
+| Input kind | ast (183), effective (90), probe (167), normalized (14), htaccess (6), mixed (6) |
 
 ## Documented Scope Limits
 
@@ -167,7 +167,7 @@ Mapping rationale (universal rules):
 
 ### Nginx (Local)
 
-Count: 94
+Count: 95
 
 Stage 2 mapping status: **CWE / OWASP complete; CIS existing-rule reference
 pass complete** for this group. CIS references come from a full walk-through
@@ -272,6 +272,7 @@ the benchmark covers but webconf-audit does not.
 | `nginx.crlf_in_return` | high | ast | headers, injection | [CWE-113](https://cwe.mitre.org/data/definitions/113.html) | [A03:2021](https://owasp.org/Top10/A03_2021-Injection/) | [ASVS v5.0.0-1.1.2](https://owasp.org/www-project-application-security-verification-standard/) (partial: Response/header generation must keep untrusted values context-safe.) | - | - |
 | `nginx.crlf_in_add_header` | high | ast | headers, injection | [CWE-113](https://cwe.mitre.org/data/definitions/113.html) | [A03:2021](https://owasp.org/Top10/A03_2021-Injection/) | [ASVS v5.0.0-1.1.2](https://owasp.org/www-project-application-security-verification-standard/) (partial: Header generation must keep untrusted values context-safe.) | - | - |
 | `nginx.proxy_pass_user_controlled_destination` | high | ast | proxy, ssrf | [CWE-918](https://cwe.mitre.org/data/definitions/918.html) | [A10:2021](https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/) | [ASVS v5.0.0-1.3.6](https://owasp.org/www-project-application-security-verification-standard/) | - | - |
+| `nginx.proxy_set_header_host_spoofing` | medium | ast | host, proxy, routing | [CWE-346](https://cwe.mitre.org/data/definitions/346.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.5](https://owasp.org/www-project-application-security-verification-standard/) (partial: Static detection of raw Host forwarding to upstream services.) | - | - |
 | `nginx.server_block_accepts_unknown_host` | medium | ast | host, routing | [CWE-346](https://cwe.mitre.org/data/definitions/346.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | - | - | - |
 | `nginx.alias_traversal_classic_pattern` | medium | ast | paths | [CWE-22](https://cwe.mitre.org/data/definitions/22.html) | [A01:2021](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) | - | - | - |
 
@@ -371,6 +372,9 @@ Mapping rationale (nginx rules):
   A10, ASVS v5.0.0-1.3.6. Secondary alignment also exists with OWASP API
   Security Top 10 2023 API7:2023 (SSRF), kept here as docs-only context rather
   than a rule-level standards reference.
+- `proxy_set_header_host_spoofing` -- forwarding raw request-controlled Host
+  values to upstreams can break origin validation and tenant/cache routing:
+  CWE-346, OWASP A05, ASVS v5.0.0-13.4.5 partial.
 - `missing_hsts_header`, `hsts_header_unsafe` -- missing HSTS or a short /
   incomplete HSTS policy allows downgrade to HTTP: CWE-319, OWASP A05.
 - `missing_http_to_https_redirect` -- leaving a named HTTP virtual host
