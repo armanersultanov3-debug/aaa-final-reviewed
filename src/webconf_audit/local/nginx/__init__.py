@@ -1,3 +1,4 @@
+from os import PathLike
 from pathlib import Path
 
 from webconf_audit.local.load_context import LoadContext
@@ -20,7 +21,7 @@ _NGINX_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
 
 
 def analyze_nginx_config(
-    config_path: str,
+    config_path: str | PathLike[str],
     *,
     enable_policy_review: bool = False,
 ) -> AnalysisResult:
@@ -37,33 +38,34 @@ def analyze_nginx_config(
     tagged ``policy-review`` (operator-judgment items surfaced via the
     ``--enable-policy-review`` CLI flag).
     """
-    path = Path(config_path)
+    config_path_str = str(config_path)
+    path = Path(config_path_str)
 
     if not path.is_file():
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="nginx",
             issues=[
                 AnalysisIssue(
                     code="config_not_found",
                     level="error",
-                    message=f"Config file not found: {config_path}",
+                    message=f"Config file not found: {config_path_str}",
                     location=SourceLocation(
                         mode="local",
                         kind="file",
-                        file_path=config_path,
+                        file_path=config_path_str,
                     ),
                 )
             ],
         )
 
     try:
-        text = read_text_file(config_path)
+        text = read_text_file(config_path_str)
     except (OSError, UnicodeDecodeError) as exc:
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="nginx",
             issues=[
                 AnalysisIssue(
@@ -86,7 +88,7 @@ def analyze_nginx_config(
         error_path = getattr(exc, "file_path", str(path))
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="nginx",
             issues=[
                 AnalysisIssue(
@@ -117,7 +119,7 @@ def analyze_nginx_config(
 
     return AnalysisResult(
         mode="local",
-        target=config_path,
+        target=config_path_str,
         server_type="nginx",
         findings=findings,
         issues=issues,

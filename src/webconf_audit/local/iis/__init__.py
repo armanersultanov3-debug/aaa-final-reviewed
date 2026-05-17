@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from os import PathLike
 from pathlib import Path
 
 from webconf_audit.local.iis.discovery import discover_iis_sites, locate_machine_config
@@ -21,7 +22,7 @@ from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceL
 
 
 def analyze_iis_config(
-    config_path: str,
+    config_path: str | PathLike[str],
     machine_config_path: str | None = None,
     tls_registry_path: str | None = None,
     use_tls_registry: bool = True,
@@ -48,7 +49,8 @@ def analyze_iis_config(
     tagged ``policy-review`` (operator-judgment items surfaced via the
     ``--enable-policy-review`` CLI flag).
     """
-    path = Path(config_path)
+    config_path_str = str(config_path)
+    path = Path(config_path_str)
 
     if path.is_dir():
         app_host = path / "applicationHost.config"
@@ -61,17 +63,17 @@ def analyze_iis_config(
             else:
                 return AnalysisResult(
                     mode="local",
-                    target=config_path,
+                    target=config_path_str,
                     server_type="iis",
                     issues=[
                         AnalysisIssue(
                             code="config_not_found",
                             level="error",
-                            message=f"No IIS config found in directory: {config_path}",
+                            message=f"No IIS config found in directory: {config_path_str}",
                             location=SourceLocation(
                                 mode="local",
                                 kind="file",
-                                file_path=config_path,
+                                file_path=config_path_str,
                             ),
                         )
                     ],
@@ -80,17 +82,17 @@ def analyze_iis_config(
     if not path.is_file():
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="iis",
             issues=[
                 AnalysisIssue(
                     code="config_not_found",
                     level="error",
-                    message=f"Config file not found: {config_path}",
+                    message=f"Config file not found: {config_path_str}",
                     location=SourceLocation(
                         mode="local",
                         kind="file",
-                        file_path=config_path,
+                        file_path=config_path_str,
                     ),
                 )
             ],
@@ -101,7 +103,7 @@ def analyze_iis_config(
     except OSError as exc:
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="iis",
             issues=[
                 AnalysisIssue(
@@ -122,7 +124,7 @@ def analyze_iis_config(
     except IISParseError as exc:
         return AnalysisResult(
             mode="local",
-            target=config_path,
+            target=config_path_str,
             server_type="iis",
             issues=[
                 AnalysisIssue(
@@ -149,7 +151,7 @@ def analyze_iis_config(
     if doc.config_kind == "applicationHost":
         return _analyze_application_host(
             doc,
-            config_path,
+            config_path_str,
             machine_config_path=machine_config_path,
             registry_tls=registry_tls,
             registry_issues=registry_issues,
@@ -158,7 +160,7 @@ def analyze_iis_config(
 
     return _analyze_single_config(
         doc,
-        config_path,
+        config_path_str,
         machine_config_path=machine_config_path,
         registry_tls=registry_tls,
         registry_issues=registry_issues,

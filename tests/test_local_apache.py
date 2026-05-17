@@ -76,6 +76,35 @@ def test_analyze_apache_config_success(tmp_path: Path) -> None:
     assert result.issues == []
 
 
+def test_analyze_apache_config_accepts_pathlike_config_path(tmp_path: Path) -> None:
+    config_path = tmp_path / "httpd.conf"
+    config_path.write_text(
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                    "Listen 127.0.0.1:80",
+                ]
+            )
+        ),
+        encoding="utf-8",
+    )
+
+    result = analyze_apache_config(config_path)
+
+    assert result.target == str(config_path)
+    assert result.server_type == "apache"
+    assert result.issues == []
+
+
 def test_analyze_apache_config_accepts_files_match_block(tmp_path: Path) -> None:
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(

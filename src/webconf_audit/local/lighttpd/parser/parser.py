@@ -212,30 +212,31 @@ class LighttpdParser:
         for line_number, raw_line in enumerate(self.text.splitlines(), start=1):
             content = _strip_comment(raw_line).strip()
 
-            if not content and start_line is None:
-                continue
+            for segment in _split_unquoted_brace_segments(content):
+                if not segment and start_line is None:
+                    continue
 
-            if start_line is None:
-                start_line = line_number
+                if start_line is None:
+                    start_line = line_number
 
-            if content:
-                buffer.append(content)
+                if segment:
+                    buffer.append(segment)
 
-            state = _scan_logical_line_state(
-                content,
-                line_number,
-                self.file_path,
-                state,
-            )
-            if _logical_statement_complete(state, buffer):
-                statements.append(
-                    _LogicalStatement(
-                        text=_logical_statement_text(buffer),
-                        line=start_line,
-                    )
+                state = _scan_logical_line_state(
+                    segment,
+                    line_number,
+                    self.file_path,
+                    state,
                 )
-                buffer = []
-                start_line = None
+                if _logical_statement_complete(state, buffer):
+                    statements.append(
+                        _LogicalStatement(
+                            text=_logical_statement_text(buffer),
+                            line=start_line,
+                        )
+                    )
+                    buffer = []
+                    start_line = None
 
         _ensure_balanced_statement_state(state, self.file_path, start_line)
 
@@ -289,6 +290,51 @@ def _strip_comment(line: str) -> str:
         index += 1
 
     return "".join(result)
+
+
+def _split_unquoted_brace_segments(text: str) -> list[str]:
+    segments: list[str] = []
+    current: list[str] = []
+    quote_char: str | None = None
+    escaped = False
+
+    for char in text:
+        if quote_char is not None:
+            current.append(char)
+            quote_char, escaped = _quoted_scan_state(
+                char,
+                quote_char,
+                escaped=escaped,
+            )
+            continue
+
+        if char in {'"', "'"}:
+            current.append(char)
+            quote_char = char
+            escaped = False
+            continue
+
+        if char == "{":
+            current.append(char)
+            _flush_segment(current, segments)
+            continue
+
+        if char == "}":
+            _flush_segment(current, segments)
+            segments.append("}")
+            continue
+
+        current.append(char)
+
+    _flush_segment(current, segments)
+    return segments
+
+
+def _flush_segment(current: list[str], segments: list[str]) -> None:
+    segment = "".join(current).strip()
+    if segment:
+        segments.append(segment)
+    current.clear()
 
 
 def _split_arguments(text: str, line: int, file_path: str | None) -> list[str]:

@@ -1,7 +1,7 @@
 """Invariant tests for Lighttpd condition source span.
 
 These tests are the guardian for the precision contract established by
-O-05 (plan ``docs/superpowers/plans/2026-05-14-open-items-followup.md``):
+the 2026-05-14 Lighttpd traceability follow-up:
 every Lighttpd finding emitted inside a conditional block must point at
 either the condition line itself or a specific directive/assignment line
 inside the block. It must never point at a line that nothing meaningful

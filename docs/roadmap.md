@@ -249,8 +249,8 @@ missing HSTS and missing `ssl_ciphers` to medium, and raises missing
 Current execution order after the report-grouping merge:
 
 1. Validate `--group-repeated` against the real noisy Nginx evidence captured
-   in `roadmap1.md`, comparing the current output with the saved prototype
-   report.
+   in `tests/test_nginx_roadmap1_noise.py`, comparing the current output with
+   the saved prototype report.
 2. Continue CIS/standards coverage expansion and curated safe-probe growth on
    top of the now-implemented Apache precision and TLS runtime evidence work.
 
@@ -282,18 +282,16 @@ hardcoded finder per path.
 
 ## Backlog Status (local snapshot date: 2026-05-15)
 
-- Rule count: 465 total (including 9 opt-in `policy-review` rules excluded
+- Rule count: 466 total (including 9 opt-in `policy-review` rules excluded
   from default analyzer runs; safe-probe batch-3 added 30 new external
   rules per STD-GAP-015), with the repeated counters and registry
   expected to stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,
   `STD-GAP-035`, `STD-GAP-036`, `STD-GAP-037`, and `STD-GAP-038`.
-- Closed as not pursued (plan
-  `docs/superpowers/plans/2026-05-14-open-items-followup.md`):
+- Closed as not pursued (see rationale in `docs/benchmarks-covering.md §9`):
   `STD-GAP-017`, `STD-GAP-018`, `STD-GAP-019`, `STD-GAP-022`, `STD-GAP-023`,
-  `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`. Each carries an explicit
-  rationale in `docs/benchmarks-covering.md §9`.
+  `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`.
 - Active backlog:
   - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 of plan
     2026-05-14 landed batch-2 with ~30 new external rules; further growth

@@ -12,6 +12,11 @@ import re
 from webconf_audit.local.nginx.parser.ast import AstNode, BlockNode, ConfigAst, DirectiveNode
 
 _VARIABLE_RE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\d+)")
+_NAMED_CAPTURE_RE = re.compile(
+    r"\(\?(?:P<(?P<python>[A-Za-z_][A-Za-z0-9_]*)>|"
+    r"<(?P<angle>[A-Za-z_][A-Za-z0-9_]*)>|"
+    r"'(?P<quoted>[A-Za-z_][A-Za-z0-9_]*)')"
+)
 _USER_CONTROLLED_PREFIXES = ("$arg_", "$http_", "$cookie_")
 _USER_CONTROLLED_NAMES = frozenset(
     {
@@ -23,7 +28,7 @@ _USER_CONTROLLED_NAMES = frozenset(
         "$request_uri",
     }
 )
-_PROXY_PASS_HOST_USER_CONTROLLED_NAMES = frozenset({"$uri"})
+_PROXY_PASS_HOST_USER_CONTROLLED_NAMES = frozenset({"$document_uri", "$host", "$uri"})
 _NON_USER_CONTROLLED_NAMES = frozenset({"$binary_remote_addr", "$realip_remote_addr"})
 
 
@@ -123,6 +128,9 @@ class TaintAnalyzer:
         *,
         definition_scope: BlockNode | None,
     ) -> None:
+        for capture_var in extract_named_capture_variables(" ".join(block.args)):
+            self._record_request_capture(capture_var, scope=block, line=block.source.line)
+
         if block.name == "map":
             self._record_map(block, scope=definition_scope)
             return
@@ -170,6 +178,23 @@ class TaintAnalyzer:
             )
         )
 
+    def _record_request_capture(
+        self,
+        var_name: str,
+        *,
+        scope: BlockNode,
+        line: int,
+    ) -> None:
+        normalized_var = normalize_variable_name(var_name)
+        self._definitions_by_var[normalized_var].append(
+            VariableDefinition(
+                kind="request_capture",
+                scope=scope,
+                order=self._next_definition_order(),
+                line=line,
+            )
+        )
+
     def _is_user_controlled(
         self,
         var_name: str,
@@ -190,6 +215,8 @@ class TaintAnalyzer:
         definition = self._visible_definition(var_name, scope)
         if definition is None:
             return False
+        if definition.kind == "request_capture":
+            return True
         if definition.kind == "non_user_controlled":
             return False
 
@@ -279,6 +306,21 @@ def extract_variables(value: str) -> tuple[str, ...]:
     return tuple(variables)
 
 
+def extract_named_capture_variables(pattern: str) -> tuple[str, ...]:
+    seen: set[str] = set()
+    variables: list[str] = []
+    for match in _NAMED_CAPTURE_RE.finditer(pattern):
+        capture_name = match.group("python") or match.group("angle") or match.group("quoted")
+        if capture_name is None:
+            continue
+        variable_name = f"${capture_name.lower()}"
+        if variable_name in seen:
+            continue
+        seen.add(variable_name)
+        variables.append(variable_name)
+    return tuple(variables)
+
+
 def is_builtin_user_controlled(
     var_name: str,
     *,
@@ -300,6 +342,7 @@ def normalize_variable_name(var_name: str) -> str:
 
 __all__ = [
     "TaintAnalyzer",
+    "extract_named_capture_variables",
     "extract_variables",
     "is_builtin_user_controlled",
     "normalize_variable_name",

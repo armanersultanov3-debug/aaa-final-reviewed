@@ -247,6 +247,55 @@ def test_parse_condition_else_block_has_no_condition() -> None:
     assert else_block.condition is None
 
 
+def test_parse_lighttpd_inline_condition_block() -> None:
+    ast = parse_lighttpd_config(
+        '$HTTP["remote-ip"] == "127.0.0.1" { accesslog.filename = "" }\n',
+        file_path="lighttpd.conf",
+    )
+
+    assert len(ast.nodes) == 1
+    block = ast.nodes[0]
+    assert isinstance(block, LighttpdBlockNode)
+    assert block.header == '$HTTP["remote-ip"] == "127.0.0.1"'
+    assert block.source.line == 1
+    assert block.condition == LighttpdCondition(
+        variable='$HTTP["remote-ip"]',
+        operator="==",
+        value="127.0.0.1",
+        source=LighttpdSourceSpan(file_path="lighttpd.conf", line=1),
+    )
+
+    assert len(block.children) == 1
+    child = block.children[0]
+    assert isinstance(child, LighttpdAssignmentNode)
+    assert child.name == "accesslog.filename"
+    assert child.value == '""'
+    assert child.source.line == 1
+
+
+def test_parse_lighttpd_closing_brace_and_else_if_on_same_line() -> None:
+    ast = parse_lighttpd_config(
+        '$HTTP["url"] =~ "^/cgi-bin/" {\n'
+        '    cgi.assign = ( ".py" => "/usr/bin/python3" )\n'
+        '} else $HTTP["url"] =~ "^/overlay/config/" {\n'
+        '    url.access-deny = ("")\n'
+        "}\n",
+    )
+
+    assert len(ast.nodes) == 2
+    first, second = ast.nodes
+    assert isinstance(first, LighttpdBlockNode)
+    assert isinstance(second, LighttpdBlockNode)
+    assert [first.branch_kind, second.branch_kind] == ["if", "else_if"]
+    assert first.condition is not None
+    assert first.condition.variable == '$HTTP["url"]'
+    assert first.condition.value == "^/cgi-bin/"
+    assert second.condition is not None
+    assert second.condition.variable == '$HTTP["url"]'
+    assert second.condition.value == "^/overlay/config/"
+    assert second.source.line == 3
+
+
 def test_parse_condition_unrecognized_header_has_no_condition() -> None:
     ast = parse_lighttpd_config(
         "some_custom_block {\n"

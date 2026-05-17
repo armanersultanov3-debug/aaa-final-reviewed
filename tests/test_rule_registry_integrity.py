@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 465
+        assert len(full_reg._catalog) == 466
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 309
+        assert len(full_reg._executable) == 310
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class TestCategoryCounts:
 
     def test_nginx(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="nginx")
-        assert len(rules) == 94
+        assert len(rules) == 95
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
@@ -343,6 +343,11 @@ class TestStandardsMetadata:
                 ("CWE", "CWE-918"),
                 ("OWASP Top 10", "A10:2021"),
                 ("OWASP ASVS", "v5.0.0-1.3.6"),
+            },
+            "nginx.proxy_set_header_host_spoofing": {
+                ("CWE", "CWE-346"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.5"),
             },
             "nginx.server_block_accepts_unknown_host": {
                 ("CWE", "CWE-346"),
