@@ -204,21 +204,26 @@ def _analyze_case(case: dict[str, Any]) -> AnalysisResult:
     _validate_analyzer_options(case, server_type, options)
 
     if server_type == "nginx":
-        return analyze_nginx_config(str(entrypoint))
+        return analyze_nginx_config(entrypoint)
     if server_type == "apache":
-        return analyze_apache_config(str(entrypoint))
+        return analyze_apache_config(entrypoint)
     if server_type == "lighttpd":
         host = _optional_string_option(case, options, "host")
-        return analyze_lighttpd_config(str(entrypoint), host=host)
+        return analyze_lighttpd_config(entrypoint, host=host)
     if server_type == "iis":
-        tls_registry_path = _optional_string_option(case, options, "tls_registry_path")
-        if tls_registry_path is not None:
-            tls_registry_path = str(
-                _fixture_path(tls_registry_path, field_name="tls_registry_path")
-            )
+        tls_registry_path_value = _optional_string_option(
+            case,
+            options,
+            "tls_registry_path",
+        )
+        tls_registry_path = (
+            _fixture_path(tls_registry_path_value, field_name="tls_registry_path")
+            if tls_registry_path_value is not None
+            else None
+        )
         use_tls_registry = _bool_option(case, options, "use_tls_registry")
         return analyze_iis_config(
-            str(entrypoint),
+            entrypoint,
             tls_registry_path=tls_registry_path,
             use_tls_registry=use_tls_registry,
         )

@@ -24,7 +24,7 @@ from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceL
 def analyze_iis_config(
     config_path: str | os.PathLike[str],
     machine_config_path: str | None = None,
-    tls_registry_path: str | None = None,
+    tls_registry_path: str | os.PathLike[str] | None = None,
     use_tls_registry: bool = True,
     *,
     enable_policy_review: bool = False,

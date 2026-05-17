@@ -10,6 +10,7 @@ JSON export so the IIS normalizer can feed universal TLS rules.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 from dataclasses import dataclass
@@ -105,7 +106,7 @@ class IISRegistryTLS:
 
 
 def load_registry_export(
-    export_path: str,
+    export_path: str | os.PathLike[str],
 ) -> tuple[IISRegistryTLS | None, list[AnalysisIssue]]:
     """Load a JSON-formatted SChannel registry export.
 
@@ -126,25 +127,32 @@ def load_registry_export(
           }
         }
     """
-    path = Path(export_path)
+    export_path_str = os.fspath(export_path)
+    path = Path(export_path_str)
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
-        return None, [_export_issue(export_path, f"Cannot read TLS registry export: {exc}")]
+        return None, [
+            _export_issue(export_path_str, f"Cannot read TLS registry export: {exc}")
+        ]
 
     try:
         raw = json.loads(text)
     except json.JSONDecodeError as exc:
-        return None, [_export_issue(export_path, f"Invalid JSON in TLS registry export: {exc}")]
+        return None, [
+            _export_issue(export_path_str, f"Invalid JSON in TLS registry export: {exc}")
+        ]
 
     if not isinstance(raw, dict):
-        return None, [_export_issue(export_path, "TLS registry export must be a JSON object.")]
+        return None, [
+            _export_issue(export_path_str, "TLS registry export must be a JSON object.")
+        ]
 
     schannel = raw.get("schannel")
     if not isinstance(schannel, dict):
         return None, [
             _export_issue(
-                export_path,
+                export_path_str,
                 "TLS registry export is missing the 'schannel' object.",
             )
         ]
@@ -159,7 +167,7 @@ def load_registry_export(
     if not snapshot.has_data:
         return None, [
             _export_issue(
-                export_path,
+                export_path_str,
                 "TLS registry export does not contain protocol or cipher data.",
             )
         ]
@@ -167,7 +175,7 @@ def load_registry_export(
 
 
 def resolve_registry_tls(
-    registry_source: str | None = None,
+    registry_source: str | os.PathLike[str] | None = None,
     *,
     use_live_registry: bool = True,
 ) -> tuple[IISRegistryTLS | None, list[AnalysisIssue]]:
