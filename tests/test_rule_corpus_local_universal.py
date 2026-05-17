@@ -30,9 +30,26 @@ _RULE_PACKAGES = (
 
 def _load_manifest() -> dict[str, Any]:
     payload = json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
-    assert payload["schema_version"] == 1
-    cases = payload.get("cases")
-    assert isinstance(cases, list)
+    if not isinstance(payload, dict):
+        raise TypeError(
+            f"{_MANIFEST_PATH}: manifest root must be an object, "
+            f"got {type(payload).__name__}"
+        )
+    if "schema_version" not in payload:
+        raise ValueError(f"{_MANIFEST_PATH}: missing schema_version")
+    if payload["schema_version"] != 1:
+        raise ValueError(
+            f"{_MANIFEST_PATH}: schema_version must be 1, "
+            f"got {payload['schema_version']!r}"
+        )
+    if "cases" not in payload:
+        raise ValueError(f"{_MANIFEST_PATH}: missing cases")
+    cases = payload["cases"]
+    if not isinstance(cases, list):
+        raise TypeError(
+            f"{_MANIFEST_PATH}: cases must be a list, "
+            f"got {type(cases).__name__}"
+        )
     return payload
 
 
