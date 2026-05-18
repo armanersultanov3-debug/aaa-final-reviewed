@@ -1054,7 +1054,13 @@ def test_https_probe_uses_stdlib_http_after_tls_observation(monkeypatch) -> None
         def close(self) -> None:
             captured["connection_closed"] = True
 
-    monkeypatch.setattr(recon, "_observe_https_tls_info", lambda _target: None)
+    def fake_observe_https_tls_info(_target: ProbeTarget) -> None:
+        captured["tls_observation_calls"] = (
+            int(captured.get("tls_observation_calls", 0)) + 1
+        )
+        return None
+
+    monkeypatch.setattr(recon, "_observe_https_tls_info", fake_observe_https_tls_info)
     monkeypatch.setattr(recon, "_build_connection", lambda _target: FakeConnection())
 
     target = ProbeTarget(scheme="https", host="example.com", port=443, path="/")
@@ -1066,6 +1072,7 @@ def test_https_probe_uses_stdlib_http_after_tls_observation(monkeypatch) -> None
     assert captured["request_path"] == "/"
     assert captured["read_called"] is True
     assert captured["connection_closed"] is True
+    assert captured["tls_observation_calls"] == 1
 
 
 def test_effective_method_in_metadata(monkeypatch) -> None:
