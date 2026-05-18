@@ -1167,36 +1167,13 @@ def _try_https_method(
     probe_target: ProbeTarget,
     method: ProbeMethod,
 ) -> ProbeAttempt:
-    raw_sock: socket.socket | None = None
-    tls_conn: _OSSL.Connection | None = None
-    response: http.client.HTTPResponse | None = None
-    ocsp_state = {"seen": False, "response": b""}
-    sct_state = {"response": b""}
+    tls_info = _observe_https_tls_info(probe_target)
+    connection = _build_connection(probe_target)
     try:
-        context = _build_observed_tls_context(ocsp_state=ocsp_state, sct_state=sct_state)
-        raw_sock = socket.create_connection(
-            (probe_target.host, probe_target.port),
-            timeout=DEFAULT_TIMEOUT_SECONDS,
-        )
-        raw_sock.settimeout(DEFAULT_TIMEOUT_SECONDS)
-        tls_conn = _OSSL.Connection(context, raw_sock)
-        tls_conn.set_tlsext_host_name(probe_target.host.encode("idna"))
-        if hasattr(tls_conn, "request_ocsp"):
-            tls_conn.request_ocsp()
-        tls_conn.set_connect_state()
-        _complete_openssl_handshake(tls_conn)
-
-        tls_info = _extract_tls_info_from_openssl(
-            tls_conn,
-            ocsp_state=ocsp_state,
-            sct_state=sct_state,
-        )
-
-        request_bytes = _build_https_request_bytes(probe_target, method)
-        tls_conn.sendall(request_bytes)
-
-        response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
-        response.begin()
+        connection.request(method, probe_target.path)
+        response = connection.getresponse()
+        if tls_info is None:
+            tls_info = _extract_tls_info(connection, response)
 
         body_snippet: str | None = None
         html_recon: HTMLRecon | None = None
@@ -1242,18 +1219,42 @@ def _try_https_method(
             html_recon=html_recon,
             tls_info=tls_info,
         )
-    except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
+    except (OSError, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
         return ProbeAttempt(
             target=probe_target,
             tcp_open=True,
             error_message=str(exc),
         )
     finally:
-        if response is not None:
-            try:
-                response.close()
-            except Exception:
-                pass
+        connection.close()
+
+
+def _observe_https_tls_info(probe_target: ProbeTarget) -> TLSInfo | None:
+    raw_sock: socket.socket | None = None
+    tls_conn: _OSSL.Connection | None = None
+    ocsp_state = {"seen": False, "response": b""}
+    sct_state = {"response": b""}
+    try:
+        context = _build_observed_tls_context(ocsp_state=ocsp_state, sct_state=sct_state)
+        raw_sock = socket.create_connection(
+            (probe_target.host, probe_target.port),
+            timeout=DEFAULT_TIMEOUT_SECONDS,
+        )
+        raw_sock.settimeout(DEFAULT_TIMEOUT_SECONDS)
+        tls_conn = _OSSL.Connection(context, raw_sock)
+        tls_conn.set_tlsext_host_name(probe_target.host.encode("idna"))
+        if hasattr(tls_conn, "request_ocsp"):
+            tls_conn.request_ocsp()
+        tls_conn.set_connect_state()
+        _complete_openssl_handshake(tls_conn)
+        return _extract_tls_info_from_openssl(
+            tls_conn,
+            ocsp_state=ocsp_state,
+            sct_state=sct_state,
+        )
+    except (OSError, _OSSL.Error, ssl.SSLError, UnicodeError):
+        return None
+    finally:
         if tls_conn is not None:
             try:
                 tls_conn.close()
@@ -1828,34 +1829,14 @@ def _try_https_runtime_response(
     *,
     host_header: str,
 ) -> RuntimeResponseObservation:
-    raw_sock: socket.socket | None = None
-    tls_conn: _OSSL.Connection | None = None
-    response: http.client.HTTPResponse | None = None
-
+    connection = _build_connection(probe_target)
     try:
-        context = _build_observed_tls_context(
-            ocsp_state={"seen": False, "response": b""},
-            sct_state={"response": b""},
-        )
-        raw_sock = socket.create_connection(
-            (probe_target.host, probe_target.port),
-            timeout=DEFAULT_TIMEOUT_SECONDS,
-        )
-        raw_sock.settimeout(DEFAULT_TIMEOUT_SECONDS)
-        tls_conn = _OSSL.Connection(context, raw_sock)
-        tls_conn.set_tlsext_host_name(probe_target.host.encode("idna"))
-        tls_conn.set_connect_state()
-        _complete_openssl_handshake(tls_conn)
-
-        request_bytes = _build_https_request_bytes(
-            probe_target,
+        connection.request(
             "GET",
-            host_header=host_header,
+            probe_target.path,
+            headers=_runtime_request_headers(host_header),
         )
-        tls_conn.sendall(request_bytes)
-
-        response = http.client.HTTPResponse(_OpenSSLSocketAdapter(tls_conn))
-        response.begin()
+        response = connection.getresponse()
         body_sha256, body_size, read_error = _read_runtime_response_body(response)
         return _runtime_response_observation(
             probe_target=probe_target,
@@ -1865,28 +1846,14 @@ def _try_https_runtime_response(
             body_size=body_size,
             error_message=read_error,
         )
-    except (OSError, _OSSL.Error, http.client.HTTPException, ssl.SSLError, UnicodeError) as exc:
+    except (OSError, http.client.HTTPException, ssl.SSLError) as exc:
         return RuntimeResponseObservation(
             url=probe_target.url,
             host_header=host_header,
             error_message=str(exc),
         )
     finally:
-        if response is not None:
-            try:
-                response.close()
-            except Exception:
-                pass
-        if tls_conn is not None:
-            try:
-                tls_conn.close()
-            except Exception:
-                pass
-        if raw_sock is not None:
-            try:
-                raw_sock.close()
-            except Exception:
-                pass
+        connection.close()
 
 
 def _runtime_request_headers(host_header: str) -> dict[str, str]:
