@@ -524,6 +524,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
                 'location /cookie { add_header Set-Cookie "$arg_session; Secure" always; }',
                 "location /classic { alias /srv/files/; }",
                 "location /proxy {",
+                "    proxy_set_header Host $http_host;",
                 "    proxy_pass http://$arg_target;",
                 "}",
             )
@@ -533,6 +534,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
                 "nginx.crlf_in_return",
                 "nginx.crlf_in_add_header",
                 "nginx.proxy_pass_user_controlled_destination",
+                "nginx.proxy_set_header_host_spoofing",
                 "nginx.server_block_accepts_unknown_host",
                 "nginx.alias_traversal_classic_pattern",
             }
@@ -870,13 +872,14 @@ def _lighttpd_scenarios() -> tuple[Scenario, ...]:
             'index-file.names = ( "index.html" )',
             'status.status-url = "/server-status"',
             'ssl.cipher-list = "RC4-SHA:AES128"',
-            'setenv.add-response-header = ( "Content-Security-Policy" => "default-src \'self\'" )',
+            'setenv.add-response-header = ( "Content-Security-Policy" => "default-src \'self\'; script-src \'unsafe-inline\'" )',
             'dir-listing.activate = "enable"',
         ),
         expected_rule_ids=frozenset(
             {
                 "lighttpd.access_log_missing",
                 "lighttpd.content_security_policy_missing_reporting_endpoint",
+                "lighttpd.content_security_policy_unsafe",
                 "lighttpd.dir_listing_enabled",
                 "lighttpd.error_log_missing",
                 "lighttpd.max_connections_missing",
@@ -999,8 +1002,8 @@ def _expected_local_rule_ids(server_type: str) -> set[str]:
     }
     registry.ensure_loaded(load_map[server_type])
     expected_ids = {
-        meta.rule_id
-        for meta in registry.list_rules(category="local", server_type=server_type)
+        entry.meta.rule_id
+        for entry in registry.rules_for("local", server_type)
     }
     return expected_ids - _PACK_COVERAGE_EXCLUDED_LOCAL_RULE_IDS.get(server_type, frozenset())
 
