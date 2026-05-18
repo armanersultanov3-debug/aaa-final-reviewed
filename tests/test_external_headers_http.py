@@ -1019,6 +1019,53 @@ def test_get_fallback_when_head_fails_after_tcp_open(monkeypatch) -> None:
     assert result.status_code == 200
 
 
+def test_https_probe_uses_stdlib_http_after_tls_observation(monkeypatch) -> None:
+    from webconf_audit.external import recon
+
+    captured: dict[str, object] = {}
+
+    class FakeMessage:
+        def get_all(self, _name: str) -> list[str]:
+            return []
+
+    class FakeHTTPResponse:
+        status = 200
+        reason = "OK"
+        msg = FakeMessage()
+
+        def getheader(self, _name: str) -> None:
+            return None
+
+        def read(self, *_args: object) -> bytes:
+            captured["read_called"] = True
+            return b""
+
+        def close(self) -> None:
+            captured["response_closed"] = True
+
+    class FakeConnection:
+        def request(self, method: str, path: str) -> None:
+            captured["request_method"] = method
+            captured["request_path"] = path
+
+        def getresponse(self) -> FakeHTTPResponse:
+            return FakeHTTPResponse()
+
+        def close(self) -> None:
+            captured["connection_closed"] = True
+
+    monkeypatch.setattr(recon, "_observe_https_tls_info", lambda _target: None)
+    monkeypatch.setattr(recon, "_build_connection", lambda _target: FakeConnection())
+
+    target = ProbeTarget(scheme="https", host="example.com", port=443, path="/")
+    result = recon._try_https_method(target, "HEAD")
+
+    assert result.has_http_response
+    assert result.effective_method == "HEAD"
+    assert captured["request_method"] == "HEAD"
+    assert captured["request_path"] == "/"
+
+
 def test_effective_method_in_metadata(monkeypatch) -> None:
     probe_attempts = [
         _https_probe_with_headers(effective_method="GET"),
