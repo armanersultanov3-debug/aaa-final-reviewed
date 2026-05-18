@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "description": "Real-world web server configs lifted from public documentation and stock images, audited simultaneously in local (source file) and external (running container) modes. Containers bind to 127.0.0.1 ports 18100-18199; no external network traffic.",
+  "safety_notes": [
+    "All endpoints listen only on localhost (127.0.0.1).",
+    "Self-signed TLS certificates are generated at build time, never sourced from third parties.",
+    "Tests use scan_ports=False so no port enumeration leaves the host network namespace."
+  ],
+  "cases": [
+    {
+      "id": "nginx-docker-default",
+      "server_type": "nginx",
+      "port": 18100,
+      "scheme": "http",
+      "source_origin": "Nginx official Docker default layout",
+      "source_url": "https://hub.docker.com/_/nginx",
+      "source_subdir": "cases/nginx-docker-default",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.missing_content_security_policy",
+        "nginx.missing_x_content_type_options",
+        "nginx.missing_x_frame_options",
+        "nginx.missing_referrer_policy",
+        "nginx.missing_permissions_policy"
+      ],
+      "expected_external_findings_subset": [
+        "external.http_not_redirected_to_https",
+        "external.https_not_available"
+      ]
+    },
+    {
+      "id": "nginx-docs-reverse-proxy",
+      "server_type": "nginx",
+      "port": 18101,
+      "scheme": "http",
+      "source_origin": "NGINX reverse-proxy documentation",
+      "source_url": "https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/",
+      "source_subdir": "cases/nginx-docs-reverse-proxy",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.missing_content_security_policy",
+        "nginx.missing_referrer_policy",
+        "nginx.missing_permissions_policy",
+        "nginx.log_format_missing_fields"
+      ],
+      "expected_external_findings_subset": [
+        "external.http_not_redirected_to_https",
+        "external.https_not_available"
+      ]
+    },
+    {
+      "id": "nginx-docs-tls-server",
+      "server_type": "nginx",
+      "port": 18102,
+      "scheme": "https",
+      "source_origin": "NGINX SSL/TLS termination documentation",
+      "source_url": "https://docs.nginx.com/nginx/admin-guide/security-controls/terminating-ssl-http/",
+      "source_subdir": "cases/nginx-docs-tls-server",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.missing_content_security_policy",
+        "nginx.missing_referrer_policy",
+        "nginx.missing_permissions_policy"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.referrer_policy_missing",
+        "external.permissions_policy_missing"
+      ]
+    },
+    {
+      "id": "apache-docker-httpd-default",
+      "server_type": "apache",
+      "port": 18103,
+      "scheme": "http",
+      "source_origin": "Apache httpd Docker default layout",
+      "source_url": "https://hub.docker.com/_/httpd",
+      "source_subdir": "cases/apache-docker-httpd-default",
+      "entry_config": "httpd.conf",
+      "expected_local_findings_subset": [
+        "apache.server_tokens_not_prod",
+        "apache.server_signature_not_off",
+        "apache.options_indexes",
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header"
+      ],
+      "expected_external_findings_subset": [
+        "external.http_not_redirected_to_https",
+        "external.https_not_available"
+      ]
+    },
+    {
+      "id": "apache-docs-vhost-htaccess",
+      "server_type": "apache",
+      "port": 18104,
+      "scheme": "http",
+      "source_origin": "Apache HTTP Server VirtualHost + .htaccess documentation",
+      "source_url": "https://httpd.apache.org/docs/2.4/vhosts/examples.html",
+      "source_subdir": "cases/apache-docs-vhost-htaccess",
+      "entry_config": "httpd.conf",
+      "expected_local_findings_subset": [
+        "apache.allowoverride_all_in_directory",
+        "apache.allowoverride_not_none",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_x_frame_options_header"
+      ],
+      "expected_external_findings_subset": [
+        "external.http_not_redirected_to_https",
+        "external.https_not_available"
+      ]
+    },
+    {
+      "id": "lighttpd-docs-default",
+      "server_type": "lighttpd",
+      "port": 18106,
+      "scheme": "http",
+      "source_origin": "Lighttpd official sample/default configuration",
+      "source_url": "https://redmine.lighttpd.net/projects/lighttpd/wiki/HowToSimpleConfig",
+      "source_subdir": "cases/lighttpd-docs-default",
+      "entry_config": "lighttpd.conf",
+      "expected_local_findings_subset": [
+        "lighttpd.dir_listing_enabled"
+      ],
+      "expected_external_findings_subset": [
+        "external.http_not_redirected_to_https",
+        "external.https_not_available"
+      ]
+    },
+    {
+      "id": "lighttpd-docs-fastcgi-tls",
+      "server_type": "lighttpd",
+      "port": 18107,
+      "scheme": "https",
+      "source_origin": "Lighttpd FastCGI + TLS module documentation",
+      "source_url": "https://redmine.lighttpd.net/projects/lighttpd/wiki/Docs_ModSSL",
+      "source_subdir": "cases/lighttpd-docs-fastcgi-tls",
+      "entry_config": "lighttpd.conf",
+      "expected_local_findings_subset": [
+        "lighttpd.ssl_protocol_policy_missing_or_weak",
+        "lighttpd.missing_strict_transport_security",
+        "lighttpd.missing_content_security_policy",
+        "lighttpd.mod_status_public"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.referrer_policy_missing",
+        "external.permissions_policy_missing"
+      ]
+    },
+    {
+      "id": "nginx-mozilla-modern",
+      "server_type": "nginx",
+      "port": 18108,
+      "scheme": "https",
+      "source_origin": "Mozilla SSL Configuration Generator (modern profile)",
+      "source_url": "https://ssl-config.mozilla.org/#server=nginx&config=modern",
+      "source_subdir": "cases/nginx-mozilla-modern",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.missing_content_security_policy",
+        "nginx.missing_x_frame_options",
+        "nginx.missing_referrer_policy"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.x_frame_options_missing",
+        "external.referrer_policy_missing"
+      ]
+    },
+    {
+      "id": "nginx-mozilla-intermediate",
+      "server_type": "nginx",
+      "port": 18109,
+      "scheme": "https",
+      "source_origin": "Mozilla SSL Configuration Generator (intermediate profile)",
+      "source_url": "https://ssl-config.mozilla.org/#server=nginx&config=intermediate",
+      "source_subdir": "cases/nginx-mozilla-intermediate",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.missing_content_security_policy",
+        "nginx.missing_x_frame_options",
+        "nginx.missing_referrer_policy"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.x_frame_options_missing",
+        "external.referrer_policy_missing"
+      ]
+    },
+    {
+      "id": "nginx-mozilla-old",
+      "server_type": "nginx",
+      "port": 18110,
+      "scheme": "https",
+      "source_origin": "Mozilla SSL Configuration Generator (old profile)",
+      "source_url": "https://ssl-config.mozilla.org/#server=nginx&config=old",
+      "source_subdir": "cases/nginx-mozilla-old",
+      "entry_config": "nginx.conf",
+      "expected_local_findings_subset": [
+        "nginx.weak_ssl_protocols",
+        "nginx.ssl_ciphers_weak",
+        "nginx.missing_content_security_policy",
+        "nginx.missing_x_frame_options"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.x_frame_options_missing"
+      ]
+    },
+    {
+      "id": "apache-docs-tls-vhost",
+      "server_type": "apache",
+      "port": 18105,
+      "scheme": "https",
+      "source_origin": "Apache HTTP Server mod_ssl example",
+      "source_url": "https://httpd.apache.org/docs/2.4/ssl/ssl_howto.html",
+      "source_subdir": "cases/apache-docs-tls-vhost",
+      "entry_config": "httpd.conf",
+      "expected_local_findings_subset": [
+        "universal.missing_content_security_policy",
+        "apache.missing_x_frame_options_header",
+        "apache.missing_referrer_policy_header",
+        "apache.missing_permissions_policy_header"
+      ],
+      "expected_external_findings_subset": [
+        "external.content_security_policy_missing",
+        "external.referrer_policy_missing",
+        "external.permissions_policy_missing"
+      ]
+    }
+  ]
+}

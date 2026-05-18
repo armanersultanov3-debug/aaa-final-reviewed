@@ -1,0 +1,77 @@
+services:
+  nginx-docker-default:
+    build:
+      context: ./cases/nginx-docker-default
+    ports:
+      - "127.0.0.1:18100:80"
+
+  nginx-docs-reverse-proxy:
+    build:
+      context: ./cases/nginx-docs-reverse-proxy
+    ports:
+      - "127.0.0.1:18101:8080"
+
+  # Sidecar in the same network namespace as nginx-docs-reverse-proxy so the
+  # upstream `127.0.0.1:8081` referenced by the real config resolves to a
+  # running service. http-echo is a 5 MiB image that returns a deterministic
+  # 200 OK so the reverse proxy can complete the request chain.
+  backend-for-reverse-proxy:
+    image: hashicorp/http-echo:1.0.0
+    command: ["-text=cross-mode-it", "-listen=:8081"]
+    network_mode: "service:nginx-docs-reverse-proxy"
+    depends_on:
+      - nginx-docs-reverse-proxy
+
+  nginx-docs-tls-server:
+    build:
+      context: ./cases/nginx-docs-tls-server
+    ports:
+      - "127.0.0.1:18102:443"
+
+  apache-docker-httpd-default:
+    build:
+      context: ./cases/apache-docker-httpd-default
+    ports:
+      - "127.0.0.1:18103:80"
+
+  apache-docs-vhost-htaccess:
+    build:
+      context: ./cases/apache-docs-vhost-htaccess
+    ports:
+      - "127.0.0.1:18104:80"
+
+  apache-docs-tls-vhost:
+    build:
+      context: ./cases/apache-docs-tls-vhost
+    ports:
+      - "127.0.0.1:18105:443"
+
+  lighttpd-docs-default:
+    build:
+      context: ./cases/lighttpd-docs-default
+    ports:
+      - "127.0.0.1:18106:8080"
+
+  lighttpd-docs-fastcgi-tls:
+    build:
+      context: ./cases/lighttpd-docs-fastcgi-tls
+    ports:
+      - "127.0.0.1:18107:8443"
+
+  nginx-mozilla-modern:
+    build:
+      context: ./cases/nginx-mozilla-modern
+    ports:
+      - "127.0.0.1:18108:443"
+
+  nginx-mozilla-intermediate:
+    build:
+      context: ./cases/nginx-mozilla-intermediate
+    ports:
+      - "127.0.0.1:18109:443"
+
+  nginx-mozilla-old:
+    build:
+      context: ./cases/nginx-mozilla-old
+    ports:
+      - "127.0.0.1:18110:443"
