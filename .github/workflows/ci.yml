@@ -57,6 +57,7 @@ jobs:
           --ignore=tests/integration_external
           --ignore=tests/integration_local
           --ignore=tests/integration_rule_coverage
+          --ignore=tests/integration_real_world_cross_mode
           -q
 
       - name: Load rule catalog

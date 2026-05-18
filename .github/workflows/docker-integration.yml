@@ -53,4 +53,5 @@ jobs:
           tests/integration_external
           tests/integration_local
           tests/integration_rule_coverage
+          tests/integration_real_world_cross_mode
           -q

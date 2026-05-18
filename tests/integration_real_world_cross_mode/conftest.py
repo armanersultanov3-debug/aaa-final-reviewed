@@ -20,6 +20,10 @@ _COMPOSE_FILE = _TEST_DIR / "docker-compose.yml"
 _MANIFEST = _TEST_DIR / "manifest.json"
 _PROJECT_NAME = "webconf_audit_real_world_cross_mode_it"
 _DOCKER_PROBE_TIMEOUT_SECONDS = 5
+# `docker compose up --build` for 11 services from cold cache routinely takes
+# a minute or more on a slow runner; cap it generously so a stuck build still
+# fails loudly instead of pinning the test session forever.
+_COMPOSE_RUN_TIMEOUT_SECONDS = 900
 
 
 def _load_cases() -> list[dict[str, Any]]:
@@ -82,6 +86,7 @@ def _run_compose(*args: str) -> subprocess.CompletedProcess[str]:
         text=True,
         capture_output=True,
         check=False,
+        timeout=_COMPOSE_RUN_TIMEOUT_SECONDS,
     )
 
 
