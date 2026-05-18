@@ -1064,6 +1064,8 @@ def test_https_probe_uses_stdlib_http_after_tls_observation(monkeypatch) -> None
     assert result.effective_method == "HEAD"
     assert captured["request_method"] == "HEAD"
     assert captured["request_path"] == "/"
+    assert captured["read_called"] is True
+    assert captured["connection_closed"] is True
 
 
 def test_effective_method_in_metadata(monkeypatch) -> None:
