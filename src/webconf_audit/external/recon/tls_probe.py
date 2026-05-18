@@ -314,6 +314,15 @@ def _build_tls_context(
         )
         ctx.minimum_version = min_ver
         ctx.maximum_version = max_ver
+    # OpenSSL 3.x keeps SECLEVEL>=1 by default, which disables every cipher
+    # suite required to negotiate TLS 1.0/1.1. Probing legacy versions is the
+    # whole point here, so drop the security level when the pinned window only
+    # covers them.
+    if max_ver <= ssl.TLSVersion.TLSv1_1:
+        try:
+            ctx.set_ciphers("ALL:@SECLEVEL=0")
+        except ssl.SSLError:
+            pass
     return ctx
 
 
