@@ -51,7 +51,7 @@ class Finding(_BaseResultEntry):
             return self
 
         meta = registry.get_meta(self.rule_id)
-        if meta is not None:
+        if meta is not None and self.severity == meta.declared_severity:
             self.severity = meta.severity
         return self
 

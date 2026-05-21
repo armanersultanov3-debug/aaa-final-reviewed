@@ -98,14 +98,28 @@ def test_direct_finding_construction_uses_calibrated_registry_severity() -> None
     _ensure_all_rules_loaded()
 
     finding = Finding(
-        rule_id="nginx.crlf_in_return",
-        title="Return directive interpolates user-controlled input",
+        rule_id="nginx.alias_without_trailing_slash",
+        title="Alias path missing trailing slash",
         severity="medium",
         description="old inline severity",
         recommendation="Keep recommendation from rule implementation.",
     )
 
     assert finding.severity == "high"
+
+
+def test_direct_finding_construction_preserves_contextual_severity_override() -> None:
+    _ensure_all_rules_loaded()
+
+    finding = Finding(
+        rule_id="nginx.missing_limit_req",
+        title="Missing limit_req directive",
+        severity="medium",
+        description="Contextual public autoindex finding.",
+        recommendation="Add a limit_req directive.",
+    )
+
+    assert finding.severity == "medium"
 
 
 def test_unknown_rule_finding_keeps_explicit_severity() -> None:

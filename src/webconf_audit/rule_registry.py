@@ -96,10 +96,14 @@ class RuleMeta:
     standards: tuple[StandardReference, ...] = ()
     standards_secondary: tuple[StandardReference, ...] = ()
     severity_profile: SeverityProfile | None = None
+    declared_severity: Severity | None = None
     condition: str | None = None
     order: int = 1000
 
     def __post_init__(self) -> None:
+        declared_severity = self.declared_severity or self.severity
+        object.__setattr__(self, "declared_severity", declared_severity)
+
         profile = self.severity_profile
         if profile is None:
             profile = infer_severity_profile(
@@ -116,7 +120,7 @@ class RuleMeta:
             "severity",
             calibrate_severity(
                 rule_id=self.rule_id,
-                declared_severity=self.severity,
+                declared_severity=declared_severity,
                 profile=profile,
                 tags=self.tags,
             ),

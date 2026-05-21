@@ -60,6 +60,8 @@ _CONFIDENTIALITY_TOKENS = (
     "hsts",
     "https",
     "metadata",
+    "machine_key",
+    "machinekey",
     "private",
     "secret",
     "sensitive",
@@ -87,6 +89,8 @@ _INTEGRITY_TOKENS = (
     "debug",
     "exec",
     "frame",
+    "machine_key",
+    "machinekey",
     "method",
     "permissions",
     "proxy",
@@ -117,6 +121,7 @@ _DIRECT_TOKENS = (
     "alias_without_trailing_slash",
     "allow_all_with_deny_all",
     "anonymous_auth",
+    "auth_basic_over_http",
     "autoindex",
     "basic_auth_over_http",
     "basic_auth_without_ssl",
@@ -129,41 +134,51 @@ _DIRECT_TOKENS = (
     "directory_listing_enabled",
     "git_metadata_exposed",
     "no tls configuration",
-    "non-tls",
+    "non-tls listener",
     "over http",
     "private_key",
     "proxy_pass_user_controlled",
     "ssl_insecure_renegotiation",
     "ssl_not_required",
     "trace",
+    "tls_required_for_authenticated_routes",
+    "unsafe_renegotiation",
     "weak_cipher",
+    "weak_ssl_cipher",
     "weak_ssl_protocols",
     "without ssl",
     "without tls",
     "webdav",
 )
 _INDIRECT_TOKENS = (
+    "base-uri",
+    "cert_chain_length_unusual",
     "default_welcome",
     "disclos",
     "format_review",
     "listen_on_all_interfaces",
     "log",
+    "merge_slashes",
     "missing_access_log",
     "missing_content_security_policy",
     "missing_error_log",
     "missing_frame_ancestors",
+    "missing_http2_on_tls_listener",
     "missing_log_format",
     "missing_permissions_policy",
     "missing_referrer_policy",
     "missing_reporting_endpoint",
     "missing_x_",
+    "mod_webdav_enabled",
     "not_observed",
     "options_method",
+    "object-src",
     "policy_missing",
     "referrer_policy_missing",
     "review",
     "server_tokens",
     "signature",
+    "tls 1.3 not supported",
     "version",
     "x_content_type_options_missing",
     "x_frame_options_missing",
@@ -185,6 +200,9 @@ _EXTERNAL_TOKENS = (
     "http",
     "https",
     "listen",
+    "machine_key",
+    "machinekey",
+    "merge_slashes",
     "method",
     "proxy",
     "public",
@@ -192,6 +210,7 @@ _EXTERNAL_TOKENS = (
     "return",
     "rewrite",
     "sensitive",
+    "server_signature",
     "server_tokens",
     "server identification",
     "status",
@@ -211,16 +230,23 @@ _HIGH_CONTEXT_TOKENS = (
     "limit",
     "listen_on_all_interfaces",
     "log",
+    "merge_slashes",
+    "missing_http2_on_tls_listener",
     "modsecurity",
+    "mod_webdav_enabled",
+    "ssl_weak_cipher_strength",
     "permissions_policy",
     "rate",
     "referrer_policy",
+    "remove_server_header",
+    "server_signature",
     "timeout",
     "waf",
 )
 _LOW_CONTEXT_TOKENS = (
     "alias_without_trailing_slash",
     "anonymous_auth",
+    "auth_basic_over_http",
     "basic_auth_over_http",
     "certificate_expired",
     "crlf",
@@ -229,8 +255,11 @@ _LOW_CONTEXT_TOKENS = (
     "git_metadata_exposed",
     "private_key",
     "ssl_insecure_renegotiation",
+    "tls_required_for_authenticated_routes",
     "trace",
+    "unsafe_renegotiation",
     "weak_cipher",
+    "weak_ssl_cipher",
     "weak_ssl_protocols",
     "webdav_write",
 )
@@ -348,6 +377,9 @@ def _analysis_text(
 
 
 def _infer_impact(text: str, tags: tuple[str, ...]) -> tuple[Impact, ...]:
+    if "remove_server_header" in text:
+        return ("confidentiality",)
+
     impact: list[Impact] = []
     if _has_any(text, _CONFIDENTIALITY_TOKENS) or "tls" in tags:
         impact.append("confidentiality")
@@ -374,6 +406,12 @@ def _infer_exploitability(
 ) -> Exploitability:
     if "policy-review" in tags:
         return "indirect"
+    if "ssl_weak_cipher_strength" in text:
+        return "conditional"
+    if "ssl_protocol_policy_missing_or_weak" in text:
+        return "conditional"
+    if "mod_webdav_enabled" in text:
+        return "indirect"
     if _has_any(text, _DIRECT_TOKENS):
         return "direct"
     if _has_any(text, _INDIRECT_TOKENS):
@@ -384,6 +422,8 @@ def _infer_exploitability(
 def _infer_confidence(text: str, tags: tuple[str, ...]) -> Confidence:
     if "policy-review" in tags or "review" in text or "semantics" in text:
         return "low"
+    if "unsafe_renegotiation" in text:
+        return "high"
     if "missing_" in text or "not_configured" in text or "unsafe" in text:
         return "medium"
     return "high"

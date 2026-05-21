@@ -236,7 +236,7 @@ def test_safe_probe_catalog_registers_sensitive_rule_metadata() -> None:
         meta = registry.get_meta(rule.rule_id)
         assert meta is not None
         assert meta.title == rule.title
-        assert meta.severity == rule.severity
+        assert meta.declared_severity == rule.severity
         assert meta.description == rule.description
         assert meta.order == rule.order
         assert meta.recommendation == (

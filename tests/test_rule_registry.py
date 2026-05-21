@@ -218,26 +218,26 @@ class TestListRules:
     @pytest.fixture(autouse=True)
     def _populate(self, reg: RuleRegistry):
         reg.register(
-            _meta(rule_id="nginx.a", category="local", server_type="nginx", severity="low", order=10),
+            _meta(rule_id="sample.nginx.a", category="local", server_type="nginx", severity="low", order=10),
             _noop,
         )
         reg.register(
-            _meta(rule_id="nginx.b", category="local", server_type="nginx", severity="high", tags=("tls",), order=20),
+            _meta(rule_id="sample.nginx.b", category="local", server_type="nginx", severity="high", tags=("tls",), order=20),
             _noop,
         )
         reg.register(
-            _meta(rule_id="apache.c", category="local", server_type="apache", severity="medium", order=10),
+            _meta(rule_id="sample.apache.c", category="local", server_type="apache", severity="medium", order=10),
             _noop,
         )
         reg.register(
-            _meta(rule_id="universal.d", category="universal", severity="medium", input_kind="normalized", order=5),
+            _meta(rule_id="sample.universal.d", category="universal", severity="medium", input_kind="normalized", order=5),
             _noop,
         )
         reg.register_meta(
-            _meta(rule_id="external.e", category="external", severity="low", input_kind="probe", order=1),
+            _meta(rule_id="sample.external.e", category="external", severity="low", input_kind="probe", order=1),
         )
         reg.register_meta(
-            _meta(rule_id="external.nginx.f", category="external", severity="low", condition="nginx", input_kind="probe"),
+            _meta(rule_id="sample.external.nginx.f", category="external", severity="low", condition="nginx", input_kind="probe"),
         )
 
     def test_list_all(self, reg: RuleRegistry):
@@ -245,12 +245,12 @@ class TestListRules:
 
     def test_filter_category_local(self, reg: RuleRegistry):
         rules = reg.list_rules(category="local")
-        assert {m.rule_id for m in rules} == {"nginx.a", "nginx.b", "apache.c"}
+        assert {m.rule_id for m in rules} == {"sample.nginx.a", "sample.nginx.b", "sample.apache.c"}
 
     def test_filter_category_universal(self, reg: RuleRegistry):
         rules = reg.list_rules(category="universal")
         assert len(rules) == 1
-        assert rules[0].rule_id == "universal.d"
+        assert rules[0].rule_id == "sample.universal.d"
 
     def test_filter_category_external(self, reg: RuleRegistry):
         rules = reg.list_rules(category="external")
@@ -258,43 +258,43 @@ class TestListRules:
 
     def test_filter_server_type(self, reg: RuleRegistry):
         rules = reg.list_rules(server_type="nginx")
-        assert {m.rule_id for m in rules} == {"nginx.a", "nginx.b"}
+        assert {m.rule_id for m in rules} == {"sample.nginx.a", "sample.nginx.b"}
 
     def test_filter_severity(self, reg: RuleRegistry):
         rules = reg.list_rules(severity="high")
         assert len(rules) == 1
-        assert rules[0].rule_id == "nginx.b"
+        assert rules[0].rule_id == "sample.nginx.b"
 
     def test_filter_tag(self, reg: RuleRegistry):
         rules = reg.list_rules(tag="tls")
         assert len(rules) == 1
-        assert rules[0].rule_id == "nginx.b"
+        assert rules[0].rule_id == "sample.nginx.b"
 
     def test_combined_filters(self, reg: RuleRegistry):
         rules = reg.list_rules(category="local", server_type="nginx", severity="low")
         assert len(rules) == 1
-        assert rules[0].rule_id == "nginx.a"
+        assert rules[0].rule_id == "sample.nginx.a"
 
     def test_no_match(self, reg: RuleRegistry):
         assert reg.list_rules(category="local", server_type="iis") == []
 
     def test_sorted_by_order_then_rule_id(self, reg: RuleRegistry):
         rules = reg.list_rules(category="local", server_type="nginx")
-        assert [m.rule_id for m in rules] == ["nginx.a", "nginx.b"]
+        assert [m.rule_id for m in rules] == ["sample.nginx.a", "sample.nginx.b"]
 
     def test_meta_only_included_in_list(self, reg: RuleRegistry):
         """register_meta entries appear in list_rules."""
         rules = reg.list_rules(category="external")
         ids = {m.rule_id for m in rules}
-        assert "external.e" in ids
+        assert "sample.external.e" in ids
 
     def test_deterministic_order_across_categories(self, reg: RuleRegistry):
         all_rules = reg.list_rules()
         ids = [m.rule_id for m in all_rules]
-        # external.e (order=1) < universal.d (order=5) < nginx.a/apache.c (order=10) < nginx.b (order=20) < external.nginx.f (order=1000)
-        assert ids.index("external.e") < ids.index("universal.d")
-        assert ids.index("universal.d") < ids.index("nginx.a")
-        assert ids.index("nginx.b") > ids.index("nginx.a")
+        # sample.external.e (order=1) < sample.universal.d (order=5) < sample.nginx.a/sample.apache.c (order=10) < sample.nginx.b (order=20) < sample.external.nginx.f (order=1000)
+        assert ids.index("sample.external.e") < ids.index("sample.universal.d")
+        assert ids.index("sample.universal.d") < ids.index("sample.nginx.a")
+        assert ids.index("sample.nginx.b") > ids.index("sample.nginx.a")
 
 
 # ---------------------------------------------------------------------------
