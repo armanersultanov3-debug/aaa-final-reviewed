@@ -242,9 +242,10 @@ locations in text and JSON output.
 
 Status: first implementation added opt-in text grouping via
 `--group-repeated` and JSON `finding_groups` that keep the original flat
-`findings` array intact. The first Nginx severity calibration slice raises
-missing HSTS and missing `ssl_ciphers` to medium, and raises missing
-`limit_req`/`limit_conn` to medium only when public `autoindex on` is present.
+`findings` array intact. Severity calibration now uses the profile-based
+methodology in `docs/severity-methodology.md`; every built-in rule has an
+impact/exposure/exploitability/confidence/context profile, and the registry
+derives default severity from that profile.
 
 Current execution order after the report-grouping merge:
 

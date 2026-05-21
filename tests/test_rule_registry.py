@@ -139,7 +139,7 @@ class TestRuleMeta:
             order=50,
         )
         assert meta.rule_id == "nginx.foo"
-        assert meta.severity == "high"
+        assert meta.severity == "low"
         assert meta.input_kind == "effective"
         assert meta.tags == ("tls", "disclosure")
         assert meta.order == 50

@@ -680,6 +680,11 @@ def _rule_meta_payload(meta: RuleMeta) -> dict[str, object]:
         "server_type": meta.server_type,
         "input_kind": meta.input_kind,
         "tags": list(meta.tags),
+        "severity_profile": (
+            meta.severity_profile.as_payload()
+            if meta.severity_profile is not None
+            else None
+        ),
         "standards": [
             {
                 key: value

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 AnalysisMode = Literal["local", "external"]
 Severity = Literal["info", "low", "medium", "high", "critical"]
@@ -42,6 +42,18 @@ class Finding(_BaseResultEntry):
     description: str
     recommendation: str
     effective_cause_key: tuple[str, ...] | None = None
+
+    @model_validator(mode="after")
+    def use_registered_severity(self) -> "Finding":
+        try:
+            from webconf_audit.rule_registry import registry
+        except ImportError:
+            return self
+
+        meta = registry.get_meta(self.rule_id)
+        if meta is not None:
+            self.severity = meta.severity
+        return self
 
 
 class AnalysisIssue(_BaseResultEntry):
