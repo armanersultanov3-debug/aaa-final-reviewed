@@ -220,8 +220,10 @@ Filters: `--category` (`local`, `external`, `universal`),
 
 Use `--format json` to get a machine-readable inventory with the full
 `RuleMeta` payload (rule_id, severity, category, server_type,
-input_kind, tags, standards, order, etc.). The full inventory and the
-standards mapping plan live in [docs/rule-coverage.md](docs/rule-coverage.md).
+input_kind, tags, severity_profile, standards, order, etc.). The full
+inventory and the standards mapping plan live in
+[docs/rule-coverage.md](docs/rule-coverage.md). Severity calibration is
+documented in [docs/severity-methodology.md](docs/severity-methodology.md).
 
 The catalog currently contains 466 rules:
 

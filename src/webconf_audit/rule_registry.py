@@ -21,6 +21,11 @@ from dataclasses import dataclass, replace
 from typing import Any, Callable, Literal
 
 from webconf_audit.models import Severity
+from webconf_audit.rule_severity import (
+    SeverityProfile,
+    calibrate_severity,
+    infer_severity_profile,
+)
 
 # ---------------------------------------------------------------------------
 # Public type aliases
@@ -90,8 +95,36 @@ class RuleMeta:
     tags: tuple[str, ...] = ()
     standards: tuple[StandardReference, ...] = ()
     standards_secondary: tuple[StandardReference, ...] = ()
+    severity_profile: SeverityProfile | None = None
+    declared_severity: Severity | None = None
     condition: str | None = None
     order: int = 1000
+
+    def __post_init__(self) -> None:
+        declared_severity = self.declared_severity or self.severity
+        object.__setattr__(self, "declared_severity", declared_severity)
+
+        profile = self.severity_profile
+        if profile is None:
+            profile = infer_severity_profile(
+                rule_id=self.rule_id,
+                title=self.title,
+                description=self.description,
+                category=self.category,
+                input_kind=self.input_kind,
+                tags=self.tags,
+            )
+            object.__setattr__(self, "severity_profile", profile)
+        object.__setattr__(
+            self,
+            "severity",
+            calibrate_severity(
+                rule_id=self.rule_id,
+                declared_severity=declared_severity,
+                profile=profile,
+                tags=self.tags,
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -373,6 +406,7 @@ __all__ = [
     "RuleEntry",
     "RuleMeta",
     "RuleRegistry",
+    "SeverityProfile",
     "StandardCoverage",
     "StandardReference",
     "StandardTier",

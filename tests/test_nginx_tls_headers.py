@@ -445,7 +445,7 @@ def test_analyze_nginx_config_reports_sslv2_and_sslv3_as_weak_protocols(
         finding for finding in result.findings if finding.rule_id == "nginx.weak_ssl_protocols"
     ]
     assert len(findings) == 1
-    assert findings[0].severity == "medium"
+    assert findings[0].severity == "high"
     description = findings[0].description
     assert "SSLv2" in description
     assert "SSLv3" in description

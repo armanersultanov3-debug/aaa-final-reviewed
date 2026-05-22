@@ -21,28 +21,28 @@
       "expected_findings": [
         {
           "rule_id": "nginx.alias_without_trailing_slash",
-          "severity": "medium",
+          "severity": "high",
           "title_contains": "Alias",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
         {
           "rule_id": "nginx.alias_traversal_classic_pattern",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
         {
           "rule_id": "nginx.default_server_not_rejecting_unknown_hosts",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
         {
           "rule_id": "nginx.proxy_missing_source_ip_headers",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "detectify-off-by-slash-alias.conf"
         },
         {
           "rule_id": "nginx.sensitive_location_missing_ip_filter",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "detectify-off-by-slash-alias.conf"
         }
       ]
@@ -75,7 +75,7 @@
         },
         {
           "rule_id": "nginx.autoindex_on",
-          "severity": "medium",
+          "severity": "high",
           "title_contains": "Autoindex",
           "location_contains": "vulhub-crlf-autoindex.conf"
         },
@@ -115,7 +115,7 @@
       "expected_findings": [
         {
           "rule_id": "nginx.weak_ssl_protocols",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "devsec-cis-weak-tls.conf"
         },
         {
@@ -125,7 +125,7 @@
         },
         {
           "rule_id": "nginx.missing_ssl_prefer_server_ciphers",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "devsec-cis-weak-tls.conf"
         },
         {
@@ -163,12 +163,12 @@
         },
         {
           "rule_id": "nginx.proxy_missing_source_ip_headers",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "gixy-proxy-sensitive-locations.conf"
         },
         {
           "rule_id": "nginx.missing_access_restrictions_on_sensitive_locations",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "gixy-proxy-sensitive-locations.conf"
         },
         {
@@ -249,7 +249,7 @@
       "expected_findings": [
         {
           "rule_id": "apache.options_indexes",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "devsec-indexes-status.conf"
         },
         {
@@ -269,7 +269,7 @@
         },
         {
           "rule_id": "apache.options_execcgi_enabled",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "devsec-indexes-status.conf"
         }
       ]
@@ -298,7 +298,7 @@
         },
         {
           "rule_id": "apache.ssl_cipher_suite_weak",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-weak-tls.conf"
         },
         {
@@ -346,7 +346,7 @@
         },
         {
           "rule_id": "apache.htaccess_rewrite_without_limit",
-          "severity": "low",
+          "severity": "info",
           "location_contains": ".htaccess"
         },
         {
@@ -419,7 +419,7 @@
         },
         {
           "rule_id": "universal.directory_listing_enabled",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "devsec-mod-status-public.conf"
         }
       ]
@@ -492,7 +492,7 @@
       "expected_findings": [
         {
           "rule_id": "lighttpd.basic_auth_over_http",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "devsec-basic-auth-over-http.conf"
         },
         {
@@ -502,12 +502,12 @@
         },
         {
           "rule_id": "lighttpd.webdav_write_access_enabled",
-          "severity": "low",
+          "severity": "high",
           "location_contains": "devsec-basic-auth-over-http.conf"
         },
         {
           "rule_id": "lighttpd.error_log_missing",
-          "severity": "medium",
+          "severity": "low",
           "location_contains": "devsec-basic-auth-over-http.conf"
         },
         {
@@ -583,7 +583,7 @@
         },
         {
           "rule_id": "iis.directory_browse_enabled",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-debug-detailed-errors.config"
         },
         {
@@ -621,12 +621,12 @@
         },
         {
           "rule_id": "iis.request_filtering_max_url_too_high",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "cis-weak-request-filtering.config"
         },
         {
           "rule_id": "iis.request_filtering_max_query_string_too_high",
-          "severity": "low",
+          "severity": "medium",
           "location_contains": "cis-weak-request-filtering.config"
         },
         {
@@ -655,22 +655,22 @@
       "expected_findings": [
         {
           "rule_id": "iis.anonymous_auth_enabled",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-anonymous-everything.config"
         },
         {
           "rule_id": "iis.anonymous_auth_uses_specific_user",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-anonymous-everything.config"
         },
         {
           "rule_id": "iis.basic_auth_without_ssl",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-anonymous-everything.config"
         },
         {
           "rule_id": "iis.authorization_allows_anonymous_users",
-          "severity": "medium",
+          "severity": "high",
           "location_contains": "cis-anonymous-everything.config"
         },
         {

@@ -665,7 +665,7 @@ evidence, когда сервер принимает произвольный Ho
 | STD-GAP-026 | MITRE ATT&CK Enterprise v15 | direct-rule | P2 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «MITRE ATT&CK Enterprise v15») в `docs/rule-coverage.md`. Архитектурное решение: secondary tags живут только в этом блоке, не как новая колонка и не как `StandardReference` записи на правилах. Если `STD-GAP-038` введёт `tier=secondary` — этот блок становится исходником миграции. Покрыты T1190, T1592.002, T1592.004, T1213.003, T1078, T1040, T1505.003, T1557, T1574. |
 | STD-GAP-027 | OWASP Cheat Sheet Series | covered | P1 | done (2026-05-05) | 3 | ✓ Добавлен консолидированный блок «OWASP Cheat Sheet Series companions» в `docs/rule-coverage.md` (перед `## Standards mapping plan`). Подход topic-grouped, не per-row column: 15 cheat sheets (HTTP Security Response Headers, HSTS, TLS, CSP, CSRF, Session Management, Logging, Authentication, Credential Stuffing Prevention, Clickjacking Defense, Server Headers, Web Service Security, File Upload, Access Control, Error Handling) с aligned rule IDs. Cheat Sheets — living docs, поэтому отдельная колонка не вводится. |
 | STD-GAP-028 | OWASP API Security Top 10 (2023) | covered | P3 | done (2026-05-14, PR-6) | 10 | ✓ Большая часть out-of-scope для веб-сервера. После landing’а O-03 (Nginx Gixy parity, PR-4) добавлен typed helper `owasp_api_top10_2023()` в `src/webconf_audit/standards.py` и привязан через `rule_standards._secondary_references()` к `nginx.proxy_pass_user_controlled_destination` как `API7:2023` (SSRF). Secondary tier; видно в `list-rules --format json` под `standards_secondary`. |
-| STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | done (2026-05-05) | 11 (last) | ✓ Calibration rationale из §11 применён в коде: `nginx.alias_without_trailing_slash`, `nginx.allow_all_with_deny_all` и `nginx.missing_auth_basic_user_file` подняты с `low` до `medium`; keep-low решения для disclosure-only правил сохранены. |
+| STD-GAP-029 | CWE Top 25 (2024) | direct-rule | P2 | done (2026-05-05; updated 2026-05-22) | 11 (last) | ✓ Calibration rationale из §11 заменен общей профильной методикой: `nginx.alias_without_trailing_slash` и `nginx.allow_all_with_deny_all` теперь `high`, `nginx.missing_auth_basic_user_file` остается `medium`; disclosure-only правила ограничиваются профилем риска. |
 | STD-GAP-030 | Lighttpd vendor / DevSec lighttpd-baseline | covered | P2 | done (2026-05-05) | 8 | ✓ Добавлен блок «Lighttpd vendor reference mapping» в `docs/rule-coverage.md`. Решение: НЕ переименовывать `CIS / Vendor` колонку и НЕ заполнять её для Lighttpd, а сделать topic-grouped block (как PCI / NIST / ФСТЭК / ISO / Cheat Sheets) — иначе нарушится policy «не выдумывать CIS-бенчмарк, которого нет». DevSec lighttpd-01/02/03/05 + lighttpd Security wiki + per-module docs; `lighttpd-05` теперь покрыт `lighttpd.missing_http_method_restrictions`. |
 | STD-GAP-031 | ФСТЭК «Меры защиты информации в ГИС» (Приказ № 17) | covered | P2 | done (2026-05-05) | 6 | ✓ Добавлен блок «ФСТЭК "Меры защиты информации в ГИС" mapping» в `docs/rule-coverage.md`. Покрыты ИАФ.1, ИАФ.6, УПД.5, УПД.13, ОПС.3, РСБ.1, РСБ.3, ЗИС.3, ЗИС.20, ЗИС.32; РСБ.7 / АНЗ.2 явно `out-of-scope`. Подход topic-grouped. Хелпер `fstec_mera()` теперь относится к follow-up `STD-GAP-038`. |
 | STD-GAP-032 | ФСТЭК БДУ | direct-rule | P3 | done (2026-05-05) | 9 | ✓ Добавлен в общий блок «Secondary tags» (sub-section «ФСТЭК БДУ — Банк данных угроз») в `docs/rule-coverage.md`. Покрыты УБИ.044, УБИ.067, УБИ.072, УБИ.121, УБИ.184 со ссылками на `bdu.fstec.ru`. Правила те же, что для ATT&CK: secondary-only, не заменяет primary standard. |
@@ -690,64 +690,46 @@ evidence, когда сервер принимает произвольный Ho
 
 ## 11. CWE Top 25 (2024) severity calibration
 
-Артефакт `STD-GAP-029`. Это выполненная перекалибровка severity для
-выбранных правил с CWE из Top 25 (2024). Таблица ниже сохранена как rationale:
-какие правила подняты до `medium`, а какие disclosure-only правила оставлены
-на прежней severity.
+`STD-GAP-029` was the original severity-calibration anchor based on CWE Top 25
+(2024). After the project introduced per-rule risk profiles, Top 25 is no
+longer the only severity signal. The current default severity is derived from
+[`severity-methodology.md`](severity-methodology.md): impact, exposure,
+exploitability, confidence, and context dependency are evaluated together.
 
-Источник Top 25: [CWE Top 25 Most Dangerous Software Weaknesses (2024)](https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html).
+Top 25 source: [CWE Top 25 Most Dangerous Software Weaknesses (2024)](https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html).
 
-Принцип отбора: правило повышалось до `medium`, если
+Top 25 remains a secondary calibration signal:
 
-1. его cited CWE входит в Top 25 (2024);
-2. signal действительно проявляет exploit primitive (не информационная
-   утечка), либо приводит к authn/authz bypass;
-3. правило до перекалибровки имело severity `low`.
+1. when a cited CWE is in Top 25 and the rule detects a direct exploit
+   primitive, the profile should use `exploitability = direct`;
+2. disclosure / hardening-only signals are not raised above `low` just because
+   the mapped CWE appears in Top 25;
+3. CWE mappings must not be swapped for a more convenient Top 25 class only to
+   justify a higher severity.
 
-Правила с CWE из Top 25, но без exploit primitive (например, CWE-200
-information disclosure через `Server` header), остаются `low` —
-конфигурационная утечка версии не превращается в эксплуатацию сама по
-себе.
+### Applied calibration decisions
 
-### Applied bumps
-
-| Rule ID | CWE (Top 25 2024 rank) | Previous | Implemented | Justification |
+| Rule ID | CWE (Top 25 2024 rank) | Previous | Current | Justification |
 | --- | --- | --- | --- | --- |
-| `nginx.alias_without_trailing_slash` | CWE-22 (rank 5) | low | **medium** | Path traversal — реальный exploit primitive; конфигурационная ошибка сразу даёт выход за корень. Rank 5 в Top 25 — выше большинства WebApp-специфичных классов. |
-| `nginx.allow_all_with_deny_all` | CWE-863 (rank 18) | low | **medium** | Несогласованный `allow all; deny all;` ломает порядок ACL и реально пускает анонимный трафик к закрытым ресурсам. Это authorization bypass, не misconfig hint. |
-| `nginx.missing_auth_basic_user_file` | CWE-287 (rank 14) | low | **medium** | `auth_basic` без `auth_basic_user_file` оставляет endpoint без эффективной аутентификации. IIS-аналоги (`iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`) уже medium — bump даёт паритет между server families. |
+| `nginx.alias_without_trailing_slash` | CWE-22 (rank 5) | medium | **high** | Path traversal is a direct exploit primitive. The rule affects confidentiality and integrity and is reachable through the server's runtime behavior. |
+| `nginx.allow_all_with_deny_all` | CWE-863 (rank 18) | medium | **high** | The ACL conflict can allow access that was intended to be denied, so the profile treats it as directly exploitable and network-reachable. |
+| `nginx.missing_auth_basic_user_file` | CWE-287 (rank 14) | medium | **medium** | The rule identifies incomplete authentication configuration, but the resulting risk depends on the route and deployment conditions. |
 
-### Правила, которые **остаются** low (с обоснованием)
+### Disclosure-only decisions
 
-| Rule ID | CWE (Top 25 2024 rank) | Decision | Justification |
+| Rule ID | CWE (Top 25 2024 rank) | Current | Justification |
 | --- | --- | --- | --- |
-| `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, все `external.*.version_disclosed_in_server_header`, `external.x_powered_by_header_present`, `external.x_aspnet_version_header_present`, `external.iis.aspnet_version_header_present`, `external.iis.server_header_removal_not_applied` | CWE-200 (rank 17) | keep `low` | Раскрытие версии сервера/фреймворка — информационный сигнал. Top 25 rank 17 у CWE-200 в основном тащат OOB read / memory disclosure из C/C++. Bump до medium создаст шум на типичных production-конфигурациях. |
-| `apache.server_info_exposed`, `apache.server_status_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `external.lighttpd.mod_status_public`, `lighttpd.mod_status_public` | CWE-200 (rank 17) | keep severity (medium / low по существующей калибровке) | Уже отстроено: medium для public exposure, low для disclosure-only. Top 25 эту структуру не меняет. |
-| `apache.file_etag_inodes`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.trace_method_exposed_via_options`, `iis.http_runtime_version_header_enabled`, `iis.custom_headers_expose_server`, `iis.request_filtering_remove_server_header_disabled`, `external.iis.server_header_removal_not_applied` | CWE-200 (rank 17) | keep `low` | По той же логике — disclosure / hardening, не exploit primitive. |
-| `nginx.executable_scripts_allowed_in_uploads` | CWE-434 (rank 10) | keep `medium` | Уже medium. Top 25 это подтверждает. |
-| `iis.credentials_stored_in_config` | CWE-798 (rank 22) | keep `medium` | Уже medium. Top 25 это подтверждает. |
-| `iis.anonymous_auth_enabled`, `iis.authorization_allows_anonymous_users`, `iis.basic_auth_without_ssl` | CWE-287 (rank 14) | keep `medium` | Уже medium. |
-| `iis.application_pool_identity_*`, `iis.trust_level_full`, `iis.anonymous_auth_uses_specific_user`, `iis.sites_share_application_pool` | CWE-250 / CWE-668 — **не** в Top 25 (CWE-269 близко, но cited класс другой) | keep `medium` | Top 25 не применим: проект использует CWE-250 / CWE-668, эти ID в Top 25 не входят. Предложение не трогает их. |
-
-### Границы перекалибровки
-
-- Не меняет CWE-маппинг на «более удобный для Top 25» — это нарушило бы
-  honesty-first methodology. Если CWE-250 в IIS application pool правилах
-  сегодня правильный — подмена на CWE-269 ради попадания в Top 25
-  запрещена.
-- Не вводит «Top 25»-колонку в `docs/rule-coverage.md` — Top 25 это
-  каталог приоритетов, не стандарт защиты, и в проекте применяется как
-  калибровочный сигнал, не как ссылка на правиле.
-- Не меняет severity у правил `low`, чьи CWE в Top 25, но не дают exploit
-  primitive (см. таблицу «keep low»).
+| `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `external.server_version_disclosed`, `external.x_powered_by_header_present`, `external.x_aspnet_version_header_present` | CWE-200 (rank 17) | `low` | Version disclosure helps an attacker but does not create a standalone exploit path. |
+| `apache.server_info_exposed`, `apache.server_status_exposed`, `external.server_status_exposed`, `external.server_info_exposed`, `external.nginx_status_exposed`, `external.apache.mod_status_public`, `external.lighttpd.mod_status_public`, `lighttpd.mod_status_public` | CWE-200 (rank 17) | `medium` / `low` | Public status endpoints remain more important than banner disclosure, but disclosure-only findings are not raised solely because CWE-200 appears in Top 25. |
+| `apache.file_etag_inodes`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.trace_method_exposed_via_options`, `iis.http_runtime_version_header_enabled`, `iis.custom_headers_expose_server` | CWE-200 (rank 17) | `low` / `medium` | Severity follows the risk profile and rule context, not only the CWE identifier. |
 
 ### Implementation checklist
 
-1. Изменены severity metadata и `Finding.severity` в файлах:
-   - `src/webconf_audit/local/nginx/rules/alias_without_trailing_slash.py`,
-   - `src/webconf_audit/local/nginx/rules/allow_all_with_deny_all.py`,
-   - `src/webconf_audit/local/nginx/rules/missing_auth_basic_user_file.py`.
-2. Обновлены регрессионные тесты, которые проверяют severity для этих правил.
-3. Обновлены `docs/rule-coverage.md` summary counts и строки инвентаря.
-4. `tests/test_rule_coverage_doc.py` остаётся drift-check для registry/docs
-   sync.
+1. `SeverityProfile` and automatic built-in rule calibration are implemented in
+   `src/webconf_audit/rule_severity.py` and `src/webconf_audit/rule_registry.py`.
+2. `Finding.severity` is synchronized with the registered rule severity so
+   direct `Finding(...)` construction and the catalog do not drift apart.
+3. `list-rules --format json` exposes `severity_profile`.
+4. `docs/rule-coverage.md` summary counts and inventory rows are updated.
+5. `tests/test_rule_severity_profile.py` and `tests/test_rule_coverage_doc.py`
+   check profile coverage and registry/docs synchronization.

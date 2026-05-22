@@ -211,6 +211,12 @@ Key elements:
   that do not have an executable implementation (used for
   meta-only external rules).
 
+Every `RuleMeta` also carries a `severity_profile` object. The profile
+records impact, exposure, exploitability, confidence, and context
+dependency for the rule's default severity. The methodology is
+documented in [severity-methodology.md](severity-methodology.md), and
+`list-rules --format json` exposes the profile for tooling.
+
 Current catalog: 466 rules total.
 
 | Category | Rules |

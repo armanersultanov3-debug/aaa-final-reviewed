@@ -852,7 +852,7 @@ def test_analyze_nginx_config_reports_alias_without_trailing_slash(tmp_path: Pat
 
     finding = result.findings[0]
     assert finding.rule_id == "nginx.alias_without_trailing_slash"
-    assert finding.severity == "medium"
+    assert finding.severity == "high"
     assert finding.title == "Alias path missing trailing slash"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
@@ -2266,7 +2266,7 @@ def test_analyze_nginx_config_reports_allow_all_with_deny_all_in_same_location(
 
     finding = result.findings[0]
     assert finding.rule_id == "nginx.allow_all_with_deny_all"
-    assert finding.severity == "medium"
+    assert finding.severity == "high"
     assert finding.title == "Conflicting allow/deny all directives"
     assert finding.location is not None
     assert finding.location.file_path == str(config_path)
