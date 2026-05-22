@@ -42,6 +42,44 @@ _SEVERITY_RANK: dict[Severity, int] = {
 _RANK_SEVERITY: dict[int, Severity] = {
     rank: severity for severity, rank in _SEVERITY_RANK.items()
 }
+_CONFIDENTIALITY_ONLY_RULE_KEYS = frozenset(
+    {
+        "request_filtering_remove_server_header_disabled",
+    }
+)
+_DIRECT_EXPLOITABILITY_RULE_KEYS = frozenset(
+    {
+        "ssl_conf_command_unsafe_renegotiation_enabled",
+    }
+)
+_CONDITIONAL_EXPLOITABILITY_RULE_KEYS = frozenset(
+    {
+        "ssl_protocol_policy_missing_or_weak",
+        "ssl_weak_cipher_strength",
+    }
+)
+_INDIRECT_EXPLOITABILITY_RULE_KEYS = frozenset(
+    {
+        "mod_webdav_enabled",
+    }
+)
+_HIGH_CONFIDENCE_RULE_KEYS = frozenset(
+    {
+        "ssl_conf_command_unsafe_renegotiation_enabled",
+    }
+)
+_HIGH_CONTEXT_RULE_KEYS = frozenset(
+    {
+        "mod_webdav_enabled",
+        "request_filtering_remove_server_header_disabled",
+        "ssl_weak_cipher_strength",
+    }
+)
+_LOW_CONTEXT_RULE_KEYS = frozenset(
+    {
+        "ssl_conf_command_unsafe_renegotiation_enabled",
+    }
+)
 
 _CONFIDENTIALITY_TOKENS = (
     "auth",
@@ -169,7 +207,6 @@ _INDIRECT_TOKENS = (
     "missing_referrer_policy",
     "missing_reporting_endpoint",
     "missing_x_",
-    "mod_webdav_enabled",
     "not_observed",
     "options_method",
     "object-src",
@@ -233,12 +270,9 @@ _HIGH_CONTEXT_TOKENS = (
     "merge_slashes",
     "missing_http2_on_tls_listener",
     "modsecurity",
-    "mod_webdav_enabled",
-    "ssl_weak_cipher_strength",
     "permissions_policy",
     "rate",
     "referrer_policy",
-    "remove_server_header",
     "server_signature",
     "timeout",
     "waf",
@@ -257,7 +291,6 @@ _LOW_CONTEXT_TOKENS = (
     "ssl_insecure_renegotiation",
     "tls_required_for_authenticated_routes",
     "trace",
-    "unsafe_renegotiation",
     "weak_cipher",
     "weak_ssl_cipher",
     "weak_ssl_protocols",
@@ -296,13 +329,14 @@ def infer_severity_profile(
     tags: tuple[str, ...],
 ) -> SeverityProfile:
     """Infer a default severity profile from stable rule metadata."""
+    rule_key = rule_id.rsplit(".", 1)[-1]
     text = _analysis_text(rule_id, title, description, tags)
     return SeverityProfile(
-        impact=_infer_impact(text, tags),
+        impact=_infer_impact(rule_key, text, tags),
         exposure=_infer_exposure(text, category, input_kind),
-        exploitability=_infer_exploitability(text, tags),
-        confidence=_infer_confidence(text, tags),
-        context_dependency=_infer_context_dependency(text, tags),
+        exploitability=_infer_exploitability(rule_key, text, tags),
+        confidence=_infer_confidence(rule_key, text, tags),
+        context_dependency=_infer_context_dependency(rule_key, text, tags),
     )
 
 
@@ -376,8 +410,10 @@ def _analysis_text(
     return " ".join((rule_id, title, description, " ".join(tags))).lower()
 
 
-def _infer_impact(text: str, tags: tuple[str, ...]) -> tuple[Impact, ...]:
-    if "remove_server_header" in text:
+def _infer_impact(
+    rule_key: str, text: str, tags: tuple[str, ...]
+) -> tuple[Impact, ...]:
+    if rule_key in _CONFIDENTIALITY_ONLY_RULE_KEYS:
         return ("confidentiality",)
 
     impact: list[Impact] = []
@@ -401,16 +437,17 @@ def _infer_exposure(text: str, category: str, input_kind: str) -> Exposure:
 
 
 def _infer_exploitability(
+    rule_key: str,
     text: str,
     tags: tuple[str, ...],
 ) -> Exploitability:
     if "policy-review" in tags:
         return "indirect"
-    if "ssl_weak_cipher_strength" in text:
+    if rule_key in _DIRECT_EXPLOITABILITY_RULE_KEYS:
+        return "direct"
+    if rule_key in _CONDITIONAL_EXPLOITABILITY_RULE_KEYS:
         return "conditional"
-    if "ssl_protocol_policy_missing_or_weak" in text:
-        return "conditional"
-    if "mod_webdav_enabled" in text:
+    if rule_key in _INDIRECT_EXPLOITABILITY_RULE_KEYS:
         return "indirect"
     if _has_any(text, _DIRECT_TOKENS):
         return "direct"
@@ -419,10 +456,10 @@ def _infer_exploitability(
     return "conditional"
 
 
-def _infer_confidence(text: str, tags: tuple[str, ...]) -> Confidence:
+def _infer_confidence(rule_key: str, text: str, tags: tuple[str, ...]) -> Confidence:
     if "policy-review" in tags or "review" in text or "semantics" in text:
         return "low"
-    if "unsafe_renegotiation" in text:
+    if rule_key in _HIGH_CONFIDENCE_RULE_KEYS:
         return "high"
     if "missing_" in text or "not_configured" in text or "unsafe" in text:
         return "medium"
@@ -430,9 +467,14 @@ def _infer_confidence(text: str, tags: tuple[str, ...]) -> Confidence:
 
 
 def _infer_context_dependency(
+    rule_key: str,
     text: str,
     tags: tuple[str, ...],
 ) -> ContextDependency:
+    if rule_key in _HIGH_CONTEXT_RULE_KEYS:
+        return "high"
+    if rule_key in _LOW_CONTEXT_RULE_KEYS:
+        return "low"
     if "policy-review" in tags or _has_any(text, _HIGH_CONTEXT_TOKENS):
         return "high"
     if _has_any(text, _LOW_CONTEXT_TOKENS):

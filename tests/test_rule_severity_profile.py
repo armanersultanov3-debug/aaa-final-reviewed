@@ -11,6 +11,7 @@ from webconf_audit.rule_severity import (
     EXPLOITABILITIES,
     EXPOSURES,
     IMPACTS,
+    infer_severity_profile,
 )
 
 
@@ -72,6 +73,45 @@ def test_local_runtime_rule_profile_marks_mixed_exposure() -> None:
     assert "integrity" in profile.impact
     assert profile.exposure == "mixed"
     assert profile.exploitability == "direct"
+
+
+def test_rule_id_overrides_do_not_match_other_rule_descriptions() -> None:
+    remove_header_mention = infer_severity_profile(
+        rule_id="nginx.description_mentions_remove_header_rule",
+        title="Writable configuration example",
+        description=(
+            "Mentions request_filtering_remove_server_header_disabled while "
+            "checking write behavior."
+        ),
+        category="local",
+        input_kind="ast",
+        tags=(),
+    )
+    assert "integrity" in remove_header_mention.impact
+    assert remove_header_mention.context_dependency == "medium"
+
+    tls_policy_mention = infer_severity_profile(
+        rule_id="nginx.description_mentions_tls_policy_rule",
+        title="TLS policy example",
+        description="Mentions ssl_protocol_policy_missing_or_weak for comparison.",
+        category="local",
+        input_kind="ast",
+        tags=(),
+    )
+    assert tls_policy_mention.exploitability == "indirect"
+
+    renegotiation_mention = infer_severity_profile(
+        rule_id="nginx.description_mentions_renegotiation_rule",
+        title="Unsafe option example",
+        description=(
+            "Mentions ssl_conf_command_unsafe_renegotiation_enabled while "
+            "checking another unsafe option."
+        ),
+        category="local",
+        input_kind="ast",
+        tags=(),
+    )
+    assert renegotiation_mention.confidence == "medium"
 
 
 def test_registry_severities_are_calibrated_from_risk_profiles() -> None:
