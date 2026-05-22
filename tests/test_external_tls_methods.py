@@ -954,6 +954,17 @@ def test_tls_1_0_supported_does_not_fire_empty_protocols(monkeypatch) -> None:
     assert "external.tls_1_0_supported" not in {f.rule_id for f in result.findings}
 
 
+def test_tls_1_0_supported_severity_is_medium(monkeypatch) -> None:
+    tls = TLSInfo(
+        protocol_version="TLSv1.3",
+        supported_protocols=("TLSv1", "TLSv1.2"),
+    )
+    probe_attempts = [_https_probe_with_headers(tls_info=tls), _http_redirect_probe()]
+    result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
+    finding = next(f for f in result.findings if f.rule_id == "external.tls_1_0_supported")
+    assert finding.severity == "medium"
+
+
 # ---------------------------------------------------------------------------
 # --- TLS 1.1 supported rule (active probing) ---
 # ---------------------------------------------------------------------------
