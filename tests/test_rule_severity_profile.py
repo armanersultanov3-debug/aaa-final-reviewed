@@ -126,6 +126,7 @@ def test_registry_severities_are_calibrated_from_risk_profiles() -> None:
         "nginx.missing_content_security_policy": "low",
         "apache.basic_auth_over_http": "high",
         "external.git_metadata_exposed": "high",
+        "external.tls_1_0_supported": "medium",
         "nginx.limit_req_zone_rate_review": "info",
     }
     for rule_id, severity in expected.items():

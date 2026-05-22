@@ -34,7 +34,7 @@
       "expected_findings": [
         {
           "rule_id": "external.tls_1_0_supported",
-          "severity": "high"
+          "severity": "medium"
         }
       ]
     }
