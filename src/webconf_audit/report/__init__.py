@@ -341,9 +341,14 @@ def format_location(location: SourceLocation | None) -> str | None:
     if location is None:
         return None
     if location.file_path:
-        if location.line is not None:
-            return f"{location.file_path}:{location.line}"
-        return location.file_path
+        base = (
+            f"{location.file_path}:{location.line}"
+            if location.line is not None
+            else location.file_path
+        )
+        if location.xml_path:
+            return f"{base} :: {location.xml_path}"
+        return base
     if location.target:
         return location.target
     if location.xml_path:
