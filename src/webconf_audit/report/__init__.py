@@ -1060,6 +1060,9 @@ def _suppressed_finding_payloads(results: list[AnalysisResult]) -> list[dict[str
 def finding_payload(result: AnalysisResult, finding: Finding) -> dict[str, object]:
     payload = finding.model_dump()
     payload["fingerprint"] = finding_fingerprint(result, finding)
+    location_display = format_location(finding.location)
+    if location_display is not None:
+        payload["location_display"] = location_display
     payload["standards"] = _standard_ref_payloads(finding.rule_id)
     payload["standards_secondary"] = _standard_ref_payloads(
         finding.rule_id,

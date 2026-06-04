@@ -65,4 +65,11 @@ ignore-nested-classes = true
 ignore-overloaded-functions = true
 ignore-property-decorators = true
 ignore-property-setters = true
-exclude = ["tests", ".tmp", ".venv"]
+exclude = [
+    "tests",
+    ".tmp",
+    ".venv",
+    ".codex-tmp",
+    ".codex-docx-render*",
+    "tmpkd_ok9wt",
+]

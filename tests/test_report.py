@@ -488,6 +488,27 @@ class TestJsonFormatter:
         assert parsed["findings"][0]["standards"] == []
         assert parsed["findings"][0]["standards_secondary"] == []
 
+    def test_json_findings_include_human_location_display(self) -> None:
+        f = _finding(rule_id="iis.request_filtering_remove_server_header_disabled")
+        f.location = SourceLocation(
+            mode="local",
+            kind="xml",
+            file_path="web.config",
+            line=42,
+            xml_path="configuration/system.webServer/security/requestFiltering",
+        )
+        r = _result(target="web.config", server_type="iis", findings=[f])
+
+        parsed = json.loads(JsonFormatter().format(ReportData(results=[r])))
+
+        expected = (
+            "web.config:42 :: "
+            "configuration/system.webServer/security/requestFiltering"
+        )
+        assert parsed["results"][0]["findings"][0]["location_display"] == expected
+        assert parsed["findings"][0]["location_display"] == expected
+        assert parsed["findings"][0]["location"] == f.location.model_dump()
+
     def test_json_includes_repeated_finding_groups_with_locations(self) -> None:
         f1 = _finding(
             rule_id="nginx.missing_hsts_header",
