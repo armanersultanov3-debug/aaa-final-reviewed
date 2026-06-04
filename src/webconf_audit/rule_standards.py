@@ -16,6 +16,7 @@ from webconf_audit.standards import (
     nist_csf_2,
     nist_sp,
     owasp_api_top10_2023,
+    owasp_top10_2025,
     pci_dss_4,
 )
 
@@ -29,6 +30,22 @@ _SOURCE_RULE_ID_PATTERN = re.compile(
     r"""|rule_id\s*=\s*(?P<inline_quote>["'])(?P<inline_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)(?P=inline_quote)""",
     re.MULTILINE,
 )
+
+_OWASP_TOP10_2021_TO_2025 = {
+    "A01:2021": ("A01:2025", None),
+    "A02:2021": ("A04:2025", None),
+    "A03:2021": ("A05:2025", None),
+    "A04:2021": ("A06:2025", None),
+    "A05:2021": ("A02:2025", None),
+    "A06:2021": ("A03:2025", None),
+    "A07:2021": ("A07:2025", None),
+    "A08:2021": ("A08:2025", None),
+    "A09:2021": ("A09:2025", None),
+    "A10:2021": (
+        "A01:2025",
+        "OWASP Top 10:2025 rolls SSRF into Broken Access Control.",
+    ),
+}
 
 # Snapshot of the 2026-05 standards migration catch-all mappings. Keeping this
 # explicit prevents future rules from silently inheriting legacy broad tags.
@@ -1101,6 +1118,31 @@ def lookup_rule_standards(
     primary.extend(_lighttpd_vendor_references(rule_id))
     secondary.extend(_secondary_references(rule_id))
     return tuple(primary), tuple(secondary)
+
+
+def owasp_top10_2025_references_from_primary(
+    primary_refs: tuple[StandardReference, ...],
+) -> tuple[StandardReference, ...]:
+    """Derive OWASP Top 10:2025 secondary refs from reviewed 2021 refs."""
+    refs: list[StandardReference] = []
+    for ref in primary_refs:
+        if ref.standard != "OWASP Top 10":
+            continue
+        mapped = _OWASP_TOP10_2021_TO_2025.get(ref.reference)
+        if mapped is None:
+            continue
+        category, migration_note = mapped
+        note = ref.note
+        if migration_note is not None:
+            note = f"{migration_note} {note}" if note else migration_note
+        refs.append(
+            owasp_top10_2025(
+                category,
+                coverage=ref.coverage,
+                note=note,
+            )
+        )
+    return tuple(refs)
 
 
 def _pci_references(rule_id: str) -> list[StandardReference]:

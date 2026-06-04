@@ -563,6 +563,45 @@ class TestStandardsMetadata:
             }
             assert not primary & secondary, meta.rule_id
 
+    def test_owasp_2025_secondary_mapping_follows_reviewed_2021_primary_refs(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "universal.missing_hsts": ("A05:2021", "A02:2025"),
+            "universal.weak_tls_protocol": ("A02:2021", "A04:2025"),
+            "nginx.crlf_in_return": ("A03:2021", "A05:2025"),
+            "nginx.log_format_missing_fields": ("A09:2021", "A09:2025"),
+            "nginx.proxy_pass_user_controlled_destination": ("A10:2021", "A01:2025"),
+        }
+
+        for rule_id, (primary_ref, secondary_ref) in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+
+            primary_refs = {(ref.standard, ref.reference) for ref in meta.standards}
+            secondary_refs = {
+                (ref.standard, ref.reference)
+                for ref in meta.standards_secondary
+            }
+            assert ("OWASP Top 10", primary_ref) in primary_refs
+            assert ("OWASP Top 10", secondary_ref) in secondary_refs
+
+    def test_owasp_2025_ssrf_migration_note_is_preserved(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        meta = full_reg.get_meta("nginx.proxy_pass_user_controlled_destination")
+        assert meta is not None
+
+        refs = [
+            ref
+            for ref in meta.standards_secondary
+            if ref.standard == "OWASP Top 10" and ref.reference == "A01:2025"
+        ]
+        assert len(refs) == 1
+        assert refs[0].note == "OWASP Top 10:2025 rolls SSRF into Broken Access Control."
+
 
 # ---------------------------------------------------------------------------
 # No duplicate rule IDs

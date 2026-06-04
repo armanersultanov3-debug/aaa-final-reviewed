@@ -11,8 +11,13 @@ configuration analysis, or external probing is needed first.
 
 ## Source Baseline
 
-Sources checked on 2026-04-28:
+Sources checked on 2026-04-28 unless noted otherwise:
 
+- [OWASP Top 10:2025](https://owasp.org/Top10/2025/0x00_2025-Introduction/)
+  was checked on 2026-06-04 and is the current Top 10 edition for user-facing
+  reporting. The row-level inventory keeps the reviewed OWASP Top 10:2021
+  primary mappings, while OWASP Top 10:2025 is exposed as secondary JSON
+  metadata derived from those reviewed 2021 categories.
 - [OWASP ASVS](https://owasp.org/www-project-application-security-verification-standard/):
   latest stable ASVS is 5.0.0. Future ASVS references must use the versioned
   identifier form, for example `v5.0.0-1.2.5`, because OWASP notes that
@@ -70,6 +75,12 @@ landed on top of the original PR-08 work (see
   append ASVS IDs to the OWASP Top 10 column. Use the exact format
   `ASVS v5.0.0-<requirement-id>`; partial matches must add a short limitation,
   for example `ASVS v5.0.0-12.1.2 (partial: weak-pattern detection only)`.
+- Keep OWASP Top 10:2021 as the primary row-level OWASP mapping until the
+  inventory is deliberately regenerated for a new primary edition. OWASP Top
+  10:2025 belongs in `standards_secondary` and is derived from the reviewed
+  2021 mappings, including the explicit migrations A05:2021 -> A02:2025,
+  A02:2021 -> A04:2025, A09:2021 -> A09:2025, and A10:2021 -> A01:2025
+  because SSRF is rolled into Broken Access Control in the 2025 edition.
 - Keep cells empty when the mapping is not honest. Operational advice can map
   to vendor hardening without forcing a CWE.
 - Do not copy long CIS or ASVS prose into this repository. Use section IDs,

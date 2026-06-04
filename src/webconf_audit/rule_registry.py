@@ -416,7 +416,10 @@ __all__ = [
 
 
 def _augment_rule_meta(meta: RuleMeta) -> RuleMeta:
-    from webconf_audit.rule_standards import lookup_rule_standards
+    from webconf_audit.rule_standards import (
+        lookup_rule_standards,
+        owasp_top10_2025_references_from_primary,
+    )
 
     extra_primary, extra_secondary = lookup_rule_standards(meta.rule_id)
     normalized_primary = _coerce_standard_tier(meta.standards, tier="primary")
@@ -431,6 +434,7 @@ def _augment_rule_meta(meta: RuleMeta) -> RuleMeta:
     merged_secondary = _merge_standard_references(
         normalized_secondary,
         _coerce_standard_tier(extra_secondary, tier="secondary"),
+        owasp_top10_2025_references_from_primary(merged_primary),
     )
     if (
         merged_primary == meta.standards

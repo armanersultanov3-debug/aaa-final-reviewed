@@ -16,6 +16,7 @@ from webconf_audit.standards import (
     nist_csf_2,
     nist_sp,
     owasp_api_top10_2023,
+    owasp_top10_2025,
     pci_dss_4,
 )
 
@@ -162,6 +163,26 @@ def test_fstec_bdu_canonicalizes_reference_without_prefix() -> None:
 def test_fstec_bdu_rejects_prefix_without_number() -> None:
     with pytest.raises(ValueError, match="non-empty number"):
         fstec_bdu("UBI.")
+
+
+def test_owasp_top10_2025_marks_reference_as_secondary() -> None:
+    ref = owasp_top10_2025("a02:2025")
+
+    assert ref.standard == "OWASP Top 10"
+    assert ref.reference == "A02:2025"
+    assert ref.url == "https://owasp.org/Top10/2025/A02_2025-Security_Misconfiguration/"
+    assert ref.tier == "secondary"
+
+
+def test_owasp_top10_2025_accepts_each_canonical_category() -> None:
+    for index in range(1, 11):
+        ref = owasp_top10_2025(f"A{index:02d}:2025")
+        assert ref.reference == f"A{index:02d}:2025"
+
+
+def test_owasp_top10_2025_rejects_year_drift() -> None:
+    with pytest.raises(ValueError, match="A01:2025"):
+        owasp_top10_2025("A02:2021")
 
 
 def test_nist_csf_2_marks_reference_as_secondary() -> None:

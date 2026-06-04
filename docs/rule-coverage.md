@@ -17,11 +17,17 @@ webconf-audit list-rules --format json > rule-inventory.json
 The JSON payload contains every RuleMeta field
 (`rule_id`, `title`, `severity`, `description`, `recommendation`,
 `category`, `server_type`, `input_kind`, `tags`, `severity_profile`,
-`condition`, `order`) and is the source of truth for tooling. The tables here
-are kept in sync with that output and may include hand-curated standards
-columns (CWE, OWASP, ASVS, CIS / Vendor, Standards (other)) that the CLI does
-not own. Severity calibration criteria are documented in
+`condition`, `order`, `standards`, `standards_secondary`) and is the source of
+truth for tooling. The tables here are kept in sync with that output and may
+include hand-curated standards columns (CWE, OWASP, ASVS, CIS / Vendor,
+Standards (other)) that the CLI does not own. Severity calibration criteria are
+documented in
 [`docs/severity-methodology.md`](severity-methodology.md).
+
+The row-level OWASP column remains the reviewed OWASP Top 10:2021 primary
+mapping. OWASP Top 10:2025 references are derived from those reviewed 2021
+categories and exposed in JSON as `standards_secondary`, so current reports can
+show the modern category without rewriting every inventory row at once.
 
 A pytest sync check (`tests/test_rule_coverage_doc.py`) runs in CI and fails
 if a registered rule is missing from this document, if the document mentions
@@ -97,8 +103,8 @@ Columns:
 - **CWE / OWASP / ASVS / CIS / Vendor / Standards (other)** -- primary standards
   mapping. `Standards (other)` carries typed NIST / PCI / ISO / ФСТЭК /
   cheat-sheet companions that do not fit the shorter legacy columns;
-  NIST CSF 2.0, OWASP API Security Top 10 (2023), MITRE ATT&CK, and ФСТЭК БДУ
-  stay in `standards_secondary` JSON metadata only.
+  OWASP Top 10:2025, NIST CSF 2.0, OWASP API Security Top 10 (2023), MITRE
+  ATT&CK, and ФСТЭК БДУ stay in `standards_secondary` JSON metadata only.
 
 ### Universal Rules
 

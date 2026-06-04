@@ -119,6 +119,7 @@ Russian sources verified on the same date:
 | --- | --- | --- |
 | CWE | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:cwe()` | Complete across all five rule families. |
 | OWASP Top 10 2021 | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:owasp_top10_2021()` | Complete across all five rule families. |
+| OWASP Top 10 2025 | `standards_secondary` JSON metadata via `webconf_audit/standards.py:owasp_top10_2025()` | Current-edition alignment derived from the reviewed OWASP Top 10 2021 primary mappings. |
 | OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; direct-rule follow-up from `STD-GAP-013` is now folded into the current mapping, with deeper TLS/runtime follow-up still tracked in `STD-GAP-014`. |
 | CIS NGINX Benchmark v3.0.0 | `docs/rule-coverage.md` (`CIS / Vendor` column) plus the Nginx gap table in the same file | Existing-rule reference pass complete. |
 | CIS Apache HTTP Server 2.4 v2.3.0 | `docs/rule-coverage.md` plus the Apache gap table in the same file | Existing-rule reference pass complete. |

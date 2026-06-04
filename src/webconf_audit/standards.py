@@ -19,6 +19,25 @@ _OWASP_TOP10_2021_URLS = {
     "A10:2021": "https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/",
 }
 
+_OWASP_TOP10_2025_URLS = {
+    "A01:2025": "https://owasp.org/Top10/2025/A01_2025-Broken_Access_Control/",
+    "A02:2025": "https://owasp.org/Top10/2025/A02_2025-Security_Misconfiguration/",
+    "A03:2025": "https://owasp.org/Top10/2025/A03_2025-Software_Supply_Chain_Failures/",
+    "A04:2025": "https://owasp.org/Top10/2025/A04_2025-Cryptographic_Failures/",
+    "A05:2025": "https://owasp.org/Top10/2025/A05_2025-Injection/",
+    "A06:2025": "https://owasp.org/Top10/2025/A06_2025-Insecure_Design/",
+    "A07:2025": "https://owasp.org/Top10/2025/A07_2025-Authentication_Failures/",
+    "A08:2025": "https://owasp.org/Top10/2025/A08_2025-Software_or_Data_Integrity_Failures/",
+    "A09:2025": (
+        "https://owasp.org/Top10/2025/"
+        "A09_2025-Security_Logging_and_Alerting_Failures/"
+    ),
+    "A10:2025": (
+        "https://owasp.org/Top10/2025/"
+        "A10_2025-Mishandling_of_Exceptional_Conditions/"
+    ),
+}
+
 _NIST_SP_URLS = {
     "800-44 Rev. 2": "https://csrc.nist.gov/publications/detail/sp/800-44/ver-2/final",
     "800-52 Rev. 2": "https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final",
@@ -123,6 +142,41 @@ def owasp_top10_2021(
         url=_OWASP_TOP10_2021_URLS[category],
         coverage=coverage,
         note=note,
+    )
+
+
+def owasp_top10_2025(
+    category: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    """Return an OWASP Top 10:2025 secondary reference.
+
+    The project keeps OWASP Top 10:2021 as the historical primary mapping
+    because the row-level rule inventory was originally reviewed against that
+    version. OWASP Top 10:2025 references are emitted as secondary alignment
+    metadata so current reports can show the modern category without rewriting
+    every primary mapping at once.
+    """
+    normalized_category = _normalize_non_empty_text(
+        category,
+        fn_name="owasp_top10_2025",
+        field_name="category",
+    ).upper()
+    if normalized_category not in _OWASP_TOP10_2025_URLS:
+        valid_categories = ", ".join(sorted(_OWASP_TOP10_2025_URLS))
+        raise ValueError(
+            f"Unsupported OWASP Top 10 2025 category: {category}. "
+            f"Expected one of: {valid_categories}."
+        )
+    return StandardReference(
+        standard="OWASP Top 10",
+        reference=normalized_category,
+        url=_OWASP_TOP10_2025_URLS[normalized_category],
+        coverage=coverage,
+        note=note,
+        tier="secondary",
     )
 
 
@@ -521,6 +575,7 @@ __all__ = [
     "nist_sp_800_53_rev5",
     "owasp_api_top10_2023",
     "owasp_top10_2021",
+    "owasp_top10_2025",
     "pci_dss_4",
     "rfc",
 ]
