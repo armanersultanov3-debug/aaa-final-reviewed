@@ -109,7 +109,7 @@ suppressions:
     source: nginx.conf
     line: 12
     reason: Accepted for staging until the shared image is rebuilt.
-    expires: 2026-05-31
+    expires: 2026-12-31
 ```
 
 Use `--suppressions <path>` to point at a non-default suppression file. Full CI
@@ -256,6 +256,13 @@ Universal rule findings are deduplicated when a more specific
 server-specific rule has already reported the same issue at the same
 location.
 
+## Project status
+
+The post-practice project baseline is recorded in
+[docs/project-status.md](docs/project-status.md). It summarizes the current
+implemented scope, validation status, known boundaries, and the next
+graduation-project work items.
+
 ## Demo
 
 A working local-analysis demo with reproducible Docker-based syntax
@@ -272,6 +279,11 @@ Security-focused known-bad/known-good fixture testing is documented in
 
 The current development plan is tracked in
 [docs/roadmap.md](docs/roadmap.md).
+
+Near-term work is focused on parser/effective-configuration precision,
+standards-driven coverage, safe external probe growth, false-positive
+reduction, and release preparation. New server-family support should be planned
+separately after the current four-server core is stable.
 
 ## Development
 

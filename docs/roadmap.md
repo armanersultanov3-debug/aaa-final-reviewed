@@ -6,6 +6,27 @@ development workflow, then make it easy to run in other projects' CI, then add
 clear change-oriented reporting, and only after that expand rule coverage
 against security standards.
 
+## Post-practice baseline
+
+The pre-graduation practice milestone is complete. The current repository state
+is summarized in [project-status.md](project-status.md): implemented scope,
+validation status, known boundaries, and the immediate graduation-project work
+items.
+
+The next work should stay deliberately narrow:
+
+1. improve parser and effective-configuration precision for the already
+   supported server families;
+2. continue standards-driven mapping and rule work;
+3. grow the external safe-probe catalog without adding active exploitation
+   behavior;
+4. reduce false positives and improve report explanations;
+5. prepare a repeatable packaging and release workflow.
+
+New server-family support is a separate research track. It should not displace
+the current four-server core until the existing analyzers, documentation, and
+release workflow are stable.
+
 ## Stage 1 - CI And Reporting Foundation
 
 Stage 1 has a fixed order. Do not start standards-driven rule expansion until
@@ -300,31 +321,30 @@ hardcoded finder per path.
 
 ## Current Priority
 
-The immediate priority has moved from broad local/static rule additions to
-standards-driven coverage growth now that the small local-precision tail that
-fit the current analyzer model is closed.
-The high-value local work that did not require parser or analyzer rewrites is
-mostly implemented: report-noise grouping, redirect-only scope handling,
-severity calibration, request/body/header limit quality, logging quality,
+The immediate priority is no longer broad local/static rule addition. The
+high-value precision work that fit the current analyzer model is mostly
+implemented: report-noise grouping, redirect-only scope handling, severity
+calibration, request/body/header limit quality, logging quality,
 sensitive-path deny policy, header policy quality, local TLS complements, and
 IIS XML policy completeness are all present.
 
-Stage 2 step 4 is now active. `docs/standards-roadmap.md` defines the
-standards source baseline, gap labels, work order, and initial backlog for
-ASVS 5.0.0, CIS NGINX Benchmark v3.0.0, CIS Apache HTTP Server 2.4 Benchmark
-v2.3.0, IIS / Windows Server hardening sources, and future standards-aware
-reporting.
+Current work should continue in five lanes:
 
-Current step: continue standards mapping and curated safe external probe
-additions on top of the now-implemented Apache precision, TLS/runtime
-evidence slices, and the landed Nginx O-03 Gixy-parity work. Two Nginx-local
-items are explicitly **closed as not pursued (2026-05-15)**: raw backend
-response reading (see `docs/testing-real-world-configs.md` for trigger
-conditions) and HTTP/3 detection (see `docs/rule-coverage.md` §4.1.12).
+1. **Precision lane** - close false-positive cases that have concrete
+   fixtures, especially where inherited/effective configuration or
+   redirect-only behavior changes rule applicability.
+2. **Standards lane** - keep `docs/standards-roadmap.md` and
+   `docs/rule-coverage.md` aligned with the rule registry, and add new
+   mappings only when the scanner signal is honest.
+3. **External lane** - add curated non-mutating safe probes on top of
+   `src/webconf_audit/external/safe_probe_catalog.py` and the existing TLS
+   evidence layer.
+4. **Reporting lane** - improve explanations, grouping, and source locations
+   without changing the stable JSON contract unnecessarily.
+5. **Release lane** - make packaging, installation, versioning, and release
+   checks repeatable before publishing a public package.
 
-The TLS runtime-evidence slice of the external-safe track is implemented:
-certificate-chain/trust probing, negotiated forward secrecy posture, bounded
-TLS 1.2 server cipher preference, and OCSP stapling observation are now part
-of the shipped evidence layer. The external safe-probe catalog is also
-implemented. Future external probe growth should add only curated
-non-mutating probes on top of that catalog and evidence base.
+Two Nginx-local items remain explicitly **closed as not pursued
+(2026-05-15)**: raw backend response reading (see
+`docs/testing-real-world-configs.md` for trigger conditions) and HTTP/3
+detection (see `docs/rule-coverage.md` §4.1.12).
