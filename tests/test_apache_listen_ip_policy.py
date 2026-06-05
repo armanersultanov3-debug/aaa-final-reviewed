@@ -403,6 +403,42 @@ def test_analyze_apache_config_reports_single_named_default_non_tls_vhost_withou
     assert "shared non-TLS listen address" not in matching[0].description
 
 
+def test_analyze_apache_config_does_not_treat_tls_vhost_as_default_non_tls_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:443>",
+            "    ServerName tls.example.test",
+            "    SSLEngine On",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert (
+        "apache.default_vhost_not_rejecting_unknown_hosts"
+        not in _rule_ids(findings)
+    )
+
+
+def test_analyze_apache_config_reports_non_tls_default_vhost_with_global_tls_policy(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "SSLProtocol all -TLSv1.3",
+            "SSLCipherSuite HIGH:!aNULL",
+            "<VirtualHost *:80>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    assert "apache.default_vhost_not_rejecting_unknown_hosts" in _rule_ids(findings)
+
+
 def test_analyze_apache_config_accepts_rejecting_default_non_tls_vhost(
     tmp_path: Path,
 ) -> None:

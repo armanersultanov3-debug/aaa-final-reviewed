@@ -14,11 +14,20 @@ from webconf_audit.local.apache.effective import (
 from webconf_audit.local.apache.rules._policy_semantics_utils import (
     explicit_module_inventory,
 )
-from webconf_audit.local.apache.parser import ApacheConfigAst
+from webconf_audit.local.apache.parser import (
+    ApacheBlockNode,
+    ApacheConfigAst,
+    ApacheDirectiveNode,
+)
 from webconf_audit.local.apache.rules._redirect_scope_utils import (
     is_redirect_only_virtualhost,
 )
-from webconf_audit.local.apache.rules._tls_policy_utils import iter_tls_scopes
+from webconf_audit.local.apache.rules._tls_policy_utils import (
+    TLS_DIRECTIVE_NAMES,
+    TRANSPARENT_WRAPPER_BLOCKS,
+    _global_tls_listen_ports,
+    _virtualhost_listens_on_tls,
+)
 from webconf_audit.local.apache.rules._vhost_rejection_utils import (
     listen_keys,
     rejects_unknown_hosts,
@@ -94,20 +103,56 @@ def find_default_vhost_not_rejecting_unknown_hosts(
 def _non_tls_contexts_by_listen_key(
     config_ast: ApacheConfigAst,
 ) -> dict[str, list[ApacheVirtualHostContext]]:
-    tls_context_ids = {
-        id(scope.context)
-        for scope in iter_tls_scopes(config_ast)
-        if scope.context is not None
+    contexts = extract_virtualhost_contexts(config_ast)
+    global_tls_ports = _global_tls_listen_ports(config_ast)
+    tls_context_node_ids = {
+        id(context.node)
+        for context in contexts
+        if _is_tls_virtualhost(context, global_tls_ports=global_tls_ports)
     }
     contexts_by_key: dict[str, list[ApacheVirtualHostContext]] = defaultdict(list)
 
-    for context in extract_virtualhost_contexts(config_ast):
-        if id(context) in tls_context_ids or context.optional_ancestor_names:
+    for context in contexts:
+        if id(context.node) in tls_context_node_ids or context.optional_ancestor_names:
             continue
         for listen_key in listen_keys(context):
             contexts_by_key[listen_key].append(context)
 
     return dict(contexts_by_key)
+
+
+def _is_tls_virtualhost(
+    context: ApacheVirtualHostContext, *, global_tls_ports: frozenset[int]
+) -> bool:
+    return _virtualhost_listens_on_tls(
+        context,
+        global_tls_ports,
+    ) or _has_virtualhost_tls_directive_intent(context.node.children)
+
+
+def _has_virtualhost_tls_directive_intent(
+    nodes: list[ApacheDirectiveNode | ApacheBlockNode],
+) -> bool:
+    for node in nodes:
+        if isinstance(node, ApacheBlockNode):
+            if node.name.lower() in TRANSPARENT_WRAPPER_BLOCKS:
+                if _has_virtualhost_tls_directive_intent(node.children):
+                    return True
+            continue
+
+        name = node.name.lower()
+        if name not in TLS_DIRECTIVE_NAMES:
+            continue
+        if name == "sslengine" and _first_arg_lower(node) == "off":
+            continue
+        return True
+    return False
+
+
+def _first_arg_lower(directive: ApacheDirectiveNode) -> str | None:
+    if not directive.args:
+        return None
+    return directive.args[0].lower()
 
 
 def _finding(
