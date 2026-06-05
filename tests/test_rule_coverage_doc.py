@@ -268,3 +268,30 @@ def test_roadmap_is_source_coverage_oriented() -> None:
 
     assert "source-first" in section.lower()
     assert "scanner signal" in section.lower()
+
+
+def test_tls_source_coverage_explanation_is_recorded() -> None:
+    text = (_REPO_ROOT / "docs" / "benchmarks-covering.md").read_text(
+        encoding="utf-8",
+    )
+    section = _markdown_section(text, "## TLS Source Coverage Explanations")
+
+    for source in (
+        "NIST SP 800-52 Rev. 2",
+        "PCI DSS v4.0.1",
+        "ISO/IEC 27002:2022",
+        "FSTEC",
+    ):
+        assert source in section
+
+    for rule_id in (
+        "universal.weak_tls_protocol",
+        "external.tls_server_cipher_preference_not_observed",
+        "external.ocsp_stapling_not_observed",
+        "iis.schannel_tls12_not_enabled",
+    ):
+        assert f"`{rule_id}`" in section
+
+    assert "scanner signal" in section.lower()
+    assert "partial" in section.lower()
+    assert "bounded" in section.lower()

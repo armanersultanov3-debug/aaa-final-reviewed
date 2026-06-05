@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Document the TLS source-coverage explanation across NIST, PCI DSS, ISO/IEC
+  27002, and FSTEC mappings.
 - Rework the project roadmap around source coverage from the pre-diploma
   benchmark and relevance sources.
 - Expand the external safe-probe catalog with additional environment-file,
