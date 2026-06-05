@@ -13,6 +13,7 @@ from typing import Sequence
 
 
 DEFAULT_WORK_DIR = Path(".tmp") / "release-check"
+CHANGELOG_FILE = "CHANGELOG.md"
 IIS_SMOKE_FIXTURE = (
     Path("tests")
     / "fixtures"
@@ -41,6 +42,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     venv_dir = work_dir / "venv"
 
     try:
+        project_version = _project_version(repo_root)
+        print(f"==> Check release notes for current version: {CHANGELOG_FILE}", flush=True)
+        _check_release_notes(repo_root, project_version)
         _run("Build wheel and sdist", ["uv", "build", "--out-dir", str(dist_dir)], cwd=repo_root)
         wheel = _select_single_artifact(dist_dir, "*.whl")
         _select_single_artifact(dist_dir, "*.tar.gz")
@@ -55,7 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             [
                 str(venv_python),
                 "-c",
-                _version_assertion_code(_project_version(repo_root)),
+                _version_assertion_code(project_version),
             ],
         )
         _run_json(
@@ -111,6 +115,7 @@ def _print_dry_run_plan(work_dir: Path) -> None:
     print("Release check plan:")
     for index, command in enumerate(
         [
+            "Check release notes for current version",
             ["uv", "build", "--out-dir", str(dist_dir)],
             [sys.executable, "-m", "venv", str(venv_dir)],
             [str(venv_python), "-m", "pip", "install", "<built wheel>"],
@@ -127,7 +132,7 @@ def _print_dry_run_plan(work_dir: Path) -> None:
         ],
         start=1,
     ):
-        print(f"{index}. {_format_command(command)}")
+        print(f"{index}. {_format_plan_step(command)}")
 
 
 def _resolve_inside_repo(repo_root: Path, work_dir: Path) -> Path:
@@ -239,6 +244,36 @@ def _project_version(repo_root: Path) -> str:
     raise ReleaseCheckError("could not read project.version from pyproject.toml")
 
 
+def _check_release_notes(repo_root: Path, project_version: str) -> None:
+    changelog = repo_root / CHANGELOG_FILE
+    if not changelog.exists():
+        raise ReleaseCheckError(f"{CHANGELOG_FILE} is missing")
+
+    lines = changelog.read_text(encoding="utf-8").splitlines()
+    header_index = _find_changelog_version_header(lines, project_version)
+    if header_index is None:
+        raise ReleaseCheckError(f"{CHANGELOG_FILE} has no section for version {project_version}")
+
+    body: list[str] = []
+    for line in lines[header_index + 1 :]:
+        if line.startswith("## "):
+            break
+        body.append(line.strip())
+    if not any(line and not line.startswith("<!--") for line in body):
+        raise ReleaseCheckError(f"{CHANGELOG_FILE} section {project_version} is empty")
+
+
+def _find_changelog_version_header(lines: Sequence[str], project_version: str) -> int | None:
+    accepted_prefixes = (
+        f"## [{project_version}]",
+        f"## {project_version}",
+    )
+    for index, line in enumerate(lines):
+        if any(line.startswith(prefix) for prefix in accepted_prefixes):
+            return index
+    return None
+
+
 def _version_assertion_code(expected_version: str) -> str:
     return (
         "from importlib.metadata import version; "
@@ -250,6 +285,12 @@ def _version_assertion_code(expected_version: str) -> str:
 
 def _format_command(command: Sequence[str]) -> str:
     return " ".join(_quote_part(part) for part in command)
+
+
+def _format_plan_step(step: Sequence[str] | str) -> str:
+    if isinstance(step, str):
+        return step
+    return _format_command(step)
 
 
 def _command_env() -> dict[str, str]:

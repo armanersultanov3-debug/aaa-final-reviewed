@@ -341,8 +341,9 @@ Current work should continue in five lanes:
    evidence layer.
 4. **Reporting lane** - improve explanations, grouping, and source locations
    without changing the stable JSON contract unnecessarily.
-5. **Release lane** - make packaging, installation, versioning, and release
-   checks repeatable before publishing a public package.
+5. **Release lane** - keep packaging, installation, versioning, changelog
+   entries, release tags, and installed-package checks repeatable before
+   deciding whether public package publishing is useful.
 
 Two Nginx-local items remain explicitly **closed as not pursued
 (2026-05-15)**: raw backend response reading (see

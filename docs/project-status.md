@@ -1,6 +1,6 @@
 # Project Status
 
-Snapshot date: 2026-06-04.
+Snapshot date: 2026-06-05.
 
 This document records the state of the project after the pre-graduation
 practice milestone. It is intentionally short: detailed rule mappings, test
@@ -38,7 +38,9 @@ The current implementation includes:
 - standards grouping and repeated-finding grouping;
 - stable fingerprints for CI, suppressions, and baseline comparison;
 - `--fail-on`, `--fail-on-new`, suppression files, and baseline/diff reporting;
-- repository CI plus optional Docker-backed integration tests.
+- repository CI plus optional Docker-backed integration tests;
+- a repeatable release-preparation flow with `CHANGELOG.md`, a manual release
+  check workflow, version/tag guidance, and installed-package smoke checks.
 
 The rule inventory is documented in [rule-coverage.md](rule-coverage.md). The
 severity model is documented in
@@ -86,7 +88,8 @@ graduation project:
 2. continue standards-driven rule and mapping work;
 3. strengthen the external safe-probe catalog;
 4. reduce false positives and improve report explanations;
-5. prepare the package for a repeatable public release workflow.
+5. continue release hardening by deciding when public package publishing becomes
+   useful, while keeping the current tag-based release workflow repeatable.
 
 Future server-family expansion should be handled as a separate research and
 planning track, after the current four-server core and release workflow are

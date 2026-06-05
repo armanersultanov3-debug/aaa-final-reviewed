@@ -263,6 +263,10 @@ The post-practice project baseline is recorded in
 implemented scope, validation status, known boundaries, and the next
 graduation-project work items.
 
+User-visible changes are tracked in [CHANGELOG.md](CHANGELOG.md). Release
+preparation, versioning, tag rules, and package smoke checks are documented in
+[docs/release.md](docs/release.md).
+
 ## Demo
 
 A working local-analysis demo with reproducible Docker-based syntax
