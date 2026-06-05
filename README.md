@@ -298,7 +298,7 @@ Run the same fast checks as the pull-request CI workflow:
 ```bash
 uv run --locked ruff check .
 uv run --locked python -m compileall -q src
-uv run --locked pytest tests --ignore=tests/integration_external --ignore=tests/integration_local --ignore=tests/integration_rule_coverage -q
+uv run --locked pytest tests --ignore=tests/integration_external --ignore=tests/integration_local --ignore=tests/integration_rule_coverage --ignore=tests/integration_real_world_cross_mode -q
 uv run --locked webconf-audit list-rules
 uv run --locked interrogate -c pyproject.toml
 ```
@@ -314,3 +314,14 @@ Run the Docker-backed integration slice when Docker Engine is available:
 ```bash
 uv run --locked pytest tests/integration_external tests/integration_local tests/integration_rule_coverage -q
 ```
+
+Run the release check before preparing a public package artifact:
+
+```bash
+uv run --locked python scripts/release_check.py
+```
+
+The release check builds wheel and source distribution artifacts, installs the
+wheel into a clean virtual environment, verifies the installed console entry
+point, and runs a small installed-package smoke test. See
+[docs/release.md](docs/release.md) for the full checklist.
