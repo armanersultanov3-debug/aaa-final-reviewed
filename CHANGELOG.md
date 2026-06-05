@@ -8,6 +8,9 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Expand the external safe-probe catalog with additional environment-file,
+  database-dump, dependency-manifest, and archive path variants for existing
+  catalog-backed rules.
 - Document the standards-mapping health snapshot after the `v0.1.0` tag and
   pin the remaining mapping backlog to safe-probe catalog growth.
 - Continue parser/effective-configuration precision work for the current

@@ -300,14 +300,17 @@ Status: initial fixed-path exposure checks are catalog-backed by
 `src/webconf_audit/external/safe_probe_catalog.py`. The first cataloged set
 keeps the existing `GET` sensitive-path probes and rule IDs intact; follow-up
 work can add curated safe probes from external sources without adding another
-hardcoded finder per path.
+hardcoded finder per path. The current catalog also includes batch-4 path
+variants for existing environment-file, database-dump, dependency-manifest,
+and backup-archive rules; this increases observable fixed-path coverage
+without increasing rule count or changing the external probing model.
 
 ## Backlog Status (local snapshot date: 2026-05-15)
 
 - Rule count: 466 total (including 9 opt-in `policy-review` rules excluded
   from default analyzer runs; safe-probe batch-3 added 30 new external
-  rules per STD-GAP-015), with the repeated counters and registry
-  expected to stay aligned.
+  rules and batch-4 added 11 path variants per STD-GAP-015), with the
+  repeated counters and registry expected to stay aligned.
 - Closed STD-GAP items: `STD-GAP-001`-`STD-GAP-014`, `STD-GAP-016`,
   `STD-GAP-020`, `STD-GAP-021`, `STD-GAP-024`, `STD-GAP-026`-`STD-GAP-032`,
   `STD-GAP-035`, `STD-GAP-036`, `STD-GAP-037`, and `STD-GAP-038`.
@@ -316,8 +319,9 @@ hardcoded finder per path.
   `STD-GAP-025`, `STD-GAP-033`, and `STD-GAP-034`.
 - Active backlog:
   - `STD-GAP-015` — ongoing safe-probe catalog growth (PR-3 of plan
-    2026-05-14 landed batch-2 with ~30 new external rules; further growth
-    remains open as new candidate paths surface).
+    2026-05-14 landed batch-2 with ~30 new external rules; later catalog
+    growth added batch-3 dashboard/control-plane rules and batch-4 file/path
+    variants; further growth remains open as new safe candidate paths surface).
 
 ## Current Priority
 

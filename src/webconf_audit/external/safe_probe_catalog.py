@@ -200,7 +200,12 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "Block public access to /.env files and move secrets to a secure "
             "secret-management mechanism."
         ),
-        paths=("/.env",),
+        paths=(
+            "/.env",
+            "/.env.local",
+            "/.env.production",
+            "/.env.staging",
+        ),
         body_matchers=(BodyMatcher("regex", r"(?m)^[A-Za-z_][A-Za-z0-9_]*\s*="),),
         order=684,
         metadata_recommendation="Block access to .env files.",
@@ -382,18 +387,25 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         paths=(
             "/backup.zip",
             "/backup.tar.gz",
+            "/backup.7z",
+            "/backup.rar",
             "/site.zip",
             "/www.zip",
         ),
         binary_body_matchers=(
             BinaryBodyMatcher(b"PK\x03\x04"),
             BinaryBodyMatcher(b"\x1f\x8b"),
+            BinaryBodyMatcher(b"7z\xbc\xaf\x27\x1c"),
+            BinaryBodyMatcher(b"Rar!\x1a\x07"),
         ),
         content_type_matchers=(
             "application/zip",
             "application/x-zip-compressed",
             "application/gzip",
             "application/x-gzip",
+            "application/x-7z-compressed",
+            "application/vnd.rar",
+            "application/x-rar-compressed",
         ),
         order=695,
         metadata_recommendation="Remove backup archives from the web root.",
@@ -448,8 +460,11 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         paths=(
             "/backup.sql",
+            "/database.sql",
             "/db.sql",
             "/dump.sql",
+            "/mysql.sql",
+            "/production.sql",
         ),
         body_matchers=(
             BodyMatcher(
@@ -478,12 +493,15 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "/composer.lock",
             "/package.json",
             "/package-lock.json",
+            "/pnpm-lock.yaml",
+            "/poetry.lock",
+            "/requirements.txt",
             "/yarn.lock",
         ),
         body_matchers=(
             BodyMatcher(
                 "regex",
-                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:)""",
+                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:|^lockfileVersion:|^\[\[package\]\]|^[A-Za-z0-9_.-]+(?:==|>=|<=|~=|!=|>|<)[^\s]+)""",
             ),
         ),
         order=698,
