@@ -66,6 +66,51 @@ Lighttpd auth-requiring routes. IIS and Lighttpd auth-location normalization
 landed on top of the original PR-08 work (see
 `tests/test_normalized_auth_locations_iis_lighttpd.py`).
 
+## Mapping Health Check (2026-06-05)
+
+This snapshot was taken after the verified `v0.1.0` tag. It records the current
+standards-mapping state without changing rule behavior, severity, tags,
+conditions, or recommendations.
+
+Canonical mapping surfaces:
+
+- `docs/rule-coverage.md` is the canonical per-rule inventory and primary
+  mapping surface for CWE, OWASP Top 10:2021, ASVS, CIS / Vendor, and
+  standards that are already accepted into the rule table.
+- `docs/benchmarks-covering.md` is the planning surface for standards that are
+  not yet fully moved into the canonical per-rule columns, especially NIST,
+  PCI DSS, ISO/IEC 27002, FSTEC, MITRE ATT&CK, OWASP Cheat Sheets, and
+  vendor-style companion references.
+- `docs/standards-roadmap.md` remains the backlog and policy surface for
+  deciding whether a standards item is `covered`, `direct-rule`,
+  `parser-depth`, `probe-depth`, `out-of-scope`, or `research`.
+
+Current health:
+
+- Registry and documentation counters are synchronized at 466 rules:
+  Universal 14, Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 167.
+- `tests/test_rule_coverage_doc.py` verifies that every registered rule is
+  documented, that no unknown rule IDs are referenced, and that repeated rule
+  counters in `README.md`, `docs/architecture.md`,
+  `docs/standards-roadmap.md`, `docs/rule-coverage.md`, and
+  `docs/benchmarks-covering.md` stay aligned.
+- CWE, OWASP Top 10:2021, OWASP Top 10:2025 secondary metadata, ASVS v5.0.0,
+  CIS NGINX v3.0.0, CIS Apache HTTP Server 2.4 v2.3.0, and CIS Microsoft IIS
+  10 v1.2.1 have completed existing-rule mapping passes.
+- The main open standards backlog item is `STD-GAP-015`: curated safe-probe
+  catalog growth for additional fixed, non-mutating external probes.
+
+Documentation-only fence:
+
+- Mapping-health PRs may update `docs/rule-coverage.md`,
+  `docs/benchmarks-covering.md`, this roadmap, and tests that verify
+  documentation drift.
+- Mapping-health PRs must not add or remove rule IDs, change scanner behavior,
+  or modify rule metadata such as severity, tags, descriptions, conditions, or
+  recommendations.
+- New rules, parser depth, probe depth, and output-contract changes belong in
+  separate implementation PRs after the mapping need is clear.
+
 ## Mapping Rules
 
 - Cite exact standard versions and exact identifiers. Do not add a CIS, ASVS,

@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Document the standards-mapping health snapshot after the `v0.1.0` tag and
+  pin the remaining mapping backlog to safe-probe catalog growth.
 - Continue parser/effective-configuration precision work for the current
   four-server scope.
 - Continue standards mapping, safe external probe growth, report explanation
