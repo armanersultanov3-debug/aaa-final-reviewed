@@ -24,9 +24,9 @@ from webconf_audit.local.apache.rules._redirect_scope_utils import (
 )
 from webconf_audit.local.apache.rules._tls_policy_utils import (
     TLS_DIRECTIVE_NAMES,
+    TLS_PORTS,
     TRANSPARENT_WRAPPER_BLOCKS,
     _global_tls_listen_ports,
-    _virtualhost_listens_on_tls,
 )
 from webconf_audit.local.apache.rules._vhost_rejection_utils import (
     listen_keys,
@@ -105,29 +105,40 @@ def _non_tls_contexts_by_listen_key(
 ) -> dict[str, list[ApacheVirtualHostContext]]:
     contexts = extract_virtualhost_contexts(config_ast)
     global_tls_ports = _global_tls_listen_ports(config_ast)
-    tls_context_node_ids = {
-        id(context.node)
-        for context in contexts
-        if _is_tls_virtualhost(context, global_tls_ports=global_tls_ports)
-    }
     contexts_by_key: dict[str, list[ApacheVirtualHostContext]] = defaultdict(list)
 
     for context in contexts:
-        if id(context.node) in tls_context_node_ids or context.optional_ancestor_names:
+        if context.optional_ancestor_names:
             continue
         for listen_key in listen_keys(context):
+            if _is_tls_listen_key(
+                listen_key,
+                context,
+                global_tls_ports=global_tls_ports,
+            ):
+                continue
             contexts_by_key[listen_key].append(context)
 
     return dict(contexts_by_key)
 
 
-def _is_tls_virtualhost(
-    context: ApacheVirtualHostContext, *, global_tls_ports: frozenset[int]
+def _is_tls_listen_key(
+    listen_key: str,
+    context: ApacheVirtualHostContext,
+    *,
+    global_tls_ports: frozenset[int],
 ) -> bool:
-    return _virtualhost_listens_on_tls(
-        context,
-        global_tls_ports,
-    ) or _has_virtualhost_tls_directive_intent(context.node.children)
+    if _has_virtualhost_tls_directive_intent(context.node.children):
+        return True
+    port = _listen_key_port(listen_key)
+    return port is not None and (port in TLS_PORTS or port in global_tls_ports)
+
+
+def _listen_key_port(listen_key: str) -> int | None:
+    _, _, port = listen_key.rpartition(":")
+    if not port.isdigit():
+        return None
+    return int(port)
 
 
 def _has_virtualhost_tls_directive_intent(

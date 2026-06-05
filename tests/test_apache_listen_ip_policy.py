@@ -439,6 +439,23 @@ def test_analyze_apache_config_reports_non_tls_default_vhost_with_global_tls_pol
     assert "apache.default_vhost_not_rejecting_unknown_hosts" in _rule_ids(findings)
 
 
+def test_analyze_apache_config_keeps_http_address_from_mixed_port_vhost(
+    tmp_path: Path,
+) -> None:
+    findings = _analyze_config(
+        tmp_path,
+        _safe_apache_config(
+            "<VirtualHost *:80 *:443>",
+            "    ServerName app.example.test",
+            "</VirtualHost>",
+        ),
+    )
+
+    rule_ids = _rule_ids(findings)
+    assert "apache.default_tls_vhost_not_rejecting_unknown_hosts" in rule_ids
+    assert "apache.default_vhost_not_rejecting_unknown_hosts" in rule_ids
+
+
 def test_analyze_apache_config_accepts_rejecting_default_non_tls_vhost(
     tmp_path: Path,
 ) -> None:
