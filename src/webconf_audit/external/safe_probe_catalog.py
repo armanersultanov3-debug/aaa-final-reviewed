@@ -843,7 +843,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
     SafePathRule(
         rule_id="external.javascript_sourcemap_exposed",
         title="JavaScript source map exposed",
-        severity="low",
+        severity="medium",
         description=(
             "A common JavaScript source map path is externally accessible and "
             "its body resembles a source map. Public source maps can disclose "
