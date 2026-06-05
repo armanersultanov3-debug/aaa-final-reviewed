@@ -242,3 +242,29 @@ def test_standards_roadmap_records_mapping_health_snapshot() -> None:
     assert "`tests/test_rule_coverage_doc.py`" in section
     assert "`STD-GAP-015`" in section
     assert "documentation-only" in section.lower()
+
+
+def test_roadmap_is_source_coverage_oriented() -> None:
+    text = (_REPO_ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
+    section = _markdown_section(text, "## Source Coverage Direction")
+
+    for source in (
+        "OWASP Top 10:2025",
+        "OWASP ASVS v5.0.0",
+        "CIS NGINX Benchmark v3.0.0",
+        "CIS Apache HTTP Server 2.4 Benchmark v2.3.0",
+        "CIS Microsoft IIS 10 Benchmark v1.2.1",
+        "NIST SP 800-52 Rev. 2",
+        "PCI DSS v4.0.1",
+        "ISO/IEC 27002:2022",
+        "FSTEC",
+        "OWASP Cheat Sheet Series",
+        "Lighttpd vendor references",
+        "HTTP Archive Web Almanac 2025",
+        "CISA Proactive Threat Hunt",
+        "CVE-2025-59775",
+    ):
+        assert source in section
+
+    assert "source-first" in section.lower()
+    assert "scanner signal" in section.lower()

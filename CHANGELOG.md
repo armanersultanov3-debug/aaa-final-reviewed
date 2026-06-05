@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Rework the project roadmap around source coverage from the pre-diploma
+  benchmark and relevance sources.
 - Expand the external safe-probe catalog with additional environment-file,
   database-dump, dependency-manifest, and archive path variants for existing
   catalog-backed rules.
