@@ -115,6 +115,26 @@ def _admin_surface_standards() -> tuple[StandardReference, ...]:
     )
 
 
+_DEPENDENCY_MANIFEST_BODY_PATTERNS = (
+    r'"(?:require|dependencies|devDependencies|packages|scripts)"\s*:',
+    r'"pipfile-spec"\s*:',
+    r"^# yarn lockfile",
+    r"^__metadata:",
+    r"^lockfileVersion:",
+    r"^\[\[package\]\]",
+    r"^\[package\]",
+    r"^\[packages\]",
+    r"""^gem\s+["']""",
+    r"^GEM\s*$",
+    r"^module\s+\S+",
+    r"^\S+\s+v\d+\.\d+\.\d+(?:[-+][^\s]+)?\s+h1:",
+    r"^[A-Za-z0-9_.-]+(?:==|>=|<=|~=|!=|>|<)[^\s]+",
+)
+_DEPENDENCY_MANIFEST_BODY_RE = (
+    r"(?im)(?:" + "|".join(_DEPENDENCY_MANIFEST_BODY_PATTERNS) + r")"
+)
+
+
 SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
     SafePathRule(
         rule_id="external.git_metadata_exposed",
@@ -491,18 +511,23 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         paths=(
             "/composer.json",
             "/composer.lock",
+            "/Pipfile",
+            "/Pipfile.lock",
+            "/Gemfile",
+            "/Gemfile.lock",
             "/package.json",
             "/package-lock.json",
             "/pnpm-lock.yaml",
             "/poetry.lock",
             "/requirements.txt",
             "/yarn.lock",
+            "/go.mod",
+            "/go.sum",
+            "/Cargo.toml",
+            "/Cargo.lock",
         ),
         body_matchers=(
-            BodyMatcher(
-                "regex",
-                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|^# yarn lockfile|^__metadata:|^lockfileVersion:|^\[\[package\]\]|^[A-Za-z0-9_.-]+(?:==|>=|<=|~=|!=|>|<)[^\s]+)""",
-            ),
+            BodyMatcher("regex", _DEPENDENCY_MANIFEST_BODY_RE),
         ),
         order=698,
         metadata_recommendation="Block public access to dependency manifests.",
