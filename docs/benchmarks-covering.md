@@ -4,7 +4,7 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 466-rule inventory plus the rule-level work needed to cover the
+existing 467-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
 Nothing in this document changes rule behaviour. It is a planning artefact.
@@ -623,8 +623,8 @@ parsers, IIS SChannel inputs, or bounded external TLS/HTTP probes.
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 466 правил (Nginx 95, Apache 87, Lighttpd 50, IIS 53,
-  External 167, Universal 14), чтобы совпадать с `docs/rule-coverage.md`.
+  обновлён до 467 правил (Nginx 95, Apache 87, Lighttpd 50, IIS 53,
+  External 168, Universal 14), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
   содержат finding-level `standards` и top-level `standards` summary, а text
@@ -690,7 +690,7 @@ parsers, IIS SChannel inputs, or bounded external TLS/HTTP probes.
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | closed (not pursued, plan 2026-05-14) | — | Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается: нет подтверждённого ИСПДн-пользовательского спроса, требуется OpenSSL + GOST engine на стороне тестового стенда (лишняя инфраструктурная зависимость без бизнес-обоснования). Возвращаемся при появлении реального user-кейса. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | closed (not pursued, plan 2026-05-14) | — | Российский финтех не в целевой аудитории. Делегирующие требования уже покрыты ISO 27002 (`STD-GAP-024`) и ФСТЭК «Меры ГИС» (`STD-GAP-031`). |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 20 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), unknown-Host acceptance (NGINX §2.4.2), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error, version header, и native Server header runtime observation (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (466 правил: Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 167, Universal 14). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (467 правил: Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 168, Universal 14). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 canonicalization | mapping-only | P3 | done (local branch date: 2026-05-15) | — | Canonical ASVS 5.0.0 audit corrected the earlier secret-exposure drift: external AWS/Docker/Kubernetes/SSH/GCP/Rails secret-bearing file probes no longer claim `V8.3.1` and now map to partial `V13.4.7`, while the first verified V11 attachment is `iis.machine_key_validation_weak -> v5.0.0-11.4.1` (partial: MachineKey validation HMAC/hash selection only). Broader V11 requirements mostly depend on application code, crypto inventory, or key-management/runtime semantics outside current web-server config / safe-probe visibility, so they remain documented scope limits rather than an active gap. |
 | STD-GAP-038 | Standard-family helper migration | covered | P2 | done (2026-05-11) | 12 | ✓ Typed helper functions for NIST / PCI / ISO / ФСТЭК now exist in `src/webconf_audit/standards.py` and are wired through `src/webconf_audit/rule_standards.py`, closing the helper-migration blocker for current standards metadata. Secondary-only ATT&CK / БДУ tags remain documentation-only and do not require a `tier=secondary` field in the current model. |
 

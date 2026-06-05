@@ -841,6 +841,47 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         metadata_recommendation="Do not serve webpack.mix.js publicly.",
     ),
     SafePathRule(
+        rule_id="external.javascript_sourcemap_exposed",
+        title="JavaScript source map exposed",
+        severity="low",
+        description=(
+            "A common JavaScript source map path is externally accessible and "
+            "its body resembles a source map. Public source maps can disclose "
+            "original source file names, source layout, and implementation "
+            "details useful during reconnaissance."
+        ),
+        recommendation=(
+            "Avoid serving source maps from production web roots unless they "
+            "are intentionally public, or restrict access to trusted users."
+        ),
+        paths=(
+            "/app.js.map",
+            "/main.js.map",
+            "/bundle.js.map",
+            "/index.js.map",
+            "/js/app.js.map",
+            "/assets/app.js.map",
+            "/static/js/main.js.map",
+            "/dist/bundle.js.map",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"version"\s*:\s*3'),
+            BodyMatcher("regex", r'(?i)"sources"\s*:\s*\['),
+            BodyMatcher("regex", r'(?i)"mappings"\s*:'),
+        ),
+        standards=(
+            cwe(200),
+            owasp_top10_2021("A05:2021"),
+            asvs_5(
+                "13.4.7",
+                coverage="partial",
+                note="Publicly exposed JavaScript source map only.",
+            ),
+        ),
+        order=790,
+        metadata_recommendation="Do not serve production source maps publicly.",
+    ),
+    SafePathRule(
         rule_id="external.aws_credentials_exposed",
         title="AWS shared credentials file exposed",
         severity="high",

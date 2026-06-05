@@ -10,6 +10,7 @@ release artifacts are prepared.
 
 - Document the TLS source-coverage explanation across NIST, PCI DSS, ISO/IEC
   27002, and FSTEC mappings.
+- Add JavaScript source map exposure probes to the external safe-probe catalog.
 - Expand dependency-manifest external probes with Python, Ruby, Go, and Rust
   project manifest and lockfile paths.
 - Rework the project roadmap around source coverage from the pre-diploma

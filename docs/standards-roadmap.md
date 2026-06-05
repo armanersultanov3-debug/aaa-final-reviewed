@@ -42,7 +42,7 @@ Sources checked on 2026-04-28 unless noted otherwise:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 466 rules (synchronized with
+The current project inventory is 467 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
@@ -52,7 +52,7 @@ registry and `docs/rule-coverage.md`):
 - Apache local: 87
 - Lighttpd local: 50
 - IIS local: 53
-- External probes: 167
+- External probes: 168
 
 Stage 2 step 3 is complete for CWE and OWASP Top 10 mapping. Confirmed direct
 and partial ASVS candidates are now copied into the dedicated `ASVS` column in
@@ -87,8 +87,8 @@ Canonical mapping surfaces:
 
 Current health:
 
-- Registry and documentation counters are synchronized at 466 rules:
-  Universal 14, Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 167.
+- Registry and documentation counters are synchronized at 467 rules:
+  Universal 14, Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 168.
 - `tests/test_rule_coverage_doc.py` verifies that every registered rule is
   documented, that no unknown rule IDs are referenced, and that repeated rule
   counters in `README.md`, `docs/architecture.md`,
@@ -454,7 +454,7 @@ standard section before implementation.
 | STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
 | STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation, repeated CSP nonce detection corroborated by parsed inline scripts, and cross-origin SRI detection on eligible HTML responses. Remaining CSP honesty notes are limited to deeper nonce/hash authorization semantics, not another header-only direct rule. |
 | STD-GAP-014 | ASVS 5.0.0 | covered | P3 | Deeper external TLS runtime evidence now covers negotiated forward secrecy posture, bounded TLS 1.2 server cipher preference, and OCSP stapling observation. ECH remains a documented limitation rather than a rule because the current safe probe stack cannot evaluate it portably. |
-| STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Batch-4 expands existing catalog-backed rules with additional environment-file, database-dump, dependency-manifest, and backup-archive path variants. Batch-5 expands dependency-manifest probes with Python, Ruby, Go, and Rust manifest / lockfile paths. Continue expanding the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
+| STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Batch-4 expands existing catalog-backed rules with additional environment-file, database-dump, dependency-manifest, and backup-archive path variants. Batch-5 expands dependency-manifest probes with Python, Ruby, Go, and Rust manifest / lockfile paths. Batch-6 adds JavaScript source map exposure probes using fixed paths plus source-map body markers. Continue expanding the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |
 
 ## PR Slicing
 
