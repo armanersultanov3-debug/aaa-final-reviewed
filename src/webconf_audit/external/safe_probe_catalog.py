@@ -115,6 +115,26 @@ def _admin_surface_standards() -> tuple[StandardReference, ...]:
     )
 
 
+_DEPENDENCY_MANIFEST_BODY_PATTERNS = (
+    r'"(?:require|dependencies|devDependencies|packages|scripts)"\s*:',
+    r'"pipfile-spec"\s*:',
+    r"^# yarn lockfile",
+    r"^__metadata:",
+    r"^lockfileVersion:",
+    r"^\[\[package\]\]",
+    r"^\[package\]",
+    r"^\[packages\]",
+    r"""^gem\s+["']""",
+    r"^GEM\s*$",
+    r"^module\s+\S+",
+    r"^\S+\s+v\d+\.\d+\.\d+(?:[-+][^\s]+)?\s+h1:",
+    r"^[A-Za-z0-9_.-]+(?:==|>=|<=|~=|!=|>|<)[^\s]+",
+)
+_DEPENDENCY_MANIFEST_BODY_RE = (
+    r"(?im)(?:" + "|".join(_DEPENDENCY_MANIFEST_BODY_PATTERNS) + r")"
+)
+
+
 SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
     SafePathRule(
         rule_id="external.git_metadata_exposed",
@@ -507,10 +527,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "/Cargo.lock",
         ),
         body_matchers=(
-            BodyMatcher(
-                "regex",
-                r"""(?im)(?:"(?:require|dependencies|devDependencies|packages|scripts)"\s*:|"pipfile-spec"\s*:|^# yarn lockfile|^__metadata:|^lockfileVersion:|^\[\[package\]\]|^\[package\]|^\[packages\]|^gem\s+["']|^GEM\s*$|^module\s+\S+|^\S+\s+v\d+\.\d+\.\d+(?:[-+][^\s]+)?\s+h1:|^[A-Za-z0-9_.-]+(?:==|>=|<=|~=|!=|>|<)[^\s]+)""",
-            ),
+            BodyMatcher("regex", _DEPENDENCY_MANIFEST_BODY_RE),
         ),
         order=698,
         metadata_recommendation="Block public access to dependency manifests.",
