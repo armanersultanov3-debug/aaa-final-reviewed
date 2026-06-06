@@ -882,6 +882,43 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         metadata_recommendation="Do not serve production source maps publicly.",
     ),
     SafePathRule(
+        rule_id="external.application_settings_json_exposed",
+        title="Application settings JSON exposed",
+        severity="medium",
+        description=(
+            "A common application settings JSON path is externally accessible "
+            "and its body resembles an ASP.NET-style application settings file. "
+            "Public settings files can disclose connection strings, host policy, "
+            "logging configuration, and deployment details useful during "
+            "reconnaissance."
+        ),
+        recommendation=(
+            "Block public access to application settings JSON files, keep "
+            "runtime configuration outside the web root, and rotate any secrets "
+            "that may have been exposed."
+        ),
+        paths=(
+            "/appsettings.json",
+            "/appsettings.Development.json",
+            "/appsettings.Production.json",
+            "/appsettings.Staging.json",
+            "/config.json",
+            "/settings.json",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r'(?i)"ConnectionStrings"\s*:'),
+            BodyMatcher("regex", r'(?i)"Logging"\s*:'),
+            BodyMatcher("regex", r'(?i)"AllowedHosts"\s*:'),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed application settings JSON only."
+        ),
+        order=791,
+        metadata_recommendation=(
+            "Do not serve application settings JSON files publicly."
+        ),
+    ),
+    SafePathRule(
         rule_id="external.aws_credentials_exposed",
         title="AWS shared credentials file exposed",
         severity="high",
