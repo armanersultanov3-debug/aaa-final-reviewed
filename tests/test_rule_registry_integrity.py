@@ -60,7 +60,7 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 468
+        assert len(full_reg._catalog) == 471
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
         assert len(full_reg._executable) == 310
@@ -93,7 +93,7 @@ class TestCategoryCounts:
 
     def test_external(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="external")
-        assert len(rules) == 169
+        assert len(rules) == 172
 
     def test_external_meta_registration_is_idempotent_after_clear(self) -> None:
         reg = RuleRegistry()
@@ -101,12 +101,12 @@ class TestCategoryCounts:
         first_size = reg.catalog_size
 
         register_external_rule_metas(reg)
-        assert reg.catalog_size == first_size == 158
+        assert reg.catalog_size == first_size == 161
 
         reg.clear()
         register_external_rule_metas(reg)
 
-        assert reg.catalog_size == 158
+        assert reg.catalog_size == 161
         assert reg.get_meta("external.https_not_available") is not None
 
     def test_external_meta_registration_rejects_duplicate_seed_ids(

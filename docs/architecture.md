@@ -217,7 +217,7 @@ dependency for the rule's default severity. The methodology is
 documented in [severity-methodology.md](severity-methodology.md), and
 `list-rules --format json` exposes the profile for tooling.
 
-Current catalog: 468 rules total.
+Current catalog: 471 rules total.
 
 | Category | Rules |
 |----------|------:|
@@ -226,7 +226,7 @@ Current catalog: 468 rules total.
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |
-| External | 169 |
+| External | 172 |
 
 ### 8.1 Opt-in tags
 

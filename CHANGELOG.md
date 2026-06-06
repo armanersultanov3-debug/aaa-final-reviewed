@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Add exposed Nginx, Apache HTTP Server, and Lighttpd configuration-file
+  probes to the external safe-probe catalog.
 - Add application settings JSON exposure probes to the external safe-probe
   catalog.
 - Document the TLS source-coverage explanation across NIST, PCI DSS, ISO/IEC
