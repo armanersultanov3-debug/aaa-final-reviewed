@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Add application settings JSON exposure probes to the external safe-probe
+  catalog.
 - Document the TLS source-coverage explanation across NIST, PCI DSS, ISO/IEC
   27002, and FSTEC mappings.
 - Add JavaScript source map exposure probes to the external safe-probe catalog.

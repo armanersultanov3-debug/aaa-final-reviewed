@@ -37,13 +37,13 @@ file.
 
 ## Summary
 
-Total rules: **467**
+Total rules: **468**
 
 | Dimension | Counts |
 | --- | --- |
-| Category | local (285), external (168), universal (14) |
-| Severity | high (57), medium (236), low (150), info (24) |
-| Input kind | ast (183), effective (90), probe (168), normalized (14), htaccess (6), mixed (6) |
+| Category | local (285), external (169), universal (14) |
+| Severity | high (57), medium (236), low (151), info (24) |
+| Input kind | ast (183), effective (90), probe (169), normalized (14), htaccess (6), mixed (6) |
 
 ## Documented Scope Limits
 
@@ -1123,7 +1123,7 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 
 ### External (Probe-based)
 
-Count: 168
+Count: 169
 
 Stage 2 step 3 mapping: **CWE / OWASP complete** for this group. External
 probes are black-box runtime checks that do not align with config-level CIS
@@ -1233,6 +1233,7 @@ permissive 302 redirects, OPTIONS responses) leave CWE, OWASP, and ASVS empty.
 | `external.webpack_config_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed build configuration file.) | - | - |
 | `external.webpack_mix_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed asset build configuration file.) | - | - |
 | `external.javascript_sourcemap_exposed` | medium | probe | - | [CWE-200](https://cwe.mitre.org/data/definitions/200.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed JavaScript source map only.) | - | - |
+| `external.application_settings_json_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed application settings JSON only.) | - | - |
 | `external.aws_credentials_exposed` | medium | probe | - | [CWE-522](https://cwe.mitre.org/data/definitions/522.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed AWS shared credentials file.) | - | - |
 | `external.aws_config_exposed` | low | probe | - | [CWE-538](https://cwe.mitre.org/data/definitions/538.html) | [A05:2021](https://owasp.org/Top10/A05_2021-Security_Misconfiguration/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed AWS CLI configuration file.) | - | - |
 | `external.docker_config_exposed` | medium | probe | - | [CWE-522](https://cwe.mitre.org/data/definitions/522.html) | [A07:2021](https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/) | [ASVS v5.0.0-13.4.7](https://owasp.org/www-project-application-security-verification-standard/) (partial: Publicly exposed Docker client credential/configuration file.) | - | - |
