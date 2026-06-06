@@ -884,7 +884,7 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
     SafePathRule(
         rule_id="external.application_settings_json_exposed",
         title="Application settings JSON exposed",
-        severity="medium",
+        severity="low",
         description=(
             "A common application settings JSON path is externally accessible "
             "and its body resembles an ASP.NET-style application settings file. "
