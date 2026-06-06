@@ -17,7 +17,7 @@ _CATALOG_GROWTH_BATCH_9_CASES = [
             "<artifactId>spring-core</artifactId><version>6.1.0</version>"
             "</dependency></dependencies></project>"
         ),
-        "<project><modelVersion>4.0.0</modelVersion></project>",
+        "<project><dependencies><dependency></dependencies></project>",
     ),
     (
         "/build.gradle",
@@ -27,6 +27,12 @@ _CATALOG_GROWTH_BATCH_9_CASES = [
             "dependencies { implementation 'org.springframework:spring-core:6.1.0' }\n"
         ),
         "Gradle build file notes without dependency declarations",
+    ),
+    (
+        "/build.gradle",
+        "text/plain",
+        "dependencies { annotationProcessor 'org.projectlombok:lombok:1.18.32' }\n",
+        "dependencies { if (project.hasProperty('demo')) { println 'demo' } }\n",
     ),
     (
         "/build.gradle.kts",
@@ -50,7 +56,7 @@ _CATALOG_GROWTH_BATCH_9_CASES = [
             '<Project><ItemGroup><PackageVersion Include="Newtonsoft.Json" '
             'Version="13.0.3" /></ItemGroup></Project>'
         ),
-        "<Project><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup></Project>",
+        '<Project><ItemGroup><PackageVersion Include="Newtonsoft.Json"',
     ),
 ]
 
