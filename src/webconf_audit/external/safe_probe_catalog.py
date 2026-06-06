@@ -919,6 +919,106 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
     ),
     SafePathRule(
+        rule_id="external.nginx_config_exposed",
+        title="Nginx configuration file exposed",
+        severity="low",
+        description=(
+            "A common Nginx configuration path is externally accessible and "
+            "its body resembles an Nginx main configuration file. Public "
+            "server configuration can disclose listeners, document roots, "
+            "upstream names, logging policy, and other deployment details "
+            "useful during reconnaissance."
+        ),
+        recommendation=(
+            "Block public access to Nginx configuration files and keep server "
+            "configuration outside the web root."
+        ),
+        paths=(
+            "/nginx.conf",
+            "/conf/nginx.conf",
+            "/etc/nginx/nginx.conf",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*events\s*\{"),
+            BodyMatcher("regex", r"(?im)^\s*http\s*\{"),
+            BodyMatcher("regex", r"(?im)^\s*server\s*\{"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Nginx configuration file only."
+        ),
+        order=792,
+        metadata_recommendation="Do not serve Nginx configuration files publicly.",
+    ),
+    SafePathRule(
+        rule_id="external.apache_config_exposed",
+        title="Apache HTTP Server configuration file exposed",
+        severity="low",
+        description=(
+            "A common Apache HTTP Server configuration path is externally "
+            "accessible and its body resembles an Apache configuration file. "
+            "Public server configuration can disclose listeners, virtual "
+            "hosts, document roots, loaded modules, logging policy, and "
+            "security-relevant routing details."
+        ),
+        recommendation=(
+            "Block public access to Apache HTTP Server configuration files "
+            "and keep server configuration outside the web root."
+        ),
+        paths=(
+            "/httpd.conf",
+            "/apache2.conf",
+            "/conf/httpd.conf",
+            "/conf/apache2.conf",
+            "/etc/apache2/apache2.conf",
+            "/etc/httpd/conf/httpd.conf",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*(?:ServerRoot|Listen)\b"),
+            BodyMatcher("regex", r"(?im)^\s*LoadModule\s+"),
+            BodyMatcher("regex", r"(?im)<VirtualHost\b|^\s*DocumentRoot\b"),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Apache HTTP Server configuration file only."
+        ),
+        order=793,
+        metadata_recommendation=(
+            "Do not serve Apache HTTP Server configuration files publicly."
+        ),
+    ),
+    SafePathRule(
+        rule_id="external.lighttpd_config_exposed",
+        title="Lighttpd configuration file exposed",
+        severity="low",
+        description=(
+            "A common Lighttpd configuration path is externally accessible "
+            "and its body resembles a Lighttpd configuration file. Public "
+            "server configuration can disclose enabled modules, document "
+            "roots, listener settings, logging paths, and security policy "
+            "details useful during reconnaissance."
+        ),
+        recommendation=(
+            "Block public access to Lighttpd configuration files and keep "
+            "server configuration outside the web root."
+        ),
+        paths=(
+            "/lighttpd.conf",
+            "/conf/lighttpd.conf",
+            "/etc/lighttpd/lighttpd.conf",
+        ),
+        body_matchers=(
+            BodyMatcher("regex", r"(?im)^\s*server\.modules\s*="),
+            BodyMatcher("regex", r"(?im)^\s*server\.document-root\s*="),
+            BodyMatcher("regex", r"(?im)^\s*server\.port\s*="),
+        ),
+        standards=_configuration_exposure_standards(
+            "Publicly exposed Lighttpd configuration file only."
+        ),
+        order=794,
+        metadata_recommendation=(
+            "Do not serve Lighttpd configuration files publicly."
+        ),
+    ),
+    SafePathRule(
         rule_id="external.aws_credentials_exposed",
         title="AWS shared credentials file exposed",
         severity="high",
