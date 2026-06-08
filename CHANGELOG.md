@@ -8,6 +8,9 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Expand dependency-manifest external probes with Java Maven/Gradle and
+  .NET/NuGet manifest paths, and map the rule to ASVS v5.0.0-13.4.6 partial
+  version-disclosure coverage.
 - Add exposed Nginx, Apache HTTP Server, and Lighttpd configuration-file
   probes to the external safe-probe catalog.
 - Add application settings JSON exposure probes to the external safe-probe
