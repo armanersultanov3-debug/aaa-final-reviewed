@@ -349,6 +349,16 @@ class TestStandardsMetadata:
                 ("OWASP Top 10", "A05:2021"),
                 ("OWASP ASVS", "v5.0.0-13.4.5"),
             },
+            "external.swagger_ui_exposed": {
+                ("CWE", "CWE-200"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.5"),
+            },
+            "external.openapi_spec_exposed": {
+                ("CWE", "CWE-200"),
+                ("OWASP Top 10", "A05:2021"),
+                ("OWASP ASVS", "v5.0.0-13.4.5"),
+            },
             "nginx.server_block_accepts_unknown_host": {
                 ("CWE", "CWE-346"),
                 ("OWASP Top 10", "A05:2021"),

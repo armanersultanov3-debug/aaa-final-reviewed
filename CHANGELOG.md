@@ -8,6 +8,9 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Expand OpenAPI / Swagger external probes with common JSON schema paths and
+  map Swagger/OpenAPI exposure to ASVS v5.0.0-13.4.5 partial documentation
+  endpoint coverage.
 - Expand dependency-manifest external probes with Java Maven/Gradle and
   .NET/NuGet manifest paths, and map the rule to ASVS v5.0.0-13.4.6 partial
   version-disclosure coverage.

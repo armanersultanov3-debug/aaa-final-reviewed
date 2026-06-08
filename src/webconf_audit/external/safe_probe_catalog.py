@@ -108,6 +108,14 @@ def _information_disclosure_standards() -> tuple[StandardReference, ...]:
     )
 
 
+def _api_documentation_exposure_standards(note: str) -> tuple[StandardReference, ...]:
+    return (
+        cwe(200),
+        owasp_top10_2021("A05:2021"),
+        _partial_asvs("13.4.5", note),
+    )
+
+
 def _admin_surface_standards() -> tuple[StandardReference, ...]:
     return (
         cwe(306),
@@ -1489,7 +1497,9 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
                 r"(?i)(<title>\s*Swagger UI\s*</title>|swagger-ui-bundle\.js)",
             ),
         ),
-        standards=_information_disclosure_standards(),
+        standards=_api_documentation_exposure_standards(
+            "Publicly exposed interactive API documentation."
+        ),
         order=749,
         metadata_recommendation="Restrict public access to Swagger UI.",
     ),
@@ -1506,14 +1516,23 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "Review whether OpenAPI schemas should be public and restrict them "
             "to trusted users where practical."
         ),
-        paths=("/v2/api-docs", "/v3/api-docs", "/api-docs"),
+        paths=(
+            "/v2/api-docs",
+            "/v3/api-docs",
+            "/api-docs",
+            "/openapi.json",
+            "/swagger.json",
+            "/swagger/v1/swagger.json",
+        ),
         body_matchers=(
             BodyMatcher(
                 "regex",
                 r'(?i)"(?:openapi|swagger)"\s*:\s*"(?:3\.[0-9.]*|2\.0)"',
             ),
         ),
-        standards=_information_disclosure_standards(),
+        standards=_api_documentation_exposure_standards(
+            "Publicly exposed OpenAPI or Swagger schema document."
+        ),
         order=750,
         metadata_recommendation="Review whether OpenAPI specs should be public.",
     ),
