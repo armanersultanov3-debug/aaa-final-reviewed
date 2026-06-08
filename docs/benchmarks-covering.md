@@ -129,6 +129,33 @@ This document does not duplicate those mappings. It only references them when
 a row crosses standards (for example, the same TLS rule that already cites
 ASVS v5.0.0-12.1.1 is also a NIST SP 800-52 Rev. 2 §3.1 candidate).
 
+### 4.1 Current coverage snapshot
+
+The current snapshot mirrors the pre-diploma coverage calculation. The
+denominator contains only applicable items after explicitly out-of-scope items
+are removed. The numerator contains only fully covered items; partial evidence
+is tracked separately and does not increase the full-coverage percentage.
+
+PR #7 strengthened the OpenAPI / Swagger documentation-endpoint probes and the
+ASVS v5.0.0-13.4.5 evidence trail, but it did not change the conservative
+full-coverage numerator.
+
+| Control source | Applicable items | Fully covered | Partially covered | Not fully covered | Full coverage |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 0 | 8 | 46.7% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 0 | 2 | 89.5% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 2 | 80.0% |
+| OWASP Top 10:2025 | 8 | 2 | 6 | 6 | 25.0% |
+| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 7 | 68.2% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 100.0% |
+| ISO/IEC 27002:2022 | 10 | 8 | 2 | 2 | 80.0% |
+
+For implementation planning, "not fully covered" means `applicable - fully
+covered`. Some rows are already partial rather than fully uncovered. The next
+gap-closure plan is recorded in
+`docs/superpowers/plans/2026-06-08-control-source-gap-closure.md`.
+
 ## 5. Standards not yet planned — candidate coverage
 
 For each standard below the table layout is:
