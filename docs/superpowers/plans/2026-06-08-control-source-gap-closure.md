@@ -43,16 +43,16 @@ Partial items are tracked separately and are not counted in the numerator.
 
 Purpose: prevent the coverage table from drifting from rule metadata.
 
-- [ ] Add a compact source-coverage tracker section or file that lists each
+- [x] Add a compact source-coverage tracker section or file that lists each
   counted item behind the diploma snapshot.
-- [ ] For every not-full item, record one of: `direct-rule candidate`,
+- [x] For every not-full item, record one of: `direct-rule candidate`,
   `policy-profile candidate`, `partial-only candidate`, `scope decision`, or
   `defer`.
-- [ ] Keep the existing percent formula unchanged: full items only count in the
+- [x] Keep the existing percent formula unchanged: full items only count in the
   numerator.
-- [ ] Add a short maintenance note explaining that PR #7 strengthened ASVS
+- [x] Add a short maintenance note explaining that PR #7 strengthened ASVS
   v5.0.0-13.4.5 OpenAPI/Swagger evidence without changing the full numerator.
-- [ ] Verification: run the documentation coverage test and `git diff --check`.
+- [x] Verification: run the documentation coverage test and `git diff --check`.
 
 Likely files:
 

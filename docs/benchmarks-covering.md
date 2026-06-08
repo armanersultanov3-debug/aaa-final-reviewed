@@ -153,7 +153,8 @@ full-coverage numerator.
 
 For implementation planning, "not fully covered" means `applicable - fully
 covered`. Some rows are already partial rather than fully uncovered. The next
-gap-closure plan is recorded in
+count ledger is recorded in `docs/control-source-coverage-tracker.md`, and the
+next gap-closure plan is recorded in
 `docs/superpowers/plans/2026-06-08-control-source-gap-closure.md`.
 
 ## 5. Standards not yet planned — candidate coverage
