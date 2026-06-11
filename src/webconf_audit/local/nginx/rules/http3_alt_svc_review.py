@@ -248,7 +248,7 @@ def _format_alt_svc_state(
 
 def _header_value(directive: DirectiveNode) -> str:
     value_args = directive.args[1:]
-    if value_args and value_args[-1].lower() == "always":
+    if len(value_args) > 1 and value_args[-1].lower() == "always":
         value_args = value_args[:-1]
     return _strip_matching_quotes(" ".join(value_args).strip())
 

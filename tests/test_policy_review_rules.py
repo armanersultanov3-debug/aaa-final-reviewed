@@ -477,6 +477,29 @@ def test_nginx_http3_alt_svc_review_treats_empty_value_as_missing(
     assert "effective Alt-Svc observations" not in findings[0].description
 
 
+def test_nginx_http3_alt_svc_review_keeps_literal_always_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "events {}\n"
+        "http {\n"
+        "  server {\n"
+        "    listen 443 quic;\n"
+        "    add_header Alt-Svc always;\n"
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(config_path, enable_policy_review=True)
+
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+    assert len(findings) == 1
+    assert "effective Alt-Svc observations: always" in findings[0].description
+    assert "effective Alt-Svc header is missing" not in findings[0].description
+
+
 def test_nginx_http3_alt_svc_review_respects_add_header_replacement(
     tmp_path: Path,
 ) -> None:
