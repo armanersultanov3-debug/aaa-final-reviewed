@@ -275,9 +275,11 @@ Tests will cover:
    local headers, while `off` cancels inherited values.
 8. Multiple effective `Alt-Svc` directives are all reported in one finding.
 9. Header directives loaded from include files retain their file and line.
-10. A regular TLS listener without `quic` produces no finding.
-11. Multiple qualifying directives in one server block are deduplicated.
-12. Separate qualifying server blocks produce separate findings with their
+10. A literal empty `Alt-Svc` value is treated as absent because Nginx does
+    not emit a response header with a zero-length value.
+11. A regular TLS listener without `quic` produces no finding.
+12. Multiple qualifying directives in one server block are deduplicated.
+13. Separate qualifying server blocks produce separate findings with their
    own source locations.
 
 ### Opt-In Contract

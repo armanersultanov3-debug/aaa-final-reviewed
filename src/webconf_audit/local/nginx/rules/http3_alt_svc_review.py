@@ -211,16 +211,16 @@ def _format_alt_svc_state(
 
     for scope_label, headers in response_scopes:
         alt_svc_headers = [
-            directive
+            (directive, value)
             for directive in headers
             if directive.args and directive.args[0].lower() == "alt-svc"
+            if (value := _header_value(directive))
         ]
         if not alt_svc_headers:
             missing_scopes.append(scope_label)
             continue
 
-        for directive in alt_svc_headers:
-            value = _header_value(directive)
+        for directive, value in alt_svc_headers:
             key = (
                 directive.source.file_path,
                 directive.source.line,
