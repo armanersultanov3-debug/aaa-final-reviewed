@@ -4,15 +4,14 @@ This document is the cross-cutting benchmarks/standards companion to
 `docs/rule-coverage.md` and `docs/standards-roadmap.md`. It records, for every
 standard or benchmark family that is **not yet** in the canonical
 `CWE / OWASP / ASVS / CIS` columns, an honest **candidate** mapping against the
-existing 471-rule inventory plus the rule-level work needed to cover the
+existing 472-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
-Nothing in this document changes rule behaviour. It is a planning artefact.
-The same documentation-only fence used by `docs/standards-roadmap.md` applies:
-no rule registry edits, no CIS section IDs added to the existing rule rows of
-`docs/rule-coverage.md`, no severity / tag / metadata changes. Final rule
-column updates live in dedicated standards-mapping PRs that follow this
-planning document.
+This revision includes the implemented opt-in
+`nginx.http3_alt_svc_review` policy-review rule and the corresponding
+control-source mapping updates. Candidate mappings elsewhere in the document
+remain planning evidence until a dedicated implementation or mapping change
+moves them into the canonical inventory.
 
 ## 1. Why a separate file
 
@@ -131,31 +130,32 @@ ASVS v5.0.0-12.1.1 is also a NIST SP 800-52 Rev. 2 §3.1 candidate).
 
 ### 4.1 Current coverage snapshot
 
-The current snapshot mirrors the pre-diploma coverage calculation. The
+The current snapshot uses the pre-diploma coverage denominator and full
+numerator while separating the evidence states more precisely. The
 denominator contains only applicable items after explicitly out-of-scope items
 are removed. The numerator contains only fully covered items; partial evidence
-is tracked separately and does not increase the full-coverage percentage.
+and opt-in policy review are tracked separately and do not increase the
+full-coverage percentage.
 
 PR #7 strengthened the OpenAPI / Swagger documentation-endpoint probes and the
 ASVS v5.0.0-13.4.5 evidence trail, but it did not change the conservative
 full-coverage numerator.
 
-| Control source | Applicable items | Fully covered | Partially covered | Not fully covered | Full coverage |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 0 | 8 | 46.7% |
-| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 0 | 2 | 89.5% |
-| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 2 | 80.0% |
-| OWASP Top 10:2025 | 8 | 2 | 6 | 6 | 25.0% |
-| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 7 | 68.2% |
-| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 100.0% |
-| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 100.0% |
-| ISO/IEC 27002:2022 | 10 | 8 | 2 | 2 | 80.0% |
+| Control source | Applicable items | Fully covered | Partially covered | Policy review | Uncovered | Full coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
+| OWASP Top 10:2025 | 8 | 2 | 6 | 0 | 0 | 25.0% |
+| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 0 | 0 | 68.2% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 0 | 100.0% |
+| ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
-For implementation planning, "not fully covered" means `applicable - fully
-covered`. Some rows are already partial rather than fully uncovered. The next
-count ledger is recorded in `docs/control-source-coverage-tracker.md`, and the
-next gap-closure plan is recorded in
-`docs/superpowers/plans/2026-06-08-control-source-gap-closure.md`.
+Each source reconciles as `Applicable = Full + Partial + Policy review +
+Uncovered`. Excluded items do not enter the applicable denominator. The
+counted-item ledger and evidence rationale are recorded in
+`docs/control-source-coverage-tracker.md`.
 
 ## 5. Standards not yet planned — candidate coverage
 
@@ -605,7 +605,7 @@ CIS Benchmarks — config-level. Это разумное по-умолчанию
 | `external.hsts_*` family | CIS NGINX v3.0.0 §4.1.8, CIS Apache 2.4 v2.3.0 §7.11, CIS IIS 10 v1.2.1 §7.1 | `nginx.missing_hsts_header`, `apache.missing_hsts_header`, `apache.hsts_header_unsafe`, `iis.missing_hsts_header` |
 | `external.trace_method_allowed`, `external.trace_method_exposed_via_options` | CIS Apache 2.4 v2.3.0 §5.8 | `apache.trace_enable_not_off` |
 | `external.server_status_exposed`, `external.server_info_exposed` | CIS Apache 2.4 v2.3.0 §2.4 / §2.8 | `apache.server_status_exposed`, `apache.server_info_exposed` |
-| `external.nginx_status_exposed` | CIS NGINX v3.0.0 §2.5.4 (partial: reverse-proxy disclosure) | none — эта подкатегория сейчас `parser-depth`. |
+| `external.nginx_status_exposed` | CIS NGINX v3.0.0 §2.5.4 (partial: reverse-proxy disclosure) | none — это частичное runtime-доказательство без полного config-level аналога. |
 | `external.x_content_type_options_missing/invalid` | CIS NGINX v3.0.0 §5.3.1, CIS Apache 2.4 v2.3.0 §5.16 / §5.17 / §5.18 (partial) | `nginx.missing_x_content_type_options`, `apache.missing_*_header` family |
 | `external.git_metadata_exposed`, `external.svn_metadata_exposed` | CIS NGINX v3.0.0 §2.5.3, CIS Apache 2.4 v2.3.0 §5.10-§5.13 | `nginx.missing_hidden_files_deny`, `apache.vcs_metadata_not_restricted` |
 | `external.dangerous_http_methods_enabled`, `external.allow_header_dangerous_methods` | CIS NGINX v3.0.0 §5.1.2, CIS Apache 2.4 v2.3.0 §5.7 | `nginx.missing_http_method_restrictions`, `apache.missing_http_method_restrictions` |
@@ -651,7 +651,7 @@ parsers, IIS SChannel inputs, or bounded external TLS/HTTP probes.
 - **PCI DSS отсутствует** — а проект практически идеально на нём натянут
   (TLS req 4.2.1, headers, logging req 10).
 - **Drift в счётчиках был выявлен и закрыт**: `docs/standards-roadmap.md`
-  обновлён до 471 правил (Nginx 95, Apache 87, Lighttpd 50, IIS 53,
+  обновлён до 472 правил (Nginx 96, Apache 87, Lighttpd 50, IIS 53,
   External 172, Universal 14), чтобы совпадать с `docs/rule-coverage.md`.
 - **`STD-GAP-012` "standards metadata в reports"** закрыт для core output path:
   `RuleMeta.standards` доезжает в `list-rules --format json`, JSON-отчёты
@@ -718,7 +718,7 @@ parsers, IIS SChannel inputs, or bounded external TLS/HTTP probes.
 | STD-GAP-033 | ФСБ Приказ № 378 / ГОСТ TLS | research | P3 | closed (not pursued, plan 2026-05-14) | — | Research scope зафиксирован в §6.4 этого документа: цель, acceptance criteria, open questions, блокирующие условия. Реальная имплементация детектора (RFC 9189 ГОСТ-наборы) не запускается: нет подтверждённого ИСПДн-пользовательского спроса, требуется OpenSSL + GOST engine на стороне тестового стенда (лишняя инфраструктурная зависимость без бизнес-обоснования). Возвращаемся при появлении реального user-кейса. |
 | STD-GAP-034 | ГОСТ Р 57580.1-2017 | covered | P3 | closed (not pursued, plan 2026-05-14) | — | Российский финтех не в целевой аудитории. Делегирующие требования уже покрыты ISO 27002 (`STD-GAP-024`) и ФСТЭК «Меры ГИС» (`STD-GAP-031`). |
 | STD-GAP-035 | External cross-source partial | covered | P1 | done (2026-05-05) | 2 | ✓ 20 правил в external-таблице получили cross-source partial CIS-ссылки в `docs/rule-coverage.md`: TLS / HSTS / redirect (NGINX §4.1.1, §4.1.4, §4.1.8 + Apache §7.1, §7.4, §7.11 + IIS §2.6, §7.1, §7.4, §7.5, §7.7-§7.9), unknown-Host acceptance (NGINX §2.4.2), TRACE (Apache §5.8), методы (NGINX §5.1.2 + Apache §5.7), VCS metadata (NGINX §2.5.3 + Apache §5.10-§5.13), статус-эндпойнты (Apache §2.4 / §2.8, NGINX §2.5.4), X-Content-Type-Options (NGINX §5.3.1), IIS detailed-error, version header, и native Server header runtime observation (§3.4 / §3.11). Каждая запись помечена `(partial: runtime evidence; primary CIS reference at <local rule>)`. Вступительный абзац external-секции обновлён. |
-| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (471 правил: Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 172, Universal 14). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
+| STD-GAP-036 | Drift / sync счётчиков | direct-rule | P1 | done (2026-05-06; updated 2026-06-11) | 1 | ✓ Counters обновлены в `docs/standards-roadmap.md` (472 правила: Nginx 96, Apache 87, Lighttpd 50, IIS 53, External 172, Universal 14). Sync-check реализован в `tests/test_rule_coverage_doc.py` (`test_repeated_document_counters_match_registry`): repeated counters в `README.md`, `docs/architecture.md`, `docs/standards-roadmap.md`, `docs/benchmarks-covering.md` и `docs/rule-coverage.md` валидируются против registry. |
 | STD-GAP-037 | ASVS V8 / V11 canonicalization | mapping-only | P3 | done (local branch date: 2026-05-15) | — | Canonical ASVS 5.0.0 audit corrected the earlier secret-exposure drift: external AWS/Docker/Kubernetes/SSH/GCP/Rails secret-bearing file probes no longer claim `V8.3.1` and now map to partial `V13.4.7`, while the first verified V11 attachment is `iis.machine_key_validation_weak -> v5.0.0-11.4.1` (partial: MachineKey validation HMAC/hash selection only). Broader V11 requirements mostly depend on application code, crypto inventory, or key-management/runtime semantics outside current web-server config / safe-probe visibility, so they remain documented scope limits rather than an active gap. |
 | STD-GAP-038 | Standard-family helper migration | covered | P2 | done (2026-05-11) | 12 | ✓ Typed helper functions for NIST / PCI / ISO / ФСТЭК now exist in `src/webconf_audit/standards.py` and are wired through `src/webconf_audit/rule_standards.py`, closing the helper-migration blocker for current standards metadata. Secondary-only ATT&CK / БДУ tags remain documentation-only and do not require a `tier=secondary` field in the current model. |
 
