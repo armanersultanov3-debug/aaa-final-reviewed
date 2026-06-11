@@ -11,10 +11,10 @@ The current calculation is conservative:
 - the denominator contains applicable web-server-visible items only;
 - out-of-scope items are removed before counting;
 - the numerator contains only fully covered items;
-- partial and policy-review evidence is recorded, but neither increases the
+- partial and policy review evidence is recorded, but neither increases the
   full-coverage percentage;
 - every applicable source reconciles as
-  `Applicable = Full + Partial + Policy review + Uncovered`;
+  `Applicable = Full + Partial + policy-review + Uncovered`;
 - excluded items are documented separately and do not enter the applicable
   denominator;
 - every percentage change must update this file and
@@ -22,7 +22,7 @@ The current calculation is conservative:
 
 ## Snapshot Summary
 
-| Control source | Applicable | Full | Partial | Policy review | Uncovered | Full coverage |
+| Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
@@ -49,7 +49,7 @@ existing `info` severity with the opt-in `policy-review` tag.
 
 ## CIS NGINX Benchmark v3.0.0
 
-Applicable count: 15. Full count: 7. Partial count: 7. Policy-review
+Applicable count: 15. Full count: 7. Partial count: 7. `policy-review`
 count: 1. Uncovered count: 0.
 
 | Counted item | Status | Current basis / next action |
@@ -64,7 +64,7 @@ count: 1. Uncovered count: 0.
 | §4.1.2 trusted certificate chain | partial | Runtime certificate probes provide evidence, but local `ssl_certificate` paths cannot prove every served chain. |
 | §4.1.5 cipher policy | full | Conservative local cipher-string checks cover missing and weak cipher posture. |
 | §4.1.9 / §4.1.10 TLS session cache and timeout | full | Session cache and timeout rules cover the local HTTP/server scopes. |
-| §4.1.12 HTTP/3 / Alt-Svc | policy-review | `nginx.http3_alt_svc_review` reports the QUIC listener, effective `http3` state, and effective `Alt-Svc` advertisement when policy review is enabled. Runtime HTTP/3 negotiation is not proven. |
+| §4.1.12 HTTP/3 / Alt-Svc | `policy-review` | `nginx.http3_alt_svc_review` reports the QUIC listener, effective `http3` state, and effective `Alt-Svc` advertisement when policy review is enabled. Runtime HTTP/3 negotiation is not proven. |
 | §5.1.1 sensitive locations | partial | Baseline sensitive-scope checks exist; full credit needs an operator-supplied sensitive path catalog. |
 | §5.1.2 HTTP method restrictions | full | Sensitive-scope and whole-scope method-policy rules plus unsafe explicit allowlist checks. |
 | §5.2.4 / §5.2.5 connection and rate limit values | partial | Presence and structural checks exist, while opt-in review rules expose selected values; reasonableness depends on workload profile. |
@@ -76,7 +76,7 @@ mandatory access-control mechanisms.
 
 ## CIS Apache HTTP Server 2.4 Benchmark v2.3.0
 
-Applicable count: 19. Full count: 17. Partial count: 2. Policy-review
+Applicable count: 19. Full count: 17. Partial count: 2. `policy-review`
 count: 0. Uncovered count: 0.
 
 | Counted item | Status | Current basis / next action |
@@ -107,7 +107,7 @@ and AppArmor posture.
 
 ## CIS Microsoft IIS 10 Benchmark v1.2.1
 
-Applicable count: 10. Full count: 8. Partial count: 1. Policy-review
+Applicable count: 10. Full count: 8. Partial count: 1. `policy-review`
 count: 0. Uncovered count: 1.
 
 | Counted item | Status | Current basis / next action |
