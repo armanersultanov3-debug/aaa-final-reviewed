@@ -13,7 +13,9 @@
 ## File Structure
 
 - Create `src/webconf_audit/local/nginx/rules/http3_alt_svc_review.py`
-  - Owns only HTTP/3/`Alt-Svc` policy-review detection and finding construction.
+  - Owns HTTP/3/`Alt-Svc` policy-review detection, response-scope header
+    inheritance, and finding construction without changing shared header
+    behavior.
 - Modify `tests/test_policy_review_rules.py`
   - Pins the tenth opt-in rule and covers default-off, inheritance, effective
     state, deduplication, and source locations.
@@ -378,6 +380,13 @@ def _build_finding(
 __all__ = ["find_http3_alt_svc_review"]
 ```
 
+Review refinement: the completed implementation must also walk nested
+`location` and `if in location` response scopes, model
+`add_header_inherit on|off|merge`, aggregate every effective `Alt-Svc`
+directive into the single server-block finding, and retain each directive's
+source file and line. These requirements supersede the minimal server-only
+helper outline above.
+
 - [ ] **Step 2: Run focused tests**
 
 Run:
@@ -387,6 +396,10 @@ uv run --locked pytest tests/test_policy_review_rules.py -q
 ```
 
 Expected: all tests in the module pass.
+
+The final focused suite also includes location-level advertisement,
+`add_header_inherit merge/off`, repeated `Alt-Svc` values, and included-file
+source traceability.
 
 - [ ] **Step 3: Run lint for the changed Python files**
 

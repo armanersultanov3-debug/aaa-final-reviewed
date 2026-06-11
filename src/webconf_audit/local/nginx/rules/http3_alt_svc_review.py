@@ -12,12 +12,14 @@ from webconf_audit.local.nginx.rules._value_utils import (
     effective_child_directives,
     iter_server_blocks_with_http_directives,
 )
-from webconf_audit.local.nginx.rules.header_utils import find_server_add_headers
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import cis_nginx_v3_0_0
 
 RULE_ID = "nginx.http3_alt_svc_review"
+
+_ADD_HEADER_INHERIT_MODES = frozenset({"on", "off", "merge"})
+_MAX_REPORTED_VALUE_LEN = 240
 
 
 @rule(
@@ -54,7 +56,7 @@ def find_http3_alt_svc_review(config_ast: ConfigAst) -> list[Finding]:
 
     for server_block, inherited_directives in iter_server_blocks_with_http_directives(
         config_ast,
-        {"add_header", "http3"},
+        {"add_header", "add_header_inherit", "http3"},
     ):
         quic_listeners = [
             directive
@@ -64,6 +66,14 @@ def find_http3_alt_svc_review(config_ast: ConfigAst) -> list[Finding]:
         if not quic_listeners:
             continue
 
+        response_scopes = _response_scopes(
+            server_block,
+            inherited_headers=inherited_directives.get("add_header", []),
+            inherited_mode=_last_inherit_mode(
+                inherited_directives.get("add_header_inherit", []),
+                default="on",
+            ),
+        )
         findings.append(
             _build_finding(
                 listener=quic_listeners[0],
@@ -71,10 +81,7 @@ def find_http3_alt_svc_review(config_ast: ConfigAst) -> list[Finding]:
                     server_block,
                     inherited_directives,
                 ),
-                alt_svc=_effective_alt_svc(
-                    server_block,
-                    inherited_directives,
-                ),
+                alt_svc_text=_format_alt_svc_state(response_scopes),
             )
         )
 
@@ -95,21 +102,173 @@ def _effective_http3_state(
     return f"http3 {' '.join(directives[-1].args)}"
 
 
-def _effective_alt_svc(
+def _response_scopes(
     server_block: BlockNode,
-    inherited_directives: dict[str, list[DirectiveNode]],
-) -> tuple[str, int] | None:
-    for directive in find_server_add_headers(server_block, inherited_directives):
-        if not directive.args or directive.args[0].lower() != "alt-svc":
-            continue
-        value_args = directive.args[1:]
-        if value_args and value_args[-1].lower() == "always":
-            value_args = value_args[:-1]
-        return (
-            _strip_matching_quotes(" ".join(value_args).strip()),
-            directive.source.line,
+    *,
+    inherited_headers: list[DirectiveNode],
+    inherited_mode: str,
+) -> list[tuple[str, list[DirectiveNode]]]:
+    server_headers, server_mode = _effective_headers(
+        server_block,
+        inherited_headers=inherited_headers,
+        inherited_mode=inherited_mode,
+    )
+    scopes = [("server", server_headers)]
+    scopes.extend(
+        _nested_response_scopes(
+            server_block,
+            inherited_headers=server_headers,
+            inherited_mode=server_mode,
+            parent_label="server",
+            allowed_children={"location"},
         )
-    return None
+    )
+    return scopes
+
+
+def _nested_response_scopes(
+    parent: BlockNode,
+    *,
+    inherited_headers: list[DirectiveNode],
+    inherited_mode: str,
+    parent_label: str,
+    allowed_children: set[str],
+) -> list[tuple[str, list[DirectiveNode]]]:
+    scopes: list[tuple[str, list[DirectiveNode]]] = []
+    for child in parent.children:
+        if not isinstance(child, BlockNode) or child.name not in allowed_children:
+            continue
+
+        label = _scope_label(child, parent_label)
+        headers, mode = _effective_headers(
+            child,
+            inherited_headers=inherited_headers,
+            inherited_mode=inherited_mode,
+        )
+        scopes.append((label, headers))
+        scopes.extend(
+            _nested_response_scopes(
+                child,
+                inherited_headers=headers,
+                inherited_mode=mode,
+                parent_label=label,
+                allowed_children={"if", "location"},
+            )
+        )
+    return scopes
+
+
+def _effective_headers(
+    block: BlockNode,
+    *,
+    inherited_headers: list[DirectiveNode],
+    inherited_mode: str,
+) -> tuple[list[DirectiveNode], str]:
+    mode = _last_inherit_mode(
+        find_child_directives(block, "add_header_inherit"),
+        default=inherited_mode,
+    )
+    local_headers = find_child_directives(block, "add_header")
+
+    if mode == "off":
+        return local_headers, mode
+    if mode == "merge":
+        return [*local_headers, *inherited_headers], mode
+    if local_headers:
+        return local_headers, mode
+    return inherited_headers, mode
+
+
+def _last_inherit_mode(
+    directives: list[DirectiveNode],
+    *,
+    default: str,
+) -> str:
+    for directive in reversed(directives):
+        if not directive.args:
+            continue
+        mode = directive.args[0].lower()
+        if mode in _ADD_HEADER_INHERIT_MODES:
+            return mode
+    return default
+
+
+def _scope_label(block: BlockNode, parent_label: str) -> str:
+    current = " ".join((block.name, *block.args)).strip()
+    if parent_label == "server":
+        return current
+    return f"{parent_label} > {current}"
+
+
+def _format_alt_svc_state(
+    response_scopes: list[tuple[str, list[DirectiveNode]]],
+) -> str:
+    observations: dict[
+        tuple[str | None, int, str],
+        tuple[DirectiveNode, list[str]],
+    ] = {}
+    missing_scopes: list[str] = []
+
+    for scope_label, headers in response_scopes:
+        alt_svc_headers = [
+            directive
+            for directive in headers
+            if directive.args and directive.args[0].lower() == "alt-svc"
+        ]
+        if not alt_svc_headers:
+            missing_scopes.append(scope_label)
+            continue
+
+        for directive in alt_svc_headers:
+            value = _header_value(directive)
+            key = (
+                directive.source.file_path,
+                directive.source.line,
+                value,
+            )
+            if key not in observations:
+                observations[key] = (directive, [])
+            observations[key][1].append(scope_label)
+
+    if not observations:
+        return (
+            "effective Alt-Svc header is missing from all reviewed "
+            "server/location scopes"
+        )
+
+    rendered_observations = [
+        _format_observation(directive, value=key[2], scopes=scopes)
+        for key, (directive, scopes) in observations.items()
+    ]
+    text = "effective Alt-Svc observations: " + " | ".join(rendered_observations)
+    if missing_scopes:
+        text += "; scopes without effective Alt-Svc: " + ", ".join(missing_scopes)
+    return text
+
+
+def _header_value(directive: DirectiveNode) -> str:
+    value_args = directive.args[1:]
+    if value_args and value_args[-1].lower() == "always":
+        value_args = value_args[:-1]
+    return _strip_matching_quotes(" ".join(value_args).strip())
+
+
+def _format_observation(
+    directive: DirectiveNode,
+    *,
+    value: str,
+    scopes: list[str],
+) -> str:
+    displayed_value = (
+        value[:_MAX_REPORTED_VALUE_LEN] + "..."
+        if len(value) > _MAX_REPORTED_VALUE_LEN
+        else value
+    )
+    source = directive.source.file_path or "<unknown file>"
+    return (
+        f"{displayed_value} at {source}, line {directive.source.line} "
+        f"(effective in {', '.join(scopes)})"
+    )
 
 
 def _strip_matching_quotes(value: str) -> str:
@@ -122,13 +281,8 @@ def _build_finding(
     *,
     listener: DirectiveNode,
     http3_state: str,
-    alt_svc: tuple[str, int] | None,
+    alt_svc_text: str,
 ) -> Finding:
-    alt_svc_text = (
-        f"effective Alt-Svc value at line {alt_svc[1]}: {alt_svc[0]}"
-        if alt_svc is not None
-        else "effective Alt-Svc header is missing"
-    )
     return Finding(
         rule_id=RULE_ID,
         title="HTTP/3 and Alt-Svc configuration needs operator review",

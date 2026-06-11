@@ -170,22 +170,26 @@ The implementation is grounded in the official Nginx HTTP/3 module
 configuration model:
 https://nginx.org/en/docs/http/ngx_http_v3_module.html
 
-For each selected server block, the rule resolves the effective `add_header`
-directives using the existing Nginx header-inheritance helper. This is
-important because server-level `add_header` directives replace inherited
-HTTP-level headers under Nginx inheritance semantics.
+For each selected server block, the rule resolves effective `add_header`
+directives at the `server`, nested `location`, and `if in location` response
+scopes. The rule models standard replacement inheritance and the
+`add_header_inherit on|off|merge` modes introduced in Nginx 1.29.3. This is
+implemented locally in the HTTP/3 review rule so the broader behavior of
+existing header rules does not change in this pull request.
 
 The rule emits one finding per selected server block:
 
 - If effective `http3 off` disables protocol negotiation, the finding reports
   that state together with the observed `Alt-Svc` state.
-- If an effective `Alt-Svc` header is present, the finding reports the
-  configured value and asks the operator to verify protocol tokens, port,
-  lifetime, and deployment intent.
-- If no effective `Alt-Svc` header is present, the finding reports the missing
-  advertisement and asks the operator to verify whether clients are expected
-  to discover HTTP/3 through another supported mechanism or whether an
-  `Alt-Svc` header should be configured.
+- If effective `Alt-Svc` headers are present, the finding reports every
+  configured value, its source file and line, and the response scopes where
+  that directive is effective.
+- If no effective `Alt-Svc` header is present in any reviewed response scope,
+  the finding reports the missing advertisement and asks the operator to
+  verify whether clients are expected to discover HTTP/3 through another
+  supported mechanism or whether an `Alt-Svc` header should be configured.
+- If only some response scopes lack `Alt-Svc`, the finding lists those scopes
+  without treating the header as globally absent.
 
 This is deliberately a review finding in both cases. Static configuration can
 show the listener and header text, but it cannot prove that UDP reachability,
@@ -195,8 +199,9 @@ required Nginx build module is present in the deployed environment.
 ### Finding Location and Deduplication
 
 The finding location points to the first `listen` directive that establishes
-the selected HTTP/3 scope. If an `Alt-Svc` directive is present, its line and
-value are included in the description or evidence text.
+the selected HTTP/3 scope. Each observed `Alt-Svc` directive retains its own
+source file, line, and value in the description so headers loaded from include
+files remain unambiguous.
 
 Only one finding is emitted for a server block, even if it contains multiple
 QUIC listeners or repeated `Alt-Svc` directives. Separate server blocks remain
@@ -265,9 +270,14 @@ Tests will cover:
 5. A server-level `add_header` set without `Alt-Svc` replaces an inherited
    HTTP-level `Alt-Svc`, and the finding reports the effective header as
    missing.
-6. A regular TLS listener without `quic` produces no finding.
-7. Multiple qualifying directives in one server block are deduplicated.
-8. Separate qualifying server blocks produce separate findings with their
+6. A location-level `Alt-Svc` header is reported with its response scope.
+7. `add_header_inherit merge` retains inherited `Alt-Svc` values alongside
+   local headers, while `off` cancels inherited values.
+8. Multiple effective `Alt-Svc` directives are all reported in one finding.
+9. Header directives loaded from include files retain their file and line.
+10. A regular TLS listener without `quic` produces no finding.
+11. Multiple qualifying directives in one server block are deduplicated.
+12. Separate qualifying server blocks produce separate findings with their
    own source locations.
 
 ### Opt-In Contract

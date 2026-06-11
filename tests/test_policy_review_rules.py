@@ -407,6 +407,30 @@ def test_nginx_http3_alt_svc_review_uses_inherited_alt_svc(
     assert "ma=3600" in findings[0].description
 
 
+def test_nginx_http3_alt_svc_review_reports_location_alt_svc(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 quic;\n"
+        "    access_log off;\n"
+        "    location / {\n"
+        "        add_header Alt-Svc 'h3=\":443\"; ma=86400';\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert 'h3=":443"' in findings[0].description
+    assert "location /" in findings[0].description
+    assert "missing from all reviewed" not in findings[0].description
+
+
 def test_nginx_http3_alt_svc_review_respects_add_header_replacement(
     tmp_path: Path,
 ) -> None:
@@ -428,6 +452,101 @@ def test_nginx_http3_alt_svc_review_respects_add_header_replacement(
 
     assert len(findings) == 1
     assert "missing" in findings[0].description.lower()
+
+
+def test_nginx_http3_alt_svc_review_respects_add_header_inherit_merge(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=3600';\n"
+        "    add_header_inherit merge;\n"
+        "    server {\n"
+        "        listen 443 quic;\n"
+        "        access_log off;\n"
+        "        add_header X-Content-Type-Options nosniff;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "ma=3600" in findings[0].description
+
+
+def test_nginx_http3_alt_svc_review_respects_add_header_inherit_off(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=3600';\n"
+        "    server {\n"
+        "        listen 443 quic;\n"
+        "        access_log off;\n"
+        "        add_header_inherit off;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "missing from all reviewed" in findings[0].description
+    assert "ma=3600" not in findings[0].description
+
+
+def test_nginx_http3_alt_svc_review_reports_all_alt_svc_values(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 quic;\n"
+        "    access_log off;\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=3600';\n"
+        "    add_header Alt-Svc 'h3-29=\":443\"; ma=60';\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert 'h3=":443"; ma=3600' in findings[0].description
+    assert 'h3-29=":443"; ma=60' in findings[0].description
+
+
+def test_nginx_http3_alt_svc_review_reports_included_header_source(
+    tmp_path: Path,
+) -> None:
+    included_path = tmp_path / "headers.conf"
+    included_path.write_text(
+        "add_header Alt-Svc 'h3=\":443\"; ma=3600';\n",
+        encoding="utf-8",
+    )
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    include headers.conf;\n"
+        "    server { listen 443 quic; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert str(included_path) in findings[0].description
+    assert "line 1" in findings[0].description
 
 
 def test_nginx_http3_alt_svc_review_ignores_regular_tls_listener(
