@@ -42,13 +42,13 @@ Sources checked on 2026-04-28 unless noted otherwise:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 471 rules (synchronized with
+The current project inventory is 472 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 14
-- Nginx local: 95
+- Nginx local: 96
 - Apache local: 87
 - Lighttpd local: 50
 - IIS local: 53
@@ -87,8 +87,8 @@ Canonical mapping surfaces:
 
 Current health:
 
-- Registry and documentation counters are synchronized at 471 rules:
-  Universal 14, Nginx 95, Apache 87, Lighttpd 50, IIS 53, External 172.
+- Registry and documentation counters are synchronized at 472 rules:
+  Universal 14, Nginx 96, Apache 87, Lighttpd 50, IIS 53, External 172.
 - `tests/test_rule_coverage_doc.py` verifies that every registered rule is
   documented, that no unknown rule IDs are referenced, and that repeated rule
   counters in `README.md`, `docs/architecture.md`,
@@ -444,7 +444,7 @@ standard section before implementation.
 | --- | --- | --- | --- | --- |
 | STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
-| STD-GAP-003 | Nginx CIS | covered | P2 | Unknown-host default-server rejection, first/default TLS catch-all rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, whole-scope request-method policy, unsafe explicit method allowlists, and sensitive config/data extension deny-lists are now present. Remaining direct-rule follow-up is narrow: HTTP/3 directive signals stay a deferred candidate keyed off `quic=on` / `http3` on `listen`, while `load_module` allow-lists, approved-port policy, and TLS 1.3 DH-group posture are explicitly out of scope because they require operator-specific policy. |
+| STD-GAP-003 | Nginx CIS | covered | P2 | Unknown-host default-server rejection, first/default TLS catch-all rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, whole-scope request-method policy, unsafe explicit method allowlists, and sensitive config/data extension deny-lists are now present. CIS NGINX §4.1.12 now has opt-in review evidence through `nginx.http3_alt_svc_review`, which reports QUIC listener, effective `http3`, and effective `Alt-Svc` state without claiming runtime HTTP/3 negotiation. `load_module` allow-lists, approved-port policy, and TLS 1.3 DH-group posture remain out of scope because they require operator-specific policy. |
 | STD-GAP-004 | Nginx CIS | out-of-scope | P3 | Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations require OS/package/filesystem inspection, which is outside this web-server config / safe external analysis tool. |
 | STD-GAP-005 | Apache CIS | covered | P1 | Existing-rule CIS references and the Apache-specific gap table are recorded in `docs/rule-coverage.md` from the CIS Apache HTTP Server 2.4 Benchmark v2.3.0 walk. |
 | STD-GAP-006 | Apache CIS | covered | P2 | Apache direct-rule coverage now includes site-wide request-scope method policy, explicit unsafe method allowlists, `AllowOverride None` and OS-root `Options None` baselines, sensitive-file and environment-specific path deny rules, DocumentRoot default-content probing, IP-based request denial, default TLS and non-TLS VirtualHost unknown-host rejection, explicit listen-address policy, log-quality checks, primary security headers including runtime-safe `Permissions-Policy`, timeout/keepalive default pinning, `RequestReadTimeout` module semantics, TLS directive checks including session cache timeout, local HSTS policy, matching-vhost HTTP redirects, and conservative weak cipher / FS / AEAD posture. Remaining runtime corroboration is documented as operator context or external-probe evidence rather than a missing local rule. |

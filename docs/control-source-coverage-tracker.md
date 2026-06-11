@@ -11,23 +11,27 @@ The current calculation is conservative:
 - the denominator contains applicable web-server-visible items only;
 - out-of-scope items are removed before counting;
 - the numerator contains only fully covered items;
-- partial coverage is recorded, but it does not increase the full-coverage
-  percentage;
+- partial and policy-review evidence is recorded, but neither increases the
+  full-coverage percentage;
+- every applicable source reconciles as
+  `Applicable = Full + Partial + Policy review + Uncovered`;
+- excluded items are documented separately and do not enter the applicable
+  denominator;
 - every percentage change must update this file and
   `docs/benchmarks-covering.md` together.
 
 ## Snapshot Summary
 
-| Control source | Applicable | Full | Partial | Not full | Full coverage |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 0 | 8 | 46.7% |
-| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 0 | 2 | 89.5% |
-| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 2 | 80.0% |
-| OWASP Top 10:2025 | 8 | 2 | 6 | 6 | 25.0% |
-| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 7 | 68.2% |
-| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 100.0% |
-| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 100.0% |
-| ISO/IEC 27002:2022 | 10 | 8 | 2 | 2 | 80.0% |
+| Control source | Applicable | Full | Partial | Policy review | Uncovered | Full coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
+| OWASP Top 10:2025 | 8 | 2 | 6 | 0 | 0 | 25.0% |
+| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 0 | 0 | 68.2% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 0 | 100.0% |
+| ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
 ## Status Vocabulary
 
@@ -35,33 +39,36 @@ The current calculation is conservative:
 | --- | --- |
 | `full` | The project has local, normalized, registry-export, or safe-probe evidence that covers the counted item. |
 | `partial` | The project verifies a real narrower signal, but not the complete source requirement. |
-| `not-full` | The item is applicable but has neither full nor partial credit in the item table. It may be a future direct rule, policy-profile item, or documented scope decision. |
+| `policy-review` | An opt-in rule surfaces relevant configuration facts, but operator judgment is required before treating them as a defect. |
+| `uncovered` | The item remains applicable, but the project has no implemented evidence for it. |
 | `excluded` | The item is outside the current denominator because it needs host OS, filesystem, package-manager, application-code, SIEM, or business-policy context. |
 
-In the summary table, `Not full` is broader: `Applicable - Full`. It includes
-both `partial` and item-level `not-full` rows.
+`policy-review` is an evidence status, not a registry category or a severity.
+The corresponding rules keep their normal execution category and use the
+existing `info` severity with the opt-in `policy-review` tag.
 
 ## CIS NGINX Benchmark v3.0.0
 
-Applicable count: 15. Full count: 7.
+Applicable count: 15. Full count: 7. Partial count: 7. Policy-review
+count: 1. Uncovered count: 0.
 
 | Counted item | Status | Current basis / next action |
 | --- | --- | --- |
 | §2.4.2 unknown-host handling | full | `nginx.default_server_not_rejecting_unknown_hosts`, `nginx.default_tls_server_not_rejecting_unknown_hosts`, and runtime corroboration through `external.unknown_host_runtime_response`. |
 | §2.5.2 default welcome content | full | Default-content exposure is covered through Nginx external probes. |
-| §2.5.4 reverse-proxy disclosure | not-full | Needs stricter Nginx proxy/header semantics; generic header and status probes are not enough for full credit. Candidate for PR2 triage. |
-| §3.1 access log format | not-full | Current rules validate log presence and named `log_format` fields; built-in default format and SIEM/JSON policy remain operator-specific. |
-| §3.3 error log level | not-full | Harmful missing or overly restrictive levels are covered; final `warn` / `notice` / `info` choice remains policy. |
+| §2.5.4 reverse-proxy disclosure | partial | Existing header, server-status, and runtime disclosure checks verify narrower signals; complete reverse-proxy header semantics are not modeled. |
+| §3.1 access log format | partial | Current rules validate log presence, named `log_format` fields, and expose the default format through `nginx.access_log_uses_default_format`; final SIEM/JSON policy remains operator-specific. |
+| §3.3 error log level | partial | Harmful missing or overly restrictive levels are covered; final `warn` / `notice` / `info` choice remains policy. |
 | §3.4 forwarded source-IP headers | full | `nginx.proxy_missing_source_ip_headers` checks upstream source-IP forwarding for proxy-like upstream directives. |
 | §4.1.1 HTTP to HTTPS redirect | full | Local redirect rule plus external no-redirect runtime probes. |
-| §4.1.2 trusted certificate chain | not-full | Runtime certificate probes provide evidence, but local `ssl_certificate` paths cannot prove every served chain. |
+| §4.1.2 trusted certificate chain | partial | Runtime certificate probes provide evidence, but local `ssl_certificate` paths cannot prove every served chain. |
 | §4.1.5 cipher policy | full | Conservative local cipher-string checks cover missing and weak cipher posture. |
 | §4.1.9 / §4.1.10 TLS session cache and timeout | full | Session cache and timeout rules cover the local HTTP/server scopes. |
-| §4.1.12 HTTP/3 / Alt-Svc | not-full | Closed as not pursued by default; only an opt-in review rule should be considered if real QUIC configs require it. |
-| §5.1.1 sensitive locations | not-full | Baseline sensitive-scope checks exist; full credit needs an operator-supplied sensitive path catalog. |
+| §4.1.12 HTTP/3 / Alt-Svc | policy-review | `nginx.http3_alt_svc_review` reports the QUIC listener, effective `http3` state, and effective `Alt-Svc` advertisement when policy review is enabled. Runtime HTTP/3 negotiation is not proven. |
+| §5.1.1 sensitive locations | partial | Baseline sensitive-scope checks exist; full credit needs an operator-supplied sensitive path catalog. |
 | §5.1.2 HTTP method restrictions | full | Sensitive-scope and whole-scope method-policy rules plus unsafe explicit allowlist checks. |
-| §5.2.4 / §5.2.5 connection and rate limit values | not-full | Presence and structural checks exist; reasonableness of numeric values depends on workload profile. |
-| §5.3.2 / §5.3.3 CSP and Referrer-Policy quality | not-full | Baseline header checks exist; full CSP semantics are application-specific. |
+| §5.2.4 / §5.2.5 connection and rate limit values | partial | Presence and structural checks exist, while opt-in review rules expose selected values; reasonableness depends on workload profile. |
+| §5.3.2 / §5.3.3 CSP and Referrer-Policy quality | partial | Baseline header checks and opt-in CSP value review exist; full application-specific policy semantics are not proven. |
 
 Primary exclusions: package source, service account, OS ownership/permissions,
 approved-port allowlists, private-key permissions, TLS 1.3 group posture, and
@@ -69,12 +76,13 @@ mandatory access-control mechanisms.
 
 ## CIS Apache HTTP Server 2.4 Benchmark v2.3.0
 
-Applicable count: 19. Full count: 17.
+Applicable count: 19. Full count: 17. Partial count: 2. Policy-review
+count: 0. Uncovered count: 0.
 
 | Counted item | Status | Current basis / next action |
 | --- | --- | --- |
-| §2.1-§2.9 module minimization | not-full | Visible `LoadModule` inventory exists, but benchmark-wide minimization needs package/build or operator policy. |
-| §4.1-§4.2 authorization posture | not-full | Effective `Require*` and legacy allow/deny semantics are modeled for current rules; broad server-wide authorization claims still need deployment context. |
+| §2.1-§2.9 module minimization | partial | Visible `LoadModule` inventory and selected risky-module checks exist, but benchmark-wide minimization needs package/build or operator policy. |
+| §4.1-§4.2 authorization posture | partial | Effective `Require*` and legacy allow/deny semantics are modeled for current rules; broad server-wide authorization claims still need deployment context. |
 | §4.3-§4.4 `AllowOverride` baseline | full | Root and inherited `AllowOverride` checks cover the config-visible baseline. |
 | §5.1-§5.3 `Options` baseline | full | Root `Options None`, `ExecCGI`, `Includes`, `Indexes`, `MultiViews`, and subtractive `Options All` semantics are covered. |
 | §5.4-§5.6 default content | full | Active `DocumentRoot` default HTML and CGI sample probes exist. |
@@ -99,7 +107,8 @@ and AppArmor posture.
 
 ## CIS Microsoft IIS 10 Benchmark v1.2.1
 
-Applicable count: 10. Full count: 8. Partial count: 1.
+Applicable count: 10. Full count: 8. Partial count: 1. Policy-review
+count: 0. Uncovered count: 1.
 
 | Counted item | Status | Current basis / next action |
 | --- | --- | --- |
@@ -111,7 +120,7 @@ Applicable count: 10. Full count: 8. Partial count: 1.
 | §3.1 / §3.7-§3.12 ASP.NET and header hardening | full | Retail mode, cookie flags, MachineKey, trust level, native `Server` header removal, and runtime IIS header corroboration are covered. |
 | §4.2 / §4.3 / §4.7 / §4.9 / §4.10 request filtering | full | Unsafe limits, unlisted file extensions, and CGI restriction settings are covered through effective config defaults. |
 | §4.8 handler write/script/execute policy | full | `iis.handler_write_script_execute_enabled` plus CGI handler signal. |
-| §6.1 / §6.2 FTP encryption and logon restrictions | not-full | Scope decision required: either keep FTP out of HTTP-server analysis or add a distinct minimal IIS FTP parser. |
+| §6.1 / §6.2 FTP encryption and logon restrictions | uncovered | FTP remains applicable to the benchmark calculation, but the project does not parse IIS FTP authorization, logon, or channel-encryption configuration. |
 | §7.1-§7.6 / §7.10-§7.12 SChannel TLS | partial | Registry/export evidence and external TLS probes exist; full credit needs deeper SChannel evidence where registry data is incomplete. |
 
 Primary exclusions: broader Windows host hardening, web-root partitions,
@@ -242,5 +251,5 @@ Before changing the snapshot:
 5. If a source item changes because of scope, state whether the denominator
    changed or only the status changed.
 
-For the next PR, the highest-value decision is whether IIS FTP remains outside
-the HTTP configuration scope or becomes a small explicit IIS FTP extension.
+IIS FTP remains deliberately uncovered in this calculation. It stays visible
+in the denominator rather than being reclassified as excluded.

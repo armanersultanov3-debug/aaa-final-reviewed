@@ -225,18 +225,18 @@ inventory and the standards mapping plan live in
 [docs/rule-coverage.md](docs/rule-coverage.md). Severity calibration is
 documented in [docs/severity-methodology.md](docs/severity-methodology.md).
 
-The catalog currently contains 471 rules:
+The catalog currently contains 472 rules:
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 95 |
+| Local — Nginx | 96 |
 | Local — Apache | 87 |
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |
 | External | 172 |
 
-Nine rules in the inventory above are opt-in `policy-review` rules.
+Ten rules in the inventory above are opt-in `policy-review` rules.
 They are excluded from default `analyze-*` runs and surfaced only when
 `--enable-policy-review` is passed. See
 [docs/rule-coverage.md](docs/rule-coverage.md#documented-scope-limits)
