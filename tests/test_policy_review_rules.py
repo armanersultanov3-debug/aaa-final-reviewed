@@ -88,6 +88,17 @@ def test_every_shipped_policy_review_rule_carries_the_tag() -> None:
         f"Missing from registry: {sorted(POLICY_REVIEW_RULE_IDS - tagged_rule_ids)!r}."
     )
 
+    http3_meta = registry.get_meta("nginx.http3_alt_svc_review")
+    assert http3_meta is not None
+    assert http3_meta.category == "local"
+    assert http3_meta.server_type == "nginx"
+    assert any(
+        reference.standard == "CIS"
+        and reference.reference == "NGINX v3.0.0 §4.1.12"
+        and reference.coverage == "partial"
+        for reference in http3_meta.standards
+    )
+
 
 def test_rules_for_excludes_policy_review_by_default() -> None:
     """Default rules_for() must not return policy-review rules."""
@@ -96,6 +107,7 @@ def test_rules_for_excludes_policy_review_by_default() -> None:
     returned_ids = {entry.meta.rule_id for entry in entries}
     assert "nginx.access_log_uses_default_format" not in returned_ids
     assert "nginx.csp_value_review" not in returned_ids
+    assert "nginx.http3_alt_svc_review" not in returned_ids
 
 
 def test_rules_for_includes_policy_review_when_opted_in() -> None:
@@ -107,6 +119,7 @@ def test_rules_for_includes_policy_review_when_opted_in() -> None:
     returned_ids = {entry.meta.rule_id for entry in entries}
     assert "nginx.access_log_uses_default_format" in returned_ids
     assert "nginx.csp_value_review" in returned_ids
+    assert "nginx.http3_alt_svc_review" in returned_ids
 
 
 # ---------------------------------------------------------------------------
@@ -353,6 +366,7 @@ def test_nginx_http3_alt_svc_review_reports_configured_value(
     assert len(findings) == 1
     assert 'h3=":443"' in findings[0].description
     assert "ma=86400" in findings[0].description
+    assert "line 4" in findings[0].description
 
 
 def test_nginx_http3_alt_svc_review_reports_effective_http3_off(
@@ -455,6 +469,25 @@ def test_nginx_http3_alt_svc_review_deduplicates_server_block(
 
     result = analyze_nginx_config(str(config_path), enable_policy_review=True)
     assert len(_findings_for(result, "nginx.http3_alt_svc_review")) == 1
+
+
+def test_nginx_http3_alt_svc_review_keeps_server_locations_separate(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server { listen 443 quic; access_log off; }\n"
+        "    server { listen 8443 quic; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 2
+    assert {finding.location.line for finding in findings} == {2, 3}
 
 
 def test_apache_custom_log_default_format_positive(tmp_path: Path) -> None:

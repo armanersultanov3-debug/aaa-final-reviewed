@@ -98,14 +98,17 @@ def _effective_http3_state(
 def _effective_alt_svc(
     server_block: BlockNode,
     inherited_directives: dict[str, list[DirectiveNode]],
-) -> str | None:
+) -> tuple[str, int] | None:
     for directive in find_server_add_headers(server_block, inherited_directives):
         if not directive.args or directive.args[0].lower() != "alt-svc":
             continue
         value_args = directive.args[1:]
         if value_args and value_args[-1].lower() == "always":
             value_args = value_args[:-1]
-        return _strip_matching_quotes(" ".join(value_args).strip())
+        return (
+            _strip_matching_quotes(" ".join(value_args).strip()),
+            directive.source.line,
+        )
     return None
 
 
@@ -119,10 +122,10 @@ def _build_finding(
     *,
     listener: DirectiveNode,
     http3_state: str,
-    alt_svc: str | None,
+    alt_svc: tuple[str, int] | None,
 ) -> Finding:
     alt_svc_text = (
-        f"effective Alt-Svc value: {alt_svc}"
+        f"effective Alt-Svc value at line {alt_svc[1]}: {alt_svc[0]}"
         if alt_svc is not None
         else "effective Alt-Svc header is missing"
     )
