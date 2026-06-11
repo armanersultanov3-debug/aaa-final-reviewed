@@ -8,7 +8,7 @@ Covers:
    ``analyze_*_config`` API.
 2. The rule registry honours the same ``OPT_IN_TAGS`` filter for
    ``rules_for(...)``.
-3. Each of the nine shipped policy-review rules surfaces a finding on a
+3. Each of the ten shipped policy-review rules surfaces a finding on a
    matching configuration and stays silent on a non-matching one when
    policy review IS enabled.
 
@@ -34,6 +34,7 @@ POLICY_REVIEW_RULE_IDS = {
     "nginx.limit_req_zone_rate_review",
     "nginx.limit_conn_zone_review",
     "nginx.csp_value_review",
+    "nginx.http3_alt_svc_review",
     "apache.custom_log_uses_default_format",
     "apache.csp_value_review",
     "apache.limit_request_body_value_review",
@@ -313,6 +314,147 @@ def test_nginx_csp_value_review_negative_when_no_csp(tmp_path: Path) -> None:
     )
     result = analyze_nginx_config(str(config_path), enable_policy_review=True)
     assert _findings_for(result, "nginx.csp_value_review") == []
+
+
+def test_nginx_http3_alt_svc_review_missing_header(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 quic reuseport;\n"
+        "    access_log off;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "missing" in findings[0].description.lower()
+    assert findings[0].location.line == 2
+
+
+def test_nginx_http3_alt_svc_review_reports_configured_value(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 quic reuseport;\n"
+        "    access_log off;\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=86400' always;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert 'h3=":443"' in findings[0].description
+    assert "ma=86400" in findings[0].description
+
+
+def test_nginx_http3_alt_svc_review_reports_effective_http3_off(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    http3 off;\n"
+        "    server { listen 443 quic; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "http3 off" in findings[0].description.lower()
+
+
+def test_nginx_http3_alt_svc_review_uses_inherited_alt_svc(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=3600' always;\n"
+        "    server { listen 443 quic; access_log off; }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "ma=3600" in findings[0].description
+
+
+def test_nginx_http3_alt_svc_review_respects_add_header_replacement(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    add_header Alt-Svc 'h3=\":443\"; ma=3600' always;\n"
+        "    server {\n"
+        "        listen 443 quic;\n"
+        "        access_log off;\n"
+        "        add_header X-Content-Type-Options nosniff;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    findings = _findings_for(result, "nginx.http3_alt_svc_review")
+
+    assert len(findings) == 1
+    assert "missing" in findings[0].description.lower()
+
+
+def test_nginx_http3_alt_svc_review_ignores_regular_tls_listener(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server { listen 443 ssl; access_log off; }\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert _findings_for(result, "nginx.http3_alt_svc_review") == []
+
+
+def test_nginx_http3_alt_svc_review_is_default_off(tmp_path: Path) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server { listen 443 quic; access_log off; }\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path))
+    assert _findings_for(result, "nginx.http3_alt_svc_review") == []
+
+
+def test_nginx_http3_alt_svc_review_deduplicates_server_block(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 443 quic;\n"
+        "    listen [::]:443 quic;\n"
+        "    access_log off;\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = analyze_nginx_config(str(config_path), enable_policy_review=True)
+    assert len(_findings_for(result, "nginx.http3_alt_svc_review")) == 1
 
 
 def test_apache_custom_log_default_format_positive(tmp_path: Path) -> None:
