@@ -280,10 +280,16 @@ def _validate_rule_catalog_payload(payload: object) -> None:
                     raise ReleaseCheckError(
                         f"{rule_id}: declared reference has derived_from metadata"
                     )
+                if origin == "derived" and field_name != "standards_secondary":
+                    raise ReleaseCheckError(
+                        f"{rule_id}: derived reference must use standards_secondary"
+                    )
                 if origin == "derived" and not (
                     isinstance(derived_from, dict)
-                    and derived_from.get("standard")
-                    and derived_from.get("reference")
+                    and isinstance(derived_from.get("standard"), str)
+                    and derived_from["standard"].strip()
+                    and isinstance(derived_from.get("reference"), str)
+                    and derived_from["reference"].strip()
                 ):
                     raise ReleaseCheckError(
                         f"{rule_id}: derived reference has no complete source"

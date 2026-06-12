@@ -92,6 +92,30 @@ def test_standard_reference_rejects_impossible_provenance(
         )
 
 
+@pytest.mark.parametrize(
+    ("derived_standard", "derived_reference"),
+    [
+        ("", "A05:2021"),
+        ("   ", "A05:2021"),
+        ("OWASP Top 10", ""),
+        ("OWASP Top 10", "   "),
+    ],
+)
+def test_standard_reference_rejects_blank_derived_source(
+    derived_standard: str,
+    derived_reference: str,
+) -> None:
+    with pytest.raises(ValueError, match="derived_from"):
+        StandardReference(
+            standard="OWASP Top 10",
+            reference="A02:2025",
+            tier="secondary",
+            origin="derived",
+            derived_from_standard=derived_standard,
+            derived_from_reference=derived_reference,
+        )
+
+
 def test_catalog_contains_corrected_counted_references() -> None:
     for standard, reference in (
         ("OWASP ASVS", "v5.0.0-3.3.3"),
@@ -123,6 +147,77 @@ def test_validate_standard_reference_accumulates_invalid_provenance() -> None:
         "derived_reference_in_primary_tier",
         "invalid_mapping_provenance",
     ]
+
+
+def test_validate_standard_reference_rejects_unknown_derived_source() -> None:
+    ref = StandardReference(
+        standard="OWASP Top 10",
+        reference="A02:2025",
+        tier="secondary",
+        origin="derived",
+        derived_from_standard="OWASP Top 100",
+        derived_from_reference="A05:2021",
+    )
+
+    issues = validate_standard_reference(ref)
+
+    assert [issue.code for issue in issues] == ["invalid_mapping_provenance"]
+
+
+@pytest.mark.parametrize("source_id", ["", "unknown-source"])
+def test_counted_coverage_claim_rejects_invalid_source_id(source_id: str) -> None:
+    with pytest.raises(ValueError, match="source_id"):
+        CountedCoverageClaim(
+            source_id=source_id,  # type: ignore[arg-type]
+            item_id="A02:2025",
+            status="partial",
+            references=(("OWASP Top 10", "A02:2025"),),
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [
+        ("item_id", "", "item_id"),
+        ("status", "unknown", "status"),
+        ("schema_version", 2, "schema_version"),
+    ],
+)
+def test_counted_coverage_claim_rejects_invalid_scalar_fields(
+    field: str,
+    value: object,
+    message: str,
+) -> None:
+    kwargs: dict[str, object] = {
+        "source_id": "owasp-top10-2025",
+        "item_id": "A02:2025",
+        "status": "partial",
+        "references": (("OWASP Top 10", "A02:2025"),),
+    }
+    kwargs[field] = value
+
+    with pytest.raises(ValueError, match=message):
+        CountedCoverageClaim(**kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "references",
+    [
+        (("", "A02:2025"),),
+        (("OWASP Top 10", ""),),
+        (("OWASP Top 10",),),
+    ],
+)
+def test_counted_coverage_claim_rejects_invalid_reference_pairs(
+    references: tuple[tuple[str, ...], ...],
+) -> None:
+    with pytest.raises(ValueError, match="reference"):
+        CountedCoverageClaim(
+            source_id="owasp-top10-2025",
+            item_id="A02:2025",
+            status="partial",
+            references=references,  # type: ignore[arg-type]
+        )
 
 
 def test_validate_registry_crosswalk_reports_all_issues_in_stable_order() -> None:

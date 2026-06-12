@@ -160,6 +160,7 @@ _ITEMS_BY_KEY = {
     (item.standard, item.reference): item
     for item in STANDARD_ITEMS
 }
+STANDARD_SOURCE_IDS = frozenset(item.source_id for item in STANDARD_ITEMS)
 STRICT_CATALOG_STANDARDS = frozenset(item.standard for item in STANDARD_ITEMS)
 
 
@@ -173,6 +174,7 @@ def find_standard_item(
 
 __all__ = [
     "STANDARD_ITEMS",
+    "STANDARD_SOURCE_IDS",
     "STRICT_CATALOG_STANDARDS",
     "StandardItemDefinition",
     "StandardSourceId",

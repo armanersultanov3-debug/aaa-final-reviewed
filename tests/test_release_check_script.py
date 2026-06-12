@@ -121,6 +121,59 @@ def test_rule_catalog_payload_accepts_declared_and_derived_references() -> None:
     module._validate_rule_catalog_payload(payload)
 
 
+def test_rule_catalog_payload_rejects_derived_reference_in_primary_tier() -> None:
+    module = _load_release_check_module()
+    payload = [
+        {
+            "rule_id": "test.rule",
+            "standards": [
+                {
+                    "standard": "OWASP Top 10",
+                    "reference": "A02:2025",
+                    "coverage": "direct",
+                    "origin": "derived",
+                    "derived_from": {
+                        "standard": "OWASP Top 10",
+                        "reference": "A05:2021",
+                    },
+                }
+            ],
+            "standards_secondary": [],
+        }
+    ]
+
+    with pytest.raises(module.ReleaseCheckError, match="secondary"):
+        module._validate_rule_catalog_payload(payload)
+
+
+@pytest.mark.parametrize("source_value", ["", "   "])
+def test_rule_catalog_payload_rejects_blank_derived_source(
+    source_value: str,
+) -> None:
+    module = _load_release_check_module()
+    payload = [
+        {
+            "rule_id": "test.rule",
+            "standards": [],
+            "standards_secondary": [
+                {
+                    "standard": "OWASP Top 10",
+                    "reference": "A02:2025",
+                    "coverage": "direct",
+                    "origin": "derived",
+                    "derived_from": {
+                        "standard": source_value,
+                        "reference": "A05:2021",
+                    },
+                }
+            ],
+        }
+    ]
+
+    with pytest.raises(module.ReleaseCheckError, match="complete source"):
+        module._validate_rule_catalog_payload(payload)
+
+
 def _load_release_check_module():
     repo_root = Path(__file__).resolve().parents[1]
     script = repo_root / "scripts" / "release_check.py"

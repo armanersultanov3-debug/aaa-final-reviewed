@@ -7,6 +7,7 @@ from typing import Iterable, Literal
 
 from webconf_audit.rule_registry import RuleMeta, StandardReference
 from webconf_audit.standard_catalog import (
+    STANDARD_SOURCE_IDS,
     STRICT_CATALOG_STANDARDS,
     StandardSourceId,
     find_standard_item,
@@ -19,6 +20,9 @@ CoverageClaimStatus = Literal[
     "uncovered",
     "excluded",
 ]
+COVERAGE_CLAIM_STATUSES = frozenset(
+    {"full", "partial", "policy-review", "uncovered", "excluded"}
+)
 
 
 @dataclass(frozen=True)
@@ -32,10 +36,34 @@ class CountedCoverageClaim:
     schema_version: Literal[1] = 1
 
     def __post_init__(self) -> None:
-        if not self.item_id.strip():
+        if self.schema_version != 1:
+            raise ValueError(
+                f"Unsupported coverage claim schema_version: {self.schema_version!r}."
+            )
+        if self.source_id not in STANDARD_SOURCE_IDS:
+            raise ValueError(
+                f"Coverage claim source_id is not canonical: {self.source_id!r}."
+            )
+        if not isinstance(self.item_id, str) or not self.item_id.strip():
             raise ValueError("Coverage claim item_id must be non-empty.")
+        if self.status not in COVERAGE_CLAIM_STATUSES:
+            raise ValueError(
+                f"Unsupported coverage claim status: {self.status!r}."
+            )
         if not self.references:
             raise ValueError("Coverage claim must identify at least one reference.")
+        for reference in self.references:
+            if (
+                not isinstance(reference, tuple)
+                or len(reference) != 2
+                or not all(
+                    isinstance(value, str) and value.strip()
+                    for value in reference
+                )
+            ):
+                raise ValueError(
+                    "Coverage claim references must be two non-empty strings."
+                )
 
 
 @dataclass(frozen=True)
@@ -70,7 +98,16 @@ def validate_standard_reference(
     if origin == "declared":
         provenance_valid = derived_standard is None and derived_reference is None
     elif origin == "derived":
-        provenance_valid = bool(derived_standard) and bool(derived_reference)
+        provenance_valid = (
+            isinstance(derived_standard, str)
+            and bool(derived_standard.strip())
+            and isinstance(derived_reference, str)
+            and bool(derived_reference.strip())
+        )
+        if provenance_valid and ref.standard in STRICT_CATALOG_STANDARDS:
+            provenance_valid = (
+                find_standard_item(derived_standard, derived_reference) is not None
+            )
     if not provenance_valid:
         issues.append(
             CrosswalkIssue(
@@ -195,6 +232,7 @@ def validate_registry_crosswalk(
 
 
 __all__ = [
+    "COVERAGE_CLAIM_STATUSES",
     "CountedCoverageClaim",
     "CoverageClaimStatus",
     "CrosswalkIssue",

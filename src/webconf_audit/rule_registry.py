@@ -75,10 +75,19 @@ class StandardReference:
     derived_from_reference: str | None = None
 
     def __post_init__(self) -> None:
-        has_derived_standard = self.derived_from_standard is not None
-        has_derived_reference = self.derived_from_reference is not None
+        has_derived_standard = (
+            isinstance(self.derived_from_standard, str)
+            and bool(self.derived_from_standard.strip())
+        )
+        has_derived_reference = (
+            isinstance(self.derived_from_reference, str)
+            and bool(self.derived_from_reference.strip())
+        )
         if self.origin == "declared":
-            if has_derived_standard or has_derived_reference:
+            if (
+                self.derived_from_standard is not None
+                or self.derived_from_reference is not None
+            ):
                 raise ValueError(
                     "Declared standard-reference provenance cannot include "
                     "derived_from fields."
