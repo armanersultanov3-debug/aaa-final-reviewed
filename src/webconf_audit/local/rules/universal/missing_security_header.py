@@ -191,7 +191,14 @@ def check_referrer_policy_unsafe(config: NormalizedConfig) -> list[Finding]:
     tags=("headers",),
     standards=(
         owasp_top10_2021("A05:2021"),
-        asvs_5("3.4.6", coverage="related"),
+        asvs_5(
+            "3.4.6",
+            coverage="related",
+            note=(
+                "Permissions-Policy is related response-header posture and does "
+                "not directly prove the ASVS framing requirement."
+            ),
+        ),
     ),
     order=113,
 )

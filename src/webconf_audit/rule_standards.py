@@ -574,16 +574,6 @@ _AUTH_TRANSPORT_RULES = {
     "iis.forms_auth_require_ssl_missing",
     "iis.basic_auth_without_ssl",
     "iis.forms_auth_protection_unsafe",
-    "external.cookie_missing_secure_on_https",
-    "external.cookie_samesite_none_without_secure",
-}
-
-_AUTH_AT_REST_RULES = {
-    "iis.credentials_password_format_clear",
-    "iis.credentials_stored_in_config",
-    "iis.machine_key_validation_weak",
-    "iis.machine_key_legacy_validation_weak",
-    "external.htpasswd_exposed",
 }
 
 _LOG_ENABLE_RULES = {
@@ -1140,6 +1130,9 @@ def owasp_top10_2025_references_from_primary(
                 category,
                 coverage=ref.coverage,
                 note=note,
+                origin="derived",
+                derived_from_standard=ref.standard,
+                derived_from_reference=ref.reference,
             )
         )
     return tuple(refs)
@@ -1148,13 +1141,43 @@ def owasp_top10_2025_references_from_primary(
 def _pci_references(rule_id: str) -> list[StandardReference]:
     refs: list[StandardReference] = []
     if rule_id in _LEGACY_CATCH_ALL_RULES:
-        refs.append(pci_dss_4("2.2.1"))
+        refs.append(
+            pci_dss_4(
+                "2.2.1",
+                coverage="related",
+                note=(
+                    "The rule is evidence relevant to a configuration standard; "
+                    "it does not prove that the organization has defined and "
+                    "maintains the complete standard."
+                ),
+            )
+        )
     in_2_2_5 = rule_id in _PCI_225_RULES
     in_2_2_6 = rule_id in _PCI_226_RULES
     if in_2_2_5 or in_2_2_6:
-        refs.append(pci_dss_4("2.2.5" if in_2_2_5 else "2.2.6"))
+        refs.append(
+            pci_dss_4(
+                "2.2.5" if in_2_2_5 else "2.2.6",
+                coverage="partial",
+                note=(
+                    "The scanner observes a bounded server configuration signal; "
+                    "business justification, necessity, and complete in-scope "
+                    "configuration are not proven."
+                ),
+            )
+        )
     if rule_id in _TLS_421_RULES:
-        refs.append(pci_dss_4("4.2.1"))
+        refs.append(
+            pci_dss_4(
+                "4.2.1",
+                coverage="partial",
+                note=(
+                    "Transport-security evidence is visible, but the scanner "
+                    "cannot determine whether the route carries PAN over an open "
+                    "public network."
+                ),
+            )
+        )
     if rule_id in {
         "nginx.executable_scripts_allowed_in_uploads",
         "nginx.missing_allowed_methods_restriction_for_uploads",
@@ -1176,38 +1199,74 @@ def _pci_references(rule_id: str) -> list[StandardReference]:
         "iis.request_filtering_max_url_missing",
         "iis.request_filtering_max_query_string_missing",
     }:
-        refs.append(pci_dss_4("6.2.4"))
+        refs.append(
+            pci_dss_4(
+                "6.2.4",
+                coverage="related",
+                note=(
+                    "The rule identifies a server-side hardening concern; it does "
+                    "not prove application software engineering techniques or "
+                    "complete attack-vector coverage."
+                ),
+            )
+        )
     if rule_id in _CSP_RULES - {
         "apache.content_security_policy_missing_frame_ancestors",
         "lighttpd.content_security_policy_missing_frame_ancestors",
         "iis.content_security_policy_missing_frame_ancestors",
         "external.script_src_missing_sri",
     }:
-        coverage = "partial" if rule_id.startswith("external.") or rule_id.startswith("universal.") else "direct"
-        note = (
-            "Presence, unsafe-token, and repeated-nonce detection only."
-            if rule_id == "external.content_security_policy_nonce_reused"
-            else None
+        refs.append(
+            pci_dss_4(
+                "6.4.3",
+                coverage="related",
+                note=(
+                    "CSP posture is related browser-side evidence, but it does "
+                    "not prove payment-page script authorization, integrity, and "
+                    "inventory as a complete set."
+                ),
+            )
         )
-        refs.append(pci_dss_4("6.4.3", coverage=coverage, note=note))
     if rule_id in _AUTH_ADMIN_RULES:
-        refs.append(pci_dss_4("8.3.1"))
+        refs.append(
+            pci_dss_4(
+                "8.3.1",
+                coverage="partial",
+                note=(
+                    "The rule observes a bounded authentication configuration "
+                    "signal; complete authentication-factor protection is not "
+                    "proven."
+                ),
+            )
+        )
     if rule_id in _AUTH_TRANSPORT_RULES:
-        refs.append(pci_dss_4("8.3.2"))
-    if rule_id in _AUTH_AT_REST_RULES:
-        refs.append(pci_dss_4("8.3.5 / 8.3.6"))
+        refs.append(
+            pci_dss_4(
+                "8.3.2",
+                coverage="partial",
+                note=(
+                    "The rule observes transport or cryptographic protection for "
+                    "a server-visible authentication path only."
+                ),
+            )
+        )
     if rule_id in _LOG_ENABLE_RULES:
-        refs.append(pci_dss_4("10.2.1"))
+        refs.append(
+            pci_dss_4(
+                "10.2.1",
+                coverage="partial",
+                note=(
+                    "Configured logging is visible, but active logging across all "
+                    "in-scope components is not proven."
+                ),
+            )
+        )
     if rule_id in _LOG_FIELD_RULES:
         refs.append(
             pci_dss_4(
                 "10.2.2",
-                coverage="partial" if rule_id == "lighttpd.access_log_format_missing_fields" else "direct",
-                note=(
-                    "Presence and field-coverage validation only."
-                    if rule_id == "lighttpd.access_log_format_missing_fields"
-                    else None
-                ),
+                coverage="partial",
+                note="Presence and bounded field-coverage validation only.",
             )
         )
     return refs
@@ -1750,6 +1809,17 @@ def _lighttpd_vendor_references(rule_id: str) -> list[StandardReference]:
 
 def _secondary_references(rule_id: str) -> list[StandardReference]:
     refs: list[StandardReference] = []
+    if rule_id == "external.dependency_manifest_exposed":
+        refs.append(
+            owasp_top10_2025(
+                "A03:2025",
+                coverage="partial",
+                note=(
+                    "Public exposure of dependency manifests is a bounded "
+                    "software-supply-chain signal only."
+                ),
+            )
+        )
     if rule_id in _MITRE_T1190_RULES:
         refs.append(mitre_attack("T1190"))
     if rule_id in _SERVER_DISCLOSURE_RULES:

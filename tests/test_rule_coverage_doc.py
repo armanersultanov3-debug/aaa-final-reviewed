@@ -33,6 +33,13 @@ def _documented_rule_ids() -> set[str]:
     return set(_RULE_ID_PATTERN.findall(_document_text()))
 
 
+def _inventory_row(rule_id: str) -> str:
+    marker = f"| `{rule_id}` |"
+    rows = [line for line in _document_text().splitlines() if line.startswith(marker)]
+    assert len(rows) == 1, f"expected one inventory row for {rule_id}, got {len(rows)}"
+    return rows[0]
+
+
 def _registered_rule_ids() -> set[str]:
     _ensure_all_rules_loaded()
     return {meta.rule_id for meta in registry.list_rules()}
@@ -231,6 +238,44 @@ def test_inventory_tables_include_other_standards_column() -> None:
     headers = re.findall(r"^\| Rule ID \| Severity \| Input \| Tags \| .* \|$", _document_text(), re.MULTILINE)
     assert headers
     assert all("Standards (other)" in header for header in headers)
+
+
+def test_inventory_renders_corrected_asvs_crosswalk() -> None:
+    expected_references = {
+        "external.cookie_missing_httponly": ("v5.0.0-3.3.4",),
+        "external.cookie_missing_samesite": ("v5.0.0-3.3.2",),
+        "external.cookie_samesite_none_without_secure": ("v5.0.0-3.3.2",),
+        "external.cookie_prefix_contract_violated": (
+            "v5.0.0-3.3.1",
+            "v5.0.0-3.3.3",
+        ),
+        "external.cors_wildcard_origin": ("v5.0.0-3.4.2",),
+        "external.cors_wildcard_with_credentials": ("v5.0.0-3.4.2",),
+        "external.coop_missing": ("v5.0.0-3.4.8",),
+        "external.trace_method_allowed": ("v5.0.0-13.4.4",),
+        "external.git_metadata_exposed": ("v5.0.0-13.4.1",),
+        "external.svn_metadata_exposed": ("v5.0.0-13.4.1",),
+        "external.phpinfo_exposed": ("v5.0.0-13.4.2",),
+        "external.trace_axd_exposed": ("v5.0.0-13.4.2",),
+    }
+
+    for rule_id, references in expected_references.items():
+        row = _inventory_row(rule_id)
+        for reference in references:
+            assert f"ASVS {reference}" in row
+
+    assert "ASVS v5.0.0-3.3.2" not in _inventory_row(
+        "external.cookie_missing_httponly"
+    )
+    for rule_id in (
+        "external.cookie_missing_samesite",
+        "external.cookie_samesite_none_without_secure",
+    ):
+        assert "ASVS v5.0.0-3.3.4" not in _inventory_row(rule_id)
+
+
+def test_inventory_removes_incorrect_pci_password_mapping() -> None:
+    assert "Req. 8.3.5 / 8.3.6" not in _document_text()
 
 
 def test_standards_roadmap_records_mapping_health_snapshot() -> None:

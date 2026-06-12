@@ -126,6 +126,10 @@ Documentation-only fence:
   2021 mappings, including the explicit migrations A05:2021 -> A02:2025,
   A02:2021 -> A04:2025, A09:2021 -> A09:2025, and A10:2021 -> A01:2025
   because SSRF is rolled into Broken Access Control in the 2025 edition.
+- Record independently reviewed mappings as `origin="declared"`. Automatic
+  edition alignment must use `origin="derived"`, remain secondary, and name
+  its exact source reference. Derived evidence may be displayed, but cannot
+  independently support a counted `full` claim.
 - Keep cells empty when the mapping is not honest. Operational advice can map
   to vendor hardening without forcing a CWE.
 - Do not copy long CIS or ASVS prose into this repository. Use section IDs,
@@ -337,12 +341,12 @@ limit recorded with the reference or moved to the gap list:
   Docker and Kubernetes client configs, SSH private keys, GCP service-account
   keys, and Rails master keys. This proves exposure of specific secret-bearing
   files, not the full application-wide secret-handling posture.
-- `v5.0.0-3.3.1`, `v5.0.0-3.3.2`, and `v5.0.0-3.3.4` - observable cookie
-  security attributes. Partial coverage: external cookie rules check `Secure`,
-  `SameSite`, `SameSite=None` plus `Secure`, `HttpOnly`, and the browser
-  prefix contract for `__Host-` / `__Secure-` cookies. They still do not
-  prove wider application-side session semantics beyond the observed
-  `Set-Cookie` posture.
+- `v5.0.0-3.3.1`, `v5.0.0-3.3.2`, `v5.0.0-3.3.3`, and
+  `v5.0.0-3.3.4` - observable cookie security attributes. Partial coverage:
+  external cookie rules check `Secure`, `SameSite`, `SameSite=None` plus
+  `Secure`, `HttpOnly`, and the browser prefix contract for `__Host-` /
+  `__Secure-` cookies. They still do not prove wider application-side session
+  semantics beyond the observed `Set-Cookie` posture.
 - `v5.0.0-3.4.1` - HSTS response header. Covered by universal, local, and
   external HSTS rules, including max-age and includeSubDomains probes.
 - `v5.0.0-3.4.2` - CORS origin restrictions. Partial coverage: runtime probes
@@ -442,7 +446,7 @@ standard section before implementation.
 
 | ID | Area | Gap type | Priority | Candidate work |
 | --- | --- | --- | --- | --- |
-| STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. Remaining ASVS items stay in the follow-up gap list. |
+| STD-GAP-001 | ASVS 5.0.0 | covered | P1 | First-pass direct/partial references are copied into the dedicated `ASVS` column for already-covered TLS, HTTPS redirect, HSTS, cookie, CORS, security-header, and sensitive-path exposure rules. The mapping-integrity follow-up corrected cookie IDs, added missing CORS and COOP evidence, and downgraded CSP reporting to partial; deeper ASVS items remain in the follow-up gap list. |
 | STD-GAP-002 | Nginx CIS | covered | P1 | Existing-rule CIS references and the Nginx-specific gap table are recorded in `docs/rule-coverage.md` from the CIS NGINX Benchmark v3.0.0 walk. |
 | STD-GAP-003 | Nginx CIS | covered | P2 | Unknown-host default-server rejection, first/default TLS catch-all rejection, HTTP redirects, log-format/error-log quality, proxy source-IP headers, CSP/Referrer quality, timeout/body/URI/session-ticket/session-cache/OCSP, core connection/rate-limit validation, sensitive-location IP filter quality, whole-scope request-method policy, unsafe explicit method allowlists, and sensitive config/data extension deny-lists are now present. CIS NGINX §4.1.12 now has opt-in review evidence through `nginx.http3_alt_svc_review`, which reports QUIC listener, effective `http3`, and effective `Alt-Svc` state without claiming runtime HTTP/3 negotiation. `load_module` allow-lists, approved-port policy, and TLS 1.3 DH-group posture remain out of scope because they require operator-specific policy. |
 | STD-GAP-004 | Nginx CIS | out-of-scope | P3 | Nginx package, service account, file ownership, permissions, private-key permissions, and PID-file recommendations require OS/package/filesystem inspection, which is outside this web-server config / safe external analysis tool. |
@@ -453,7 +457,7 @@ standard section before implementation.
 | STD-GAP-009 | IIS / vendor docs | covered | P2 | Host-header coverage, application-pool identity, cross-site shared application pools, explicit specific anonymous users, common authorization anonymous-access cases, Basic Authentication SSL coupling, explicit unsafe request-filtering limits/deny-list toggles, forms credential/cookie protection, retail mode, trust level, legacy .NET 3.5 MachineKey validation, SHA-2 HMAC MachineKey validation, handler Write with Script/Execute policy, explicit native `Server` header removal disablement, SChannel TLS 1.2 / AES / cipher-suite-order policy, authorization defaults, `system.web` default/absence policy, requestFiltering default/absence policy, and runtime IIS native-header corroboration are now covered where the current model exposes the signal. Remaining follow-up work is deeper application-pool shared-hosting exceptions and parser/effective-depth only where the current model cannot materialize defaults. |
 | STD-GAP-010 | IIS legacy CIS | out-of-scope | P3 | Source decision recorded: unsupported CIS IIS 7/8 archive PDFs are historical context only. IIS 7/8 is not actively maintained, so those archive references stay out of scope unless a future PR explicitly scopes legacy IIS. |
 | STD-GAP-011 | External probes | covered | P1 | First-pass ASVS references are copied into the dedicated `ASVS` column for observable runtime behavior: TLS protocol negotiation, weak cipher negotiation, certificate validity, security headers, dangerous methods, and exposed sensitive files. Deeper TLS probe work is tracked in `STD-GAP-014`. |
-| STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Future non-CWE/OWASP/ASVS mappings can add helpers on top of this output path. |
+| STD-GAP-012 | Standards output | covered | P2 | Typed standards metadata is available on rule registry entries, `list-rules --format json` exposes `standards`, JSON reports include finding-level standards plus a top-level `standards` summary, and text reports support `--group-by standard` without changing rule behavior. Standard references now expose declared/derived provenance, and offline integrity checks reconcile canonical identifiers with counted claims. Future mappings can add helpers on top of this output path. |
 | STD-GAP-013 | ASVS 5.0.0 | covered | P2 | CSP reporting endpoint coverage is present across local Nginx, Apache, Lighttpd, IIS, and external probes; local config coverage now also includes dedicated `frame-ancestors` rules across all four server families, while external runtime coverage includes `__Host-` / `__Secure-` cookie prefix validation, repeated CSP nonce detection corroborated by parsed inline scripts, and cross-origin SRI detection on eligible HTML responses. Remaining CSP honesty notes are limited to deeper nonce/hash authorization semantics, not another header-only direct rule. |
 | STD-GAP-014 | ASVS 5.0.0 | covered | P3 | Deeper external TLS runtime evidence now covers negotiated forward secrecy posture, bounded TLS 1.2 server cipher preference, and OCSP stapling observation. ECH remains a documented limitation rather than a rule because the current safe probe stack cannot evaluate it portably. |
 | STD-GAP-015 | External probes | direct-rule | P2 | Initial fixed-path exposure checks are catalog-backed for the existing external mode. Batch-4 expands existing catalog-backed rules with additional environment-file, database-dump, dependency-manifest, and backup-archive path variants. Batch-5 expands dependency-manifest probes with Python, Ruby, Go, and Rust manifest / lockfile paths. Batch-6 adds JavaScript source map exposure probes using fixed paths plus source-map body markers. Batch-7 adds conservative application settings JSON probes with fixed paths and strict ASP.NET-style body markers. Batch-8 adds conservative exposed web-server configuration probes for Nginx, Apache HTTP Server, and Lighttpd using fixed paths plus server-specific body markers. Batch-9 expands dependency-manifest probes with Java Maven/Gradle and .NET/NuGet manifest paths tied to ASVS v5.0.0-13.4.6 version-disclosure coverage. Batch-10 expands OpenAPI / Swagger documentation probes with common JSON schema paths and maps Swagger/OpenAPI exposure to ASVS v5.0.0-13.4.5 partial documentation-endpoint coverage. Continue expanding the catalog only with curated safe Nuclei-style ideas: fixed `GET` / `HEAD` / `OPTIONS` requests, status/header/body matchers, and rule metadata. Exclude fuzzing, payload injection, state-changing methods, OOB callbacks, brute force, and exploit chains; treat Nuclei templates as curated source material rather than a full runtime compatibility target. |

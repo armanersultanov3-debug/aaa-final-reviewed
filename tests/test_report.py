@@ -694,15 +694,31 @@ class TestJsonFormatter:
             "reference": "CWE-327",
             "url": "https://cwe.mitre.org/data/definitions/327.html",
             "coverage": "direct",
+            "origin": "declared",
+            "derived_from": None,
         } in finding["standards"]
         assert {
             "standard": "CWE",
             "reference": "CWE-327",
             "url": "https://cwe.mitre.org/data/definitions/327.html",
             "coverage": "direct",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["universal.weak_tls_protocol"],
         } in parsed["standards"]
+
+        derived = next(
+            ref
+            for ref in finding["standards_secondary"]
+            if ref["standard"] == "OWASP Top 10"
+            and ref["reference"] == "A04:2025"
+        )
+        assert derived["origin"] == "derived"
+        assert derived["derived_from"] == {
+            "standard": "OWASP Top 10",
+            "reference": "A02:2021",
+        }
 
     def test_json_findings_include_secondary_standards_metadata(self) -> None:
         r = _result(
@@ -724,6 +740,8 @@ class TestJsonFormatter:
             "url": "https://attack.mitre.org/techniques/T1040/",
             "coverage": "direct",
             "tier": "secondary",
+            "origin": "declared",
+            "derived_from": None,
         } in finding["standards_secondary"]
         assert {
             "standard": "MITRE ATT&CK Enterprise v15",
@@ -731,6 +749,8 @@ class TestJsonFormatter:
             "url": "https://attack.mitre.org/techniques/T1040/",
             "coverage": "direct",
             "tier": "secondary",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["external.https_not_available"],
         } in parsed["standards"]
@@ -771,6 +791,8 @@ class TestJsonFormatter:
             "reference": "CTRL-1",
             "url": "https://example.test/ctrl-1",
             "coverage": "direct",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["test.rule"],
         } in parsed["standards"]
@@ -780,6 +802,8 @@ class TestJsonFormatter:
             "url": "https://example.test/ctrl-1",
             "coverage": "direct",
             "tier": "secondary",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["test.rule"],
         } in parsed["standards"]
@@ -828,6 +852,8 @@ class TestJsonFormatter:
             "reference": "CTRL-1",
             "url": "https://example.test/ctrl-1",
             "coverage": "direct",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["test.rule"],
         } in parsed["standards"]
@@ -837,6 +863,8 @@ class TestJsonFormatter:
             "url": "https://example.test/ctrl-1",
             "coverage": "partial",
             "note": "TLS-only signal.",
+            "origin": "declared",
+            "derived_from": None,
             "finding_count": 1,
             "rule_ids": ["other.rule"],
         } in parsed["standards"]

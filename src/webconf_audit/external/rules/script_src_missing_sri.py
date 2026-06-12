@@ -34,7 +34,14 @@ if TYPE_CHECKING:
     standards=(
         cwe(353),
         owasp_top10_2021("A08:2021"),
-        pci_dss_4("6.4.3"),
+        pci_dss_4(
+            "6.4.3",
+            coverage="partial",
+            note=(
+                "Bounded cross-origin SRI evidence only; payment-page script "
+                "authorization and inventory are not proven."
+            ),
+        ),
         asvs_5("3.4.3", coverage="partial", note="SRI on cross-origin scripts only."),
     ),
     order=658,

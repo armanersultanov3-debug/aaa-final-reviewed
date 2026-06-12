@@ -224,6 +224,9 @@ input_kind, tags, severity_profile, standards, order, etc.). The full
 inventory and the standards mapping plan live in
 [docs/rule-coverage.md](docs/rule-coverage.md). Severity calibration is
 documented in [docs/severity-methodology.md](docs/severity-methodology.md).
+Each standard reference includes additive `origin` and `derived_from` fields,
+so independently reviewed mappings can be distinguished from automatic
+edition alignments.
 
 The catalog currently contains 472 rules:
 

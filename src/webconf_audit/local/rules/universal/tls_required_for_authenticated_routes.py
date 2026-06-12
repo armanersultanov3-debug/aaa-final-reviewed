@@ -30,7 +30,14 @@ RECOMMENDATION = (
     tags=("auth", "tls"),
     standards=(
         nist_sp("800-53 Rev. 5", "SC-8"),
-        pci_dss_4("8.3.2"),
+        pci_dss_4(
+            "8.3.2",
+            coverage="partial",
+            note=(
+                "The normalized listener and authentication scope prove a "
+                "server-visible transport condition only."
+            ),
+        ),
         cwe(319),
         owasp_top10_2021("A02:2021"),
         asvs_5("3.7.1"),

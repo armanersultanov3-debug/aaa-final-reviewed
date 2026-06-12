@@ -160,6 +160,12 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         recommendation="Block external access to the /.git/ directory on the web server.",
         paths=("/.git/HEAD",),
         body_matchers=(BodyMatcher("contains", "ref:", case_sensitive=True),),
+        standards=(
+            asvs_5(
+                "13.4.1",
+                note="Publicly exposed Git repository metadata.",
+            ),
+        ),
         order=680,
         metadata_recommendation="Block access to .git/.",
     ),
@@ -303,6 +309,12 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
         ),
         paths=("/phpinfo.php",),
         body_matchers=(BodyMatcher("contains", "phpinfo()"),),
+        standards=(
+            asvs_5(
+                "13.4.2",
+                note="Publicly exposed production diagnostics page.",
+            ),
+        ),
         order=688,
         metadata_recommendation="Remove phpinfo files.",
     ),
@@ -334,6 +346,12 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "administrators."
         ),
         paths=("/trace.axd",),
+        standards=(
+            asvs_5(
+                "13.4.2",
+                note="Publicly exposed production tracing endpoint.",
+            ),
+        ),
         order=690,
         metadata_recommendation="Disable trace.axd.",
     ),
@@ -400,6 +418,12 @@ SAFE_PATH_RULES: tuple[SafePathRule, ...] = (
             "version-control metadata from deployed web roots."
         ),
         paths=("/.svn/entries",),
+        standards=(
+            asvs_5(
+                "13.4.1",
+                note="Publicly exposed Subversion repository metadata.",
+            ),
+        ),
         order=694,
         metadata_recommendation="Block access to .svn/.",
     ),

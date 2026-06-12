@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -45,6 +46,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         project_version = _project_version(repo_root)
         print(f"==> Check release notes for current version: {CHANGELOG_FILE}", flush=True)
         _check_release_notes(repo_root, project_version)
+        print("==> Validate source crosswalk and coverage documents", flush=True)
+        _validate_source_crosswalk(repo_root)
         _run("Build wheel and sdist", ["uv", "build", "--out-dir", str(dist_dir)], cwd=repo_root)
         wheel = _select_single_artifact(dist_dir, "*.whl")
         _select_single_artifact(dist_dir, "*.tar.gz")
@@ -62,10 +65,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _version_assertion_code(project_version),
             ],
         )
-        _run_json(
+        _run(
+            "Validate installed rule crosswalk",
+            [
+                str(venv_python),
+                "-c",
+                _installed_crosswalk_validation_code(),
+            ],
+        )
+        catalog_payload = _run_json(
             "Load installed rule catalog",
             [str(console_script), "list-rules", "--format", "json"],
         )
+        _validate_rule_catalog_payload(catalog_payload)
         _run_json(
             "Run installed IIS smoke analysis",
             [
@@ -116,10 +128,12 @@ def _print_dry_run_plan(work_dir: Path) -> None:
     for index, command in enumerate(
         [
             "Check release notes for current version",
+            "Validate source crosswalk and coverage documents",
             ["uv", "build", "--out-dir", str(dist_dir)],
             [sys.executable, "-m", "venv", str(venv_dir)],
             [str(venv_python), "-m", "pip", "install", "<built wheel>"],
             [str(venv_python), "-m", "pip", "check"],
+            "Validate installed rule crosswalk",
             ["webconf-audit", "list-rules", "--format", "json"],
             [
                 "webconf-audit",
@@ -206,6 +220,80 @@ def _run_json(label: str, command: Sequence[str]) -> object:
     return parsed
 
 
+def _validate_source_crosswalk(repo_root: Path) -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    module = _load_crosswalk_docs_module(repo_root)
+    _ensure_all_rules_loaded()
+    issues = module.validate_coverage_documents(repo_root, registry.list_rules())
+    if issues:
+        details = "\n".join(
+            f"- {issue.code}: {issue.message}"
+            for issue in issues
+        )
+        raise ReleaseCheckError(f"source crosswalk validation failed:\n{details}")
+
+
+def _load_crosswalk_docs_module(repo_root: Path):
+    script = repo_root / "scripts" / "crosswalk_docs.py"
+    spec = importlib.util.spec_from_file_location(
+        "webconf_audit_crosswalk_docs",
+        script,
+    )
+    if spec is None or spec.loader is None:
+        raise ReleaseCheckError(f"could not load crosswalk validator: {script}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _validate_rule_catalog_payload(payload: object) -> None:
+    if not isinstance(payload, list) or not payload:
+        raise ReleaseCheckError("installed rule catalog must be a non-empty array")
+    for entry in payload:
+        if not isinstance(entry, dict):
+            raise ReleaseCheckError("installed rule catalog contains a non-object entry")
+        rule_id = str(entry.get("rule_id", "<unknown>"))
+        for field_name in ("standards", "standards_secondary"):
+            references = entry.get(field_name)
+            if not isinstance(references, list):
+                raise ReleaseCheckError(
+                    f"{rule_id}: {field_name} must be an array"
+                )
+            for reference in references:
+                if not isinstance(reference, dict):
+                    raise ReleaseCheckError(
+                        f"{rule_id}: {field_name} contains a non-object reference"
+                    )
+                if "origin" not in reference:
+                    raise ReleaseCheckError(
+                        f"{rule_id}: standard reference is missing origin"
+                    )
+                if "derived_from" not in reference:
+                    raise ReleaseCheckError(
+                        f"{rule_id}: standard reference is missing derived_from"
+                    )
+                origin = reference["origin"]
+                derived_from = reference["derived_from"]
+                if origin == "declared" and derived_from is not None:
+                    raise ReleaseCheckError(
+                        f"{rule_id}: declared reference has derived_from metadata"
+                    )
+                if origin == "derived" and not (
+                    isinstance(derived_from, dict)
+                    and derived_from.get("standard")
+                    and derived_from.get("reference")
+                ):
+                    raise ReleaseCheckError(
+                        f"{rule_id}: derived reference has no complete source"
+                    )
+                if origin not in {"declared", "derived"}:
+                    raise ReleaseCheckError(
+                        f"{rule_id}: unsupported standard-reference origin {origin!r}"
+                    )
+
+
 def _select_single_artifact(dist_dir: Path, pattern: str) -> Path:
     artifacts = sorted(dist_dir.glob(pattern))
     if len(artifacts) != 1:
@@ -280,6 +368,20 @@ def _version_assertion_code(expected_version: str) -> str:
         f"actual = version('webconf-audit'); "
         f"raise SystemExit(0 if actual == {expected_version!r} else "
         f"'expected webconf-audit {expected_version}, got ' + actual)"
+    )
+
+
+def _installed_crosswalk_validation_code() -> str:
+    return (
+        "from webconf_audit.cli import _ensure_all_rules_loaded; "
+        "from webconf_audit.crosswalk_integrity import validate_registry_crosswalk; "
+        "from webconf_audit.rule_registry import registry; "
+        "_ensure_all_rules_loaded(); "
+        "issues = validate_registry_crosswalk(registry.list_rules()); "
+        "raise SystemExit(0 if not issues else "
+        "'crosswalk validation failed: ' + '; '.join("
+        "f'{issue.code}:{issue.rule_id or \"-\"}:{issue.reference or \"-\"}' "
+        "for issue in issues))"
     )
 
 

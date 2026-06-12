@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def test_release_check_dry_run_lists_packaging_smoke_steps() -> None:
     repo_root = Path(__file__).resolve().parents[1]
@@ -25,7 +27,9 @@ def test_release_check_dry_run_lists_packaging_smoke_steps() -> None:
     assert "-m venv" in output
     assert "-m pip install" in output
     assert "Check release notes for current version" in output
+    assert "Validate source crosswalk and coverage documents" in output
     assert "webconf-audit list-rules --format json" in output
+    assert "Validate installed rule crosswalk" in output
     assert "webconf-audit analyze-iis" in output
     assert "--no-tls-registry --format json" in output
 
@@ -63,6 +67,58 @@ def test_release_notes_check_rejects_empty_current_version_section(tmp_path: Pat
         assert "section 1.2.3 is empty" in str(exc)
     else:
         raise AssertionError("empty changelog version section was accepted")
+
+
+def test_rule_catalog_payload_requires_provenance_fields() -> None:
+    module = _load_release_check_module()
+    payload = [
+        {
+            "rule_id": "test.rule",
+            "standards": [
+                {
+                    "standard": "OWASP ASVS",
+                    "reference": "v5.0.0-3.4.2",
+                    "coverage": "partial",
+                }
+            ],
+            "standards_secondary": [],
+        }
+    ]
+
+    with pytest.raises(module.ReleaseCheckError, match="origin"):
+        module._validate_rule_catalog_payload(payload)
+
+
+def test_rule_catalog_payload_accepts_declared_and_derived_references() -> None:
+    module = _load_release_check_module()
+    payload = [
+        {
+            "rule_id": "test.rule",
+            "standards": [
+                {
+                    "standard": "OWASP Top 10",
+                    "reference": "A05:2021",
+                    "coverage": "direct",
+                    "origin": "declared",
+                    "derived_from": None,
+                }
+            ],
+            "standards_secondary": [
+                {
+                    "standard": "OWASP Top 10",
+                    "reference": "A02:2025",
+                    "coverage": "direct",
+                    "origin": "derived",
+                    "derived_from": {
+                        "standard": "OWASP Top 10",
+                        "reference": "A05:2021",
+                    },
+                }
+            ],
+        }
+    ]
+
+    module._validate_rule_catalog_payload(payload)
 
 
 def _load_release_check_module():

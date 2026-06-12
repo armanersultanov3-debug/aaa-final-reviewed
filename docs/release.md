@@ -65,11 +65,17 @@ The smoke checks are intentionally small and release-oriented:
 
 - verify that `CHANGELOG.md` has a non-empty section for the current package
   version;
+- reconcile the temporary counted-coverage tracker and benchmark summary with
+  canonical registry evidence before building artifacts;
 - build exactly one wheel and one source distribution;
 - install the built wheel into a clean virtual environment;
 - verify the installed package metadata version matches `pyproject.toml`;
 - run `pip check` in the release-test environment;
+- validate the installed registry crosswalk using the packaged canonical
+  catalog;
 - run the installed `webconf-audit list-rules --format json` console command;
+- verify that every serialized standard reference includes stable `origin` and
+  `derived_from` provenance fields;
 - run an installed-package IIS analysis smoke test with `--no-tls-registry`.
 
 Preview the command sequence without building artifacts:

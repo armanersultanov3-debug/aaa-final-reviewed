@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 
-from webconf_audit.rule_registry import StandardCoverage, StandardReference
+from webconf_audit.rule_registry import (
+    MappingOrigin,
+    StandardCoverage,
+    StandardReference,
+)
 
 _OWASP_TOP10_2021_URLS = {
     "A01:2021": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/",
@@ -150,6 +154,9 @@ def owasp_top10_2025(
     *,
     coverage: StandardCoverage = "direct",
     note: str | None = None,
+    origin: MappingOrigin = "declared",
+    derived_from_standard: str | None = None,
+    derived_from_reference: str | None = None,
 ) -> StandardReference:
     """Return an OWASP Top 10:2025 secondary reference.
 
@@ -177,6 +184,9 @@ def owasp_top10_2025(
         coverage=coverage,
         note=note,
         tier="secondary",
+        origin=origin,
+        derived_from_standard=derived_from_standard,
+        derived_from_reference=derived_from_reference,
     )
 
 

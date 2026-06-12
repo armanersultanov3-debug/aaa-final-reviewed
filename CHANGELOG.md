@@ -8,6 +8,10 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Add deterministic offline crosswalk validation, canonical OWASP/ASVS/PCI
+  identifiers, and declared-versus-derived provenance in rule catalog and
+  report JSON; conservatively correct ASVS, OWASP Top 10:2025, and PCI DSS
+  coverage claims without changing detector behavior.
 - Expand OpenAPI / Swagger external probes with common JSON schema paths and
   map Swagger/OpenAPI exposure to ASVS v5.0.0-13.4.5 partial documentation
   endpoint coverage.

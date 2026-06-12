@@ -1111,6 +1111,15 @@ def _standard_ref_payload(ref: StandardReference) -> dict[str, object]:
         "standard": ref.standard,
         "reference": ref.reference,
         "coverage": ref.coverage,
+        "origin": ref.origin,
+        "derived_from": (
+            {
+                "standard": ref.derived_from_standard,
+                "reference": ref.derived_from_reference,
+            }
+            if ref.origin == "derived"
+            else None
+        ),
     }
     if ref.url is not None:
         payload["url"] = ref.url
@@ -1125,7 +1134,17 @@ def _standards_summary_payload(
     finding_pairs: list[tuple[AnalysisResult, Finding]],
 ) -> list[dict[str, object]]:
     buckets: dict[
-        tuple[str, str, str, str, str | None, str | None],
+        tuple[
+            str,
+            str,
+            str,
+            str,
+            str,
+            str | None,
+            str | None,
+            str | None,
+            str | None,
+        ],
         dict[str, object],
     ] = {}
     for _result, finding in finding_pairs:
@@ -1138,6 +1157,9 @@ def _standards_summary_payload(
                 ref.standard,
                 ref.reference,
                 ref.coverage,
+                ref.origin,
+                ref.derived_from_standard,
+                ref.derived_from_reference,
                 ref.url,
                 ref.note,
             )
@@ -1164,7 +1186,9 @@ def _standards_summary_payload(
     return payload
 
 
-def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, int, str, str]:
+def _standard_summary_sort_key(
+    entry: dict[str, object],
+) -> tuple[int, int, str, str, str, str, str]:
     tier_order = 1 if entry.get("tier") == "secondary" else 0
     standard = str(entry.get("standard", ""))
     reference = str(entry.get("reference", ""))
@@ -1176,7 +1200,21 @@ def _standard_summary_sort_key(entry: dict[str, object]) -> tuple[int, int, str,
         )
     else:
         order = _STANDARD_ORDER.index(standard) if standard in _STANDARD_ORDER else 999
-    return (tier_order, order, standard, reference)
+    derived_from = entry.get("derived_from")
+    derived_standard = ""
+    derived_reference = ""
+    if isinstance(derived_from, dict):
+        derived_standard = str(derived_from.get("standard", ""))
+        derived_reference = str(derived_from.get("reference", ""))
+    return (
+        tier_order,
+        order,
+        standard,
+        reference,
+        str(entry.get("origin", "")),
+        derived_standard,
+        derived_reference,
+    )
 
 
 def _standard_ref_label(ref: StandardReference) -> str:
