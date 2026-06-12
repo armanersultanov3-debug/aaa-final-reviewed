@@ -146,10 +146,10 @@ full-coverage numerator.
 | CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
-| OWASP Top 10:2025 | 8 | 2 | 6 | 0 | 0 | 25.0% |
-| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 0 | 0 | 68.2% |
+| OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
+| OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
 | NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
-| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
 Each source reconciles as `Applicable = Full + Partial + Policy review +
@@ -261,21 +261,23 @@ CSF is a high-level framework, so rule rows should cite at most **one**
 
 ### 5.6 PCI DSS v4.0.1
 
-PCI DSS is the highest-leverage missing standard: the project is essentially
-already aligned with the relevant requirements.
+PCI DSS remains a useful crosswalk source, but the scanner observes only
+bounded technical signals. It does not prove organizational scope, business
+justification, payment-page inventory, or complete audit activity.
 
 | PCI DSS v4.0.1 requirement | Topic | Already-covered rules (candidate `covered`) | Gap follow-up |
 | --- | --- | --- | --- |
-| 2.2.1 | Configuration standards developed | catch-all for every misconfig rule. | — |
-| 2.2.5 | Where insecure services / protocols / daemons in use, business justification documented and security features implemented | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.webdav_methods_exposed` | — |
-| 2.2.6 | System security parameters configured to prevent misuse | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.htpasswd_exposed`, `external.env_file_exposed`, `external.backup_file_exposed` | - |
-| 4.2.1 | Strong cryptography for transmissions over open public networks | All TLS / HSTS / redirect rules from §5.1. | — |
-| 6.2.4 | Common attack vectors / hardening | `nginx.executable_scripts_allowed_in_uploads`, `iis.handler_write_script_execute_enabled`, `iis.cgi_handler_enabled`, `iis.request_filtering_*` family, `apache.htaccess_enables_cgi`, `apache.htaccess_enables_directory_listing`, `apache.htaccess_disables_security_headers`, `apache.htaccess_weakens_security` | — |
-| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.content_security_policy_missing`, `external.content_security_policy_unsafe_inline`, `external.content_security_policy_unsafe_eval`, `external.content_security_policy_object_src_not_none`, `external.content_security_policy_base_uri_not_restricted`, `external.content_security_policy_nonce_reused`, `external.script_src_missing_sri`. | `covered` (partial): bounded HTML parsing on eligible responses now inventories inline scripts and flags cross-origin scripts missing SRI; same-origin SRI remains out of scope and the safe probe is capped at 1 MiB per HTML body. |
-| 8.3.1 | Strong authentication for users / administrators | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `external.htpasswd_exposed`, `iis.credentials_password_format_clear`, `iis.credentials_stored_in_config` | — |
-| 8.3.2 | Strong cryptography during transmission of all auth factors | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`, all cookie `Secure` / `SameSite=None+Secure` rules. | — |
-| 10.2.1 | Audit logs enabled and active | `nginx.missing_access_log`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured`, `nginx.missing_error_log`, `nginx.error_log_too_restrictive`, `apache.log_level_too_restrictive` | — |
-| 10.2.2 | Audit logs record specific items | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`, `nginx.missing_log_format`, `apache.missing_log_format` | covered: current Nginx/Apache log field rules require `request-id`, forwarded-chain, and TLS protocol/cipher fields where applicable. |
+| 2.2.1 | Configuration standards developed | Misconfiguration findings are related evidence only; they do not prove that the organization defined and maintains a complete standard. | partial |
+| 2.2.5 | Where insecure services / protocols / daemons in use, business justification documented and security features implemented | `lighttpd.mod_cgi_enabled`, `lighttpd.mod_webdav_enabled`, `lighttpd.webdav_write_access_enabled`, `iis.webdav_module_enabled`, `apache.trace_enable_not_off`, `external.trace_method_allowed`, `external.dangerous_http_methods_enabled`, `external.webdav_methods_exposed` | partial: configuration signals are visible; business justification and complete necessity review are not. |
+| 2.2.6 | System security parameters configured to prevent misuse | `nginx.server_tokens_on`, `apache.server_tokens_not_prod`, `apache.server_signature_not_off`, `lighttpd.server_tag_not_blank`, `iis.custom_headers_expose_server`, `external.phpinfo_exposed`, `external.elmah_axd_exposed`, `external.trace_axd_exposed`, `external.git_metadata_exposed`, `external.svn_metadata_exposed`, `external.web_config_exposed`, `external.htaccess_exposed`, `external.htpasswd_exposed`, `external.env_file_exposed`, `external.backup_file_exposed` | partial: selected server-visible parameters only. |
+| 4.2.1 | Strong cryptography for transmissions over open public networks | All TLS / HSTS / redirect rules from §5.1. | partial: PAN transmission and public-network applicability are not known to the scanner. |
+| 6.2.4 | Common attack vectors / hardening | Existing server-hardening rules are related evidence only. | uncovered: the requirement concerns software-engineering techniques not proven by server configuration. |
+| 6.4.3 | Public-facing web app — payment-page scripts integrity | `external.script_src_missing_sri` is partial evidence; CSP rules are related evidence. | partial: bounded cross-origin SRI does not prove script authorization and inventory. |
+| 8.3.1 | Strong authentication for users / administrators | `nginx.missing_auth_basic_user_file`, `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.basic_auth_without_ssl`, `external.htpasswd_exposed` | partial: complete authentication-factor protection is not visible. |
+| 8.3.2 | Strong cryptography during transmission of all auth factors | `nginx.auth_basic_over_http`, `apache.basic_auth_over_http`, `lighttpd.basic_auth_over_http`, `iis.forms_auth_require_ssl_missing`, `iis.basic_auth_without_ssl`, `iis.forms_auth_protection_unsafe`. | partial: limited to server-visible transport and cryptographic evidence; cookie attributes are not mapped here. |
+| 8.3.5 / 8.3.6 | First-use/reset passwords and password length/composition | No current rule observes these application or identity-system semantics. | uncovered |
+| 10.2.1 | Audit logs enabled and active | `nginx.missing_access_log`, `apache.custom_log_missing`, `apache.error_log_missing`, `apache.error_log_unsafe_destination`, `lighttpd.access_log_missing`, `lighttpd.error_log_missing`, `iis.logging_not_configured`, `nginx.missing_error_log`, `nginx.error_log_too_restrictive`, `apache.log_level_too_restrictive` | partial: configured logging does not prove active logging on every in-scope component. |
+| 10.2.2 | Audit logs record specific items | `nginx.log_format_missing_fields`, `apache.log_format_missing_fields`, `nginx.missing_log_format`, `apache.missing_log_format` | partial: selected fields are checked; complete PCI event/detail semantics are not. |
 | 10.5 | Audit log retention / protection | none — `out-of-scope`. | — |
 | 12.3 | Risks for security technologies / processes evaluated | out-of-scope (process). | — |
 

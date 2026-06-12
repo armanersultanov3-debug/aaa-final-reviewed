@@ -55,4 +55,6 @@ def test_json_findings_include_standards_secondary_array() -> None:
         "url": "https://bdu.fstec.ru/threat/ubi.044",
         "coverage": "direct",
         "tier": "secondary",
+        "origin": "declared",
+        "derived_from": None,
     } in finding["standards_secondary"]

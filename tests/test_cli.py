@@ -154,7 +154,39 @@ class TestListRules:
             "reference": "CWE-327",
             "url": "https://cwe.mitre.org/data/definitions/327.html",
             "coverage": "direct",
+            "origin": "declared",
+            "derived_from": None,
         } in weak_tls["standards"]
+
+    def test_list_rules_json_exposes_derived_mapping_provenance(self) -> None:
+        result = runner.invoke(
+            app,
+            [
+                "list-rules",
+                "--format",
+                "json",
+                "--category",
+                "universal",
+            ],
+        )
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        missing_hsts = next(
+            entry
+            for entry in payload
+            if entry["rule_id"] == "universal.missing_hsts"
+        )
+        derived = next(
+            ref
+            for ref in missing_hsts["standards_secondary"]
+            if ref["standard"] == "OWASP Top 10"
+            and ref["reference"] == "A02:2025"
+        )
+        assert derived["origin"] == "derived"
+        assert derived["derived_from"] == {
+            "standard": "OWASP Top 10",
+            "reference": "A05:2021",
+        }
 
     def test_list_rules_json_respects_filters(self) -> None:
         result = runner.invoke(

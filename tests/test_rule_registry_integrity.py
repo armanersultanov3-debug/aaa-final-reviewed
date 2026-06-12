@@ -443,6 +443,165 @@ class TestStandardsMetadata:
         assert len(asvs_refs) == 1
         assert asvs_refs[0].coverage == "partial"
 
+    @pytest.mark.parametrize(
+        ("rule_id", "expected_refs"),
+        [
+            (
+                "external.cookie_missing_secure_on_https",
+                {"v5.0.0-3.3.1"},
+            ),
+            (
+                "external.cookie_missing_httponly",
+                {"v5.0.0-3.3.4"},
+            ),
+            (
+                "external.cookie_missing_samesite",
+                {"v5.0.0-3.3.2"},
+            ),
+            (
+                "external.cookie_samesite_none_without_secure",
+                {"v5.0.0-3.3.2"},
+            ),
+            (
+                "external.cookie_prefix_contract_violated",
+                {"v5.0.0-3.3.1", "v5.0.0-3.3.3"},
+            ),
+            (
+                "external.cors_wildcard_origin",
+                {"v5.0.0-3.4.2"},
+            ),
+            (
+                "external.cors_wildcard_with_credentials",
+                {"v5.0.0-3.4.2"},
+            ),
+            (
+                "external.coop_missing",
+                {"v5.0.0-3.4.8"},
+            ),
+        ],
+    )
+    def test_corrected_asvs_frontend_mappings(
+        self,
+        full_reg: RuleRegistry,
+        rule_id: str,
+        expected_refs: set[str],
+    ) -> None:
+        meta = full_reg.get_meta(rule_id)
+        assert meta is not None
+
+        refs = [
+            ref
+            for ref in meta.standards
+            if ref.standard == "OWASP ASVS"
+        ]
+        assert {ref.reference for ref in refs} == expected_refs
+        assert all(ref.coverage == "partial" for ref in refs)
+        assert all(ref.note for ref in refs)
+
+    @pytest.mark.parametrize(
+        "rule_id",
+        [
+            "nginx.content_security_policy_missing_reporting_endpoint",
+            "apache.content_security_policy_missing_reporting_endpoint",
+            "lighttpd.content_security_policy_missing_reporting_endpoint",
+            "iis.content_security_policy_missing_reporting_endpoint",
+            "external.content_security_policy_missing_reporting_endpoint",
+        ],
+    )
+    def test_csp_reporting_mapping_remains_partial(
+        self,
+        full_reg: RuleRegistry,
+        rule_id: str,
+    ) -> None:
+        meta = full_reg.get_meta(rule_id)
+        assert meta is not None
+
+        refs = [
+            ref
+            for ref in meta.standards
+            if ref.standard == "OWASP ASVS"
+            and ref.reference == "v5.0.0-3.4.7"
+        ]
+        assert len(refs) == 1
+        assert refs[0].coverage == "partial"
+
+    def test_pci_mappings_use_conservative_evidence_strengths(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        expectations = {
+            "nginx.autoindex_on": {
+                "Req. 2.2.1": "related",
+            },
+            "external.webdav_methods_exposed": {
+                "Req. 2.2.5": "partial",
+            },
+            "external.backup_file_exposed": {
+                "Req. 2.2.6": "partial",
+            },
+            "external.https_not_available": {
+                "Req. 4.2.1": "partial",
+            },
+            "nginx.executable_scripts_allowed_in_uploads": {
+                "Req. 6.2.4": "related",
+            },
+            "external.content_security_policy_missing": {
+                "Req. 6.4.3": "related",
+            },
+            "external.script_src_missing_sri": {
+                "Req. 6.4.3": "partial",
+            },
+            "nginx.auth_basic_over_http": {
+                "Req. 8.3.1": "partial",
+                "Req. 8.3.2": "partial",
+            },
+            "nginx.missing_access_log": {
+                "Req. 10.2.1": "partial",
+            },
+            "nginx.log_format_missing_fields": {
+                "Req. 10.2.2": "partial",
+            },
+        }
+
+        for rule_id, expected in expectations.items():
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+            pci_refs = {
+                ref.reference: ref
+                for ref in meta.standards
+                if ref.standard == "PCI DSS v4.0.1"
+            }
+            for reference, coverage in expected.items():
+                assert pci_refs[reference].coverage == coverage
+                assert pci_refs[reference].note
+
+    def test_pci_password_reset_and_complexity_mapping_is_removed(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for meta in full_reg.list_rules():
+            assert "Req. 8.3.5 / 8.3.6" not in {
+                ref.reference
+                for ref in meta.standards
+                if ref.standard == "PCI DSS v4.0.1"
+            }
+
+    def test_cookie_rules_do_not_claim_pci_auth_factor_transport(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        for rule_id in (
+            "external.cookie_missing_secure_on_https",
+            "external.cookie_samesite_none_without_secure",
+        ):
+            meta = full_reg.get_meta(rule_id)
+            assert meta is not None
+            assert "Req. 8.3.2" not in {
+                ref.reference
+                for ref in meta.standards
+                if ref.standard == "PCI DSS v4.0.1"
+            }
+
     def test_csp_frame_ancestors_local_rules_have_expected_standards(
         self,
         full_reg: RuleRegistry,
@@ -596,6 +755,18 @@ class TestStandardsMetadata:
             }
             assert ("OWASP Top 10", primary_ref) in primary_refs
             assert ("OWASP Top 10", secondary_ref) in secondary_refs
+
+            derived_refs = [
+                ref
+                for ref in meta.standards_secondary
+                if ref.standard == "OWASP Top 10"
+                and ref.reference == secondary_ref
+            ]
+            assert len(derived_refs) == 1
+            assert derived_refs[0].origin == "derived"
+            assert derived_refs[0].tier == "secondary"
+            assert derived_refs[0].derived_from_standard == "OWASP Top 10"
+            assert derived_refs[0].derived_from_reference == primary_ref
 
     def test_owasp_2025_ssrf_migration_note_is_preserved(
         self,

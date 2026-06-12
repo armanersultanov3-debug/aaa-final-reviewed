@@ -247,6 +247,30 @@ include_opt_in_tags=...)` and threaded through every server runner and
 The `list-rules --tag policy-review` command always surfaces these
 rules so users can discover them.
 
+### 8.2 Standards mapping integrity
+
+Every standards mapping is represented by a typed `StandardReference`.
+Mappings with `origin="declared"` were reviewed against the exact referenced
+edition. Automatically aligned mappings use `origin="derived"`, remain in the
+secondary tier, and record both `derived_from_standard` and
+`derived_from_reference`. For example, the OWASP Top 10:2025 categories
+generated from reviewed 2021 mappings remain visible for filtering and
+reporting without being presented as independently reviewed evidence.
+
+`src/webconf_audit/standard_catalog.py` contains the bounded catalog of
+canonical OWASP Top 10, ASVS, and PCI DSS identifiers used by counted coverage
+claims. `src/webconf_audit/crosswalk_integrity.py` validates those identifiers,
+mapping provenance, notes for partial or related evidence, duplicate
+cross-tier references, and counted claims. Validation is deterministic and
+offline: authoritative URLs are metadata and are never fetched during
+analysis or release checks.
+
+The rule registry remains the source of rule-to-standard evidence. The
+Markdown coverage tracker is only a temporary counted-claim adapter until the
+machine-readable ledger planned for the next follow-up. A derived, partial, or
+related reference cannot independently justify `full` coverage, and a coverage
+assessment never suppresses a `Finding`.
+
 ## 9. Reporting model
 
 Local and external modes share the same result model:

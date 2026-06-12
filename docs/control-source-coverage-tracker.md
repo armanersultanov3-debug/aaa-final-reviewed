@@ -27,10 +27,10 @@ The current calculation is conservative:
 | CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
-| OWASP Top 10:2025 | 8 | 2 | 6 | 0 | 0 | 25.0% |
-| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 0 | 0 | 68.2% |
+| OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
+| OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
 | NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
-| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
 ## Status Vocabulary
@@ -129,14 +129,14 @@ ETW logging, and legacy IIS 7/8 archive benchmarks.
 
 ## OWASP Top 10:2025
 
-Applicable count: 8. Full count: 2. Partial count: 6.
+Applicable count: 8. Full count: 0. Partial count: 8.
 
 | Counted category | Status | Current basis / next action |
 | --- | --- | --- |
 | A01:2025 Broken Access Control | partial | Server-side access restrictions, method policy, and exposed admin/status endpoints are visible; application authorization is not. |
-| A02:2025 Security Misconfiguration | full | This is the main project scope: web-server configuration, headers, TLS posture, dangerous methods, defaults, and exposed files. |
+| A02:2025 Security Misconfiguration | partial | This is the main project scope, but the current A02 alignment is derived from reviewed A05:2021 mappings rather than independently reviewed full evidence. |
 | A03:2025 Software Supply Chain Failures | partial | Exposed dependency manifests and build/deployment artifacts are detected; full supply-chain governance is out of scope. |
-| A04:2025 Cryptographic Failures | full | TLS protocols, ciphers, HSTS, certificate runtime evidence, and plaintext fallback are covered in the project scope. |
+| A04:2025 Cryptographic Failures | partial | TLS protocols, ciphers, HSTS, certificate runtime evidence, and plaintext fallback are covered, but the A04 alignment is derived from reviewed A02:2021 mappings and does not prove the whole category. |
 | A05:2025 Injection | partial | Server-visible CGI/script/upload/proxy/header risks are covered; application injection sinks are not. |
 | A07:2025 Authentication Failures | partial | Basic Auth over HTTP, stored credentials, cookie flags, and exposed credential files are visible; full identity flows are not. |
 | A08:2025 Software or Data Integrity Failures | partial | CSP/SRI and exposed CI/build artifacts are visible; full integrity pipeline controls are not. |
@@ -147,7 +147,7 @@ configuration/security-probe perimeter used by this snapshot.
 
 ## OWASP ASVS v5.0.0
 
-Applicable count: 22. Full count: 15. Partial count: 7.
+Applicable count: 22. Full count: 14. Partial count: 8.
 
 This snapshot groups ASVS requirements at the same granularity used by the
 pre-diploma summary. `docs/standards-roadmap.md` remains the more detailed
@@ -155,14 +155,14 @@ ASVS engineering backlog.
 
 | Counted ASVS group | Status | Current basis / next action |
 | --- | --- | --- |
-| v5.0.0-3.3.1 / 3.3.2 / 3.3.4 cookie attributes | partial | Runtime cookie probes cover observed `Secure`, `HttpOnly`, `SameSite`, and prefix contract posture only. |
+| v5.0.0-3.3.1 / 3.3.2 / 3.3.3 / 3.3.4 cookie attributes | partial | Runtime cookie probes cover observed `Secure`, `HttpOnly`, `SameSite`, `__Secure-`, and `__Host-` prefix contract posture only. |
 | v5.0.0-3.4.1 HSTS | full | Universal, local, and external HSTS checks. |
 | v5.0.0-3.4.2 CORS | partial | Runtime wildcard/credential checks exist, but application allowlists are not proven. |
 | v5.0.0-3.4.3 CSP policy quality | partial | Missing/unsafe CSP, nonce reuse, and cross-origin SRI are covered; full nonce/hash authorization is not. |
 | v5.0.0-3.4.4 X-Content-Type-Options | full | Universal, local, and external missing/invalid checks. |
 | v5.0.0-3.4.5 Referrer-Policy | full | Missing/unsafe Referrer-Policy checks. |
 | v5.0.0-3.4.6 frame-ancestors / framing policy | full | Local family rules and runtime CSP evidence cover missing `frame-ancestors`; deeper CSP quality remains under 3.4.3. |
-| v5.0.0-3.4.7 CSP reporting | full | Snapshot credit is for config-visible reporting endpoint presence; endpoint delivery remains an ASVS engineering limitation, not part of this count. |
+| v5.0.0-3.4.7 CSP reporting | partial | The rules prove configured reporting syntax or header presence, not successful report delivery or endpoint operation. |
 | v5.0.0-3.4.8 COOP | partial | Runtime absence is observable, but document-rendering relevance is not. |
 | v5.0.0-3.7.1 auth-required routes over TLS | full | `universal.tls_required_for_authenticated_routes` covers normalized auth scopes across supported local analyzers. |
 | v5.0.0-12.1.1 deprecated TLS protocols | full | Local, registry, and external protocol posture checks. |
@@ -202,21 +202,21 @@ Applicable count: 10. Full count: 10.
 
 ## PCI DSS v4.0.1
 
-Applicable count: 11. Full count: 11.
+Applicable count: 11. Full count: 0. Partial count: 9. Uncovered count: 2.
 
 | Counted requirement | Status | Current basis |
 | --- | --- | --- |
-| Req. 2.2.1 | full | Configuration-hardening rule families. |
-| Req. 2.2.5 | full | Insecure services/protocols/dangerous method and WebDAV signals. |
-| Req. 2.2.6 | full | Security parameter, disclosure, default content, and exposed-file checks. |
-| Req. 4.2.1 | full | TLS/HSTS/redirect/plaintext fallback checks. |
-| Req. 6.2.4 | full | Public-facing hardening and common attack-vector controls visible to the scanner. |
-| Req. 6.4.3 | full | CSP and cross-origin SRI evidence within bounded HTML probes. |
-| Req. 8.3.1 | full | Authentication configuration and credential exposure checks. |
-| Req. 8.3.2 | full | Authentication over TLS and cookie protection checks. |
-| Req. 8.3.5 / 8.3.6 | full | Cookie protection, password/credential storage, and transport-protection rules cover visible authentication-factor handling. |
-| Req. 10.2.1 | full | Access/error logging enablement checks. |
-| Req. 10.2.2 | full | Nginx/Apache log field quality checks. |
+| Req. 2.2.1 | partial | Hardening findings are related evidence, but the scanner does not prove that a complete configuration standard is defined, maintained, and applied to every in-scope component. |
+| Req. 2.2.5 | partial | Insecure service, protocol, dangerous-method, and WebDAV signals are visible; business justification and complete necessity review are not. |
+| Req. 2.2.6 | partial | Selected security parameters, disclosure, default content, and exposed-file conditions are checked; complete in-scope parameter coverage is not proven. |
+| Req. 4.2.1 | partial | TLS, HSTS, redirect, and plaintext-fallback evidence is visible, but the scanner cannot determine whether a route carries PAN over an open public network. |
+| Req. 6.2.4 | uncovered | Existing server-hardening findings are only related to this software-engineering requirement and do not prove secure development techniques. |
+| Req. 6.4.3 | partial | Bounded cross-origin SRI evidence covers one part of payment-page script integrity; CSP posture is related, while authorization and inventory remain unproven. |
+| Req. 8.3.1 | partial | Server-visible authentication configuration is checked, but complete authentication-factor protection is not proven. |
+| Req. 8.3.2 | partial | Transport and cryptographic protection for server-visible authentication paths is checked; cookie attributes are not counted as this requirement. |
+| Req. 8.3.5 / 8.3.6 | uncovered | These requirements concern first-use/reset password handling and password length/composition, which current web-server configuration rules do not observe. |
+| Req. 10.2.1 | partial | Logging configuration is visible, but active logging across every in-scope component is not proven. |
+| Req. 10.2.2 | partial | Selected access-log fields are checked, but the complete required event and detail semantics are not proven. |
 
 Excluded PCI DSS rows: Req. 10.5 and Req. 12 are process/storage-retention
 controls and are not part of the 11-item denominator.

@@ -172,6 +172,9 @@ def test_owasp_top10_2025_marks_reference_as_secondary() -> None:
     assert ref.reference == "A02:2025"
     assert ref.url == "https://owasp.org/Top10/2025/A02_2025-Security_Misconfiguration/"
     assert ref.tier == "secondary"
+    assert ref.origin == "declared"
+    assert ref.derived_from_standard is None
+    assert ref.derived_from_reference is None
 
 
 def test_owasp_top10_2025_accepts_each_canonical_category() -> None:

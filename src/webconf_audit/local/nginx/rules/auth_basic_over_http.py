@@ -52,7 +52,14 @@ RECOMMENDATION = (
         owasp_top10_2021("A02:2021"),
         asvs_5("12.2.1"),
         nist_sp_800_53_rev5("IA-2"),
-        pci_dss_4("8.3.1"),
+        pci_dss_4(
+            "8.3.1",
+            coverage="partial",
+            note=(
+                "The rule observes Basic Auth transport configuration; complete "
+                "authentication-factor protection is not proven."
+            ),
+        ),
         bsi_app_3_2("A5"),
         fstec_gis(
             "ИАФ.1",

@@ -13,7 +13,7 @@ from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Severity, SourceLocation
 from webconf_audit.report import JsonFormatter, ReportData, TextFormatter, deduplicate_findings
-from webconf_audit.rule_registry import RuleCategory, RuleMeta
+from webconf_audit.rule_registry import RuleCategory, RuleMeta, StandardReference
 from webconf_audit.suppressions import apply_suppressions, load_suppression_file
 
 app = typer.Typer(help="Web server configuration security audit tool")
@@ -685,37 +685,36 @@ def _rule_meta_payload(meta: RuleMeta) -> dict[str, object]:
             if meta.severity_profile is not None
             else None
         ),
-        "standards": [
-            {
-                key: value
-                for key, value in {
-                    "standard": ref.standard,
-                    "reference": ref.reference,
-                    "url": ref.url,
-                    "coverage": ref.coverage,
-                    "note": ref.note,
-                }.items()
-                if value is not None
-            }
-            for ref in meta.standards
-        ],
+        "standards": [_standard_reference_payload(ref) for ref in meta.standards],
         "standards_secondary": [
-            {
-                key: value
-                for key, value in {
-                    "standard": ref.standard,
-                    "reference": ref.reference,
-                    "url": ref.url,
-                    "coverage": ref.coverage,
-                    "note": ref.note,
-                }.items()
-                if value is not None
-            }
+            _standard_reference_payload(ref)
             for ref in meta.standards_secondary
         ],
         "condition": meta.condition,
         "order": meta.order,
     }
+
+
+def _standard_reference_payload(ref: StandardReference) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "standard": ref.standard,
+        "reference": ref.reference,
+        "coverage": ref.coverage,
+        "origin": ref.origin,
+        "derived_from": (
+            {
+                "standard": ref.derived_from_standard,
+                "reference": ref.derived_from_reference,
+            }
+            if ref.origin == "derived"
+            else None
+        ),
+    }
+    if ref.url is not None:
+        payload["url"] = ref.url
+    if ref.note is not None:
+        payload["note"] = ref.note
+    return payload
 
 
 def _parse_rule_category(value: str | None) -> RuleCategory | None:

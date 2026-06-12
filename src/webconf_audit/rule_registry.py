@@ -35,6 +35,7 @@ RuleCategory = Literal["local", "external", "universal"]
 
 StandardCoverage = Literal["direct", "partial", "related"]
 StandardTier = Literal["primary", "secondary"]
+MappingOrigin = Literal["declared", "derived"]
 
 # Tags that mark rules as opt-in: they are excluded from default analyzer
 # runs and only included when the runner is invoked with an explicit
@@ -69,6 +70,38 @@ class StandardReference:
     coverage: StandardCoverage = "direct"
     note: str | None = None
     tier: StandardTier = "primary"
+    origin: MappingOrigin = "declared"
+    derived_from_standard: str | None = None
+    derived_from_reference: str | None = None
+
+    def __post_init__(self) -> None:
+        has_derived_standard = (
+            isinstance(self.derived_from_standard, str)
+            and bool(self.derived_from_standard.strip())
+        )
+        has_derived_reference = (
+            isinstance(self.derived_from_reference, str)
+            and bool(self.derived_from_reference.strip())
+        )
+        if self.origin == "declared":
+            if (
+                self.derived_from_standard is not None
+                or self.derived_from_reference is not None
+            ):
+                raise ValueError(
+                    "Declared standard-reference provenance cannot include "
+                    "derived_from fields."
+                )
+            return
+        if self.origin != "derived":
+            raise ValueError(f"Unsupported mapping provenance: {self.origin!r}.")
+        if not has_derived_standard or not has_derived_reference:
+            raise ValueError(
+                "Derived standard-reference provenance requires both "
+                "derived_from_standard and derived_from_reference."
+            )
+        if self.tier != "secondary":
+            raise ValueError("A derived standard reference must use the secondary tier.")
 
 # ---------------------------------------------------------------------------
 # RuleMeta -- immutable metadata for a single rule
@@ -402,6 +435,7 @@ def rule(
 
 __all__ = [
     "InputKind",
+    "MappingOrigin",
     "RuleCategory",
     "RuleEntry",
     "RuleMeta",
@@ -472,10 +506,11 @@ def _merge_standard_references(
             key = (
                 ref.standard,
                 ref.reference,
-                ref.url,
                 ref.coverage,
-                ref.note,
                 ref.tier,
+                ref.origin,
+                ref.derived_from_standard,
+                ref.derived_from_reference,
             )
             if key in seen:
                 continue
