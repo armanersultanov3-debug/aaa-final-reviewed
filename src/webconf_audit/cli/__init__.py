@@ -1,22 +1,33 @@
 import json
 from enum import Enum
+from pathlib import Path
 from typing import cast
 
 import click
 import typer
 
+from webconf_audit.audit_policy import (
+    AuditPolicyLoadError,
+    AuditPolicyResolveError,
+    load_audit_policy,
+    resolve_audit_policy,
+    validate_audit_policy,
+)
 from webconf_audit.baselines import apply_baseline_diff, load_baseline_file, write_baseline_file
+from webconf_audit.coverage_ledger import load_coverage_ledger
 from webconf_audit.external import analyze_external_target
 from webconf_audit.local.apache import analyze_apache_config
 from webconf_audit.local.iis import analyze_iis_config
 from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Severity, SourceLocation
+from webconf_audit.policy_models import AuditPolicyIssue, AuditTarget, ResolvedAuditPolicy
 from webconf_audit.report import JsonFormatter, ReportData, TextFormatter, deduplicate_findings
-from webconf_audit.rule_registry import RuleCategory, RuleMeta, StandardReference
+from webconf_audit.rule_registry import RuleCategory, RuleMeta, StandardReference, registry
 from webconf_audit.suppressions import apply_suppressions, load_suppression_file
 
 app = typer.Typer(help="Web server configuration security audit tool")
+policy_app = typer.Typer(help="Validate and inspect explicit audit policy files.")
 
 
 class OutputFormat(str, Enum):
@@ -113,6 +124,14 @@ def _enable_policy_review_option() -> bool:
     )
 
 
+def _policy_option() -> str | None:
+    return typer.Option(
+        None,
+        "--policy",
+        help="Apply an explicit audit policy YAML file.",
+    )
+
+
 def _group_by_cause_option() -> bool:
     return typer.Option(
         False,
@@ -179,6 +198,39 @@ def _output_result(
     )
     if exit_code:
         raise typer.Exit(exit_code)
+
+
+def _output_fatal_result(
+    result: AnalysisResult,
+    *,
+    fmt: OutputFormat,
+    group_by: GroupBy,
+    group_repeated: bool,
+    group_by_cause: bool,
+    grouping_sequence: list[str] | None = None,
+) -> None:
+    if group_by is None:
+        group_by = GroupBy.severity
+    if grouping_sequence is None:
+        ctx = click.get_current_context(silent=True)
+        grouping_sequence = list(_grouping_sequence(ctx)) if ctx is not None else []
+    group_by, group_repeated, group_by_cause = _resolve_grouping_options(
+        group_by=group_by,
+        group_repeated=group_repeated,
+        group_by_cause=group_by_cause,
+        grouping_sequence=grouping_sequence or [],
+    )
+    formatter = (
+        TextFormatter(
+            group_by=group_by.value,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        if fmt == OutputFormat.text
+        else JsonFormatter(group_by_cause=group_by_cause)
+    )
+    typer.echo(formatter.format(ReportData(results=[result])))
+    raise typer.Exit(1)
 
 
 def _apply_suppressions(
@@ -344,9 +396,132 @@ def _has_blocking_new_findings(
     )
 
 
+def _policy_issue_payload(issue: AuditPolicyIssue) -> dict[str, object]:
+    return {
+        "code": issue.code,
+        "message": issue.message,
+        "profile_id": issue.profile_id,
+        "source_id": issue.source_id,
+        "item_id": issue.item_id,
+        "rule_id": issue.rule_id,
+        "path": issue.path,
+    }
+
+
+def _policy_issue_to_analysis_issue(
+    issue: AuditPolicyIssue,
+    *,
+    mode: str,
+) -> AnalysisIssue:
+    location = SourceLocation(mode=mode, kind="check", details="audit_policy")
+    if issue.path is not None:
+        location.file_path = issue.path
+    details_parts = [
+        f"profile_id={issue.profile_id}" if issue.profile_id is not None else None,
+        f"source_id={issue.source_id}" if issue.source_id is not None else None,
+        f"item_id={issue.item_id}" if issue.item_id is not None else None,
+        f"rule_id={issue.rule_id}" if issue.rule_id is not None else None,
+    ]
+    details = ", ".join(part for part in details_parts if part is not None) or None
+    return AnalysisIssue(
+        code=issue.code,
+        level="error",
+        message=issue.message,
+        details=details,
+        location=location,
+    )
+
+
+def _fatal_policy_result(
+    *,
+    mode: str,
+    target: str,
+    server_type: str | None,
+    issues: list[AuditPolicyIssue],
+) -> AnalysisResult:
+    return AnalysisResult(
+        mode=mode,
+        target=target,
+        server_type=server_type,
+        issues=[
+            _policy_issue_to_analysis_issue(issue, mode=mode)
+            for issue in issues
+        ],
+    )
+
+
+def _load_validated_policy_or_exit(
+    *,
+    policy_path: str,
+    mode: str,
+    target: str,
+    server_type: str | None,
+    output_format: OutputFormat,
+    group_by: GroupBy,
+    group_repeated: bool,
+    group_by_cause: bool,
+) -> ResolvedAuditPolicy:
+    try:
+        policy = load_audit_policy(Path(policy_path))
+    except AuditPolicyLoadError as exc:
+        _output_fatal_result(
+            _fatal_policy_result(
+                mode=mode,
+                target=target,
+                server_type=server_type,
+                issues=[exc.issue],
+            ),
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        raise AssertionError("unreachable")
+
+    ledger = load_coverage_ledger()
+    _ensure_all_rules_loaded()
+    validation_issues = list(validate_audit_policy(policy, ledger, registry))
+    if validation_issues:
+        _output_fatal_result(
+            _fatal_policy_result(
+                mode=mode,
+                target=target,
+                server_type=server_type,
+                issues=validation_issues,
+            ),
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        raise AssertionError("unreachable")
+
+    try:
+        return resolve_audit_policy(
+            policy,
+            AuditTarget(mode=mode, server_type=server_type, target=target),
+            ledger,
+        )
+    except AuditPolicyResolveError as exc:
+        _output_fatal_result(
+            _fatal_policy_result(
+                mode=mode,
+                target=target,
+                server_type=server_type,
+                issues=[exc.issue],
+            ),
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        raise AssertionError("unreachable")
+
+
 @app.command("analyze-nginx")
 def analyze_nginx(
     config_path: str = typer.Argument(..., help="Path to nginx config file"),
+    policy: str | None = _policy_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -365,6 +540,17 @@ def analyze_nginx(
     enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
+    if policy is not None:
+        kwargs["policy"] = _load_validated_policy_or_exit(
+            policy_path=policy,
+            mode="local",
+            target=config_path,
+            server_type="nginx",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
     if enable_policy_review:
         kwargs["enable_policy_review"] = True
     result = analyze_nginx_config(config_path, **kwargs)
@@ -385,6 +571,7 @@ def analyze_nginx(
 @app.command("analyze-apache")
 def analyze_apache(
     config_path: str = typer.Argument(..., help="Path to Apache config file"),
+    policy: str | None = _policy_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -403,6 +590,17 @@ def analyze_apache(
     enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
+    if policy is not None:
+        kwargs["policy"] = _load_validated_policy_or_exit(
+            policy_path=policy,
+            mode="local",
+            target=config_path,
+            server_type="apache",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
     if enable_policy_review:
         kwargs["enable_policy_review"] = True
     result = analyze_apache_config(config_path, **kwargs)
@@ -433,6 +631,7 @@ def analyze_lighttpd(
         "--host",
         help="Evaluate conditional blocks for a specific host (targeted analysis).",
     ),
+    policy: str | None = _policy_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -451,6 +650,17 @@ def analyze_lighttpd(
     enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
     extra_kwargs: dict[str, object] = {}
+    if policy is not None:
+        extra_kwargs["policy"] = _load_validated_policy_or_exit(
+            policy_path=policy,
+            mode="local",
+            target=config_path,
+            server_type="lighttpd",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
     if enable_policy_review:
         extra_kwargs["enable_policy_review"] = True
     result = analyze_lighttpd_config(
@@ -491,6 +701,7 @@ def analyze_iis(
         "--no-tls-registry",
         help="Disable automatic local SChannel registry enrichment on Windows.",
     ),
+    policy: str | None = _policy_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -509,6 +720,17 @@ def analyze_iis(
     enable_policy_review: bool = _enable_policy_review_option(),
 ) -> None:
     kwargs: dict[str, object] = {}
+    if policy is not None:
+        kwargs["policy"] = _load_validated_policy_or_exit(
+            policy_path=policy,
+            mode="local",
+            target=config_path,
+            server_type="iis",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
     if machine_config is not None:
         kwargs["machine_config_path"] = machine_config
     if tls_registry is not None:
@@ -576,6 +798,7 @@ def analyze_external(
         "--ports",
         help="Comma-separated list of ports to scan (e.g. '80,443,8080').",
     ),
+    policy: str | None = _policy_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -595,7 +818,24 @@ def analyze_external(
     parsed_ports: tuple[int, ...] | None = None
     if ports is not None:
         parsed_ports = _parse_ports(ports)
-    result = analyze_external_target(target, scan_ports=scan_ports, ports=parsed_ports)
+    kwargs: dict[str, object] = {}
+    if policy is not None:
+        kwargs["policy"] = _load_validated_policy_or_exit(
+            policy_path=policy,
+            mode="external",
+            target=target,
+            server_type=None,
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+    result = analyze_external_target(
+        target,
+        scan_ports=scan_ports,
+        ports=parsed_ports,
+        **kwargs,
+    )
     _output_result(
         result,
         output_format,
@@ -608,6 +848,162 @@ def analyze_external(
         group_repeated,
         group_by_cause,
     )
+
+
+@policy_app.command("validate")
+def validate_policy_command(
+    policy: str = typer.Option(..., "--policy", help="Path to the audit policy YAML file."),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.text,
+        "--format",
+        "-f",
+        help="Output format: text, json.",
+    ),
+) -> None:
+    issues: list[AuditPolicyIssue] = []
+    try:
+        loaded_policy = load_audit_policy(Path(policy))
+    except AuditPolicyLoadError as exc:
+        issues.append(exc.issue)
+        loaded_policy = None
+
+    if loaded_policy is not None:
+        ledger = load_coverage_ledger()
+        _ensure_all_rules_loaded()
+        issues.extend(validate_audit_policy(loaded_policy, ledger, registry))
+
+    payload = {
+        "schema_version": 1,
+        "policy": policy,
+        "valid": not issues,
+        "issues": [_policy_issue_payload(issue) for issue in issues],
+    }
+    if output_format == OutputFormat.json:
+        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+    else:
+        typer.echo(f"Policy: {policy}")
+        typer.echo("Valid: yes" if not issues else "Valid: no")
+        for issue in issues:
+            typer.echo(f"- {issue.code}: {issue.message}")
+    raise typer.Exit(0 if not issues else 1)
+
+
+@policy_app.command("show")
+def show_policy_command(
+    policy: str = typer.Option(..., "--policy", help="Path to the audit policy YAML file."),
+    mode: str | None = typer.Option(
+        None,
+        "--mode",
+        help="Optional analysis mode for resolution: local or external.",
+    ),
+    server_type: str | None = typer.Option(
+        None,
+        "--server-type",
+        help="Server type for local target resolution.",
+    ),
+    target: str | None = typer.Option(
+        None,
+        "--target",
+        help="Target path or URL used for profile resolution.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.text,
+        "--format",
+        "-f",
+        help="Output format: text, json.",
+    ),
+) -> None:
+    try:
+        loaded_policy = load_audit_policy(Path(policy))
+    except AuditPolicyLoadError as exc:
+        payload = {
+            "schema_version": 1,
+            "policy": policy,
+            "resolved": None,
+            "issues": [_policy_issue_payload(exc.issue)],
+        }
+        if output_format == OutputFormat.json:
+            typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            typer.echo(f"{exc.issue.code}: {exc.issue.message}")
+        raise typer.Exit(1)
+
+    ledger = load_coverage_ledger()
+    _ensure_all_rules_loaded()
+    validation_issues = list(validate_audit_policy(loaded_policy, ledger, registry))
+    if validation_issues:
+        payload = {
+            "schema_version": 1,
+            "policy": policy,
+            "resolved": None,
+            "issues": [_policy_issue_payload(issue) for issue in validation_issues],
+        }
+        if output_format == OutputFormat.json:
+            typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+        else:
+            for issue in validation_issues:
+                typer.echo(f"{issue.code}: {issue.message}")
+        raise typer.Exit(1)
+
+    resolved = None
+    if any(value is not None for value in (mode, server_type, target)):
+        if mode is None or target is None:
+            raise typer.BadParameter(
+                "--mode and --target must be supplied together for policy resolution."
+            )
+        if mode not in {"local", "external"}:
+            raise typer.BadParameter("--mode must be 'local' or 'external'.")
+        if mode == "local" and server_type is None:
+            raise typer.BadParameter("--server-type is required when --mode local is used.")
+        if mode == "external" and server_type not in {None, "generic"}:
+            raise typer.BadParameter(
+                "--server-type may be omitted or set to 'generic' for --mode external."
+            )
+        try:
+            resolved = resolve_audit_policy(
+                loaded_policy,
+                AuditTarget(mode=mode, server_type=server_type, target=target),
+                ledger,
+            )
+        except AuditPolicyResolveError as exc:
+            payload = {
+                "schema_version": 1,
+                "policy": loaded_policy.model_dump(
+                    mode="json",
+                    exclude={"loaded_provenance"},
+                ),
+                "resolved": None,
+                "issues": [_policy_issue_payload(exc.issue)],
+            }
+            if output_format == OutputFormat.json:
+                typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+            else:
+                typer.echo(f"{exc.issue.code}: {exc.issue.message}")
+            raise typer.Exit(1)
+
+    payload = {
+        "schema_version": 1,
+        "policy": loaded_policy.model_dump(mode="json", exclude={"loaded_provenance"}),
+        "resolved": (
+            resolved.model_dump(mode="json")
+            if resolved is not None
+            else None
+        ),
+        "issues": [],
+    }
+    if output_format == OutputFormat.json:
+        typer.echo(json.dumps(payload, indent=2, ensure_ascii=False))
+        return
+
+    typer.echo(f"Policy ID: {loaded_policy.policy_id}")
+    typer.echo(f"Policy Version: {loaded_policy.policy_version}")
+    typer.echo(f"Profiles: {len(loaded_policy.profiles)}")
+    for profile in loaded_policy.profiles:
+        typer.echo(f"- {profile.profile_id}: {profile.title}")
+    if resolved is not None:
+        typer.echo(f"Resolved Profile: {resolved.profile_id}")
+        typer.echo(f"Raw SHA256: {resolved.raw_sha256}")
+        typer.echo(f"Resolved SHA256: {resolved.resolved_sha256}")
 
 
 @app.command("list-rules")
@@ -805,7 +1201,12 @@ def _register_coverage_commands() -> None:
     app.add_typer(coverage_app, name="coverage")
 
 
+def _register_policy_commands() -> None:
+    app.add_typer(policy_app, name="policy")
+
+
 _register_coverage_commands()
+_register_policy_commands()
 
 
 if __name__ == "__main__":
