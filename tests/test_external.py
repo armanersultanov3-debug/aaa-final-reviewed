@@ -1112,6 +1112,13 @@ def test_analyze_external_target_returns_issue_when_no_service_is_reachable(monk
     assert result.issues[0].code == "external_no_http_service"
     assert result.issues[0].location is not None
     assert result.issues[0].location.kind == "endpoint"
+    skipped = {
+        entry["rule_id"]: entry["reason"]
+        for entry in result.metadata["rule_execution"]["skipped_rules"]
+    }
+    assert skipped["external.https_not_available"] == "input-unavailable"
+    assert skipped["external.x_frame_options_missing"] == "input-unavailable"
+    assert skipped["external.certificate_expired"] == "input-unavailable"
 
 
 def test_analyze_external_target_returns_warning_when_server_type_is_unknown(monkeypatch) -> None:
@@ -1157,6 +1164,14 @@ def test_analyze_external_target_adds_https_not_available_finding_when_https_has
     result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
 
     assert "external.https_not_available" in {finding.rule_id for finding in result.findings}
+    skipped = {
+        entry["rule_id"]: entry["reason"]
+        for entry in result.metadata["rule_execution"]["skipped_rules"]
+    }
+    assert skipped["external.hsts_header_missing"] == "input-unavailable"
+    assert "external.https_not_available" in set(
+        result.metadata["rule_execution"]["completed_rule_ids"]
+    )
 
 
 def test_analyze_external_target_adds_http_not_redirected_to_https_finding_when_http_returns_200(

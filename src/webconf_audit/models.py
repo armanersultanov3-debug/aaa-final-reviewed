@@ -8,9 +8,13 @@ the analyzer surface (severity, mode, issue level, location kind).
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
+
+if TYPE_CHECKING:
+    from webconf_audit.execution_manifest import RuleExecutionManifest
+    from webconf_audit.policy_models import ResolvedAuditPolicy
 
 AnalysisMode = Literal["local", "external"]
 Severity = Literal["info", "low", "medium", "high", "critical"]
@@ -72,6 +76,8 @@ class AnalysisResult(BaseModel):
     issues: list[AnalysisIssue] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    audit_policy: "ResolvedAuditPolicy | None" = Field(default=None, exclude=True)
+    rule_execution: "RuleExecutionManifest | None" = Field(default=None, exclude=True)
 
     @property
     def has_findings(self) -> bool:
@@ -93,3 +99,21 @@ __all__ = [
     "Severity",
     "SourceLocation",
 ]
+
+
+def rebuild_analysis_result_models() -> None:
+    from webconf_audit.execution_manifest import RuleExecutionManifest
+    from webconf_audit.policy_models import ResolvedAuditPolicy
+
+    AnalysisResult.model_rebuild(
+        _types_namespace={
+            "ResolvedAuditPolicy": ResolvedAuditPolicy,
+            "RuleExecutionManifest": RuleExecutionManifest,
+        }
+    )
+
+
+try:
+    rebuild_analysis_result_models()
+except ImportError:
+    pass

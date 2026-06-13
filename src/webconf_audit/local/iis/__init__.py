@@ -3,6 +3,12 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from webconf_audit.audit_policy import (
+    attach_audit_context,
+    build_analysis_manifest,
+    requested_opt_in_tags,
+)
+from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.iis.discovery import discover_iis_sites, locate_machine_config
 from webconf_audit.local.iis.effective import (
     IISEffectiveConfig,
@@ -19,6 +25,8 @@ from webconf_audit.local.iis.rules_runner import run_iis_rules
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
+from webconf_audit.policy_models import ResolvedAuditPolicy
+from webconf_audit.rule_registry import registry as rule_registry
 
 
 def analyze_iis_config(
@@ -28,6 +36,7 @@ def analyze_iis_config(
     use_tls_registry: bool = True,
     *,
     enable_policy_review: bool = False,
+    policy: ResolvedAuditPolicy | None = None,
 ) -> AnalysisResult:
     """Run the full IIS local-analysis pipeline against ``config_path``.
 
@@ -51,6 +60,10 @@ def analyze_iis_config(
     """
     config_path_str = os.fspath(config_path)
     path = Path(config_path_str)
+    effective_policy_review = (
+        enable_policy_review
+        or "policy-review" in requested_opt_in_tags(policy)
+    )
 
     if path.is_dir():
         app_host = path / "applicationHost.config"
@@ -61,84 +74,96 @@ def analyze_iis_config(
             if web_config.is_file():
                 path = web_config
             else:
-                return AnalysisResult(
-                    mode="local",
-                    target=config_path_str,
-                    server_type="iis",
-                    issues=[
-                        AnalysisIssue(
-                            code="config_not_found",
-                            level="error",
-                            message=f"No IIS config found in directory: {config_path_str}",
-                            location=SourceLocation(
-                                mode="local",
-                                kind="file",
-                                file_path=config_path_str,
-                            ),
-                        )
-                    ],
+                return _attach_context(
+                    AnalysisResult(
+                        mode="local",
+                        target=config_path_str,
+                        server_type="iis",
+                        issues=[
+                            AnalysisIssue(
+                                code="config_not_found",
+                                level="error",
+                                message=f"No IIS config found in directory: {config_path_str}",
+                                location=SourceLocation(
+                                    mode="local",
+                                    kind="file",
+                                    file_path=config_path_str,
+                                ),
+                            )
+                        ],
+                    ),
+                    policy=policy,
                 )
 
     if not path.is_file():
-        return AnalysisResult(
-            mode="local",
-            target=config_path_str,
-            server_type="iis",
-            issues=[
-                AnalysisIssue(
-                    code="config_not_found",
-                    level="error",
-                    message=f"Config file not found: {config_path_str}",
-                    location=SourceLocation(
-                        mode="local",
-                        kind="file",
-                        file_path=config_path_str,
-                    ),
-                )
-            ],
+        return _attach_context(
+            AnalysisResult(
+                mode="local",
+                target=config_path_str,
+                server_type="iis",
+                issues=[
+                    AnalysisIssue(
+                        code="config_not_found",
+                        level="error",
+                        message=f"Config file not found: {config_path_str}",
+                        location=SourceLocation(
+                            mode="local",
+                            kind="file",
+                            file_path=config_path_str,
+                        ),
+                    )
+                ],
+            ),
+            policy=policy,
         )
 
     try:
         text = path.read_text(encoding="utf-8-sig")
     except OSError as exc:
-        return AnalysisResult(
-            mode="local",
-            target=config_path_str,
-            server_type="iis",
-            issues=[
-                AnalysisIssue(
-                    code="iis_config_read_error",
-                    level="error",
-                    message=f"Cannot read config file: {exc}",
-                    location=SourceLocation(
-                        mode="local",
-                        kind="file",
-                        file_path=str(path),
-                    ),
-                )
-            ],
+        return _attach_context(
+            AnalysisResult(
+                mode="local",
+                target=config_path_str,
+                server_type="iis",
+                issues=[
+                    AnalysisIssue(
+                        code="iis_config_read_error",
+                        level="error",
+                        message=f"Cannot read config file: {exc}",
+                        location=SourceLocation(
+                            mode="local",
+                            kind="file",
+                            file_path=str(path),
+                        ),
+                    )
+                ],
+            ),
+            policy=policy,
         )
 
     try:
         doc = parse_iis_config(text, file_path=str(path))
     except IISParseError as exc:
-        return AnalysisResult(
-            mode="local",
-            target=config_path_str,
-            server_type="iis",
-            issues=[
-                AnalysisIssue(
-                    code="iis_parse_error",
-                    level="error",
-                    message=str(exc),
-                    location=SourceLocation(
-                        mode="local",
-                        kind="xml",
-                        file_path=exc.file_path or str(path),
-                        line=exc.line,
-                    ),
-                )
-            ],
+        return _attach_context(
+            AnalysisResult(
+                mode="local",
+                target=config_path_str,
+                server_type="iis",
+                issues=[
+                    AnalysisIssue(
+                        code="iis_parse_error",
+                        level="error",
+                        message=str(exc),
+                        location=SourceLocation(
+                            mode="local",
+                            kind="xml",
+                            file_path=exc.file_path or str(path),
+                            line=exc.line,
+                        ),
+                    )
+                ],
+            ),
+            policy=policy,
         )
 
     registry_tls, registry_issues = resolve_registry_tls(
@@ -155,7 +180,8 @@ def analyze_iis_config(
             machine_config_path=machine_config_path,
             registry_tls=registry_tls,
             registry_issues=registry_issues,
-            enable_policy_review=enable_policy_review,
+            enable_policy_review=effective_policy_review,
+            policy=policy,
         )
 
     return _analyze_single_config(
@@ -164,7 +190,8 @@ def analyze_iis_config(
         machine_config_path=machine_config_path,
         registry_tls=registry_tls,
         registry_issues=registry_issues,
-        enable_policy_review=enable_policy_review,
+        enable_policy_review=effective_policy_review,
+        policy=policy,
     )
 
 
@@ -176,6 +203,7 @@ def _analyze_single_config(
     registry_tls: IISRegistryTLS | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
+    policy: ResolvedAuditPolicy | None = None,
 ) -> AnalysisResult:
     """Analyze a single IIS config file (web.config, machine.config, standalone)."""
     issues: list[AnalysisIssue] = list(registry_issues or [])
@@ -207,12 +235,14 @@ def _analyze_single_config(
         "tls_registry_source": _registry_metadata(registry_tls),
     }
 
+    recorder = RuleExecutionRecorder()
     findings = run_iis_rules(
         doc,
         effective_config=effective,
         registry_tls=registry_tls,
         issues=issues,
         enable_policy_review=enable_policy_review,
+        execution_recorder=recorder,
     )
     normalized = normalize_config(
         "iis",
@@ -222,17 +252,24 @@ def _analyze_single_config(
     )
     findings.extend(
         run_universal_rules(
-            normalized, issues=issues, enable_policy_review=enable_policy_review,
+            normalized,
+            issues=issues,
+            enable_policy_review=enable_policy_review,
+            execution_recorder=recorder,
         )
     )
 
-    return AnalysisResult(
-        mode="local",
-        target=config_path,
-        server_type="iis",
-        findings=findings,
-        issues=issues,
-        metadata=metadata,
+    return _attach_context(
+        AnalysisResult(
+            mode="local",
+            target=config_path,
+            server_type="iis",
+            findings=findings,
+            issues=issues,
+            metadata=metadata,
+        ),
+        policy=policy,
+        recorder=recorder,
     )
 
 
@@ -244,6 +281,7 @@ def _analyze_application_host(
     registry_tls: IISRegistryTLS | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
+    policy: ResolvedAuditPolicy | None = None,
 ) -> AnalysisResult:
     """Analyze applicationHost.config with discovered sites/apps and optional machine.config."""
     all_findings: list[Finding] = []
@@ -254,6 +292,7 @@ def _analyze_application_host(
 
     base_effective = build_effective_config(doc)
     base_chain = [doc.file_path or config_path]
+    recorder = RuleExecutionRecorder()
 
     machine_doc: IISConfigDocument | None = None
     if discovery.machine_config_path is not None:
@@ -276,6 +315,7 @@ def _analyze_application_host(
             registry_tls=registry_tls,
             issues=all_issues,
             enable_policy_review=enable_policy_review,
+            execution_recorder=recorder,
         )
     )
     normalized = normalize_config(
@@ -286,7 +326,10 @@ def _analyze_application_host(
     )
     all_findings.extend(
         run_universal_rules(
-            normalized, issues=all_issues, enable_policy_review=enable_policy_review,
+            normalized,
+            issues=all_issues,
+            enable_policy_review=enable_policy_review,
+            execution_recorder=recorder,
         )
     )
 
@@ -310,6 +353,7 @@ def _analyze_application_host(
                     base_effective,
                     child_application_path=child_application_path,
                     enable_policy_review=enable_policy_review,
+                    execution_recorder=recorder,
                 )
                 all_findings.extend(site_findings)
                 all_issues.extend(site_issues)
@@ -343,13 +387,17 @@ def _analyze_application_host(
         "tls_registry_source": _registry_metadata(registry_tls),
     }
 
-    return AnalysisResult(
-        mode="local",
-        target=config_path,
-        server_type="iis",
-        findings=all_findings,
-        issues=all_issues,
-        metadata=metadata,
+    return _attach_context(
+        AnalysisResult(
+            mode="local",
+            target=config_path,
+            server_type="iis",
+            findings=all_findings,
+            issues=all_issues,
+            metadata=metadata,
+        ),
+        policy=policy,
+        recorder=recorder,
     )
 
 
@@ -359,6 +407,7 @@ def _analyze_web_config_with_base(
     *,
     child_application_path: str | None = None,
     enable_policy_review: bool = False,
+    execution_recorder: RuleExecutionRecorder | None = None,
 ) -> tuple[list[Finding], list[AnalysisIssue]]:
     """Parse and analyze a web.config, merging with base effective config.
 
@@ -391,14 +440,20 @@ def _analyze_web_config_with_base(
 
     findings.extend(
         run_iis_rules(
-            site_doc, effective_config=merged, issues=issues,
+            site_doc,
+            effective_config=merged,
+            issues=issues,
             enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
     )
     normalized = normalize_config("iis", doc=site_doc, effective_config=merged)
     findings.extend(
         run_universal_rules(
-            normalized, issues=issues, enable_policy_review=enable_policy_review,
+            normalized,
+            issues=issues,
+            enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
     )
 
@@ -495,6 +550,24 @@ def _registry_metadata(registry_tls: IISRegistryTLS | None) -> dict[str, object]
         "ciphers_known": registry_tls.ciphers_enabled is not None,
         "cipher_suite_order_known": registry_tls.cipher_suite_order is not None,
     }
+
+
+def _attach_context(
+    result: AnalysisResult,
+    *,
+    policy: ResolvedAuditPolicy | None,
+    recorder: RuleExecutionRecorder | None = None,
+) -> AnalysisResult:
+    rule_registry.ensure_loaded("webconf_audit.local.iis.rules")
+    rule_registry.ensure_loaded("webconf_audit.local.rules.universal")
+    manifest = build_analysis_manifest(
+        recorder=recorder or RuleExecutionRecorder(),
+        policy=policy,
+        mode="local",
+        server_type="iis",
+        registry=rule_registry,
+    )
+    return attach_audit_context(result, policy, manifest)
 
 
 __all__ = ["analyze_iis_config"]

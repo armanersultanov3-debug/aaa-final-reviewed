@@ -69,6 +69,11 @@ per-target results, the deduplicated findings list, repeated finding groups
 under `finding_groups`, standards references under each finding and the
 top-level `standards` summary, and the issues list.
 
+When an explicit policy is supplied, JSON results also include additive
+`result.metadata.audit_policy` and `result.metadata.rule_execution` entries.
+See [docs/audit-policy.md](docs/audit-policy.md) and
+[docs/report-format.md](docs/report-format.md).
+
 Use `--group-repeated` with text output to collapse repeated findings that
 share the same rule, severity, recommendation, and report grouping cause while
 preserving each exact source location.
@@ -137,6 +142,19 @@ findings unchanged:
 ```bash
 webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium
 ```
+
+### Explicit audit policy
+
+Policies are always opt-in and must be passed explicitly:
+
+```bash
+webconf-audit policy validate --policy .webconf-audit-policy.yml
+webconf-audit policy show --policy .webconf-audit-policy.yml --mode local --server-type nginx --target /etc/nginx/nginx.conf
+webconf-audit analyze-nginx /etc/nginx/nginx.conf --policy .webconf-audit-policy.yml
+```
+
+Policies request evidence review scope and opt-in rule tags, but they do not
+hide findings or raise coverage percentages by themselves.
 
 ## Local analysis pipeline
 
@@ -236,6 +254,10 @@ and item IDs, applicability, grouped requirements, evidence limitations,
 registry claims, exclusions, and review provenance. The ledger describes
 implemented scanner evidence within the documented scope; it is not a claim
 of certification or target compliance.
+
+Explicit audit policies are a separate layer on top of the ledger. They can
+select sources and request opt-in evidence, but they do not change the counted
+coverage snapshot on their own.
 
 Validate or inspect the shipped ledger with:
 

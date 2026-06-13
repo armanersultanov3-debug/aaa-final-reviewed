@@ -4,6 +4,12 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from webconf_audit.audit_policy import (
+    attach_audit_context,
+    build_analysis_manifest,
+    requested_opt_in_tags,
+)
+from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
     EffectiveConfig,
@@ -32,6 +38,8 @@ from webconf_audit.local.load_context import LoadContext
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
+from webconf_audit.policy_models import ResolvedAuditPolicy
+from webconf_audit.rule_registry import registry as rule_registry
 
 _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
     {
@@ -63,6 +71,7 @@ def analyze_apache_config(
     config_path: str | os.PathLike[str],
     *,
     enable_policy_review: bool = False,
+    policy: ResolvedAuditPolicy | None = None,
 ) -> AnalysisResult:
     """Run the full Apache local-analysis pipeline against ``config_path``.
 
@@ -77,9 +86,16 @@ def analyze_apache_config(
     """
     config_path_str = os.fspath(config_path)
     path = Path(config_path_str)
+    effective_policy_review = (
+        enable_policy_review
+        or "policy-review" in requested_opt_in_tags(policy)
+    )
 
     if not path.is_file():
-        return _config_not_found_result(config_path_str)
+        return _attach_context(
+            _config_not_found_result(config_path_str),
+            policy=policy,
+        )
 
     try:
         text = path.read_text(encoding="utf-8")
@@ -87,35 +103,50 @@ def analyze_apache_config(
         htaccess_result = discover_htaccess_files(ast, path)
         issues.extend(htaccess_result.issues)
         contexts = _build_analysis_contexts(ast, path.parent, htaccess_result.found)
+        recorder = RuleExecutionRecorder()
         findings = _collect_apache_findings(
             ast,
             path.parent,
             contexts,
             issues,
-            enable_policy_review=enable_policy_review,
+            enable_policy_review=effective_policy_review,
+            execution_recorder=recorder,
         )
     except UnicodeDecodeError as exc:
-        return _apache_config_read_error_result(
-            config_path_str,
-            path,
-            f"Cannot decode config file {config_path_str}: {exc}",
+        return _attach_context(
+            _apache_config_read_error_result(
+                config_path_str,
+                path,
+                f"Cannot decode config file {config_path_str}: {exc}",
+            ),
+            policy=policy,
         )
     except OSError as exc:
-        return _apache_config_read_error_result(
-            config_path_str,
-            path,
-            f"Cannot read config file {config_path_str}: {exc}",
+        return _attach_context(
+            _apache_config_read_error_result(
+                config_path_str,
+                path,
+                f"Cannot read config file {config_path_str}: {exc}",
+            ),
+            policy=policy,
         )
     except ApacheParseError as exc:
-        return _apache_parse_error_result(config_path_str, path, exc)
+        return _attach_context(
+            _apache_parse_error_result(config_path_str, path, exc),
+            policy=policy,
+        )
 
-    return AnalysisResult(
-        mode="local",
-        target=config_path_str,
-        server_type="apache",
-        findings=findings,
-        issues=issues,
-        metadata=_analysis_metadata(load_ctx, htaccess_result, contexts),
+    return _attach_context(
+        AnalysisResult(
+            mode="local",
+            target=config_path_str,
+            server_type="apache",
+            findings=findings,
+            issues=issues,
+            metadata=_analysis_metadata(load_ctx, htaccess_result, contexts),
+        ),
+        policy=policy,
+        recorder=recorder,
     )
 
 
@@ -157,20 +188,31 @@ def _collect_apache_findings(
     issues: list[AnalysisIssue],
     *,
     enable_policy_review: bool = False,
+    execution_recorder: RuleExecutionRecorder | None = None,
 ) -> list[Finding]:
     findings = run_apache_ast_rules(
-        ast, issues=issues, enable_policy_review=enable_policy_review,
+        ast,
+        issues=issues,
+        enable_policy_review=enable_policy_review,
+        execution_recorder=execution_recorder,
     )
     findings.extend(
         _context_htaccess_findings(
-            ast, contexts, config_dir, issues,
+            ast,
+            contexts,
+            config_dir,
+            issues,
             enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
     )
     findings.extend(
         _universal_apache_findings(
-            ast, config_dir, issues,
+            ast,
+            config_dir,
+            issues,
             enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
     )
     return findings
@@ -183,6 +225,7 @@ def _context_htaccess_findings(
     issues: list[AnalysisIssue],
     *,
     enable_policy_review: bool = False,
+    execution_recorder: RuleExecutionRecorder | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     seen_findings: set[tuple[str, str | None, int | None]] = set()
@@ -194,6 +237,7 @@ def _context_htaccess_findings(
             config_dir=config_dir,
             issues=issues,
             enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
         for finding in context_findings:
             key = _finding_key(finding)
@@ -219,6 +263,7 @@ def _universal_apache_findings(
     issues: list[AnalysisIssue],
     *,
     enable_policy_review: bool = False,
+    execution_recorder: RuleExecutionRecorder | None = None,
 ) -> list[Finding]:
     normalized = normalize_config(
         "apache",
@@ -228,7 +273,10 @@ def _universal_apache_findings(
     return [
         finding
         for finding in run_universal_rules(
-            normalized, issues=issues, enable_policy_review=enable_policy_review,
+            normalized,
+            issues=issues,
+            enable_policy_review=enable_policy_review,
+            execution_recorder=execution_recorder,
         )
         if finding.rule_id not in _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS
     ]
@@ -379,6 +427,24 @@ def _context_metadata(ctx: ApacheAnalysisContext) -> dict[str, object]:
         "htaccess_count": len(ctx.htaccess_files),
         "effective_directive_count": len(ctx.effective_server_config.directives),
     }
+
+
+def _attach_context(
+    result: AnalysisResult,
+    *,
+    policy: ResolvedAuditPolicy | None,
+    recorder: RuleExecutionRecorder | None = None,
+) -> AnalysisResult:
+    rule_registry.ensure_loaded("webconf_audit.local.apache.rules")
+    rule_registry.ensure_loaded("webconf_audit.local.rules.universal")
+    manifest = build_analysis_manifest(
+        recorder=recorder or RuleExecutionRecorder(),
+        policy=policy,
+        mode="local",
+        server_type="apache",
+        registry=rule_registry,
+    )
+    return attach_audit_context(result, policy, manifest)
 
 
 __all__ = ["ApacheAnalysisContext", "analyze_apache_config", "run_apache_rules"]

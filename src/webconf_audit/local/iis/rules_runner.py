@@ -11,11 +11,13 @@ from collections.abc import Callable
 from functools import lru_cache
 from inspect import signature
 
+from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import IISConfigDocument
 from webconf_audit.local.iis.registry import IISRegistryTLS
-from webconf_audit.local.rule_runner_utils import run_rule_entry
+from webconf_audit.local.rule_runner_utils import executable_rule_entries, run_rule_entry
 from webconf_audit.models import AnalysisIssue, Finding
+from webconf_audit.rule_registry import OPT_IN_TAGS
 from webconf_audit.rule_registry import registry
 
 _IIS_PKG = "webconf_audit.local.iis.rules"
@@ -28,15 +30,21 @@ def run_iis_rules(
     registry_tls: IISRegistryTLS | None = None,
     issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
+    execution_recorder: RuleExecutionRecorder | None = None,
 ) -> list[Finding]:
     registry.ensure_loaded(_IIS_PKG)
-    include_opt_in = ("policy-review",) if enable_policy_review else ()
-    findings: list[Finding] = []
-
-    for entry in registry.rules_for(
+    requested_opt_in_tags = ("policy-review",) if enable_policy_review else ()
+    entries = registry.rules_for(
         "local",
         server_type="iis",
-        include_opt_in_tags=include_opt_in,
+        include_opt_in_tags=tuple(OPT_IN_TAGS),
+    )
+    findings: list[Finding] = []
+
+    for entry in executable_rule_entries(
+        entries,
+        requested_opt_in_tags=requested_opt_in_tags,
+        execution_recorder=execution_recorder,
     ):
         findings.extend(
             run_rule_entry(
@@ -48,6 +56,7 @@ def run_iis_rules(
                     effective_config=effective_config,
                     registry_tls=registry_tls,
                 ),
+                execution_recorder=execution_recorder,
             )
         )
 

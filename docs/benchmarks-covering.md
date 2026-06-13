@@ -12,7 +12,8 @@ from prose. Its canonical source is the packaged, schema-versioned ledger
 `src/webconf_audit/data/control_source_coverage.yml`. The detailed
 human-readable table in `docs/control-source-coverage-tracker.md` is generated
 from that file, while release checks reconcile this section's summary against
-the same data.
+the same data. Explicit audit policies are a separate review layer and do not
+raise this coverage numerator by themselves.
 
 This revision includes the implemented opt-in
 `nginx.http3_alt_svc_review` policy-review rule and the corresponding

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.external.safe_probe_catalog import SAFE_PATH_RULE_METAS
 from webconf_audit.external.rules._conditional import collect_conditional_findings
 from webconf_audit.external.rules._cookies import collect_cookie_findings
@@ -139,50 +140,403 @@ def register_external_rule_metas(target_registry: RuleRegistry | None = None) ->
 
 register_external_rule_metas()
 
+_SERVER_COMPATIBILITY_CONFIDENCES = frozenset({"medium", "high"})
+_SENSITIVE_PATH_RULE_IDS = tuple(meta.rule_id for meta in SAFE_PATH_RULE_METAS)
+_RUNTIME_CONDITIONAL_RULE_IDS = frozenset(
+    {
+        "external.nginx.redirect_target_unexpected",
+        "external.nginx.default_index_page_body",
+        "external.iis.server_header_removal_not_applied",
+    }
+)
+_CONDITIONAL_RULES = {
+    meta.rule_id: meta.condition
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.condition is not None and meta.rule_id not in _RUNTIME_CONDITIONAL_RULE_IDS
+}
+_HTTPS_RULE_IDS = tuple(
+    meta.rule_id
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.rule_id.startswith("external.https_")
+    or meta.rule_id.startswith("external.hsts_")
+    or meta.rule_id in {
+        "external.http_not_redirected_to_https",
+        "external.http_redirect_not_permanent",
+    }
+)
+_HEADER_RULE_IDS = tuple(
+    meta.rule_id
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.rule_id.startswith("external.x_frame_options_")
+    or meta.rule_id.startswith("external.x_content_type_options_")
+    or meta.rule_id.startswith("external.content_security_policy_")
+    or meta.rule_id.startswith("external.referrer_policy_")
+    or meta.rule_id.startswith("external.permissions_policy_")
+    or meta.rule_id.startswith("external.coep_")
+    or meta.rule_id.startswith("external.coop_")
+    or meta.rule_id.startswith("external.corp_")
+)
+_DISCLOSURE_RULE_IDS = (
+    "external.server_version_disclosed",
+    "external.x_powered_by_header_present",
+    "external.x_aspnet_version_header_present",
+)
+_CORS_RULE_IDS = tuple(
+    meta.rule_id
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.rule_id.startswith("external.cors_")
+)
+_METHOD_RULE_IDS = (
+    "external.trace_method_allowed",
+    "external.allow_header_dangerous_methods",
+    "external.options_method_exposed",
+    "external.dangerous_http_methods_enabled",
+    "external.trace_method_exposed_via_options",
+    "external.webdav_methods_exposed",
+)
+_COOKIE_RULE_IDS = tuple(
+    meta.rule_id
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.rule_id.startswith("external.cookie_")
+)
+_TLS_RULE_IDS = tuple(
+    meta.rule_id
+    for meta in _EXTERNAL_RULE_METAS
+    if meta.rule_id.startswith("external.certificate_")
+    or meta.rule_id.startswith("external.tls_")
+    or meta.rule_id.startswith("external.ocsp_")
+    or meta.rule_id.startswith("external.cert_")
+    or meta.rule_id == "external.weak_cipher_suite"
+)
+_HTTPS_AVAILABILITY_RULE_IDS = ("external.https_not_available",)
+_HTTP_REDIRECT_RULE_IDS = (
+    "external.http_not_redirected_to_https",
+    "external.http_redirect_not_permanent",
+)
+_HSTS_RULE_IDS = tuple(
+    rule_id
+    for rule_id in _HTTPS_RULE_IDS
+    if rule_id not in _HTTPS_AVAILABILITY_RULE_IDS + _HTTP_REDIRECT_RULE_IDS
+)
+_UNKNOWN_HOST_RULE_IDS = ("external.unknown_host_runtime_response",)
+
 
 def run_external_rules(
     probe_attempts: list["ProbeAttempt"],
     target: str,
     sensitive_path_probes: list["SensitivePathProbe"] | None = None,
     server_identification: "ServerIdentification | None" = None,
+    execution_recorder: RuleExecutionRecorder | None = None,
+    record_runtime_only_rules: bool = False,
 ) -> list[Finding]:
     path_probes = sensitive_path_probes or []
+    has_observed_response = any(attempt.has_http_response for attempt in probe_attempts)
+    has_http_response = any(
+        attempt.has_http_response and attempt.target.scheme == "http"
+        for attempt in probe_attempts
+    )
+    has_https_response = any(
+        attempt.has_http_response and attempt.target.scheme == "https"
+        for attempt in probe_attempts
+    )
     findings: list[Finding] = []
-    findings.extend(collect_https_findings(probe_attempts, target))
-    findings.extend(collect_header_findings(probe_attempts))
-    findings.extend(
-        collect_disclosure_findings(
-            probe_attempts,
-            server_identification=server_identification,
-        )
+    if has_observed_response:
+        findings.extend(collect_https_findings(probe_attempts, target))
+    _record_group_terminal_state(
+        _HTTPS_AVAILABILITY_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_observed_response,
     )
-    findings.extend(find_nginx_redirect_target_unexpected(probe_attempts))
-    findings.extend(find_nginx_default_index_page_body(probe_attempts))
-    findings.extend(
-        find_iis_server_header_removal_not_applied(
-            probe_attempts,
-            server_identification=server_identification,
-        )
+    _record_group_terminal_state(
+        _HTTP_REDIRECT_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_http_response,
     )
-    findings.extend(collect_cors_findings(probe_attempts))
-    findings.extend(collect_method_findings(probe_attempts))
-    findings.extend(collect_cookie_findings(probe_attempts))
-    findings.extend(collect_tls_findings(probe_attempts, target))
-    findings.extend(find_unknown_host_runtime_response(probe_attempts))
-    findings.extend(
-        collect_sensitive_path_findings(
-            path_probes,
-            server_identification=server_identification,
-        )
+    _record_group_terminal_state(
+        _HSTS_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_https_response,
     )
     findings.extend(
-        collect_conditional_findings(
-            probe_attempts,
-            path_probes,
+        _collect_group(
+            _HEADER_RULE_IDS,
+            lambda: collect_header_findings(probe_attempts),
+            execution_recorder=execution_recorder,
+            runnable=has_https_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _DISCLOSURE_RULE_IDS,
+            lambda: collect_disclosure_findings(
+                probe_attempts,
+                server_identification=server_identification,
+            ),
+            execution_recorder=execution_recorder,
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_server_scoped_group(
+            ("external.nginx.redirect_target_unexpected",),
+            expected_server="nginx",
+            invoke=lambda: find_nginx_redirect_target_unexpected(probe_attempts),
             server_identification=server_identification,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.nginx.redirect_target_unexpected",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_server_scoped_group(
+            ("external.nginx.default_index_page_body",),
+            expected_server="nginx",
+            invoke=lambda: find_nginx_default_index_page_body(probe_attempts),
+            server_identification=server_identification,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.nginx.default_index_page_body",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_server_scoped_group(
+            ("external.iis.server_header_removal_not_applied",),
+            expected_server="iis",
+            invoke=lambda: find_iis_server_header_removal_not_applied(
+                probe_attempts,
+                server_identification=server_identification,
+            ),
+            server_identification=server_identification,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.iis.server_header_removal_not_applied",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _CORS_RULE_IDS,
+            lambda: collect_cors_findings(probe_attempts),
+            execution_recorder=execution_recorder,
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _METHOD_RULE_IDS,
+            lambda: collect_method_findings(probe_attempts),
+            execution_recorder=execution_recorder,
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _COOKIE_RULE_IDS,
+            lambda: collect_cookie_findings(probe_attempts),
+            execution_recorder=execution_recorder,
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _TLS_RULE_IDS,
+            lambda: collect_tls_findings(probe_attempts, target),
+            execution_recorder=execution_recorder,
+            runnable=has_https_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _UNKNOWN_HOST_RULE_IDS,
+            lambda: find_unknown_host_runtime_response(probe_attempts),
+            execution_recorder=(
+                _registered_execution_recorder(
+                    _UNKNOWN_HOST_RULE_IDS,
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
+            runnable=has_observed_response,
+        )
+    )
+    findings.extend(
+        _collect_group(
+            _SENSITIVE_PATH_RULE_IDS,
+            lambda: collect_sensitive_path_findings(
+                path_probes,
+                server_identification=server_identification,
+            ),
+            execution_recorder=execution_recorder,
+            runnable=bool(path_probes),
+        )
+    )
+    findings.extend(
+        _collect_conditional_group(
+            invoke=lambda: collect_conditional_findings(
+                probe_attempts,
+                path_probes,
+                server_identification=server_identification,
+            ),
+            server_identification=server_identification,
+            execution_recorder=execution_recorder,
+            runnable=has_observed_response or bool(path_probes),
         )
     )
     return findings
+
+
+def _registered_execution_recorder(
+    rule_ids: tuple[str, ...],
+    execution_recorder: RuleExecutionRecorder | None,
+) -> RuleExecutionRecorder | None:
+    if execution_recorder is None:
+        return None
+    if any(registry.get_meta(rule_id) is None for rule_id in rule_ids):
+        return None
+    return execution_recorder
+
+
+def _collect_group(
+    rule_ids: tuple[str, ...],
+    invoke,
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
+) -> list[Finding]:
+    if not runnable:
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
+        return []
+    findings = invoke()
+    _record_group_completions(rule_ids, execution_recorder=execution_recorder)
+    return findings
+
+
+def _collect_server_scoped_group(
+    rule_ids: tuple[str, ...],
+    *,
+    expected_server: str,
+    invoke,
+    server_identification: "ServerIdentification | None",
+    execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
+) -> list[Finding]:
+    if not runnable:
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
+        return []
+    if _server_incompatible(server_identification, expected_server):
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="server-incompatible",
+        )
+        return []
+    return _collect_group(
+        rule_ids,
+        invoke,
+        execution_recorder=execution_recorder,
+        runnable=True,
+    )
+
+
+def _collect_conditional_group(
+    *,
+    invoke,
+    server_identification: "ServerIdentification | None",
+    execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
+) -> list[Finding]:
+    if not runnable:
+        _record_group_skips(
+            tuple(_CONDITIONAL_RULES),
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
+        return []
+    findings = invoke()
+    if execution_recorder is None:
+        return findings
+    for rule_id, condition in _CONDITIONAL_RULES.items():
+        if condition is not None and _server_incompatible(server_identification, condition):
+            execution_recorder.skipped(rule_id, reason="server-incompatible")
+        else:
+            execution_recorder.completed(rule_id)
+    return findings
+
+
+def _record_group_terminal_state(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
+) -> None:
+    if runnable:
+        _record_group_completions(rule_ids, execution_recorder=execution_recorder)
+        return
+    _record_group_skips(
+        rule_ids,
+        execution_recorder=execution_recorder,
+        reason="input-unavailable",
+    )
+
+
+def _record_group_completions(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+) -> None:
+    if execution_recorder is None:
+        return
+    for rule_id in rule_ids:
+        execution_recorder.completed(rule_id)
+
+
+def _record_group_skips(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+    reason: str,
+) -> None:
+    if execution_recorder is None:
+        return
+    for rule_id in rule_ids:
+        execution_recorder.skipped(rule_id, reason=reason)
+
+
+def _server_incompatible(
+    server_identification: "ServerIdentification | None",
+    expected_server: str,
+) -> bool:
+    return (
+        server_identification is not None
+        and server_identification.confidence in _SERVER_COMPATIBILITY_CONFIDENCES
+        and server_identification.server_type != expected_server
+    )
 
 
 __all__ = ["register_external_rule_metas", "run_external_rules"]

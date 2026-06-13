@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import io
+import inspect
 import socket
 import ssl
 import uuid
@@ -14,6 +15,8 @@ from urllib.parse import SplitResult, urljoin, urlsplit
 
 from OpenSSL import SSL as _OSSL
 
+from webconf_audit.audit_policy import attach_audit_context, build_analysis_manifest
+from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.external.html_recon import HTMLRecon, parse_html_recon
 from webconf_audit.external.safe_probe_catalog import (
     CONDITIONAL_SAFE_PROBE_CONFIDENCES,
@@ -29,7 +32,10 @@ from webconf_audit.external.recon.tls_probe import (
     parse_sct_list,
 )
 from webconf_audit.external.rules import run_external_rules
+from webconf_audit.external.rules._runner import register_external_rule_metas
 from webconf_audit.models import AnalysisIssue, AnalysisResult, SourceLocation
+from webconf_audit.policy_models import ResolvedAuditPolicy
+from webconf_audit.rule_registry import registry
 
 if TYPE_CHECKING:
     from webconf_audit.external.recon.port_discovery import DiscoveredPort
@@ -446,6 +452,7 @@ def analyze_external_target(
     *,
     scan_ports: bool = False,
     ports: tuple[int, ...] | None = None,
+    policy: ResolvedAuditPolicy | None = None,
 ) -> AnalysisResult:
     """Run external analysis against *target*.
 
@@ -465,13 +472,19 @@ def analyze_external_target(
     """
     probe_resolution = _resolve_probe_targets(target, scan_ports=scan_ports, ports=ports)
     if probe_resolution.invalid_discovery_target:
-        return _invalid_external_target_result(target)
+        return _attach_context(
+            _invalid_external_target_result(target),
+            policy=policy,
+        )
     if not probe_resolution.probe_targets:
-        return _no_probe_targets_result(
-            target,
-            use_discovery=probe_resolution.use_discovery,
-            diagnostics=probe_resolution.diagnostics,
-            scan_metadata=probe_resolution.scan_metadata,
+        return _attach_context(
+            _no_probe_targets_result(
+                target,
+                use_discovery=probe_resolution.use_discovery,
+                diagnostics=probe_resolution.diagnostics,
+                scan_metadata=probe_resolution.scan_metadata,
+            ),
+            policy=policy,
         )
 
     attempts, successful_attempts, attempt_diagnostics = _probe_attempts(
@@ -484,13 +497,19 @@ def analyze_external_target(
 
     error_page_probes = _probe_error_pages(successful_attempts)
     malformed_request_probes = _probe_malformed_requests(successful_attempts)
+    recorder = RuleExecutionRecorder()
     if not successful_attempts:
-        return _no_http_service_result(
-            target,
-            probe_targets=probe_resolution.probe_targets,
-            attempts=attempts,
-            diagnostics=diagnostics,
-            scan_metadata=probe_resolution.scan_metadata,
+        return _attach_context(
+            _no_http_service_result(
+                target,
+                probe_targets=probe_resolution.probe_targets,
+                attempts=attempts,
+                diagnostics=diagnostics,
+                scan_metadata=probe_resolution.scan_metadata,
+                recorder=recorder,
+            ),
+            policy=policy,
+            recorder=recorder,
         )
 
     unknown_host_probes = _probe_unknown_host_responses(successful_attempts)
@@ -505,11 +524,12 @@ def analyze_external_target(
         successful_attempts,
         identification,
     )
-    findings = run_external_rules(
+    findings = _run_external_rules_with_manifest(
         attempts,
         target,
         sensitive_path_probes,
         identification,
+        execution_recorder=recorder,
     )
     metadata = _analysis_metadata(
         attempts=attempts,
@@ -527,14 +547,66 @@ def analyze_external_target(
         diagnostics,
     )
 
-    return AnalysisResult(
-        mode="external",
-        target=target,
+    return _attach_context(
+        AnalysisResult(
+            mode="external",
+            target=target,
+            server_type=identification.server_type,
+            findings=findings,
+            issues=issues,
+            diagnostics=diagnostics,
+            metadata=metadata,
+        ),
+        policy=policy,
+        recorder=recorder,
         server_type=identification.server_type,
-        findings=findings,
-        issues=issues,
-        diagnostics=diagnostics,
-        metadata=metadata,
+    )
+
+
+def _attach_context(
+    result: AnalysisResult,
+    *,
+    policy: ResolvedAuditPolicy | None,
+    recorder: RuleExecutionRecorder | None = None,
+    server_type: str | None = None,
+) -> AnalysisResult:
+    registry.ensure_loaded("webconf_audit.external.rules")
+    register_external_rule_metas()
+    manifest = build_analysis_manifest(
+        recorder=recorder or RuleExecutionRecorder(),
+        policy=policy,
+        mode="external",
+        server_type=server_type,
+        registry=registry,
+    )
+    return attach_audit_context(result, policy, manifest)
+
+
+def _run_external_rules_with_manifest(
+    attempts: list[ProbeAttempt],
+    target: str,
+    sensitive_path_probes: list[SensitivePathProbe] | None,
+    identification: ServerIdentification | None,
+    *,
+    execution_recorder: RuleExecutionRecorder,
+) -> list:
+    parameters = inspect.signature(run_external_rules).parameters
+    if "execution_recorder" in parameters:
+        kwargs: dict[str, object] = {"execution_recorder": execution_recorder}
+        if "record_runtime_only_rules" in parameters:
+            kwargs["record_runtime_only_rules"] = True
+        return run_external_rules(
+            attempts,
+            target,
+            sensitive_path_probes,
+            identification,
+            **kwargs,
+        )
+    return run_external_rules(
+        attempts,
+        target,
+        sensitive_path_probes,
+        identification,
     )
 
 
@@ -681,15 +753,17 @@ def _no_http_service_result(
     attempts: list[ProbeAttempt],
     diagnostics: list[str],
     scan_metadata: list[dict[str, object]] | None,
+    recorder: RuleExecutionRecorder,
 ) -> AnalysisResult:
     return AnalysisResult(
         mode="external",
         target=target,
-        findings=run_external_rules(
+        findings=_run_external_rules_with_manifest(
             attempts,
             target,
             [],
             None,
+            execution_recorder=recorder,
         ),
         issues=[
             AnalysisIssue(
