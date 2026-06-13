@@ -85,6 +85,44 @@ def test_policy_show_json_without_target_returns_parsed_policy(tmp_path: Path) -
     assert payload["issues"] == []
 
 
+def test_policy_show_json_load_error_wraps_policy_path_object(tmp_path: Path) -> None:
+    missing_policy = tmp_path / ".webconf-audit-policy.yml"
+
+    result = runner.invoke(
+        app,
+        ["policy", "show", "--policy", str(missing_policy), "--format", "json"],
+    )
+
+    assert result.exit_code == 1, result.output
+    payload = json.loads(result.stdout)
+    assert payload["policy"] == {"path": str(missing_policy)}
+    assert payload["resolved"] is None
+    assert payload["issues"][0]["code"] == "policy_file_not_found"
+
+
+def test_policy_show_json_validation_error_returns_policy_object(tmp_path: Path) -> None:
+    payload = _policy_payload()
+    payload["profiles"][0]["requested_opt_in_tags"] = ["unknown-opt-in"]
+
+    result = runner.invoke(
+        app,
+        [
+            "policy",
+            "show",
+            "--policy",
+            str(_write_policy(tmp_path, payload)),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1, result.output
+    response = json.loads(result.stdout)
+    assert response["policy"]["policy_id"] == "explicit-policy-cli"
+    assert response["resolved"] is None
+    assert response["issues"][0]["code"] == "unknown_opt_in_tag"
+
+
 @pytest.mark.parametrize(
     ("command", "target", "analyzer_attr"),
     [

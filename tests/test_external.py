@@ -1112,6 +1112,12 @@ def test_analyze_external_target_returns_issue_when_no_service_is_reachable(monk
     assert result.issues[0].code == "external_no_http_service"
     assert result.issues[0].location is not None
     assert result.issues[0].location.kind == "endpoint"
+    assert "external.https_not_available" in set(
+        result.metadata["rule_execution"]["selected_rule_ids"]
+    )
+    assert "external.https_not_available" in set(
+        result.metadata["rule_execution"]["completed_rule_ids"]
+    )
 
 
 def test_analyze_external_target_returns_warning_when_server_type_is_unknown(monkeypatch) -> None:

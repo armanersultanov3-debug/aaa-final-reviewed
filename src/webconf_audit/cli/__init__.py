@@ -918,7 +918,7 @@ def show_policy_command(
     except AuditPolicyLoadError as exc:
         payload = {
             "schema_version": 1,
-            "policy": policy,
+            "policy": {"path": policy},
             "resolved": None,
             "issues": [_policy_issue_payload(exc.issue)],
         }
@@ -934,7 +934,10 @@ def show_policy_command(
     if validation_issues:
         payload = {
             "schema_version": 1,
-            "policy": policy,
+            "policy": loaded_policy.model_dump(
+                mode="json",
+                exclude={"loaded_provenance"},
+            ),
             "resolved": None,
             "issues": [_policy_issue_payload(issue) for issue in validation_issues],
         }

@@ -31,6 +31,7 @@ def _entry(
     category: str,
     server_type: str | None = None,
     input_kind: str = "ast",
+    tags: tuple[str, ...] = (),
     fn,
 ) -> RuleEntry:
     return RuleEntry(
@@ -43,6 +44,7 @@ def _entry(
             category=category,
             server_type=server_type,
             input_kind=input_kind,
+            tags=tags,
         ),
         fn=fn,
     )
@@ -252,3 +254,55 @@ def test_analyze_nginx_config_reports_rule_execution_issue(monkeypatch, tmp_path
         and issue.details == "RuntimeError: broken nginx rule"
         for issue in result.issues
     )
+
+
+def test_run_nginx_rules_records_prerequisite_and_opt_in_skips(monkeypatch):
+    from webconf_audit.execution_manifest import (
+        RuleExecutionRecorder,
+        RuleSelection,
+        build_rule_execution_manifest,
+    )
+    from webconf_audit.local.nginx import rules_runner as module
+    from webconf_audit.local.nginx.parser.ast import ConfigAst
+
+    prerequisite_entry = _entry(
+        "nginx.proxy_pass_user_controlled_destination",
+        category="local",
+        server_type="nginx",
+        fn=lambda _config_ast: [_finding("nginx.proxy_pass_user_controlled_destination")],
+    )
+    opt_in_entry = _entry(
+        "nginx.policy_review_only",
+        category="local",
+        server_type="nginx",
+        tags=("policy-review",),
+        fn=lambda _config_ast: [_finding("nginx.policy_review_only")],
+    )
+
+    monkeypatch.setattr(module.registry, "ensure_loaded", lambda _package_name: None)
+    monkeypatch.setattr(
+        module.registry,
+        "rules_for",
+        lambda _category, server_type=None, include_opt_in_tags=(): [
+            prerequisite_entry,
+            opt_in_entry,
+        ],
+    )
+
+    recorder = RuleExecutionRecorder()
+    findings = module.run_nginx_rules(
+        ConfigAst(nodes=[]),
+        execution_recorder=recorder,
+    )
+    manifest = build_rule_execution_manifest(
+        RuleSelection(
+            registry_revision="registry:test",
+            selected_rule_ids=recorder.selected_rule_ids(),
+        ),
+        recorder.events(),
+    )
+
+    assert findings == []
+    skipped = {entry.rule_id: entry.reason for entry in manifest.skipped_rules}
+    assert skipped["nginx.proxy_pass_user_controlled_destination"] == "prerequisite-failed"
+    assert skipped["nginx.policy_review_only"] == "opt-in-not-selected"

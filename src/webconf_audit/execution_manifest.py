@@ -307,7 +307,7 @@ def registry_revision(registry: RuleRegistry) -> str:
     """Return a deterministic revision token for the current live registry."""
     payload = [
         _rule_meta_payload(meta)
-        for meta in registry.list_rules()
+        for meta in sorted(registry.list_rules(), key=lambda meta: meta.rule_id)
     ]
     encoded = json.dumps(
         payload,

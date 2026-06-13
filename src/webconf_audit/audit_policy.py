@@ -115,6 +115,12 @@ def load_audit_policy(
             f"Audit policy was not found: {path}",
             path=display_path,
         ) from exc
+    except OSError as exc:
+        raise _load_error(
+            "policy_file_not_found",
+            f"Audit policy could not be read: {path}",
+            path=display_path,
+        ) from exc
     if size > max_bytes:
         raise _load_error(
             "policy_file_too_large",

@@ -156,7 +156,14 @@ def test_analyze_nginx_with_policy_attaches_policy_and_manifest_metadata(
     assert metadata["audit_policy"]["requested_opt_in_tags"] == ["policy-review"]
     assert "nginx.http3_alt_svc_review" in metadata["rule_execution"]["selected_rule_ids"]
     assert "nginx.http3_alt_svc_review" in metadata["rule_execution"]["completed_rule_ids"]
-    assert "pass" not in json.dumps(metadata["rule_execution"], sort_keys=True).lower()
+    assert set(metadata["rule_execution"]) == {
+        "schema_version",
+        "registry_revision",
+        "selected_rule_ids",
+        "completed_rule_ids",
+        "skipped_rules",
+        "failed_rules",
+    }
 
 
 def test_analyze_nginx_without_policy_keeps_additive_null_policy_metadata(

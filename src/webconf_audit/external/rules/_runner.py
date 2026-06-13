@@ -253,7 +253,14 @@ def run_external_rules(
             expected_server="nginx",
             invoke=lambda: find_nginx_redirect_target_unexpected(probe_attempts),
             server_identification=server_identification,
-            execution_recorder=execution_recorder if record_runtime_only_rules else None,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.nginx.redirect_target_unexpected",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
         )
     )
     findings.extend(
@@ -262,7 +269,14 @@ def run_external_rules(
             expected_server="nginx",
             invoke=lambda: find_nginx_default_index_page_body(probe_attempts),
             server_identification=server_identification,
-            execution_recorder=execution_recorder if record_runtime_only_rules else None,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.nginx.default_index_page_body",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
         )
     )
     findings.extend(
@@ -274,7 +288,14 @@ def run_external_rules(
                 server_identification=server_identification,
             ),
             server_identification=server_identification,
-            execution_recorder=execution_recorder if record_runtime_only_rules else None,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    ("external.iis.server_header_removal_not_applied",),
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
         )
     )
     findings.extend(
@@ -309,7 +330,14 @@ def run_external_rules(
         _collect_group(
             _UNKNOWN_HOST_RULE_IDS,
             lambda: find_unknown_host_runtime_response(probe_attempts),
-            execution_recorder=execution_recorder if record_runtime_only_rules else None,
+            execution_recorder=(
+                _registered_execution_recorder(
+                    _UNKNOWN_HOST_RULE_IDS,
+                    execution_recorder,
+                )
+                if record_runtime_only_rules
+                else None
+            ),
         )
     )
     findings.extend(
@@ -334,6 +362,17 @@ def run_external_rules(
         )
     )
     return findings
+
+
+def _registered_execution_recorder(
+    rule_ids: tuple[str, ...],
+    execution_recorder: RuleExecutionRecorder | None,
+) -> RuleExecutionRecorder | None:
+    if execution_recorder is None:
+        return None
+    if any(registry.get_meta(rule_id) is None for rule_id in rule_ids):
+        return None
+    return execution_recorder
 
 
 def _collect_group(

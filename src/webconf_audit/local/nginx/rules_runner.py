@@ -39,17 +39,19 @@ def run_nginx_rules(
         for node in iter_nodes(config_ast.nodes)
         if isinstance(node, DirectiveNode)
     }
-    entries = [
-        entry
-        for entry in entries
-        if _rule_prerequisites_satisfied(entry.meta.rule_id, directive_names)
-    ]
     findings: list[Finding] = []
     for entry in executable_rule_entries(
         entries,
         requested_opt_in_tags=requested_opt_in_tags,
         execution_recorder=execution_recorder,
     ):
+        if not _rule_prerequisites_satisfied(entry.meta.rule_id, directive_names):
+            if execution_recorder is not None:
+                execution_recorder.skipped(
+                    entry.meta.rule_id,
+                    reason="prerequisite-failed",
+                )
+            continue
         findings.extend(
             run_rule_entry(
                 entry,

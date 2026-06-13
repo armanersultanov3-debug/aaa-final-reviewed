@@ -197,6 +197,30 @@ def test_validate_policy_rejects_unsafe_yaml(tmp_path: Path) -> None:
     assert excinfo.value.issue.code == "policy_yaml_invalid"
 
 
+def test_load_audit_policy_reports_stat_oserror_as_load_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from webconf_audit.audit_policy import AuditPolicyLoadError, load_audit_policy
+
+    policy_path = _write_policy(tmp_path, _base_policy_payload())
+    path_type = type(policy_path)
+    original_stat = path_type.stat
+
+    def _failing_stat(self: Path):
+        if self == policy_path:
+            raise OSError("stat failed")
+        return original_stat(self)
+
+    monkeypatch.setattr(path_type, "stat", _failing_stat)
+
+    with pytest.raises(AuditPolicyLoadError) as excinfo:
+        load_audit_policy(policy_path)
+
+    assert excinfo.value.issue.code == "policy_file_not_found"
+    assert "could not be read" in excinfo.value.issue.message
+
+
 def test_validate_policy_rejects_derived_direct_owasp_expectation(
     tmp_path: Path,
 ) -> None:

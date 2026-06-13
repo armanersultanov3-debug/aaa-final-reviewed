@@ -497,6 +497,7 @@ def analyze_external_target(
 
     error_page_probes = _probe_error_pages(successful_attempts)
     malformed_request_probes = _probe_malformed_requests(successful_attempts)
+    recorder = RuleExecutionRecorder()
     if not successful_attempts:
         return _attach_context(
             _no_http_service_result(
@@ -505,8 +506,10 @@ def analyze_external_target(
                 attempts=attempts,
                 diagnostics=diagnostics,
                 scan_metadata=probe_resolution.scan_metadata,
+                recorder=recorder,
             ),
             policy=policy,
+            recorder=recorder,
         )
 
     unknown_host_probes = _probe_unknown_host_responses(successful_attempts)
@@ -517,7 +520,6 @@ def analyze_external_target(
         error_page_probes,
         malformed_request_probes,
     )
-    recorder = RuleExecutionRecorder()
     sensitive_path_probes = _probe_sensitive_paths(
         successful_attempts,
         identification,
@@ -751,15 +753,17 @@ def _no_http_service_result(
     attempts: list[ProbeAttempt],
     diagnostics: list[str],
     scan_metadata: list[dict[str, object]] | None,
+    recorder: RuleExecutionRecorder,
 ) -> AnalysisResult:
     return AnalysisResult(
         mode="external",
         target=target,
-        findings=run_external_rules(
+        findings=_run_external_rules_with_manifest(
             attempts,
             target,
             [],
             None,
+            execution_recorder=recorder,
         ),
         issues=[
             AnalysisIssue(
