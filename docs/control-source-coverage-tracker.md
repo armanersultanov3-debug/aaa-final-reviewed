@@ -3,6 +3,8 @@
 
 This generated view summarizes scanner-evidence coverage within the declared project scope. It does not certify compliance with any source.
 
+Target assessment is reported separately through `webconf-audit assess`; coverage status is not a per-target result.
+
 The denominator is `full + partial + policy-review + uncovered`. Only `full` items enter the numerator.
 
 ## Snapshot Summary

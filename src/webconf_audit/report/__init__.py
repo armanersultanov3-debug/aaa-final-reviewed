@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version as package_version
 from pydantic import BaseModel, Field
 from typing import Literal
 from typing_extensions import TypedDict
 
+from webconf_audit.execution_manifest import registry_revision
 from webconf_audit.fingerprints import finding_fingerprint
 from webconf_audit.models import (
     AnalysisIssue,
@@ -59,6 +61,9 @@ _SECONDARY_STANDARD_ORDER = [
     "MITRE ATT&CK Enterprise v15",
     "ФСТЭК БДУ",
 ]
+
+_ANALYSIS_REPORT_SCHEMA_VERSION = 1
+_PACKAGE_NAME = "webconf-audit"
 
 ReportGroupBy = Literal["severity", "standard"]
 
@@ -898,11 +903,14 @@ class JsonFormatter:
         self.group_by_cause = group_by_cause
 
     def format(self, report: ReportData) -> str:
+        _ensure_rule_metadata_loaded()
         summary = report.summary()
         top_level_findings = deduplicated_finding_pairs(report.results)
         baseline_diff = report.baseline_diff or {}
         suppressed_payloads = _suppressed_payloads_for_report(report, baseline_diff)
         payload = {
+            "schema_version": _ANALYSIS_REPORT_SCHEMA_VERSION,
+            "generator": _analysis_generator_payload(),
             "generated_at": report.generated_at,
             "summary": summary.model_dump(),
             "results": [
@@ -1043,6 +1051,16 @@ def _result_payload(result: AnalysisResult) -> dict[str, object]:
     kept verbatim so callers retain the full detector output for each target.
     """
     payload = result.model_dump()
+    metadata = payload.get("metadata")
+    if isinstance(metadata, dict):
+        suppressed = metadata.get("suppressed_findings")
+        if isinstance(suppressed, list):
+            metadata["suppressed_findings"] = [
+                _enriched_suppressed_payload(result, entry)
+                if isinstance(entry, dict)
+                else entry
+                for entry in suppressed
+            ]
     payload["findings"] = [
         finding_payload(result, finding)
         for finding in result.findings
@@ -1053,8 +1071,27 @@ def _result_payload(result: AnalysisResult) -> dict[str, object]:
 def _suppressed_finding_payloads(results: list[AnalysisResult]) -> list[dict[str, object]]:
     payloads: list[dict[str, object]] = []
     for result in results:
-        payloads.extend(suppressed_finding_entries(result))
+        payloads.extend(
+            _enriched_suppressed_payload(result, payload)
+            for payload in suppressed_finding_entries(result)
+        )
     return payloads
+
+
+def _enriched_suppressed_payload(
+    result: AnalysisResult,
+    payload: dict[str, object],
+) -> dict[str, object]:
+    enriched = dict(payload)
+    finding_data = payload.get("finding")
+    if not isinstance(finding_data, dict):
+        return enriched
+    try:
+        finding = Finding.model_validate(finding_data)
+    except Exception:
+        return enriched
+    enriched["finding"] = finding_payload(result, finding)
+    return enriched
 
 
 def finding_payload(result: AnalysisResult, finding: Finding) -> dict[str, object]:
@@ -1081,6 +1118,21 @@ def _ensure_rule_metadata_loaded() -> None:
     from webconf_audit.external.rules._runner import register_external_rule_metas
 
     register_external_rule_metas()
+
+
+def _analysis_generator_payload() -> dict[str, str]:
+    return {
+        "package_name": _PACKAGE_NAME,
+        "package_version": _package_version(),
+        "registry_revision": registry_revision(registry),
+    }
+
+
+def _package_version() -> str:
+    try:
+        return package_version(_PACKAGE_NAME)
+    except PackageNotFoundError:
+        return "0.1.0"
 
 
 def _standards_for_rule(

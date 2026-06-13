@@ -47,6 +47,7 @@ EvidenceKind = Literal[
     "safe-probe",
     "policy-review",
 ]
+AbsenceSemantics = Literal["none", "facet-pass", "control-pass"]
 
 
 class _StrictModel(BaseModel):
@@ -87,9 +88,21 @@ class RegistryReferenceClaim(_StrictModel):
     origin: MappingOrigin
 
 
+class AssessableRuleEvidence(_StrictModel):
+    rule_id: RuleIdentifier
+    strength: MappingStrength
+    origin: MappingOrigin
+    absence_semantics: AbsenceSemantics = "none"
+    assessed_facets: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+
+
 class CoverageEvidence(_StrictModel):
     rule_ids: tuple[RuleIdentifier, ...] = Field(default=(), max_length=1024)
     registry_references: tuple[RegistryReferenceClaim, ...] = Field(
+        default=(),
+        max_length=1024,
+    )
+    assessment_rules: tuple[AssessableRuleEvidence, ...] = Field(
         default=(),
         max_length=1024,
     )
@@ -158,6 +171,8 @@ class SourceCoverageSummary(_StrictModel):
 
 
 __all__ = [
+    "AbsenceSemantics",
+    "AssessableRuleEvidence",
     "Applicability",
     "ControlReference",
     "CoverageEvidence",

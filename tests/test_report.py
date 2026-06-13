@@ -474,6 +474,14 @@ class TestJsonFormatter:
         parsed = json.loads(out)
         assert "generated_at" in parsed
 
+    def test_json_has_schema_version_and_generator(self) -> None:
+        out = JsonFormatter().format(ReportData(results=[]))
+        parsed = json.loads(out)
+        assert parsed["schema_version"] == 1
+        assert parsed["generator"]["package_name"] == "webconf-audit"
+        assert parsed["generator"]["package_version"]
+        assert parsed["generator"]["registry_revision"]
+
     def test_json_findings_present(self) -> None:
         r = _result(findings=[_finding(rule_id="x.rule")])
         out = JsonFormatter().format(ReportData(results=[r]))

@@ -67,7 +67,9 @@ webconf-audit analyze-nginx config.conf --group-repeated
 The JSON envelope contains a generation timestamp, a summary, the
 per-target results, the deduplicated findings list, repeated finding groups
 under `finding_groups`, standards references under each finding and the
-top-level `standards` summary, and the issues list.
+top-level `standards` summary, and the issues list. Schema version 1 also
+adds top-level `schema_version` and `generator` fields so downstream tooling
+can verify the report format and registry revision.
 
 When an explicit policy is supplied, JSON results also include additive
 `result.metadata.audit_policy` and `result.metadata.rule_execution` entries.
@@ -155,6 +157,35 @@ webconf-audit analyze-nginx /etc/nginx/nginx.conf --policy .webconf-audit-policy
 
 Policies request evidence review scope and opt-in rule tags, but they do not
 hide findings or raise coverage percentages by themselves.
+
+### Control assessment
+
+Assessment is a separate step that consumes a versioned analysis report with
+embedded resolved policy and rule-execution metadata:
+
+```bash
+webconf-audit analyze-nginx nginx.conf --policy .webconf-audit-policy.yml --format json > analysis.json
+webconf-audit assess --report analysis.json
+webconf-audit assess --report analysis.json --format json
+webconf-audit assess --report analysis.json --fail-on fail,indeterminate
+```
+
+`assess` produces a conservative evidence report for resolved policy controls.
+It does not emit a compliance percentage or certification claim, and a
+zero-finding run does not automatically become `pass`.
+
+Assessment exit codes:
+
+- `0` - assessment was produced and no requested gate status was present.
+- `1` - the report, ledger, policy verification, or output path could not be
+  trusted.
+- `2` - invalid CLI usage.
+- `3` - assessment was produced successfully and a requested `--fail-on`
+  status was present.
+
+Use `--policy` with `assess` only to verify that the supplied policy resolves
+to the same embedded hashes as the original analysis report. See
+[docs/control-assessment.md](docs/control-assessment.md).
 
 ## Local analysis pipeline
 
@@ -257,7 +288,8 @@ of certification or target compliance.
 
 Explicit audit policies are a separate layer on top of the ledger. They can
 select sources and request opt-in evidence, but they do not change the counted
-coverage snapshot on their own.
+coverage snapshot on their own. Per-target status belongs to the separate
+assessment artifact, not to the coverage percentages shown here.
 
 Validate or inspect the shipped ledger with:
 

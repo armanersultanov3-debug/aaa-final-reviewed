@@ -236,6 +236,9 @@ def render_coverage_markdown(ledger: CoverageLedger) -> str:
         "This generated view summarizes scanner-evidence coverage within the "
         "declared project scope. It does not certify compliance with any source.",
         "",
+        "Target assessment is reported separately through "
+        "`webconf-audit assess`; coverage status is not a per-target result.",
+        "",
         "The denominator is `full + partial + policy-review + uncovered`. "
         "Only `full` items enter the numerator.",
         "",
@@ -657,6 +660,122 @@ def _validate_item(
                     source=source,
                     item=item,
                     rule_id=claim.rule_id,
+                )
+            )
+    seen_assessment_rules: set[str] = set()
+    claims_for_item = [
+        claim
+        for claim in evidence.registry_references
+        if _claim_matches_item_reference(item, claim.standard, claim.reference)
+    ]
+    for assessment_rule in evidence.assessment_rules:
+        if assessment_rule.rule_id in seen_assessment_rules:
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    (
+                        "Assessment evidence cannot repeat the same rule_id within "
+                        "one control item."
+                    ),
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+            continue
+        seen_assessment_rules.add(assessment_rule.rule_id)
+        if assessment_rule.rule_id not in evidence.rule_ids:
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    (
+                        f"Assessment evidence rule {assessment_rule.rule_id!r} is "
+                        "not listed in rule_ids."
+                    ),
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+        matching_claim = next(
+            (
+                claim
+                for claim in claims_for_item
+                if claim.rule_id == assessment_rule.rule_id
+                and claim.strength == assessment_rule.strength
+                and claim.origin == assessment_rule.origin
+            ),
+            None,
+        )
+        if matching_claim is None:
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    (
+                        "Assessment evidence must match a registry reference claim "
+                        "for the counted item."
+                    ),
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+            continue
+        if assessment_rule.origin == "derived" and assessment_rule.absence_semantics != "none":
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    "Derived assessment evidence must use absence_semantics 'none'.",
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+        if assessment_rule.strength == "related" and assessment_rule.absence_semantics != "none":
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    "Related assessment evidence must use absence_semantics 'none'.",
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+        meta = registry.get_meta(assessment_rule.rule_id)
+        if (
+            meta is not None
+            and "policy-review" in meta.tags
+            and assessment_rule.absence_semantics != "none"
+        ):
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    (
+                        "Rules tagged 'policy-review' cannot define automated "
+                        "pass semantics."
+                    ),
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
+                )
+            )
+        if (
+            assessment_rule.absence_semantics == "control-pass"
+            and not (
+                assessment_rule.strength == "direct"
+                and assessment_rule.origin == "declared"
+            )
+        ):
+            issues.append(
+                _issue(
+                    "registry_reference_mismatch",
+                    (
+                        "control-pass evidence requires a declared direct mapping "
+                        "for the counted item."
+                    ),
+                    source=source,
+                    item=item,
+                    rule_id=assessment_rule.rule_id,
                 )
             )
     claims_by_rule = {

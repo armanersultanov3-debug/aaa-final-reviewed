@@ -6,6 +6,17 @@ from typing import cast
 import click
 import typer
 
+from webconf_audit.assessment import (
+    AssessmentBuildError,
+    build_control_assessment,
+    load_analysis_report,
+    verify_assessment_inputs,
+)
+from webconf_audit.assessment_models import AssessmentIssue, ControlAssessmentReport
+from webconf_audit.assessment_renderers import (
+    render_assessment_json,
+    render_assessment_text,
+)
 from webconf_audit.audit_policy import (
     AuditPolicyLoadError,
     AuditPolicyResolveError,
@@ -14,7 +25,7 @@ from webconf_audit.audit_policy import (
     validate_audit_policy,
 )
 from webconf_audit.baselines import apply_baseline_diff, load_baseline_file, write_baseline_file
-from webconf_audit.coverage_ledger import load_coverage_ledger
+from webconf_audit.coverage_ledger import load_coverage_ledger, write_coverage_output
 from webconf_audit.external import analyze_external_target
 from webconf_audit.local.apache import analyze_apache_config
 from webconf_audit.local.iis import analyze_iis_config
@@ -394,6 +405,95 @@ def _has_blocking_new_findings(
         and _SEVERITY_RANK.get(entry["severity"], -1) >= threshold
         for entry in new_findings
     )
+
+
+def _parse_assessment_fail_on(raw: str | None) -> frozenset[str]:
+    if raw is None:
+        return frozenset()
+    statuses = {
+        token.strip()
+        for token in raw.split(",")
+        if token.strip()
+    }
+    valid = {
+        "pass",
+        "fail",
+        "partial",
+        "review",
+        "indeterminate",
+        "not-assessed",
+        "not-applicable",
+    }
+    invalid = sorted(statuses - valid)
+    if invalid:
+        raise typer.BadParameter(
+            "invalid_fail_on_status: "
+            + ", ".join(invalid)
+            + f"; expected one of: {', '.join(sorted(valid))}"
+        )
+    return frozenset(statuses)
+
+
+def _assessment_gate_triggered(
+    assessment: ControlAssessmentReport,
+    gate_statuses: frozenset[str],
+) -> bool:
+    return any(
+        control.status in gate_statuses
+        for source in assessment.sources
+        for control in source.controls
+    )
+
+
+def _filter_assessment_sources(
+    assessment: ControlAssessmentReport,
+    source_ids: tuple[str, ...],
+) -> tuple[ControlAssessmentReport, AssessmentIssue | None]:
+    filtered_sources = tuple(
+        source
+        for source in assessment.sources
+        if source.source_id in set(source_ids)
+    )
+    missing = sorted(set(source_ids) - {source.source_id for source in assessment.sources})
+    if missing:
+        return assessment, AssessmentIssue(
+            code="unknown_source_filter",
+            severity="error",
+            message=f"Unknown assessment source filter(s): {', '.join(missing)}",
+        )
+    return assessment.model_copy(update={"sources": filtered_sources}), None
+
+
+def _emit_assessment_failure(
+    output_format: OutputFormat,
+    issues: tuple[AssessmentIssue, ...],
+) -> None:
+    if output_format == OutputFormat.json:
+        typer.echo(_assessment_error_envelope(issues), nl=False)
+        return
+    for issue in issues:
+        typer.echo(f"{issue.code}: {issue.message}", err=True)
+
+
+def _assessment_error_envelope(issues: tuple[AssessmentIssue, ...]) -> str:
+    payload = {
+        "schema_version": 1,
+        "assessment": None,
+        "issues": [_assessment_issue_payload(issue) for issue in issues],
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
+
+
+def _assessment_issue_payload(issue: AssessmentIssue) -> dict[str, object]:
+    return {
+        "code": issue.code,
+        "severity": issue.severity,
+        "message": issue.message,
+        "source_id": issue.source_id,
+        "item_id": issue.item_id,
+        "rule_id": issue.rule_id,
+        "target_id": issue.target_id,
+    }
 
 
 def _policy_issue_payload(issue: AuditPolicyIssue) -> dict[str, object]:
@@ -848,6 +948,172 @@ def analyze_external(
         group_repeated,
         group_by_cause,
     )
+
+
+@app.command("assess")
+def assess_command(
+    report: Path = typer.Option(
+        ...,
+        "--report",
+        help="Path to the versioned analysis JSON report.",
+    ),
+    ledger: Path | None = typer.Option(
+        None,
+        "--ledger",
+        help="Optional local coverage ledger path.",
+    ),
+    policy: Path | None = typer.Option(
+        None,
+        "--policy",
+        help="Optional verification-only audit policy path.",
+    ),
+    source: list[str] | None = typer.Option(
+        None,
+        "--source",
+        help="Repeatable source filter for rendered output only.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.text,
+        "--format",
+        "-f",
+        help="Output format: text, json.",
+    ),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Write the assessment artifact to a file instead of stdout.",
+    ),
+    fail_on: str | None = typer.Option(
+        None,
+        "--fail-on",
+        help="Comma-separated assessment statuses that trigger exit code 3.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Atomically replace an existing regular output file.",
+    ),
+) -> None:
+    gate_statuses = _parse_assessment_fail_on(fail_on)
+    _ensure_all_rules_loaded()
+
+    try:
+        loaded_report = load_analysis_report(report)
+    except Exception as exc:
+        issue = (
+            exc.issue  # type: ignore[attr-defined]
+            if hasattr(exc, "issue")
+            else AssessmentIssue(
+                code="analysis_report_schema_invalid",
+                severity="error",
+                message=str(exc),
+            )
+        )
+        _emit_assessment_failure(output_format, (issue,))
+        raise typer.Exit(1)
+
+    try:
+        loaded_ledger = load_coverage_ledger(ledger)
+    except Exception as exc:
+        if hasattr(exc, "issue"):
+            issue = AssessmentIssue(
+                code="ledger_validation_failed",
+                severity="error",
+                message=f"{exc.issue.code}: {exc.issue.message}",  # type: ignore[attr-defined]
+            )
+        else:
+            issue = AssessmentIssue(
+                code="ledger_validation_failed",
+                severity="error",
+                message=str(exc),
+            )
+        _emit_assessment_failure(output_format, (issue,))
+        raise typer.Exit(1)
+
+    verification_policy = None
+    if policy is not None:
+        try:
+            verification_policy = load_audit_policy(policy)
+        except AuditPolicyLoadError as exc:
+            _emit_assessment_failure(
+                output_format,
+                (
+                    AssessmentIssue(
+                        code="policy_verification_mismatch",
+                        severity="error",
+                        message=f"{exc.issue.code}: {exc.issue.message}",
+                    ),
+                ),
+            )
+            raise typer.Exit(1)
+        validation_issues = validate_audit_policy(verification_policy, loaded_ledger, registry)
+        if validation_issues:
+            _emit_assessment_failure(
+                output_format,
+                tuple(
+                    AssessmentIssue(
+                        code="policy_verification_mismatch",
+                        severity="error",
+                        message=f"{issue.code}: {issue.message}",
+                        source_id=issue.source_id,
+                        item_id=issue.item_id,
+                        rule_id=issue.rule_id,
+                    )
+                    for issue in validation_issues
+                ),
+            )
+            raise typer.Exit(1)
+
+    verification_issues = verify_assessment_inputs(
+        loaded_report,
+        loaded_ledger,
+        registry,
+        verification_policy=verification_policy,
+    )
+    fatal_issues = tuple(issue for issue in verification_issues if issue.severity == "error")
+    if fatal_issues:
+        _emit_assessment_failure(output_format, fatal_issues)
+        raise typer.Exit(1)
+
+    try:
+        assessment = build_control_assessment(loaded_report, loaded_ledger, registry)
+    except AssessmentBuildError as exc:
+        _emit_assessment_failure(output_format, exc.issues)
+        raise typer.Exit(1)
+
+    filtered = assessment
+    if source:
+        filtered, source_issue = _filter_assessment_sources(assessment, tuple(source))
+        if source_issue is not None:
+            _emit_assessment_failure(output_format, (source_issue,))
+            raise typer.Exit(1)
+
+    content = (
+        render_assessment_json(filtered)
+        if output_format == OutputFormat.json
+        else render_assessment_text(filtered)
+    )
+    if output is None:
+        typer.echo(content, nl=False)
+    else:
+        write_issue = write_coverage_output(output, content, force=force)
+        if write_issue is not None:
+            _emit_assessment_failure(
+                output_format,
+                (
+                    AssessmentIssue(
+                        code=write_issue.code,
+                        severity="error",
+                        message=write_issue.message,
+                    ),
+                ),
+            )
+            raise typer.Exit(1)
+        typer.echo(f"Wrote assessment artifact to {output}.")
+
+    if gate_statuses and _assessment_gate_triggered(assessment, gate_statuses):
+        raise typer.Exit(3)
 
 
 @policy_app.command("validate")
