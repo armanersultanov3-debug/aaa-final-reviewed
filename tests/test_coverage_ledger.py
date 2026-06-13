@@ -198,6 +198,22 @@ def test_load_coverage_ledger_rejects_unsafe_yaml(
     assert exc_info.value.issue.code == "ledger_yaml_invalid"
 
 
+def test_load_coverage_ledger_rejects_duplicate_mapping_keys(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "duplicate.yml"
+    path.write_text(
+        "schema_version: 1\nschema_version: 2\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(CoverageLedgerLoadError) as exc_info:
+        load_coverage_ledger(path)
+
+    assert exc_info.value.issue.code == "ledger_yaml_invalid"
+    assert "duplicate" in exc_info.value.issue.message.lower()
+
+
 def test_load_coverage_ledger_wraps_schema_errors(tmp_path: Path) -> None:
     path = tmp_path / "invalid.yml"
     payload = _ledger_payload()
@@ -610,6 +626,31 @@ def test_check_coverage_documentation_detects_tracker_and_summary_drift(
         "benchmark_summary_drift",
         "tracker_render_drift",
     }
+
+
+def test_check_coverage_documentation_detects_extra_benchmark_source(
+    tmp_path: Path,
+) -> None:
+    ledger = CoverageLedger.model_validate(_ledger_payload())
+    tracker = tmp_path / "tracker.md"
+    benchmark = tmp_path / "benchmark.md"
+    tracker.write_text(render_coverage_markdown(ledger), encoding="utf-8")
+    benchmark.write_text(
+        "\n".join(
+            [
+                "| Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |",
+                "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+                "| OWASP ASVS v5.0.0 | 1 | 1 | 0 | 0 | 0 | 100.0% |",
+                "| Removed source | 1 | 1 | 0 | 0 | 0 | 100.0% |",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    issues = check_coverage_documentation(ledger, tracker, benchmark)
+
+    assert [issue.code for issue in issues] == ["benchmark_summary_drift"]
+    assert "Removed source" in issues[0].message
 
 
 def test_write_coverage_output_refuses_existing_file(tmp_path: Path) -> None:
