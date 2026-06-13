@@ -176,3 +176,44 @@ def test_external_runner_marks_unavailable_groups_as_input_unavailable() -> None
     assert skipped["external.cookie_missing_httponly"] == "input-unavailable"
     assert skipped["external.certificate_expired"] == "input-unavailable"
     assert skipped["external.nginx.default_welcome_page"] == "input-unavailable"
+
+
+def test_external_runner_marks_http_redirect_rules_input_unavailable_without_http_response() -> None:
+    from webconf_audit.execution_manifest import (
+        RuleExecutionRecorder,
+        RuleSelection,
+        build_rule_execution_manifest,
+    )
+    from webconf_audit.external.rules import _runner as runner_module
+
+    recorder = RuleExecutionRecorder()
+    runner_module.run_external_rules(
+        [
+            ProbeAttempt(
+                target=ProbeTarget(scheme="https", host="example.test", port=443, path="/"),
+                tcp_open=True,
+                status_code=200,
+                strict_transport_security_header="max-age=31536000; includeSubDomains",
+            )
+        ],
+        "https://example.test",
+        sensitive_path_probes=[],
+        server_identification=None,
+        execution_recorder=recorder,
+    )
+
+    manifest = build_rule_execution_manifest(
+        RuleSelection(
+            registry_revision="registry:test",
+            selected_rule_ids=recorder.selected_rule_ids(),
+        ),
+        recorder.events(),
+    )
+
+    skipped = {entry.rule_id: entry.reason for entry in manifest.skipped_rules}
+    assert skipped["external.http_not_redirected_to_https"] == "input-unavailable"
+    assert skipped["external.http_redirect_not_permanent"] == "input-unavailable"
+    assert "external.https_not_available" in manifest.completed_rule_ids
+    assert "external.hsts_header_missing" in manifest.completed_rule_ids
+    assert "external.http_not_redirected_to_https" not in manifest.completed_rule_ids
+    assert "external.http_redirect_not_permanent" not in manifest.completed_rule_ids

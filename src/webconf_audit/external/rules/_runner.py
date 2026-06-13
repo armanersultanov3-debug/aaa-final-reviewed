@@ -208,15 +208,15 @@ _TLS_RULE_IDS = tuple(
     or meta.rule_id.startswith("external.cert_")
     or meta.rule_id == "external.weak_cipher_suite"
 )
-_HTTPS_AVAILABILITY_RULE_IDS = (
-    "external.https_not_available",
+_HTTPS_AVAILABILITY_RULE_IDS = ("external.https_not_available",)
+_HTTP_REDIRECT_RULE_IDS = (
     "external.http_not_redirected_to_https",
     "external.http_redirect_not_permanent",
 )
 _HSTS_RULE_IDS = tuple(
     rule_id
     for rule_id in _HTTPS_RULE_IDS
-    if rule_id not in _HTTPS_AVAILABILITY_RULE_IDS
+    if rule_id not in _HTTPS_AVAILABILITY_RULE_IDS + _HTTP_REDIRECT_RULE_IDS
 )
 _UNKNOWN_HOST_RULE_IDS = ("external.unknown_host_runtime_response",)
 
@@ -230,16 +230,25 @@ def run_external_rules(
     record_runtime_only_rules: bool = False,
 ) -> list[Finding]:
     path_probes = sensitive_path_probes or []
-    has_http_response = any(attempt.has_http_response for attempt in probe_attempts)
+    has_observed_response = any(attempt.has_http_response for attempt in probe_attempts)
+    has_http_response = any(
+        attempt.has_http_response and attempt.target.scheme == "http"
+        for attempt in probe_attempts
+    )
     has_https_response = any(
         attempt.has_http_response and attempt.target.scheme == "https"
         for attempt in probe_attempts
     )
     findings: list[Finding] = []
-    if has_http_response:
+    if has_observed_response:
         findings.extend(collect_https_findings(probe_attempts, target))
     _record_group_terminal_state(
         _HTTPS_AVAILABILITY_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_observed_response,
+    )
+    _record_group_terminal_state(
+        _HTTP_REDIRECT_RULE_IDS,
         execution_recorder=execution_recorder,
         runnable=has_http_response,
     )
@@ -264,7 +273,7 @@ def run_external_rules(
                 server_identification=server_identification,
             ),
             execution_recorder=execution_recorder,
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -281,7 +290,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -298,7 +307,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -318,7 +327,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -326,7 +335,7 @@ def run_external_rules(
             _CORS_RULE_IDS,
             lambda: collect_cors_findings(probe_attempts),
             execution_recorder=execution_recorder,
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -334,7 +343,7 @@ def run_external_rules(
             _METHOD_RULE_IDS,
             lambda: collect_method_findings(probe_attempts),
             execution_recorder=execution_recorder,
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -342,7 +351,7 @@ def run_external_rules(
             _COOKIE_RULE_IDS,
             lambda: collect_cookie_findings(probe_attempts),
             execution_recorder=execution_recorder,
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -365,7 +374,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
-            runnable=has_http_response,
+            runnable=has_observed_response,
         )
     )
     findings.extend(
@@ -388,7 +397,7 @@ def run_external_rules(
             ),
             server_identification=server_identification,
             execution_recorder=execution_recorder,
-            runnable=has_http_response or bool(path_probes),
+            runnable=has_observed_response or bool(path_probes),
         )
     )
     return findings
