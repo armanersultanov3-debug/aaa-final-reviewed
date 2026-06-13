@@ -65,3 +65,12 @@ def test_direct_catch_all_references_do_not_apply_to_future_known_rule_ids() -> 
 
     assert all(ref.reference != "8.27" for ref in iso_refs)
     assert all(not ref.reference.endswith(".32") for ref in fstec_refs)
+
+
+def test_lookup_does_not_apply_named_access_mapping_to_future_rule_id() -> None:
+    primary, secondary = rule_standards.lookup_rule_standards(
+        "apache.htaccess_future_rule"
+    )
+
+    assert primary == ()
+    assert secondary == ()

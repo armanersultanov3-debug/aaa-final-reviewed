@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
 from typing import Sequence
+import zipfile
 
 
 DEFAULT_WORK_DIR = Path(".tmp") / "release-check"
@@ -46,11 +47,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         project_version = _project_version(repo_root)
         print(f"==> Check release notes for current version: {CHANGELOG_FILE}", flush=True)
         _check_release_notes(repo_root, project_version)
-        print("==> Validate source crosswalk and coverage documents", flush=True)
-        _validate_source_crosswalk(repo_root)
+        print("==> Validate source coverage ledger and documents", flush=True)
+        _validate_source_coverage(repo_root)
         _run("Build wheel and sdist", ["uv", "build", "--out-dir", str(dist_dir)], cwd=repo_root)
         wheel = _select_single_artifact(dist_dir, "*.whl")
-        _select_single_artifact(dist_dir, "*.tar.gz")
+        sdist = _select_single_artifact(dist_dir, "*.tar.gz")
+        _assert_coverage_ledger_packaged(wheel, sdist)
         _run("Create clean virtual environment", [args.python, "-m", "venv", str(venv_dir)])
 
         venv_python = _venv_python(venv_dir)
@@ -73,6 +75,19 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _installed_crosswalk_validation_code(),
             ],
         )
+        _run(
+            "Validate installed coverage ledger",
+            [
+                str(venv_python),
+                "-c",
+                _installed_coverage_validation_code(),
+            ],
+        )
+        coverage_payload = _run_json(
+            "Run installed coverage CLI validation",
+            [str(console_script), "coverage", "validate", "--format", "json"],
+        )
+        _validate_coverage_payload(coverage_payload)
         catalog_payload = _run_json(
             "Load installed rule catalog",
             [str(console_script), "list-rules", "--format", "json"],
@@ -128,12 +143,14 @@ def _print_dry_run_plan(work_dir: Path) -> None:
     for index, command in enumerate(
         [
             "Check release notes for current version",
-            "Validate source crosswalk and coverage documents",
+            "Validate source coverage ledger and documents",
             ["uv", "build", "--out-dir", str(dist_dir)],
             [sys.executable, "-m", "venv", str(venv_dir)],
             [str(venv_python), "-m", "pip", "install", "<built wheel>"],
             [str(venv_python), "-m", "pip", "check"],
             "Validate installed rule crosswalk",
+            "Validate installed coverage ledger",
+            ["webconf-audit", "coverage", "validate", "--format", "json"],
             ["webconf-audit", "list-rules", "--format", "json"],
             [
                 "webconf-audit",
@@ -220,32 +237,65 @@ def _run_json(label: str, command: Sequence[str]) -> object:
     return parsed
 
 
-def _validate_source_crosswalk(repo_root: Path) -> None:
+def _validate_source_coverage(repo_root: Path) -> None:
     from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.coverage_ledger import (
+        check_coverage_documentation,
+        load_coverage_ledger,
+        validate_coverage_ledger,
+    )
+    from webconf_audit.crosswalk_integrity import validate_registry_crosswalk
     from webconf_audit.rule_registry import registry
 
-    module = _load_crosswalk_docs_module(repo_root)
     _ensure_all_rules_loaded()
-    issues = module.validate_coverage_documents(repo_root, registry.list_rules())
+    ledger = load_coverage_ledger()
+    crosswalk_issues = validate_registry_crosswalk(registry.list_rules())
+    ledger_issues = validate_coverage_ledger(ledger, registry)
+    documentation_issues = check_coverage_documentation(
+        ledger,
+        repo_root / "docs" / "control-source-coverage-tracker.md",
+        repo_root / "docs" / "benchmarks-covering.md",
+    )
+    issues = (*crosswalk_issues, *ledger_issues, *documentation_issues)
     if issues:
         details = "\n".join(
             f"- {issue.code}: {issue.message}"
             for issue in issues
         )
-        raise ReleaseCheckError(f"source crosswalk validation failed:\n{details}")
+        raise ReleaseCheckError(f"source coverage validation failed:\n{details}")
 
 
-def _load_crosswalk_docs_module(repo_root: Path):
-    script = repo_root / "scripts" / "crosswalk_docs.py"
-    spec = importlib.util.spec_from_file_location(
-        "webconf_audit_crosswalk_docs",
-        script,
-    )
-    if spec is None or spec.loader is None:
-        raise ReleaseCheckError(f"could not load crosswalk validator: {script}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def _assert_coverage_ledger_packaged(wheel: Path, sdist: Path) -> None:
+    wheel_member = "webconf_audit/data/control_source_coverage.yml"
+    with zipfile.ZipFile(wheel) as archive:
+        if wheel_member not in archive.namelist():
+            raise ReleaseCheckError(
+                f"built wheel is missing {wheel_member}"
+            )
+    with tarfile.open(sdist, "r:gz") as archive:
+        names = archive.getnames()
+        if not any(name.endswith(f"/{wheel_member}") for name in names):
+            raise ReleaseCheckError(
+                f"built sdist is missing {wheel_member}"
+            )
+
+
+def _validate_coverage_payload(payload: object) -> None:
+    if not isinstance(payload, dict):
+        raise ReleaseCheckError("coverage validation payload must be an object")
+    if payload.get("schema_version") != 1:
+        raise ReleaseCheckError("coverage validation payload has an invalid schema")
+    if payload.get("valid") is not True:
+        raise ReleaseCheckError(
+            f"installed coverage ledger is invalid: {payload.get('issues')!r}"
+        )
+    if payload.get("issues") != []:
+        raise ReleaseCheckError("valid coverage payload must have no issues")
+    sources = payload.get("sources")
+    if not isinstance(sources, list) or len(sources) != 8:
+        raise ReleaseCheckError(
+            "installed coverage ledger must contain the eight counted sources"
+        )
 
 
 def _validate_rule_catalog_payload(payload: object) -> None:
@@ -387,6 +437,22 @@ def _installed_crosswalk_validation_code() -> str:
         "raise SystemExit(0 if not issues else "
         "'crosswalk validation failed: ' + '; '.join("
         "f'{issue.code}:{issue.rule_id or \"-\"}:{issue.reference or \"-\"}' "
+        "for issue in issues))"
+    )
+
+
+def _installed_coverage_validation_code() -> str:
+    return (
+        "from webconf_audit.cli import _ensure_all_rules_loaded; "
+        "from webconf_audit.coverage_ledger import "
+        "load_coverage_ledger, validate_coverage_ledger; "
+        "from webconf_audit.rule_registry import registry; "
+        "_ensure_all_rules_loaded(); "
+        "ledger = load_coverage_ledger(); "
+        "issues = validate_coverage_ledger(ledger, registry); "
+        "raise SystemExit(0 if not issues else "
+        "'coverage validation failed: ' + '; '.join("
+        "f'{issue.code}:{issue.source_id or \"-\"}:{issue.item_id or \"-\"}' "
         "for issue in issues))"
     )
 

@@ -8,6 +8,10 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+- Add a schema-versioned packaged control-source coverage ledger, strict
+  registry reconciliation, deterministic Markdown/JSON views, additive
+  `coverage validate/show/export` commands, and release checks for document
+  and package-artifact drift without increasing any coverage numerator.
 - Add deterministic offline crosswalk validation, canonical OWASP/ASVS/PCI
   identifiers, and declared-versus-derived provenance in rule catalog and
   report JSON; conservatively correct ASVS, OWASP Top 10:2025, and PCI DSS

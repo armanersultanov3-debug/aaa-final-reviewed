@@ -228,6 +228,32 @@ Each standard reference includes additive `origin` and `derived_from` fields,
 so independently reviewed mappings can be distinguished from automatic
 edition alignments.
 
+## Control-source coverage ledger
+
+The counted coverage snapshot is stored in the versioned package file
+`src/webconf_audit/data/control_source_coverage.yml`. It records stable source
+and item IDs, applicability, grouped requirements, evidence limitations,
+registry claims, exclusions, and review provenance. The ledger describes
+implemented scanner evidence within the documented scope; it is not a claim
+of certification or target compliance.
+
+Validate or inspect the shipped ledger with:
+
+```bash
+webconf-audit coverage validate
+webconf-audit coverage validate --format json
+webconf-audit coverage show --source owasp-asvs-5.0.0
+webconf-audit coverage show --status partial --format json
+webconf-audit coverage export --format markdown
+```
+
+Custom local ledgers can be supplied with `--ledger PATH`. Exports refuse to
+overwrite an existing file unless `--force` is given. The generated
+human-readable view remains available at
+[docs/control-source-coverage-tracker.md](docs/control-source-coverage-tracker.md);
+the methodology and headline summary are documented in
+[docs/benchmarks-covering.md](docs/benchmarks-covering.md).
+
 The catalog currently contains 472 rules:
 
 | Category | Rules |
