@@ -1,24 +1,9 @@
+<!-- Generated from src/webconf_audit/data/control_source_coverage.yml; refresh with `webconf-audit coverage export --format markdown --output docs/control-source-coverage-tracker.md --force`. -->
 # Control Source Coverage Tracker
 
-This file is the count ledger behind the coverage snapshot in
-`docs/benchmarks-covering.md`. It is intentionally narrower than
-`docs/rule-coverage.md`: the rule coverage file is the rule-level inventory,
-while this tracker explains how the project counts the diploma-style summary
-rows.
+This generated view summarizes scanner-evidence coverage within the declared project scope. It does not certify compliance with any source.
 
-The current calculation is conservative:
-
-- the denominator contains applicable web-server-visible items only;
-- out-of-scope items are removed before counting;
-- the numerator contains only fully covered items;
-- partial and policy review evidence is recorded, but neither increases the
-  full-coverage percentage;
-- every applicable source reconciles as
-  `Applicable = Full + Partial + policy-review + Uncovered`;
-- excluded items are documented separately and do not enter the applicable
-  denominator;
-- every percentage change must update this file and
-  `docs/benchmarks-covering.md` together.
+The denominator is `full + partial + policy-review + uncovered`. Only `full` items enter the numerator.
 
 ## Snapshot Summary
 
@@ -37,219 +22,189 @@ The current calculation is conservative:
 
 | Status | Meaning |
 | --- | --- |
-| `full` | The project has local, normalized, registry-export, or safe-probe evidence that covers the counted item. |
-| `partial` | The project verifies a real narrower signal, but not the complete source requirement. |
-| `policy-review` | An opt-in rule surfaces relevant configuration facts, but operator judgment is required before treating them as a defect. |
-| `uncovered` | The item remains applicable, but the project has no implemented evidence for it. |
-| `excluded` | The item is outside the current denominator because it needs host OS, filesystem, package-manager, application-code, SIEM, or business-policy context. |
-
-`policy-review` is an evidence status, not a registry category or a severity.
-The corresponding rules keep their normal execution category and use the
-existing `info` severity with the opt-in `policy-review` tag.
+| `full` | All mandatory subclaims are implemented for the documented scope. |
+| `partial` | A real narrower signal is implemented, with explicit limitations. |
+| `policy-review` | Evidence is surfaced for operator judgment. |
+| `uncovered` | The item is applicable but has no adequate evidence path. |
+| `excluded` | The item is outside the denominator for a documented boundary. |
 
 ## CIS NGINX Benchmark v3.0.0
 
-Applicable count: 15. Full count: 7. Partial count: 7. `policy-review`
-count: 1. Uncovered count: 0.
+Selected web-server-visible CIS NGINX controls. Package source, service-account, operating-system permission, approved-port, private-key permission, and mandatory-access-control requirements remain outside this scanner-evidence denominator.
 
-| Counted item | Status | Current basis / next action |
+Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1. Uncovered count: 0. Excluded count: 0.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| §2.4.2 unknown-host handling | full | `nginx.default_server_not_rejecting_unknown_hosts`, `nginx.default_tls_server_not_rejecting_unknown_hosts`, and runtime corroboration through `external.unknown_host_runtime_response`. |
-| §2.5.2 default welcome content | full | Default-content exposure is covered through Nginx external probes. |
-| §2.5.4 reverse-proxy disclosure | partial | Existing header, server-status, and runtime disclosure checks verify narrower signals; complete reverse-proxy header semantics are not modeled. |
-| §3.1 access log format | partial | Current rules validate log presence, named `log_format` fields, and expose the default format through `nginx.access_log_uses_default_format`; final SIEM/JSON policy remains operator-specific. |
-| §3.3 error log level | partial | Harmful missing or overly restrictive levels are covered; final `warn` / `notice` / `info` choice remains policy. |
-| §3.4 forwarded source-IP headers | full | `nginx.proxy_missing_source_ip_headers` checks upstream source-IP forwarding for proxy-like upstream directives. |
-| §4.1.1 HTTP to HTTPS redirect | full | Local redirect rule plus external no-redirect runtime probes. |
-| §4.1.2 trusted certificate chain | partial | Runtime certificate probes provide evidence, but local `ssl_certificate` paths cannot prove every served chain. |
-| §4.1.5 cipher policy | full | Conservative local cipher-string checks cover missing and weak cipher posture. |
-| §4.1.9 / §4.1.10 TLS session cache and timeout | full | Session cache and timeout rules cover the local HTTP/server scopes. |
-| §4.1.12 HTTP/3 / Alt-Svc | `policy-review` | `nginx.http3_alt_svc_review` reports the QUIC listener, effective `http3` state, and effective `Alt-Svc` advertisement when policy review is enabled. Runtime HTTP/3 negotiation is not proven. |
-| §5.1.1 sensitive locations | partial | Baseline sensitive-scope checks exist; full credit needs an operator-supplied sensitive path catalog. |
-| §5.1.2 HTTP method restrictions | full | Sensitive-scope and whole-scope method-policy rules plus unsafe explicit allowlist checks. |
-| §5.2.4 / §5.2.5 connection and rate limit values | partial | Presence and structural checks exist, while opt-in review rules expose selected values; reasonableness depends on workload profile. |
-| §5.3.2 / §5.3.3 CSP and Referrer-Policy quality | partial | Baseline header checks and opt-in CSP value review exist; full application-specific policy semantics are not proven. |
-
-Primary exclusions: package source, service account, OS ownership/permissions,
-approved-port allowlists, private-key permissions, TLS 1.3 group posture, and
-mandatory access-control mechanisms.
+| NGINX v3.0.0 §2.4.2 Unknown-host handling | `full` | Local default-server checks and a bounded runtime probe detect hosts that are not rejected. |
+| NGINX v3.0.0 §2.5.2 Default welcome content | `full` | Safe external probes identify the default Nginx welcome or index page. |
+| NGINX v3.0.0 §2.5.4 Reverse-proxy disclosure | `partial` | The rule detects an unsafe Host forwarding pattern in reverse-proxy configuration. Limitations: Complete reverse-proxy header semantics and application-generated disclosure are not modeled. |
+| NGINX v3.0.0 §3.1 Access log format | `partial` | The rule validates the presence of significant audit fields in a named log format. Limitations: The final JSON, SIEM, and organization-specific log format remains an operator policy. |
+| NGINX v3.0.0 §3.3 Error log level | `partial` | The rule detects an error log level that is too restrictive for useful security diagnostics. Limitations: The preferred warn, notice, or info level depends on operating policy and workload. |
+| NGINX v3.0.0 §3.4 Forwarded source-IP headers | `full` | The rule checks source-IP forwarding headers for proxy-like upstream directives. |
+| NGINX v3.0.0 §4.1.1 HTTP to HTTPS redirect | `full` | Local redirect analysis and runtime redirect probes identify cleartext listeners without an HTTPS transition. |
+| NGINX v3.0.0 §4.1.2 Trusted certificate chain | `partial` | Runtime certificate probing detects an incomplete served chain. Limitations: A local ssl_certificate path alone cannot prove every chain served by the deployed endpoint. |
+| NGINX v3.0.0 §4.1.5 Cipher policy | `full` | The rule parses configured cipher strings and reports known weak cipher posture. |
+| NGINX v3.0.0 §4.1.9 / §4.1.10 (NGINX v3.0.0 §4.1.9, NGINX v3.0.0 §4.1.10) TLS session cache and timeout | `full` | The rules validate session cache and timeout configuration in effective HTTP and server scopes. |
+| NGINX v3.0.0 §4.1.12 HTTP/3 and Alt-Svc posture | `policy-review` | The opt-in rule reports the QUIC listener, effective http3 state, and effective Alt-Svc advertisement for operator review. Limitations: Runtime HTTP/3 negotiation is not proven. |
+| NGINX v3.0.0 §5.1.1 Sensitive locations | `partial` | The rule detects sensitive location scopes that lack an IP restriction. Limitations: A complete sensitive-path catalog is deployment-specific. |
+| NGINX v3.0.0 §5.1.2 HTTP method restrictions | `full` | The rules detect missing or unsafe HTTP method restrictions in sensitive and site-wide scopes. |
+| NGINX v3.0.0 §5.2.4 / §5.2.5 (NGINX v3.0.0 §5.2.4, NGINX v3.0.0 §5.2.5) Connection and rate limit values | `partial` | Structural checks and opt-in review expose configured rate-limit values. Limitations: The reasonableness of a limit depends on the workload and capacity model. |
+| NGINX v3.0.0 §5.3.2 / §5.3.3 (NGINX v3.0.0 §5.3.2, NGINX v3.0.0 §5.3.3) CSP and Referrer-Policy quality | `partial` | Header checks and opt-in CSP review expose missing or unsafe policy values. Limitations: Complete application-specific CSP and referrer semantics are not proven. |
 
 ## CIS Apache HTTP Server 2.4 Benchmark v2.3.0
 
-Applicable count: 19. Full count: 17. Partial count: 2. `policy-review`
-count: 0. Uncovered count: 0.
+Selected configuration-visible CIS Apache HTTP Server controls. Installation planning, service accounts, filesystem permissions, log storage and rotation, private-key metadata, SELinux, and AppArmor remain outside this scanner-evidence denominator.
 
-| Counted item | Status | Current basis / next action |
+Applicable count: 19. Full count: 17. Partial count: 2. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| §2.1-§2.9 module minimization | partial | Visible `LoadModule` inventory and selected risky-module checks exist, but benchmark-wide minimization needs package/build or operator policy. |
-| §4.1-§4.2 authorization posture | partial | Effective `Require*` and legacy allow/deny semantics are modeled for current rules; broad server-wide authorization claims still need deployment context. |
-| §4.3-§4.4 `AllowOverride` baseline | full | Root and inherited `AllowOverride` checks cover the config-visible baseline. |
-| §5.1-§5.3 `Options` baseline | full | Root `Options None`, `ExecCGI`, `Includes`, `Indexes`, `MultiViews`, and subtractive `Options All` semantics are covered. |
-| §5.4-§5.6 default content | full | Active `DocumentRoot` default HTML and CGI sample probes exist. |
-| §5.7 HTTP method restrictions | full | Sensitive-scope and site-wide method-policy rules are present. |
-| §5.9 HTTP protocol options | full | Effective `HttpProtocolOptions Strict Require1.0` coverage exists. |
-| §5.10-§5.13 sensitive files | full | Backup/temp, `.ht*`, VCS metadata, sensitive extension, and named environment-path rules are present. |
-| §5.14-§5.15 IP request and listen posture | full | IP request denial, catch-all virtual host handling, and explicit listen-address rules are present. |
-| §5.16-§5.18 security headers | full | Frame, Referrer-Policy, and Permissions-Policy local checks are present. |
-| §6.1 / §6.3 logging | full | `ErrorLog`, `CustomLog`, unsafe destinations, restrictive levels, undefined formats, and field quality are covered. |
-| §6.6-§6.7 ModSecurity / CRS | full | `apache.modsecurity_module_missing` and `apache.modsecurity_crs_not_configured` cover visible ModSecurity and CRS inventory. |
-| §7.1 / §7.4-§7.12 TLS policy | full | TLS protocol, cipher, ordering, compression, renegotiation, stapling, session cache, HSTS, and redirects are covered. |
-| §7.2 certificate validity / upstream trust | full | External certificate probes and Apache SSL proxy trust rules cover observable certificate posture. |
-| §8.3 default sample content | full | Local default-content probe covers active document roots. |
-| §8.4 FileETag inode leakage | full | `apache.file_etag_inodes`. |
-| §9.1-§9.4 timeout / keepalive posture | full | Explicit timeout and keepalive threshold/default-pin checks are present. |
-| §9.5-§9.6 request read timeout | full | `RequestReadTimeout` and visible `mod_reqtimeout` semantics are modeled. |
-| §10.1-§10.4 request limits | full | Request line, fields, field size, and body limit checks are present. |
-
-Primary exclusions: installation planning, service account and filesystem
-permissions, syslog/rotation/storage, private-key filesystem metadata, SELinux,
-and AppArmor posture.
+| Apache HTTP Server 2.4 v2.3.0 §2.1-§2.9 (Apache HTTP Server 2.4 v2.3.0 §2.1, Apache HTTP Server 2.4 v2.3.0 §2.2, Apache HTTP Server 2.4 v2.3.0 §2.3, Apache HTTP Server 2.4 v2.3.0 §2.4, Apache HTTP Server 2.4 v2.3.0 §2.5, Apache HTTP Server 2.4 v2.3.0 §2.6, Apache HTTP Server 2.4 v2.3.0 §2.7, Apache HTTP Server 2.4 v2.3.0 §2.8, Apache HTTP Server 2.4 v2.3.0 §2.9) Module minimization | `partial` | Visible LoadModule inventory and selected risky-module checks provide a bounded minimization signal. Limitations: Package and build-time module inventory and business justification are not available. |
+| Apache HTTP Server 2.4 v2.3.0 §4.1-§4.2 (Apache HTTP Server 2.4 v2.3.0 §4.1, Apache HTTP Server 2.4 v2.3.0 §4.2) Authorization posture | `partial` | Effective Require and legacy allow/deny semantics are analyzed in visible configuration. Limitations: A deployment-wide authorization claim still depends on application and business context. |
+| Apache HTTP Server 2.4 v2.3.0 §4.3-§4.4 (Apache HTTP Server 2.4 v2.3.0 §4.3, Apache HTTP Server 2.4 v2.3.0 §4.4) AllowOverride baseline | `full` | Root and inherited AllowOverride rules cover the visible configuration baseline. |
+| Apache HTTP Server 2.4 v2.3.0 §5.1-§5.3 (Apache HTTP Server 2.4 v2.3.0 §5.1, Apache HTTP Server 2.4 v2.3.0 §5.2, Apache HTTP Server 2.4 v2.3.0 §5.3) Options baseline | `full` | Effective Options semantics cover None, ExecCGI, Includes, Indexes, MultiViews, and subtractive options. |
+| Apache HTTP Server 2.4 v2.3.0 §5.4-§5.6 (Apache HTTP Server 2.4 v2.3.0 §5.4, Apache HTTP Server 2.4 v2.3.0 §5.5, Apache HTTP Server 2.4 v2.3.0 §5.6) Default content | `full` | The local probe checks active DocumentRoot paths for default HTML and CGI sample content. |
+| Apache HTTP Server 2.4 v2.3.0 §5.7 HTTP method restrictions | `full` | Sensitive-scope and site-wide rules detect absent or unsafe method policy. |
+| Apache HTTP Server 2.4 v2.3.0 §5.9 HTTP protocol options | `full` | The rule validates effective HttpProtocolOptions strictness. |
+| Apache HTTP Server 2.4 v2.3.0 §5.10-§5.13 (Apache HTTP Server 2.4 v2.3.0 §5.10, Apache HTTP Server 2.4 v2.3.0 §5.11, Apache HTTP Server 2.4 v2.3.0 §5.12, Apache HTTP Server 2.4 v2.3.0 §5.13) Sensitive files | `full` | Rules cover backup and temporary files, .ht files, VCS metadata, and sensitive configuration extensions. |
+| Apache HTTP Server 2.4 v2.3.0 §5.14-§5.15 (Apache HTTP Server 2.4 v2.3.0 §5.14, Apache HTTP Server 2.4 v2.3.0 §5.15) IP request and listen posture | `full` | Rules cover explicit listen addresses, catch-all virtual hosts, and IP request posture. |
+| Apache HTTP Server 2.4 v2.3.0 §5.16-§5.18 (Apache HTTP Server 2.4 v2.3.0 §5.16, Apache HTTP Server 2.4 v2.3.0 §5.17, Apache HTTP Server 2.4 v2.3.0 §5.18) Security headers | `full` | Local rules validate framing, Referrer-Policy, and Permissions-Policy headers. |
+| Apache HTTP Server 2.4 v2.3.0 §6.1 / §6.3 (Apache HTTP Server 2.4 v2.3.0 §6.1, Apache HTTP Server 2.4 v2.3.0 §6.3) Logging | `full` | Rules cover ErrorLog, CustomLog, destinations, levels, named formats, and significant fields. |
+| Apache HTTP Server 2.4 v2.3.0 §6.6-§6.7 (Apache HTTP Server 2.4 v2.3.0 §6.6, Apache HTTP Server 2.4 v2.3.0 §6.7) ModSecurity and CRS | `full` | Rules check visible ModSecurity module and OWASP Core Rule Set configuration inventory. |
+| Apache HTTP Server 2.4 v2.3.0 §7.1 / §7.4-§7.12 (Apache HTTP Server 2.4 v2.3.0 §7.1, Apache HTTP Server 2.4 v2.3.0 §7.4, Apache HTTP Server 2.4 v2.3.0 §7.5, Apache HTTP Server 2.4 v2.3.0 §7.6, Apache HTTP Server 2.4 v2.3.0 §7.7, Apache HTTP Server 2.4 v2.3.0 §7.8, Apache HTTP Server 2.4 v2.3.0 §7.9, Apache HTTP Server 2.4 v2.3.0 §7.10, Apache HTTP Server 2.4 v2.3.0 §7.11, Apache HTTP Server 2.4 v2.3.0 §7.12) TLS policy | `full` | Rules cover protocol, cipher, ordering, compression, renegotiation, stapling, session, HSTS, and redirect posture. |
+| Apache HTTP Server 2.4 v2.3.0 §7.2 Certificate and upstream trust | `full` | Apache SSL proxy trust checks and runtime certificate probes cover observable trust posture. |
+| Apache HTTP Server 2.4 v2.3.0 §8.3 Default sample content | `full` | The local content probe checks active document roots for default samples. |
+| Apache HTTP Server 2.4 v2.3.0 §8.4 FileETag inode leakage | `full` | The rule detects inode-derived FileETag configuration. |
+| Apache HTTP Server 2.4 v2.3.0 §9.1-§9.4 (Apache HTTP Server 2.4 v2.3.0 §9.1, Apache HTTP Server 2.4 v2.3.0 §9.2, Apache HTTP Server 2.4 v2.3.0 §9.3, Apache HTTP Server 2.4 v2.3.0 §9.4) Timeout and keepalive posture | `full` | Rules validate explicit timeout and keepalive thresholds and unsafe default posture. |
+| Apache HTTP Server 2.4 v2.3.0 §9.5-§9.6 (Apache HTTP Server 2.4 v2.3.0 §9.5, Apache HTTP Server 2.4 v2.3.0 §9.6) Request read timeout | `full` | The rule models visible RequestReadTimeout and mod_reqtimeout semantics. |
+| Apache HTTP Server 2.4 v2.3.0 §10.1-§10.4 (Apache HTTP Server 2.4 v2.3.0 §10.1, Apache HTTP Server 2.4 v2.3.0 §10.2, Apache HTTP Server 2.4 v2.3.0 §10.3, Apache HTTP Server 2.4 v2.3.0 §10.4) Request limits | `full` | Rules validate request line, field count, field size, and body limits. |
 
 ## CIS Microsoft IIS 10 Benchmark v1.2.1
 
-Applicable count: 10. Full count: 8. Partial count: 1. `policy-review`
-count: 0. Uncovered count: 1.
+Selected IIS and SChannel configuration-visible controls. Broader Windows host hardening, filesystem ACLs, Dynamic IP Restrictions, log storage, ETW, and legacy IIS benchmark editions remain outside this scanner-evidence denominator. FTP stays applicable and uncovered.
 
-| Counted item | Status | Current basis / next action |
+Applicable count: 10. Full count: 8. Partial count: 1. `policy-review` count: 0. Uncovered count: 1. Excluded count: 0.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| §1.2 host header bindings | full | `iis.binding_without_host_header`. |
-| §1.4 / §1.5 / §1.6 application identity and app pool isolation | full | App-pool identity, cross-site shared pools, and anonymous-user rules consume the effective IIS view. |
-| §2.1 / §2.2 authorization and anonymous access | full | Anonymous/authenticated mixups and missing/empty URL authorization policies are covered. |
-| §2.5 / §2.7 / §2.8 forms credentials | full | Unsafe forms auth, clear credentials, and credentials stored in config are covered. |
-| §2.6 Basic Authentication over non-TLS | full | Basic Auth is checked with effective SSL requirements. |
-| §3.1 / §3.7-§3.12 ASP.NET and header hardening | full | Retail mode, cookie flags, MachineKey, trust level, native `Server` header removal, and runtime IIS header corroboration are covered. |
-| §4.2 / §4.3 / §4.7 / §4.9 / §4.10 request filtering | full | Unsafe limits, unlisted file extensions, and CGI restriction settings are covered through effective config defaults. |
-| §4.8 handler write/script/execute policy | full | `iis.handler_write_script_execute_enabled` plus CGI handler signal. |
-| §6.1 / §6.2 FTP encryption and logon restrictions | uncovered | FTP remains applicable to the benchmark calculation, but the project does not parse IIS FTP authorization, logon, or channel-encryption configuration. |
-| §7.1-§7.6 / §7.10-§7.12 SChannel TLS | partial | Registry/export evidence and external TLS probes exist; full credit needs deeper SChannel evidence where registry data is incomplete. |
-
-Primary exclusions: broader Windows host hardening, web-root partitions,
-filesystem ACLs, Dynamic IP Restrictions feature state, log-location storage,
-ETW logging, and legacy IIS 7/8 archive benchmarks.
+| Microsoft IIS 10 v1.2.1 §1.2 Host header bindings | `full` | The rule detects HTTP and HTTPS bindings without a host name. |
+| Microsoft IIS 10 v1.2.1 §1.4 / §1.5 / §1.6 (Microsoft IIS 10 v1.2.1 §1.4, Microsoft IIS 10 v1.2.1 §1.5, Microsoft IIS 10 v1.2.1 §1.6) Application identity and app pool isolation | `full` | Rules consume the effective IIS view to validate app-pool identity, cross-site pool sharing, and anonymous-user posture. |
+| Microsoft IIS 10 v1.2.1 §2.1 / §2.2 (Microsoft IIS 10 v1.2.1 §2.1, Microsoft IIS 10 v1.2.1 §2.2) Authorization and anonymous access | `full` | Rules detect anonymous/authenticated access mixups and missing URL authorization policy. |
+| Microsoft IIS 10 v1.2.1 §2.5 / §2.7 / §2.8 (Microsoft IIS 10 v1.2.1 §2.5, Microsoft IIS 10 v1.2.1 §2.7, Microsoft IIS 10 v1.2.1 §2.8) Forms credentials | `full` | Rules detect unsafe forms authentication, clear credential formats, and credentials stored in configuration. |
+| Microsoft IIS 10 v1.2.1 §2.6 Basic Authentication over non-TLS | `full` | The rule evaluates Basic Authentication together with effective SSL requirements. |
+| Microsoft IIS 10 v1.2.1 §3.1 / §3.7-§3.12 (Microsoft IIS 10 v1.2.1 §3.1, Microsoft IIS 10 v1.2.1 §3.7, Microsoft IIS 10 v1.2.1 §3.8, Microsoft IIS 10 v1.2.1 §3.9, Microsoft IIS 10 v1.2.1 §3.10, Microsoft IIS 10 v1.2.1 §3.11, Microsoft IIS 10 v1.2.1 §3.12) ASP.NET and header hardening | `full` | Rules cover retail mode, cookie flags, MachineKey, trust level, Server-header removal, and runtime header corroboration. |
+| Microsoft IIS 10 v1.2.1 §4.2 / §4.3 / §4.7 / §4.9 / §4.10 (Microsoft IIS 10 v1.2.1 §4.2, Microsoft IIS 10 v1.2.1 §4.3, Microsoft IIS 10 v1.2.1 §4.7, Microsoft IIS 10 v1.2.1 §4.9, Microsoft IIS 10 v1.2.1 §4.10) Request filtering | `full` | Rules evaluate unsafe request limits, unlisted file extensions, and CGI restriction settings. |
+| Microsoft IIS 10 v1.2.1 §4.8 Handler write, script, and execute policy | `full` | The handler rule detects write, script, or execute access combined with executable handlers. |
+| Microsoft IIS 10 v1.2.1 §6.1 / §6.2 (Microsoft IIS 10 v1.2.1 §6.1, Microsoft IIS 10 v1.2.1 §6.2) FTP encryption and logon restrictions | `uncovered` | The project does not parse IIS FTP authorization, logon, or channel-encryption configuration. |
+| Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12 (Microsoft IIS 10 v1.2.1 §7.1, Microsoft IIS 10 v1.2.1 §7.2, Microsoft IIS 10 v1.2.1 §7.3, Microsoft IIS 10 v1.2.1 §7.4, Microsoft IIS 10 v1.2.1 §7.5, Microsoft IIS 10 v1.2.1 §7.6, Microsoft IIS 10 v1.2.1 §7.10, Microsoft IIS 10 v1.2.1 §7.11, Microsoft IIS 10 v1.2.1 §7.12) SChannel TLS posture | `partial` | Registry or JSON-export evidence and external TLS probes cover selected SChannel protocol and cipher settings. Limitations: Full credit requires complete SChannel evidence when registry data is absent or incomplete. |
 
 ## OWASP Top 10:2025
 
-Applicable count: 8. Full count: 0. Partial count: 8.
+Selected categories with web-server configuration or safe-probe signals. Category alignment is not an application-wide OWASP assessment and does not imply compliance.
 
-| Counted category | Status | Current basis / next action |
+Applicable count: 8. Full count: 0. Partial count: 8. `policy-review` count: 0. Uncovered count: 0. Excluded count: 2.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| A01:2025 Broken Access Control | partial | Server-side access restrictions, method policy, and exposed admin/status endpoints are visible; application authorization is not. |
-| A02:2025 Security Misconfiguration | partial | This is the main project scope, but the current A02 alignment is derived from reviewed A05:2021 mappings rather than independently reviewed full evidence. |
-| A03:2025 Software Supply Chain Failures | partial | Exposed dependency manifests and build/deployment artifacts are detected; full supply-chain governance is out of scope. |
-| A04:2025 Cryptographic Failures | partial | TLS protocols, ciphers, HSTS, certificate runtime evidence, and plaintext fallback are covered, but the A04 alignment is derived from reviewed A02:2021 mappings and does not prove the whole category. |
-| A05:2025 Injection | partial | Server-visible CGI/script/upload/proxy/header risks are covered; application injection sinks are not. |
-| A07:2025 Authentication Failures | partial | Basic Auth over HTTP, stored credentials, cookie flags, and exposed credential files are visible; full identity flows are not. |
-| A08:2025 Software or Data Integrity Failures | partial | CSP/SRI and exposed CI/build artifacts are visible; full integrity pipeline controls are not. |
-| A09:2025 Security Logging and Alerting Failures | partial | Server access/error log posture is visible; alerting, SIEM routing, and incident response are not. |
-
-Excluded categories: A06:2025 and A10:2025 remain outside the web-server
-configuration/security-probe perimeter used by this snapshot.
+| A01:2025 Broken Access Control | `partial` | Server-side access restrictions and exposed administrative or status endpoints provide narrower evidence. Limitations: Application authorization and object-level access control are not observable. |
+| A02:2025 Security Misconfiguration | `partial` | The project detects many web-server misconfiguration signals. Limitations: The 2025 alignment is derived from reviewed A05:2021 mappings and does not prove the whole category. |
+| A03:2025 Software Supply Chain Failures | `partial` | Safe probes detect publicly exposed dependency manifests. Limitations: Dependency governance, provenance, build integrity, and update processes are outside scope. |
+| A04:2025 Cryptographic Failures | `partial` | TLS protocol and cipher configuration provides bounded cryptographic evidence. Limitations: The alignment is derived from reviewed A02:2021 mappings and does not cover application data cryptography. |
+| A05:2025 Injection | `partial` | Rules detect selected CRLF response-splitting patterns in Nginx configuration. Limitations: Application query, command, template, and interpreter injection sinks are not analyzed. |
+| A07:2025 Authentication Failures | `partial` | Safe probes detect selected exposed credential files. Limitations: Complete identity, session, enrollment, and recovery flows are not observable. |
+| A08:2025 Software or Data Integrity Failures | `partial` | The SRI probe detects external scripts lacking observable integrity metadata. Limitations: Build, update, artifact-signing, and deployment integrity are outside scope. |
+| A09:2025 Security Logging and Alerting Failures | `partial` | Server log-format rules detect missing significant audit fields. Limitations: Active alerting, SIEM routing, retention, and incident response are not proven. |
+| A06:2025 Insecure Design | `excluded` | Application design assurance is outside the web-server configuration and safe-probe perimeter. Exclusion: The category requires application threat modeling and design evidence. Boundary: Application architecture and secure design lifecycle. |
+| A10:2025 Mishandling of Exceptional Conditions | `excluded` | Application exceptional-condition handling is outside the web-server configuration and safe-probe perimeter. Exclusion: The category requires application control-flow and failure-handling evidence. Boundary: Application source code and runtime exception behavior. |
 
 ## OWASP ASVS v5.0.0
 
-Applicable count: 22. Full count: 14. Partial count: 8.
+Selected ASVS 5.0 web frontend, transport, and deployed-resource requirements. The ledger records scanner evidence, not an ASVS verification or certification.
 
-This snapshot groups ASVS requirements at the same granularity used by the
-pre-diploma summary. `docs/standards-roadmap.md` remains the more detailed
-ASVS engineering backlog.
+Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
-| Counted ASVS group | Status | Current basis / next action |
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| v5.0.0-3.3.1 / 3.3.2 / 3.3.3 / 3.3.4 cookie attributes | partial | Runtime cookie probes cover observed `Secure`, `HttpOnly`, `SameSite`, `__Secure-`, and `__Host-` prefix contract posture only. |
-| v5.0.0-3.4.1 HSTS | full | Universal, local, and external HSTS checks. |
-| v5.0.0-3.4.2 CORS | partial | Runtime wildcard/credential checks exist, but application allowlists are not proven. |
-| v5.0.0-3.4.3 CSP policy quality | partial | Missing/unsafe CSP, nonce reuse, and cross-origin SRI are covered; full nonce/hash authorization is not. |
-| v5.0.0-3.4.4 X-Content-Type-Options | full | Universal, local, and external missing/invalid checks. |
-| v5.0.0-3.4.5 Referrer-Policy | full | Missing/unsafe Referrer-Policy checks. |
-| v5.0.0-3.4.6 frame-ancestors / framing policy | full | Local family rules and runtime CSP evidence cover missing `frame-ancestors`; deeper CSP quality remains under 3.4.3. |
-| v5.0.0-3.4.7 CSP reporting | partial | The rules prove configured reporting syntax or header presence, not successful report delivery or endpoint operation. |
-| v5.0.0-3.4.8 COOP | partial | Runtime absence is observable, but document-rendering relevance is not. |
-| v5.0.0-3.7.1 auth-required routes over TLS | full | `universal.tls_required_for_authenticated_routes` covers normalized auth scopes across supported local analyzers. |
-| v5.0.0-12.1.1 deprecated TLS protocols | full | Local, registry, and external protocol posture checks. |
-| v5.0.0-12.1.2 cipher posture | partial | Conservative local and bounded runtime evidence exist; not a full cipher-inventory suite. |
-| v5.0.0-12.1.4 OCSP / must-staple | partial | Local stapling and runtime evidence exist; full revocation assurance is not proven. |
-| v5.0.0-12.2.1 HTTPS / no cleartext fallback | full | TLS-intent, redirect, HSTS, and external no-HTTPS/no-redirect checks. |
-| v5.0.0-12.2.2 certificate posture | full | Runtime expiry, self-signed, chain, SAN, CT, and weak-signature probes. |
-| v5.0.0-13.4.1 source control metadata | full | `.git` and `.svn` exposure probes. |
-| v5.0.0-13.4.2 production debug features | full | IIS debug/detailed errors plus external debug endpoint probes. |
-| v5.0.0-13.4.3 directory listings | full | Universal, local, and runtime directory-listing evidence. |
-| v5.0.0-13.4.4 TRACE | full | Local and external TRACE checks. |
-| v5.0.0-13.4.5 documentation / monitoring endpoints | full | Status/info endpoint rules plus Swagger UI and OpenAPI/Swagger schema probes. |
-| v5.0.0-13.4.6 component/version disclosure | full | Server ID/header/token rules plus dependency-manifest exposure probes. |
-| v5.0.0-13.4.7 exposed secret/configuration material | partial | Sensitive config/data deny-lists and safe external artifact probes exist; a full application allowlist model is broader than the current signal. |
-
-The ASVS rows above preserve the snapshot numerator. Broader ASVS follow-up
-items, such as CSRF semantics, ECH, IIS MachineKey as a narrow V11 entry,
-application logging, and full secret handling, remain documented in
-`docs/standards-roadmap.md`.
+| v5.0.0-3.3.1 / 3.3.2 / 3.3.3 / 3.3.4 (v5.0.0-3.3.1, v5.0.0-3.3.2, v5.0.0-3.3.3, v5.0.0-3.3.4) Cookie security attributes | `partial` | Runtime cookie probes observe Secure, HttpOnly, SameSite, and __Secure-/__Host- prefix contracts. Limitations: Only cookies observed in bounded responses are assessed. |
+| v5.0.0-3.4.1 HTTP Strict Transport Security | `full` | Universal, local, and external rules validate HSTS presence and significant policy values. |
+| v5.0.0-3.4.2 Cross-origin resource sharing | `partial` | Runtime rules detect wildcard and credential combinations. Limitations: Application-specific origin allowlists and route semantics are not proven. |
+| v5.0.0-3.4.3 Content Security Policy quality | `partial` | Rules detect missing or unsafe CSP directives, nonce reuse, and selected SRI gaps. Limitations: Complete application-specific nonce, hash, and source authorization is not proven. |
+| v5.0.0-3.4.4 Content type sniffing protection | `full` | Universal, local, and external rules detect missing or invalid X-Content-Type-Options. |
+| v5.0.0-3.4.5 Referrer policy | `full` | Rules detect missing or unsafe Referrer-Policy values. |
+| v5.0.0-3.4.6 Framing policy | `full` | Local and runtime CSP framing rules detect missing frame-ancestors protection. |
+| v5.0.0-3.4.7 CSP reporting | `partial` | Rules detect configured reporting syntax or observed header presence. Limitations: Receiver ownership, availability, retention, and response handling are not tested. |
+| v5.0.0-3.4.8 Cross-Origin-Opener-Policy | `partial` | A runtime rule observes a missing COOP header. Limitations: Document isolation relevance depends on application behavior. |
+| v5.0.0-3.7.1 Authenticated routes require TLS | `full` | The normalized universal rule detects authentication-requiring scopes exposed on non-TLS listeners. |
+| v5.0.0-12.1.1 Deprecated TLS protocols | `full` | Local, SChannel, normalized, and external rules detect deprecated protocol posture. |
+| v5.0.0-12.1.2 TLS cipher posture | `partial` | Local and runtime checks detect selected weak cipher and negotiation signals. Limitations: The project is not a complete cipher-inventory and client-compatibility suite. |
+| v5.0.0-12.1.4 OCSP and must-staple | `partial` | Local stapling checks and runtime observations provide revocation-related evidence. Limitations: End-to-end revocation availability and policy assurance are not proven. |
+| v5.0.0-12.2.1 HTTPS without cleartext fallback | `full` | TLS-intent, redirect, authentication-over-HTTP, and runtime HTTPS probes cover cleartext fallback posture. |
+| v5.0.0-12.2.2 Certificate validation | `full` | Runtime and proxy-trust rules detect selected certificate validation failures. |
+| v5.0.0-13.4.1 Source-control metadata exposure | `full` | Safe probes detect exposed .git and .svn metadata. |
+| v5.0.0-13.4.2 Production debug features | `full` | IIS and external rules detect visible debug features and detailed error endpoints. |
+| v5.0.0-13.4.3 Directory listings | `full` | Universal, server-specific, and runtime rules detect enabled directory listing. |
+| v5.0.0-13.4.4 TRACE method | `full` | Local and external rules detect enabled TRACE behavior. |
+| v5.0.0-13.4.5 Documentation and monitoring endpoints | `full` | Safe probes and server rules detect public status, information, Swagger UI, and OpenAPI specification endpoints. |
+| v5.0.0-13.4.6 Component and version disclosure | `full` | Server token, header, and dependency-manifest rules detect component or version disclosure. |
+| v5.0.0-13.4.7 Exposed secret and configuration material | `partial` | Local deny-list rules and safe artifact probes detect selected sensitive files. Limitations: A complete application-specific allowlist and secret inventory are outside scope. |
 
 ## NIST SP 800-52 Rev. 2
 
-Applicable count: 10. Full count: 10.
+Selected TLS server requirements from NIST SP 800-52 Rev. 2.
 
-| Counted item | Status | Current basis |
+Applicable count: 10. Full count: 10. Partial count: 0. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| §3.1 TLS version posture | full | Deprecated protocol checks across local, IIS SChannel, and external probes. |
-| §3.3.1 recommended cipher posture | full | Weak cipher checks plus AEAD/forward-secrecy runtime evidence. |
-| §3.3.2 server cipher preference | full | Local preference directives plus bounded runtime preference evidence. |
-| §3.4 certificate validity and chain quality | full | External X.509 probes. |
-| §3.5 secure renegotiation | full | Local unsafe-renegotiation rules and external handshake evidence. |
-| §3.6 compression | full | Local compression rules and external negotiated-compression evidence. |
-| §4.2 OCSP / must-staple | full | Local stapling rules and runtime observations. |
-| §4.3 revocation evidence | full | OCSP/stapling and certificate posture evidence. |
-| §4.2.4 HSTS | full | Local/universal/external HSTS family. |
-| No plaintext fallback | full | Redirect, TLS intent, and external plaintext fallback rules. |
+| 3.1.1 / 3.1.2 (3.1.1, 3.1.2) TLS version posture | `full` | Local, SChannel, normalized, and external rules detect deprecated TLS versions. |
+| 3.3.1 Recommended cipher posture | `full` | Weak cipher checks and runtime AEAD or forward-secrecy observations cover the selected posture. |
+| 3.3.2 Server cipher preference | `full` | Local preference directives and bounded runtime observations provide server preference evidence. |
+| 3.4 Certificate validity and chain quality | `full` | External X.509 probes validate expiry, identity, chain, and selected signature properties. |
+| 3.5 Secure renegotiation | `full` | Local unsafe-renegotiation checks and runtime handshake evidence cover renegotiation posture. |
+| 3.6 TLS compression | `full` | Local and runtime rules detect enabled or negotiated TLS compression. |
+| 4.2 OCSP and must-staple | `full` | Local stapling rules and runtime must-staple observations provide OCSP-related evidence. |
+| 4.3 Revocation evidence | `full` | The runtime OCSP stapling probe provides direct observable revocation evidence. |
+| 4.2.4 HTTP Strict Transport Security | `full` | Universal, local, and external HSTS rules cover significant policy posture. |
+| NO PLAINTEXT FALLBACK No plaintext fallback | `full` | Redirect, TLS-intent, and runtime HTTPS rules detect plaintext fallback. |
 
 ## PCI DSS v4.0.1
 
-Applicable count: 11. Full count: 0. Partial count: 9. Uncovered count: 2.
+Selected PCI DSS requirements with server-visible evidence. The ledger records related scanner signals and does not determine cardholder-data scope or PCI DSS compliance.
 
-| Counted requirement | Status | Current basis |
+Applicable count: 11. Full count: 0. Partial count: 9. `policy-review` count: 0. Uncovered count: 2. Excluded count: 2.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| Req. 2.2.1 | partial | Hardening findings are related evidence, but the scanner does not prove that a complete configuration standard is defined, maintained, and applied to every in-scope component. |
-| Req. 2.2.5 | partial | Insecure service, protocol, dangerous-method, and WebDAV signals are visible; business justification and complete necessity review are not. |
-| Req. 2.2.6 | partial | Selected security parameters, disclosure, default content, and exposed-file conditions are checked; complete in-scope parameter coverage is not proven. |
-| Req. 4.2.1 | partial | TLS, HSTS, redirect, and plaintext-fallback evidence is visible, but the scanner cannot determine whether a route carries PAN over an open public network. |
-| Req. 6.2.4 | uncovered | Existing server-hardening findings are only related to this software-engineering requirement and do not prove secure development techniques. |
-| Req. 6.4.3 | partial | Bounded cross-origin SRI evidence covers one part of payment-page script integrity; CSP posture is related, while authorization and inventory remain unproven. |
-| Req. 8.3.1 | partial | Server-visible authentication configuration is checked, but complete authentication-factor protection is not proven. |
-| Req. 8.3.2 | partial | Transport and cryptographic protection for server-visible authentication paths is checked; cookie attributes are not counted as this requirement. |
-| Req. 8.3.5 / 8.3.6 | uncovered | These requirements concern first-use/reset password handling and password length/composition, which current web-server configuration rules do not observe. |
-| Req. 10.2.1 | partial | Logging configuration is visible, but active logging across every in-scope component is not proven. |
-| Req. 10.2.2 | partial | Selected access-log fields are checked, but the complete required event and detail semantics are not proven. |
-
-Excluded PCI DSS rows: Req. 10.5 and Req. 12 are process/storage-retention
-controls and are not part of the 11-item denominator.
+| Req. 2.2.1 Configuration standards | `partial` | The registry links web-server hardening findings to configuration-standard evidence. Limitations: The scanner cannot prove a complete maintained standard across every in-scope component. |
+| Req. 2.2.5 Insecure services and protocols | `partial` | Rules detect selected risky modules, methods, WebDAV, CGI, and exposed status services. Limitations: Business justification and complete service necessity review remain organizational. |
+| Req. 2.2.6 System security parameters | `partial` | Rules detect selected disclosure, default-content, debug, and exposed-file conditions. Limitations: Complete in-scope parameter coverage is not proven. |
+| Req. 4.2.1 Strong cryptography over public networks | `partial` | TLS, HSTS, redirect, and plaintext-fallback rules provide transport evidence. Limitations: The scanner cannot determine whether a route transmits PAN over an open public network. |
+| Req. 6.2.4 Software engineering techniques | `uncovered` | Related hardening findings do not prove secure software engineering techniques. |
+| Req. 6.4.3 Payment-page script management | `partial` | The cross-origin SRI probe covers a bounded payment-page script integrity signal. Limitations: Script authorization, inventory, change control, and payment-page scope are not proven. |
+| Req. 8.3.1 Authentication-factor protection | `partial` | Server-visible authentication configuration and exposed credential files provide bounded evidence. Limitations: Complete authentication-factor lifecycle protection is not observable. |
+| Req. 8.3.2 Cryptographic protection in transit | `partial` | Rules detect authentication paths exposed without required TLS. Limitations: Complete authentication data flow and endpoint scope are not proven. |
+| Req. 8.3.5 / 8.3.6 (Req. 8.3.5, Req. 8.3.6) Password reset and complexity requirements | `uncovered` | Current web-server rules do not observe first-use password changes, reset handling, length, or composition. |
+| Req. 10.2.1 Audit logging enabled | `partial` | Configuration rules detect selected missing access and error logging. Limitations: Active logging across every in-scope component is not proven. |
+| Req. 10.2.2 Audit log event details | `partial` | Rules validate selected significant access-log fields. Limitations: The complete required event set and detail semantics are not proven. |
+| Req. 10.5 Audit log retention and protection | `excluded` | Retention and protection depend on storage, access control, and operational processes. Exclusion: The requirement needs host, storage, and process evidence not available to the analyzer. Boundary: Log storage, retention, integrity protection, and operational access. |
+| Req. 12 Organizational security policies | `excluded` | Organizational policy governance is outside server configuration analysis. Exclusion: The requirement is organizational and process-oriented. Boundary: Security policy, roles, governance, risk management, and personnel processes. |
 
 ## ISO/IEC 27002:2022
 
-Applicable count: 10. Full count: 8. Partial count: 2.
+Selected ISO/IEC 27002:2022 controls with web-server-visible technical evidence. The mapping is an engineering alignment, not an ISO conformity assessment.
 
-| Counted control | Status | Current basis / limitation |
+Applicable count: 10. Full count: 8. Partial count: 2. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+
+| Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| 5.15 access control | full | Local access, authorization, authentication, and method restriction signals. |
-| 8.5 secure authentication | full | Basic Auth/TLS, credential storage, forms/cookie signals. |
-| 8.15 logging | full | Access/error log enablement and field-quality checks. |
-| 8.16 monitoring activities | partial | Server/runtime findings support monitoring, but alerting and SOC workflows are outside scope. |
-| 8.18 privileged utility programs | partial | CGI/WebDAV/status/default content signals are visible; full utility governance is host/process context. |
-| 8.20 network security | full | TLS, listener, redirect, HSTS, and dangerous method rules. |
-| 8.21 network services security | full | Weak protocol/cipher and plaintext fallback rules. |
-| 8.24 cryptography | full | TLS protocol/cipher/certificate checks. |
-| 8.26 application security requirements | full | Security headers, CORS, CSP, cookies, methods, and debug/default exposure signals. |
-| 8.27 secure architecture and engineering principles | full | Configuration hardening, least functionality, and exposed sensitive file checks. |
-
-## Recount Guardrail
-
-Before changing the snapshot:
-
-1. Update the counted item table in this file.
-2. Recalculate `full / applicable * 100`.
-3. Update the summary table in `docs/benchmarks-covering.md`.
-4. If a source item changes because of new rule behavior, update
-   `docs/rule-coverage.md` and the relevant `STD-GAP-*` row in
-   `docs/standards-roadmap.md`.
-5. If a source item changes because of scope, state whether the denominator
-   changed or only the status changed.
-
-IIS FTP remains deliberately uncovered in this calculation. It stays visible
-in the denominator rather than being reclassified as excluded.
+| 5.15 Access control | `full` | Local authorization, authentication, method, and sensitive-scope rules provide direct configuration evidence. |
+| 8.5 Secure authentication | `full` | Rules detect Basic Authentication over cleartext, unsafe credentials, and selected authentication posture. |
+| 8.15 Logging | `full` | Access and error log enablement, destination, and field-quality rules provide direct evidence. |
+| 8.16 Monitoring activities | `partial` | Logging findings provide server-side monitoring inputs. Limitations: Alerting, SOC workflows, correlation, and incident response are outside scope. |
+| 8.18 Privileged utility programs | `partial` | Rules detect selected CGI, WebDAV, handler, and server-status capabilities. Limitations: Complete privileged utility inventory, authorization, and governance require host and process context. |
+| 8.20 Network security | `full` | Listener, host-binding, catch-all virtual-host, and IP request rules provide direct network configuration evidence. |
+| 8.21 Network services security | `full` | TLS, HSTS, redirect, and plaintext authentication rules provide direct network-service evidence. |
+| 8.24 Use of cryptography | `full` | TLS protocol, cipher, compression, renegotiation, and certificate rules provide direct cryptographic evidence. |
+| 8.26 Application security requirements | `full` | Declared direct CORS, TRACE, and production-debug rules complement the broader header and cookie evidence. |
+| 8.27 Secure architecture and engineering principles | `full` | Configuration hardening, least-functionality, and exposed-resource rules provide direct engineering evidence. |

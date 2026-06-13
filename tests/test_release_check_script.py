@@ -27,9 +27,11 @@ def test_release_check_dry_run_lists_packaging_smoke_steps() -> None:
     assert "-m venv" in output
     assert "-m pip install" in output
     assert "Check release notes for current version" in output
-    assert "Validate source crosswalk and coverage documents" in output
+    assert "Validate source coverage ledger and documents" in output
     assert "webconf-audit list-rules --format json" in output
     assert "Validate installed rule crosswalk" in output
+    assert "Validate installed coverage ledger" in output
+    assert "webconf-audit coverage validate --format json" in output
     assert "webconf-audit analyze-iis" in output
     assert "--no-tls-registry --format json" in output
 
@@ -119,6 +121,33 @@ def test_rule_catalog_payload_accepts_declared_and_derived_references() -> None:
     ]
 
     module._validate_rule_catalog_payload(payload)
+
+
+def test_coverage_payload_accepts_valid_eight_source_result() -> None:
+    module = _load_release_check_module()
+
+    module._validate_coverage_payload(
+        {
+            "schema_version": 1,
+            "valid": True,
+            "issues": [],
+            "sources": [{} for _ in range(8)],
+        }
+    )
+
+
+def test_coverage_payload_rejects_invalid_result() -> None:
+    module = _load_release_check_module()
+
+    with pytest.raises(module.ReleaseCheckError, match="invalid"):
+        module._validate_coverage_payload(
+            {
+                "schema_version": 1,
+                "valid": False,
+                "issues": [{"code": "summary_count_mismatch"}],
+                "sources": [],
+            }
+        )
 
 
 def test_rule_catalog_payload_rejects_derived_reference_in_primary_tier() -> None:

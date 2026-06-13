@@ -9,6 +9,8 @@ import re
 
 from webconf_audit.rule_registry import StandardCoverage, StandardReference
 from webconf_audit.standards import (
+    cis_iis_10_v1_2_1,
+    cis_nginx_v3_0_0,
     fstec_bdu,
     fstec_mera,
     iso_27002_2022,
@@ -21,9 +23,13 @@ from webconf_audit.standards import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_CIS_APACHE_URL = "https://www.cisecurity.org/benchmark/apache_http_server"
 
 _RULE_ID_PATTERN = re.compile(
     r"`((?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)`"
+)
+_VALID_RULE_ID_PATTERN = re.compile(
+    r"^(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+$"
 )
 _SOURCE_RULE_ID_PATTERN = re.compile(
     r"""^\s*RULE_ID\s*=\s*(?P<const_quote>["'])(?P<const_rule_id>(?:universal|nginx|apache|lighttpd|iis|external)\.[A-Za-z0-9_.]+)(?P=const_quote)"""
@@ -610,6 +616,19 @@ _ACCESS_CONTROL_RULES = {
     "iis.anonymous_auth_enabled",
     "external.wordpress_admin_panel_exposed",
 }
+_APACHE_NAMED_ACCESS_CONTROL_RULES = frozenset(
+    {
+        "apache.allowoverride_all_in_directory",
+        "apache.allowoverride_not_none",
+        "apache.htaccess_auth_without_require",
+        "apache.htaccess_contains_security_directive",
+        "apache.htaccess_disables_security_headers",
+        "apache.htaccess_enables_cgi",
+        "apache.htaccess_enables_directory_listing",
+        "apache.htaccess_rewrite_without_limit",
+        "apache.htaccess_weakens_security",
+    }
+)
 
 _PRIVILEGED_UTILITY_RULES = {
     "apache.options_execcgi_enabled",
@@ -1063,14 +1082,219 @@ def _vendor_reference(
     )
 
 
+def _cis_apache(
+    section: str,
+    *,
+    coverage: StandardCoverage = "direct",
+    note: str | None = None,
+) -> StandardReference:
+    return StandardReference(
+        standard="CIS",
+        reference=f"Apache HTTP Server 2.4 v2.3.0 §{section}",
+        url=_CIS_APACHE_URL,
+        coverage=coverage,
+        note=note,
+    )
+
+
+def _ledger_reference_bindings(rule_id: str) -> list[StandardReference]:
+    """Return reviewed references used by the machine-readable coverage ledger."""
+    partial = "The rule provides a bounded signal, not the complete benchmark item."
+    bindings: dict[str, tuple[StandardReference, ...]] = {
+        "nginx.default_server_not_rejecting_unknown_hosts": (
+            cis_nginx_v3_0_0("2.4.2"),
+        ),
+        "external.nginx.default_welcome_page": (
+            cis_nginx_v3_0_0("2.5.2"),
+        ),
+        "nginx.proxy_set_header_host_spoofing": (
+            cis_nginx_v3_0_0("2.5.4", coverage="partial", note=partial),
+        ),
+        "nginx.log_format_missing_fields": (
+            cis_nginx_v3_0_0("3.1", coverage="partial", note=partial),
+        ),
+        "nginx.error_log_too_restrictive": (
+            cis_nginx_v3_0_0("3.3", coverage="partial", note=partial),
+        ),
+        "nginx.missing_http_to_https_redirect": (
+            cis_nginx_v3_0_0("4.1.1"),
+        ),
+        "external.cert_chain_incomplete": (
+            cis_nginx_v3_0_0("4.1.2", coverage="partial", note=partial),
+        ),
+        "nginx.ssl_ciphers_weak": (
+            cis_nginx_v3_0_0("4.1.5"),
+        ),
+        "nginx.ssl_session_cache_missing": (
+            cis_nginx_v3_0_0("4.1.9 / §4.1.10"),
+        ),
+        "nginx.ssl_session_timeout_missing_or_invalid": (
+            cis_nginx_v3_0_0("4.1.9 / §4.1.10"),
+        ),
+        "nginx.sensitive_location_missing_ip_filter": (
+            cis_nginx_v3_0_0("5.1.1", coverage="partial", note=partial),
+        ),
+        "nginx.missing_http_method_restrictions": (
+            cis_nginx_v3_0_0("5.1.2"),
+        ),
+        "nginx.limit_req_zone_rate_review": (
+            cis_nginx_v3_0_0(
+                "5.2.4 / §5.2.5",
+                coverage="partial",
+                note=partial,
+            ),
+        ),
+        "nginx.csp_value_review": (
+            cis_nginx_v3_0_0(
+                "5.3.2 / §5.3.3",
+                coverage="partial",
+                note=partial,
+            ),
+        ),
+        "apache.modsecurity_module_missing": (
+            _cis_apache("2.1-§2.9", coverage="partial", note=partial),
+            _cis_apache("6.6-§6.7"),
+        ),
+        "apache.htaccess_auth_without_require": (
+            _cis_apache("4.1-§4.2", coverage="partial", note=partial),
+        ),
+        "apache.directory_without_allowoverride": (
+            _cis_apache("4.3-§4.4"),
+        ),
+        "apache.options_not_none_in_root_directory": (
+            _cis_apache("5.1-§5.3"),
+        ),
+        "apache.default_content_probe": (
+            _cis_apache("5.4-§5.6"),
+            _cis_apache("8.3"),
+        ),
+        "apache.missing_http_method_restrictions": (
+            _cis_apache("5.7"),
+        ),
+        "apache.http_protocol_options_unsafe": (
+            _cis_apache("5.9"),
+        ),
+        "apache.sensitive_config_files_not_restricted": (
+            _cis_apache("5.10-§5.13"),
+        ),
+        "apache.listen_requires_explicit_address": (
+            _cis_apache("5.14-§5.15"),
+        ),
+        "apache.missing_x_frame_options_header": (
+            _cis_apache("5.16-§5.18"),
+        ),
+        "apache.custom_log_missing": (
+            _cis_apache("6.1 / §6.3"),
+        ),
+        "apache.ssl_protocol_missing_or_weak": (
+            _cis_apache("7.1 / §7.4-§7.12"),
+        ),
+        "apache.ssl_proxy_verify_not_required": (
+            _cis_apache("7.2"),
+        ),
+        "apache.file_etag_inodes": (
+            _cis_apache("8.4"),
+        ),
+        "apache.timeout_keepalive_default_policy": (
+            _cis_apache("9.1-§9.4"),
+        ),
+        "apache.request_read_timeout_semantics": (
+            _cis_apache("9.5-§9.6"),
+        ),
+        "apache.limit_request_line_too_high": (
+            _cis_apache("10.1-§10.4"),
+        ),
+        "iis.application_pool_identity_not_application_pool_identity": (
+            cis_iis_10_v1_2_1("1.4 / §1.5 / §1.6"),
+        ),
+        "iis.binding_without_host_header": (
+            cis_iis_10_v1_2_1("1.2"),
+        ),
+        "iis.sites_share_application_pool": (
+            cis_iis_10_v1_2_1("1.4 / §1.5 / §1.6"),
+        ),
+        "iis.anonymous_auth_uses_specific_user": (
+            cis_iis_10_v1_2_1("1.4 / §1.5 / §1.6"),
+        ),
+        "iis.authorization_policy_missing": (
+            cis_iis_10_v1_2_1("2.1 / §2.2"),
+        ),
+        "iis.forms_auth_protection_unsafe": (
+            cis_iis_10_v1_2_1("2.5 / §2.7 / §2.8"),
+        ),
+        "iis.handler_write_script_execute_enabled": (
+            cis_iis_10_v1_2_1("4.8"),
+        ),
+        "iis.basic_auth_without_ssl": (
+            cis_iis_10_v1_2_1("2.6"),
+        ),
+        "iis.deployment_retail_not_enabled": (
+            cis_iis_10_v1_2_1("3.1 / §3.7-§3.12"),
+        ),
+        "iis.request_filtering_allow_double_escaping": (
+            cis_iis_10_v1_2_1("4.2 / §4.3 / §4.7 / §4.9 / §4.10"),
+        ),
+        "iis.ssl_weak_cipher_strength": (
+            cis_iis_10_v1_2_1(
+                "7.1-§7.6 / §7.10-§7.12",
+                coverage="partial",
+                note=partial,
+            ),
+        ),
+        "external.ocsp_stapling_not_observed": (
+            StandardReference(
+                standard="NIST SP 800-52 Rev. 2",
+                reference="4.3",
+                url="https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final",
+            ),
+        ),
+        "external.swagger_ui_exposed": (
+            StandardReference(
+                standard="OWASP ASVS",
+                reference="v5.0.0-13.4.5",
+                url="https://owasp.org/www-project-application-security-verification-standard/",
+            ),
+        ),
+        "external.openapi_spec_exposed": (
+            StandardReference(
+                standard="OWASP ASVS",
+                reference="v5.0.0-13.4.5",
+                url="https://owasp.org/www-project-application-security-verification-standard/",
+            ),
+        ),
+        "external.cors_wildcard_with_credentials": (
+            StandardReference(
+                standard="ISO/IEC 27002:2022",
+                reference="8.26",
+                url="https://www.iso.org/standard/75652.html",
+            ),
+        ),
+        "iis.compilation_debug_enabled": (
+            StandardReference(
+                standard="ISO/IEC 27002:2022",
+                reference="8.26",
+                url="https://www.iso.org/standard/75652.html",
+            ),
+        ),
+        "external.trace_method_allowed": (
+            StandardReference(
+                standard="ISO/IEC 27002:2022",
+                reference="8.26",
+                url="https://www.iso.org/standard/75652.html",
+            ),
+        ),
+    }
+    return list(bindings.get(rule_id, ()))
+
+
 def _is_rule_id(rule_id: str) -> bool:
-    return rule_id in _known_rule_ids()
+    return _VALID_RULE_ID_PATTERN.fullmatch(rule_id) is not None
 
 
 @lru_cache(maxsize=1)
 def _known_rule_ids() -> frozenset[str]:
     repo_root = Path(__file__).resolve().parents[2]
-    source_rule_ids = _known_rule_ids_from_source(repo_root / "src" / "webconf_audit")
+    source_rule_ids = _known_rule_ids_from_source(Path(__file__).resolve().parent)
     doc_path = repo_root / "docs" / "rule-coverage.md"
     if not doc_path.exists():
         _LOGGER.warning(
@@ -1106,6 +1330,7 @@ def lookup_rule_standards(
     primary.extend(_iso_references(rule_id))
     primary.extend(_owasp_cheat_sheet_references(rule_id))
     primary.extend(_lighttpd_vendor_references(rule_id))
+    primary.extend(_ledger_reference_bindings(rule_id))
     secondary.extend(_secondary_references(rule_id))
     return tuple(primary), tuple(secondary)
 
@@ -1408,7 +1633,7 @@ def _fstec_references(rule_id: str) -> list[StandardReference]:
         "external.htpasswd_exposed",
     }:
         refs.append(fstec_mera("ИАФ.6"))
-    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+    if rule_id in _ACCESS_CONTROL_RULES | _APACHE_NAMED_ACCESS_CONTROL_RULES:
         refs.append(fstec_mera("УПД.5"))
     if rule_id in _TLS_421_RULES:
         refs.append(fstec_mera("УПД.13"))
@@ -1477,7 +1702,7 @@ def _fstec_references(rule_id: str) -> list[StandardReference]:
 
 def _iso_references(rule_id: str) -> list[StandardReference]:
     refs: list[StandardReference] = []
-    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+    if rule_id in _ACCESS_CONTROL_RULES | _APACHE_NAMED_ACCESS_CONTROL_RULES:
         refs.append(iso_27002_2022("5.15"))
     if rule_id in {
         "nginx.missing_auth_basic_user_file",
@@ -1647,7 +1872,7 @@ def _owasp_cheat_sheet_references(rule_id: str) -> list[StandardReference]:
                 "https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html",
             )
         )
-    if rule_id in _ACCESS_CONTROL_RULES or rule_id.startswith("apache.allowoverride_") or rule_id.startswith("apache.htaccess_"):
+    if rule_id in _ACCESS_CONTROL_RULES | _APACHE_NAMED_ACCESS_CONTROL_RULES:
         refs.append(
             _cheat_sheet(
                 "Access Control",

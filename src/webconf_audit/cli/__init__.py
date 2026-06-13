@@ -799,5 +799,14 @@ def _ensure_all_rules_loaded() -> None:
     register_external_rule_metas()
 
 
+def _register_coverage_commands() -> None:
+    from webconf_audit.cli.coverage import coverage_app
+
+    app.add_typer(coverage_app, name="coverage")
+
+
+_register_coverage_commands()
+
+
 if __name__ == "__main__":
     app()

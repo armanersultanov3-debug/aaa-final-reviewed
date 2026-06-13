@@ -24,6 +24,19 @@ webconf-audit = "webconf_audit.cli:app"
 requires = ["hatchling>=1.28,<2"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/webconf_audit"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/CHANGELOG.md",
+    "/LICENSE",
+    "/pyproject.toml",
+    "/uv.lock",
+]
+
 [dependency-groups]
 dev = [
     "interrogate>=1.7.0,<2",

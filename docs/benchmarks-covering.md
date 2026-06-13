@@ -7,6 +7,13 @@ standard or benchmark family that is **not yet** in the canonical
 existing 472-rule inventory plus the rule-level work needed to cover the
 remaining requirements honestly.
 
+The release-significant eight-source coverage snapshot is no longer counted
+from prose. Its canonical source is the packaged, schema-versioned ledger
+`src/webconf_audit/data/control_source_coverage.yml`. The detailed
+human-readable table in `docs/control-source-coverage-tracker.md` is generated
+from that file, while release checks reconcile this section's summary against
+the same data.
+
 This revision includes the implemented opt-in
 `nginx.http3_alt_svc_review` policy-review rule and the corresponding
 control-source mapping updates. Candidate mappings elsewhere in the document
@@ -130,8 +137,9 @@ ASVS v5.0.0-12.1.1 is also a NIST SP 800-52 Rev. 2 §3.1 candidate).
 
 ### 4.1 Current coverage snapshot
 
-The current snapshot uses the pre-diploma coverage denominator and full
-numerator while separating the evidence states more precisely. The
+The current snapshot is computed from the packaged coverage ledger. It retains
+the pre-diploma coverage denominator and full numerator while separating the
+evidence states more precisely. The
 denominator contains only applicable items after explicitly out-of-scope items
 are removed. The numerator contains only fully covered items; partial evidence
 and opt-in policy review are tracked separately and do not increase the
