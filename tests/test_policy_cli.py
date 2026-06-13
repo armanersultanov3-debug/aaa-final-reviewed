@@ -123,6 +123,47 @@ def test_policy_show_json_validation_error_returns_policy_object(tmp_path: Path)
     assert response["issues"][0]["code"] == "unknown_opt_in_tag"
 
 
+def test_policy_show_json_normalizes_generic_external_server_type(tmp_path: Path) -> None:
+    payload = _policy_payload()
+    payload["profiles"] = [
+        {
+            "profile_id": "external-generic",
+            "title": "External generic",
+            "selectors": [
+                {
+                    "mode": "external",
+                    "server_type": "generic",
+                    "target_glob": "https://example.test",
+                }
+            ],
+            "sources": [{"source_id": "cis-nginx-3.0.0"}],
+        }
+    ]
+
+    result = runner.invoke(
+        app,
+        [
+            "policy",
+            "show",
+            "--policy",
+            str(_write_policy(tmp_path, payload)),
+            "--mode",
+            "external",
+            "--server-type",
+            "generic",
+            "--target",
+            "https://example.test",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    response = json.loads(result.stdout)
+    assert response["resolved"]["profile_id"] == "external-generic"
+    assert response["resolved"]["target"]["server_type"] is None
+
+
 @pytest.mark.parametrize(
     ("command", "target", "analyzer_attr"),
     [

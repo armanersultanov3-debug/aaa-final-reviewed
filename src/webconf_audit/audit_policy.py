@@ -649,7 +649,16 @@ def _selector_matches(
         return False
     if selector.target_glob is None:
         return True
-    return fnmatchcase(normalized_target, selector.target_glob)
+    target_segments = normalized_target.split("/")
+    pattern_segments = selector.target_glob.split("/")
+    if len(pattern_segments) == 1:
+        return fnmatchcase(target_segments[-1], pattern_segments[0])
+    if len(target_segments) != len(pattern_segments):
+        return False
+    return all(
+        fnmatchcase(target_segment, pattern_segment)
+        for target_segment, pattern_segment in zip(target_segments, pattern_segments)
+    )
 
 
 def _selector_issue(

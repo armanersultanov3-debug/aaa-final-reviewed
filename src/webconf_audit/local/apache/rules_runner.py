@@ -138,7 +138,7 @@ def run_apache_rules(
         enable_policy_review=enable_policy_review,
         execution_recorder=execution_recorder,
     )
-    if htaccess_files:
+    if htaccess_files is not None:
         findings.extend(
             run_apache_htaccess_rules(
                 config_ast,

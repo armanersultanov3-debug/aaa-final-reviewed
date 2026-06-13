@@ -962,10 +962,17 @@ def show_policy_command(
             raise typer.BadParameter(
                 "--server-type may be omitted or set to 'generic' for --mode external."
             )
+        normalized_server_type = (
+            None if mode == "external" and server_type == "generic" else server_type
+        )
         try:
             resolved = resolve_audit_policy(
                 loaded_policy,
-                AuditTarget(mode=mode, server_type=server_type, target=target),
+                AuditTarget(
+                    mode=mode,
+                    server_type=normalized_server_type,
+                    target=target,
+                ),
                 ledger,
             )
         except AuditPolicyResolveError as exc:

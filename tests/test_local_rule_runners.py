@@ -306,3 +306,46 @@ def test_run_nginx_rules_records_prerequisite_and_opt_in_skips(monkeypatch):
     skipped = {entry.rule_id: entry.reason for entry in manifest.skipped_rules}
     assert skipped["nginx.proxy_pass_user_controlled_destination"] == "prerequisite-failed"
     assert skipped["nginx.policy_review_only"] == "opt-in-not-selected"
+
+
+def test_run_apache_rules_records_empty_htaccess_as_input_unavailable(monkeypatch):
+    from webconf_audit.execution_manifest import (
+        RuleExecutionRecorder,
+        RuleSelection,
+        build_rule_execution_manifest,
+    )
+    from webconf_audit.local.apache.parser import ApacheConfigAst
+    from webconf_audit.local.apache import rules_runner as module
+
+    htaccess_entry = _entry(
+        "apache.htaccess_rule",
+        category="local",
+        server_type="apache",
+        input_kind="htaccess",
+        fn=lambda _htaccess_files: [_finding("apache.htaccess_rule")],
+    )
+
+    monkeypatch.setattr(module.registry, "ensure_loaded", lambda _package_name: None)
+    monkeypatch.setattr(
+        module.registry,
+        "rules_for",
+        lambda _category, server_type=None, include_opt_in_tags=(): [htaccess_entry],
+    )
+
+    recorder = RuleExecutionRecorder()
+    findings = module.run_apache_rules(
+        ApacheConfigAst(nodes=[]),
+        htaccess_files=[],
+        execution_recorder=recorder,
+    )
+    manifest = build_rule_execution_manifest(
+        RuleSelection(
+            registry_revision="registry:test",
+            selected_rule_ids=recorder.selected_rule_ids(),
+        ),
+        recorder.events(),
+    )
+
+    assert findings == []
+    skipped = {entry.rule_id: entry.reason for entry in manifest.skipped_rules}
+    assert skipped["apache.htaccess_rule"] == "input-unavailable"

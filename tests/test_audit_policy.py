@@ -328,6 +328,58 @@ def test_resolve_policy_requires_exactly_one_matching_profile(tmp_path: Path) ->
     assert missing.value.issue.code == "no_matching_profile"
 
 
+def test_resolve_policy_target_glob_does_not_cross_path_segments(tmp_path: Path) -> None:
+    from webconf_audit.audit_policy import (
+        AuditPolicyResolveError,
+        AuditTarget,
+        load_audit_policy,
+        resolve_audit_policy,
+    )
+
+    payload = _base_policy_payload()
+    payload["profiles"] = [
+        {
+            "profile_id": "segmented-nginx",
+            "title": "Segmented nginx",
+            "selectors": [
+                {
+                    "mode": "local",
+                    "server_type": "nginx",
+                    "target_glob": "configs/*/nginx.conf",
+                }
+            ],
+            "sources": [{"source_id": "cis-nginx-3.0.0"}],
+        }
+    ]
+
+    ledger = load_coverage_ledger()
+    policy = load_audit_policy(_write_policy(tmp_path, payload))
+    resolved = resolve_audit_policy(
+        policy,
+        AuditTarget(
+            mode="local",
+            server_type="nginx",
+            target="configs/edge/nginx.conf",
+        ),
+        ledger,
+    )
+
+    assert resolved.profile_id == "segmented-nginx"
+
+    with pytest.raises(AuditPolicyResolveError) as excinfo:
+        resolve_audit_policy(
+            policy,
+            AuditTarget(
+                mode="local",
+                server_type="nginx",
+                target="configs/edge/extra/nginx.conf",
+            ),
+            ledger,
+        )
+
+    assert excinfo.value.issue.code == "no_matching_profile"
+
+
 def test_resolved_policy_hash_is_deterministic(tmp_path: Path) -> None:
     from webconf_audit.audit_policy import AuditTarget, load_audit_policy, resolve_audit_policy
 

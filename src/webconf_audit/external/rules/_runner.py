@@ -208,6 +208,16 @@ _TLS_RULE_IDS = tuple(
     or meta.rule_id.startswith("external.cert_")
     or meta.rule_id == "external.weak_cipher_suite"
 )
+_HTTPS_AVAILABILITY_RULE_IDS = (
+    "external.https_not_available",
+    "external.http_not_redirected_to_https",
+    "external.http_redirect_not_permanent",
+)
+_HSTS_RULE_IDS = tuple(
+    rule_id
+    for rule_id in _HTTPS_RULE_IDS
+    if rule_id not in _HTTPS_AVAILABILITY_RULE_IDS
+)
 _UNKNOWN_HOST_RULE_IDS = ("external.unknown_host_runtime_response",)
 
 
@@ -220,21 +230,30 @@ def run_external_rules(
     record_runtime_only_rules: bool = False,
 ) -> list[Finding]:
     path_probes = sensitive_path_probes or []
-    if execution_recorder is not None:
-        execution_recorder.select_many(meta.rule_id for meta in _EXTERNAL_RULE_METAS)
+    has_http_response = any(attempt.has_http_response for attempt in probe_attempts)
+    has_https_response = any(
+        attempt.has_http_response and attempt.target.scheme == "https"
+        for attempt in probe_attempts
+    )
     findings: list[Finding] = []
-    findings.extend(
-        _collect_group(
-            _HTTPS_RULE_IDS,
-            lambda: collect_https_findings(probe_attempts, target),
-            execution_recorder=execution_recorder,
-        )
+    if has_http_response:
+        findings.extend(collect_https_findings(probe_attempts, target))
+    _record_group_terminal_state(
+        _HTTPS_AVAILABILITY_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_http_response,
+    )
+    _record_group_terminal_state(
+        _HSTS_RULE_IDS,
+        execution_recorder=execution_recorder,
+        runnable=has_https_response,
     )
     findings.extend(
         _collect_group(
             _HEADER_RULE_IDS,
             lambda: collect_header_findings(probe_attempts),
             execution_recorder=execution_recorder,
+            runnable=has_https_response,
         )
     )
     findings.extend(
@@ -245,6 +264,7 @@ def run_external_rules(
                 server_identification=server_identification,
             ),
             execution_recorder=execution_recorder,
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -261,6 +281,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -277,6 +298,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -296,6 +318,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -303,6 +326,7 @@ def run_external_rules(
             _CORS_RULE_IDS,
             lambda: collect_cors_findings(probe_attempts),
             execution_recorder=execution_recorder,
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -310,6 +334,7 @@ def run_external_rules(
             _METHOD_RULE_IDS,
             lambda: collect_method_findings(probe_attempts),
             execution_recorder=execution_recorder,
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -317,6 +342,7 @@ def run_external_rules(
             _COOKIE_RULE_IDS,
             lambda: collect_cookie_findings(probe_attempts),
             execution_recorder=execution_recorder,
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -324,6 +350,7 @@ def run_external_rules(
             _TLS_RULE_IDS,
             lambda: collect_tls_findings(probe_attempts, target),
             execution_recorder=execution_recorder,
+            runnable=has_https_response,
         )
     )
     findings.extend(
@@ -338,6 +365,7 @@ def run_external_rules(
                 if record_runtime_only_rules
                 else None
             ),
+            runnable=has_http_response,
         )
     )
     findings.extend(
@@ -348,6 +376,7 @@ def run_external_rules(
                 server_identification=server_identification,
             ),
             execution_recorder=execution_recorder,
+            runnable=bool(path_probes),
         )
     )
     findings.extend(
@@ -359,6 +388,7 @@ def run_external_rules(
             ),
             server_identification=server_identification,
             execution_recorder=execution_recorder,
+            runnable=has_http_response or bool(path_probes),
         )
     )
     return findings
@@ -380,11 +410,17 @@ def _collect_group(
     invoke,
     *,
     execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
 ) -> list[Finding]:
+    if not runnable:
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
+        return []
     findings = invoke()
-    if execution_recorder is not None:
-        for rule_id in rule_ids:
-            execution_recorder.completed(rule_id)
+    _record_group_completions(rule_ids, execution_recorder=execution_recorder)
     return findings
 
 
@@ -395,16 +431,28 @@ def _collect_server_scoped_group(
     invoke,
     server_identification: "ServerIdentification | None",
     execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
 ) -> list[Finding]:
-    if _server_incompatible(server_identification, expected_server):
-        if execution_recorder is not None:
-            for rule_id in rule_ids:
-                execution_recorder.skipped(
-                    rule_id,
-                    reason="server-incompatible",
-                )
+    if not runnable:
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
         return []
-    return _collect_group(rule_ids, invoke, execution_recorder=execution_recorder)
+    if _server_incompatible(server_identification, expected_server):
+        _record_group_skips(
+            rule_ids,
+            execution_recorder=execution_recorder,
+            reason="server-incompatible",
+        )
+        return []
+    return _collect_group(
+        rule_ids,
+        invoke,
+        execution_recorder=execution_recorder,
+        runnable=True,
+    )
 
 
 def _collect_conditional_group(
@@ -412,7 +460,15 @@ def _collect_conditional_group(
     invoke,
     server_identification: "ServerIdentification | None",
     execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
 ) -> list[Finding]:
+    if not runnable:
+        _record_group_skips(
+            tuple(_CONDITIONAL_RULES),
+            execution_recorder=execution_recorder,
+            reason="input-unavailable",
+        )
+        return []
     findings = invoke()
     if execution_recorder is None:
         return findings
@@ -422,6 +478,45 @@ def _collect_conditional_group(
         else:
             execution_recorder.completed(rule_id)
     return findings
+
+
+def _record_group_terminal_state(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+    runnable: bool,
+) -> None:
+    if runnable:
+        _record_group_completions(rule_ids, execution_recorder=execution_recorder)
+        return
+    _record_group_skips(
+        rule_ids,
+        execution_recorder=execution_recorder,
+        reason="input-unavailable",
+    )
+
+
+def _record_group_completions(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+) -> None:
+    if execution_recorder is None:
+        return
+    for rule_id in rule_ids:
+        execution_recorder.completed(rule_id)
+
+
+def _record_group_skips(
+    rule_ids: tuple[str, ...],
+    *,
+    execution_recorder: RuleExecutionRecorder | None,
+    reason: str,
+) -> None:
+    if execution_recorder is None:
+        return
+    for rule_id in rule_ids:
+        execution_recorder.skipped(rule_id, reason=reason)
 
 
 def _server_incompatible(

@@ -137,3 +137,42 @@ def test_external_runner_omits_runtime_only_rules_missing_from_registry(
     assert "external.nginx.default_index_page_body" not in selected
     assert "external.iis.server_header_removal_not_applied" not in selected
     assert "external.unknown_host_runtime_response" not in selected
+
+
+def test_external_runner_marks_unavailable_groups_as_input_unavailable() -> None:
+    from webconf_audit.execution_manifest import (
+        RuleExecutionRecorder,
+        RuleSelection,
+        build_rule_execution_manifest,
+    )
+    from webconf_audit.external.rules import _runner as runner_module
+
+    recorder = RuleExecutionRecorder()
+    runner_module.run_external_rules(
+        [
+            ProbeAttempt(
+                target=ProbeTarget(scheme="https", host="example.test", port=443, path="/"),
+                tcp_open=False,
+                error_message="TCP connection failed or timed out.",
+            )
+        ],
+        "https://example.test",
+        sensitive_path_probes=[],
+        server_identification=None,
+        execution_recorder=recorder,
+    )
+
+    manifest = build_rule_execution_manifest(
+        RuleSelection(
+            registry_revision="registry:test",
+            selected_rule_ids=recorder.selected_rule_ids(),
+        ),
+        recorder.events(),
+    )
+
+    skipped = {entry.rule_id: entry.reason for entry in manifest.skipped_rules}
+    assert skipped["external.https_not_available"] == "input-unavailable"
+    assert skipped["external.x_frame_options_missing"] == "input-unavailable"
+    assert skipped["external.cookie_missing_httponly"] == "input-unavailable"
+    assert skipped["external.certificate_expired"] == "input-unavailable"
+    assert skipped["external.nginx.default_welcome_page"] == "input-unavailable"
