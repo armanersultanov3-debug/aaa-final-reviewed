@@ -74,3 +74,47 @@ the resolved profile under `result.metadata.audit_policy`.
 Every analysis result, with or without a policy, also includes a versioned
 `result.metadata.rule_execution` manifest describing which rules completed,
 skipped, or failed. See [docs/report-format.md](report-format.md).
+
+## Assessment interaction
+
+`assess` does not silently load a new policy. It trusts the embedded resolved
+policy from the analysis report and uses any supplied `--policy` file only for
+verification.
+
+Example:
+
+```bash
+webconf-audit analyze-nginx nginx.conf --policy .webconf-audit-policy.yml --format json > analysis.json
+webconf-audit assess --report analysis.json --policy .webconf-audit-policy.yml
+```
+
+Verification succeeds only when the supplied policy resolves to the same
+`policy_id`, `policy_version`, `raw_sha256`, and `resolved_sha256` that were
+embedded at analysis time.
+
+Policy dispositions affect assessment conservatively:
+
+- `required` can become `fail`, `partial`, `pass`, `indeterminate`, or
+  `not-assessed`
+- `advisory` uses the same evidence model and can still be rendered with the
+  same per-control assessment statuses, but the disposition itself does not
+  change how the engine derives `pass` or `fail`; it remains additive context
+  and does not change source coverage totals
+- `review` yields `review` unless direct negative evidence produces `fail` or
+  incomplete execution produces `indeterminate`
+- `not-applicable` keeps the control out of in-scope target conclusions, but
+  mapped findings are retained as out-of-policy context rather than deleted
+
+Example: the same `control-pass` evidence can render a control `pass` under
+both `required` and `advisory`; the difference is policy intent and coverage
+accounting, not a different status algorithm. Neither disposition changes the
+canonical ledger numerators during assessment. See
+[docs/control-assessment.md](control-assessment.md) for the status rules.
+
+Policies remain separate from:
+
+- suppressions
+- baselines
+- severity
+- coverage accounting
+- assessment status gating

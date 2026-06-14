@@ -153,7 +153,15 @@ def apply_suppressions(result: AnalysisResult, suppressions: SuppressionSet) -> 
             active_findings.append(finding)
             continue
         entry, matched_by = match
-        suppressed_payloads.append(_suppressed_payload(result, finding, entry, matched_by))
+        suppressed_payloads.append(
+            _suppressed_payload(
+                result,
+                finding,
+                entry,
+                matched_by,
+                source_path=suppressions.source_path,
+            )
+        )
 
     result.findings = active_findings
     if suppressed_payloads:
@@ -380,11 +388,13 @@ def _suppressed_payload(
     finding: Finding,
     suppression: Suppression,
     matched_by: str,
+    *,
+    source_path: str | None,
 ) -> dict[str, object]:
     payload = finding.model_dump()
     fingerprint = finding_fingerprint(result, finding)
     payload["fingerprint"] = fingerprint
-    return {
+    response = {
         "fingerprint": fingerprint,
         "rule_id": finding.rule_id,
         "reason": suppression.reason,
@@ -393,6 +403,9 @@ def _suppressed_payload(
         "suppression_index": suppression.index,
         "finding": payload,
     }
+    if source_path is not None:
+        response["source_path"] = source_path
+    return response
 
 
 def _issue(

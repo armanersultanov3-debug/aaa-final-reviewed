@@ -1411,6 +1411,8 @@ def test_analyze_nginx_json_has_summary_and_results(monkeypatch) -> None:
 
     assert result.exit_code == 0
     parsed = json.loads(result.stdout)
+    assert parsed["schema_version"] == 1
+    assert parsed["generator"]["package_name"] == "webconf-audit"
     assert "summary" in parsed
     assert "results" in parsed
     assert set(parsed["summary"]["by_severity"].keys()) == {
