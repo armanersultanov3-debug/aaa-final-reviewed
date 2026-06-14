@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from webconf_audit.csp_ast import CspDisposition, CspPolicy, parse_csp_header_value
+from webconf_audit.local.nginx.effective_scope import NginxScopeKind, build_scope_graph
 from webconf_audit.local.nginx.parser.ast import ConfigAst
-from webconf_audit.local.nginx.rules._value_utils import iter_server_blocks_with_http_directives
-from webconf_audit.local.nginx.rules.header_utils import find_server_add_headers
+from webconf_audit.local.nginx.response_header_semantics import resolve_response_header_semantics
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 
 RULE_ID = "nginx.content_security_policy_unsafe"
 
-_UNSAFE_SCRIPT_TOKENS = {"'unsafe-inline'", "'unsafe-eval'", "unsafe-inline", "unsafe-eval"}
+_UNSAFE_SCRIPT_TOKENS = {"'unsafe-inline'", "'unsafe-eval'"}
 
 
 @rule(
@@ -29,74 +30,118 @@ _UNSAFE_SCRIPT_TOKENS = {"'unsafe-inline'", "'unsafe-eval'", "unsafe-inline", "u
 )
 def find_content_security_policy_unsafe(config_ast: ConfigAst) -> list[Finding]:
     findings: list[Finding] = []
+    scope_graph = build_scope_graph(config_ast)
+    semantics = resolve_response_header_semantics(config_ast, scope_graph=scope_graph)
+    seen_locations: set[tuple[str | None, int | None]] = set()
 
-    for server_block, inherited_directives in iter_server_blocks_with_http_directives(
-        config_ast,
-        {"add_header"},
-    ):
-        for directive in find_server_add_headers(server_block, inherited_directives):
-            if not directive.args or directive.args[0].lower() != "content-security-policy":
+    for scope in scope_graph.scopes:
+        if scope.kind not in {
+            NginxScopeKind.SERVER,
+            NginxScopeKind.LOCATION,
+            NginxScopeKind.IF_IN_LOCATION,
+        }:
+            continue
+        effective = semantics.effective_scopes_by_id.get(scope.scope_id)
+        if effective is None:
+            continue
+        header_list = effective.base_headers
+        if scope.kind == NginxScopeKind.IF_IN_LOCATION:
+            parent_scope = scope_graph.scopes_by_id.get(scope.parent_id) if scope.parent_id is not None else None
+            if parent_scope is None:
                 continue
-            policy = _header_value(directive.args)
-            if _policy_is_baseline_safe(policy):
+            parent_effective = semantics.effective_scopes_by_id.get(parent_scope.scope_id)
+            if parent_effective is None:
                 continue
-            findings.append(
-                Finding(
-                    rule_id=RULE_ID,
-                    title="Content-Security-Policy is weak",
-                    severity="low",
-                    description=(
-                        "Content-Security-Policy is present but lacks a restrictive "
-                        "default-src or safe script-src posture."
-                    ),
-                    recommendation=(
-                        "Use a baseline such as default-src 'self'; form-action "
-                        "'self'; and remove unsafe script tokens."
-                    ),
-                    location=SourceLocation(
-                        mode="local",
-                        kind="file",
-                        file_path=directive.source.file_path,
-                        line=directive.source.line,
-                    ),
-                )
+            branch = next(
+                (
+                    branch
+                    for branch in parent_effective.conditional_branches
+                    if branch.branch_scope_id == scope.scope_id
+                ),
+                None,
             )
-
+            header_list = branch.headers if branch is not None else ()
+        csp_headers = [
+            header
+            for header in header_list
+            if header.normalized_name == "content-security-policy"
+            and bool(header.rendered_static_value.strip())
+        ]
+        if not csp_headers:
+            continue
+        if _policies_are_baseline_safe(csp_headers):
+            continue
+        location_key = (scope.source.file_path, scope.source.line)
+        if location_key in seen_locations:
+            continue
+        seen_locations.add(location_key)
+        findings.append(
+            Finding(
+                rule_id=RULE_ID,
+                title="Content-Security-Policy is weak",
+                severity="low",
+                description=(
+                    "Content-Security-Policy is present but lacks a restrictive "
+                    "default-src or safe script-src posture."
+                ),
+                recommendation=(
+                    "Use a baseline such as default-src 'self'; form-action "
+                    "'self'; and remove unsafe script tokens."
+                ),
+                location=SourceLocation(
+                    mode="local",
+                    kind="file",
+                    file_path=scope.source.file_path,
+                    line=scope.source.line,
+                ),
+            )
+        )
     return findings
 
 
-def _header_value(args: list[str]) -> str:
-    value_args = args[1:]
-    if value_args and value_args[-1].lower() == "always":
-        value_args = value_args[:-1]
-    value = " ".join(value_args).strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        value = value[1:-1].strip()
-    return value.lower()
-
-
-def _policy_is_baseline_safe(policy: str) -> bool:
-    default_src = _directive_value(policy, "default-src")
-    if default_src is None:
+def _policies_are_baseline_safe(headers) -> bool:
+    policies = [
+        policy
+        for header in headers
+        for policy in parse_csp_header_value(
+            header.rendered_static_value,
+            disposition=CspDisposition.ENFORCE,
+        ).policies
+    ]
+    if not policies:
+        return True
+    if _effective_unsafe_capability(policies, "'unsafe-inline'"):
         return False
-    default_tokens = set(default_src.split())
-    if not default_tokens or "*" in default_tokens:
+    if _effective_unsafe_capability(policies, "'unsafe-eval'"):
         return False
-    script_src = _directive_value(policy, "script-src")
-    if script_src is None:
-        return not any(token in default_tokens for token in _UNSAFE_SCRIPT_TOKENS)
-    return not any(token in script_src.split() for token in _UNSAFE_SCRIPT_TOKENS)
+    has_safe_default = any(_policy_has_safe_default_src(policy) for policy in policies)
+    has_script_posture = all(policy.first_directive("script-src") is not None for policy in policies)
+    return has_safe_default or has_script_posture
 
 
-def _directive_value(policy: str, directive_name: str) -> str | None:
-    for directive in policy.split(";"):
-        stripped = directive.strip()
-        if not stripped:
-            continue
-        parts = stripped.split(maxsplit=1)
-        if parts[0] == directive_name:
-            return parts[1] if len(parts) == 2 else ""
-    return None
+def _effective_unsafe_capability(policies: list[CspPolicy], token_name: str) -> bool:
+    directives = [_script_directive(policy) for policy in policies]
+    if not directives:
+        return False
+    return all(
+        directive is not None
+        and any(token.normalized == token_name for token in directive.tokens)
+        for directive in directives
+    )
+
+
+def _policy_has_safe_default_src(policy: CspPolicy) -> bool:
+    directive = policy.first_directive("default-src")
+    if directive is None:
+        return False
+    tokens = {token.normalized for token in directive.tokens}
+    if not tokens or "*" in tokens:
+        return False
+    return not bool(tokens & _UNSAFE_SCRIPT_TOKENS)
+
+
+def _script_directive(policy: CspPolicy):
+    return policy.first_directive("script-src") or policy.first_directive("default-src")
 
 
 __all__ = ["find_content_security_policy_unsafe"]

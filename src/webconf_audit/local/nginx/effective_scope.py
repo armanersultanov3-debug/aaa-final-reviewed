@@ -198,7 +198,10 @@ def _scope_kind_for_block(
 ) -> NginxScopeKind | None:
     if block.name == "http" and parent_kind == NginxScopeKind.MAIN:
         return NginxScopeKind.HTTP
-    if block.name == "server" and parent_kind == NginxScopeKind.HTTP:
+    if block.name == "server" and parent_kind in {
+        NginxScopeKind.MAIN,
+        NginxScopeKind.HTTP,
+    }:
         return NginxScopeKind.SERVER
     if block.name == "location" and parent_kind in {
         NginxScopeKind.SERVER,
