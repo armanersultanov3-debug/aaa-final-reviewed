@@ -7,6 +7,7 @@ import ipaddress
 from typing import Iterable
 
 from webconf_audit.local.nginx.access_control_semantics import (
+    AuthControlState,
     EffectiveAccessControl,
     resolve_effective_access_control,
 )
@@ -69,6 +70,7 @@ def evaluate_sensitive_location_policy(
     if policy is None:
         return []
 
+    # Retain these parameters for analyzer-policy evaluator signature parity.
     del config_ast, findings
     assessments: list[PolicyControlAssessment] = []
     server_scopes = tuple(
@@ -371,7 +373,7 @@ def _evaluate_requirement(
 def _evaluate_auth_leaf(
     *,
     control: EffectiveAccessControl,
-    state,
+    state: AuthControlState,
     control_name: str,
 ) -> tuple[str, tuple[ControlAssessmentEvidence, ...]]:
     if state.state == "enabled" and state.companion_present is not False:
@@ -414,7 +416,7 @@ def _evaluate_auth_leaf(
 def _evaluate_optional_auth_leaf(
     *,
     control: EffectiveAccessControl,
-    state,
+    state: AuthControlState,
     control_name: str,
 ) -> tuple[str, tuple[ControlAssessmentEvidence, ...]]:
     if state.state == "enabled":
@@ -929,8 +931,7 @@ def _route_evidence(
     )
 
 
-def _source_location(source: SourceSpan | None) -> SourceLocation:
-    assert source is not None
+def _source_location(source: SourceSpan) -> SourceLocation:
     return SourceLocation(
         mode="local",
         kind="file",

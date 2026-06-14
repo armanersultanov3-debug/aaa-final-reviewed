@@ -90,7 +90,17 @@ def test_analyze_nginx_with_sensitive_location_policy_emits_control_assessments(
         "policy.nginx.sensitive-location.admin-console",
         "cis-nginx-5.1.1.sensitive-ip-filters",
     }
+    policy_assessments = [
+        entry
+        for entry in assessments
+        if entry["control_id"].startswith("policy.nginx.sensitive-location.")
+        or entry["control_id"] in {
+            "cis-nginx-5.1.1.sensitive-ip-filters",
+            "asvs-5.0.0-v13.4.5.sensitive-endpoint-exposure",
+        }
+    ]
+    assert policy_assessments
     assert {
         entry["metadata"]["policy_section"]
-        for entry in assessments
+        for entry in policy_assessments
     } == {"nginx.sensitive_locations"}
