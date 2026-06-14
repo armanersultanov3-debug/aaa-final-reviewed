@@ -49,7 +49,7 @@ Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1.
 | NGINX v3.0.0 §4.1.5 Cipher policy | `full` | The rule parses configured cipher strings and reports known weak cipher posture. |
 | NGINX v3.0.0 §4.1.9 / §4.1.10 (NGINX v3.0.0 §4.1.9, NGINX v3.0.0 §4.1.10) TLS session cache and timeout | `full` | The rules validate session cache and timeout configuration in effective HTTP and server scopes. |
 | NGINX v3.0.0 §4.1.12 HTTP/3 and Alt-Svc posture | `policy-review` | The opt-in rule reports the QUIC listener, effective http3 state, and effective Alt-Svc advertisement for operator review. Limitations: Runtime HTTP/3 negotiation is not proven. |
-| NGINX v3.0.0 §5.1.1 Sensitive locations | `partial` | The rule detects sensitive location scopes that lack an IP restriction. Limitations: A complete sensitive-path catalog is deployment-specific. |
+| NGINX v3.0.0 §5.1.1 Sensitive locations | `partial` | The built-in rule detects sensitive location scopes that lack an IP restriction, and `nginx.sensitive_locations` can add operator-catalog route assessments without changing the counted source status. Limitations: A complete sensitive-path catalog is deployment-specific.; Policy-backed route assessments remain per-target evidence and do not promote this item beyond `partial`. |
 | NGINX v3.0.0 §5.1.2 HTTP method restrictions | `full` | The rules detect missing or unsafe HTTP method restrictions in sensitive and site-wide scopes. |
 | NGINX v3.0.0 §5.2.4 / §5.2.5 (NGINX v3.0.0 §5.2.4, NGINX v3.0.0 §5.2.5) Connection and rate limit values | `partial` | Structural checks and opt-in review expose configured rate-limit values. Limitations: The reasonableness of a limit depends on the workload and capacity model. |
 | NGINX v3.0.0 §5.3.2 / §5.3.3 (NGINX v3.0.0 §5.3.2, NGINX v3.0.0 §5.3.3) CSP and Referrer-Policy quality | `partial` | Header checks and opt-in CSP review expose missing or unsafe policy values. Limitations: Complete application-specific CSP and referrer semantics are not proven. |
@@ -147,7 +147,7 @@ Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0
 | v5.0.0-13.4.2 Production debug features | `full` | IIS and external rules detect visible debug features and detailed error endpoints. |
 | v5.0.0-13.4.3 Directory listings | `full` | Universal, server-specific, and runtime rules detect enabled directory listing. |
 | v5.0.0-13.4.4 TRACE method | `full` | Local and external rules detect enabled TRACE behavior. |
-| v5.0.0-13.4.5 Documentation and monitoring endpoints | `full` | Safe probes and server rules detect public status, information, Swagger UI, and OpenAPI specification endpoints. |
+| v5.0.0-13.4.5 Documentation and monitoring endpoints | `full` | Safe probes and server rules detect public status, information, Swagger UI, and OpenAPI specification endpoints, and `nginx.sensitive_locations` can add route-specific declared-endpoint evidence for cataloged documentation or monitoring paths. Limitations: Runtime exposure and application intent remain separate corroboration layers for policy-backed route assessments. |
 | v5.0.0-13.4.6 Component and version disclosure | `full` | Server token, header, and dependency-manifest rules detect component or version disclosure. |
 | v5.0.0-13.4.7 Exposed secret and configuration material | `partial` | Local deny-list rules and safe artifact probes detect selected sensitive files. Limitations: A complete application-specific allowlist and secret inventory are outside scope. |
 

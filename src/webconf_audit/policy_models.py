@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import ipaddress
+import re
 from datetime import date, datetime
 from typing import Annotated, Literal
+from urllib.parse import unquote, urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
@@ -41,6 +44,23 @@ NginxErrorLogSeverity = Literal[
 ]
 NginxAccessDestinationKind = Literal["file", "syslog", "stderr"]
 NginxErrorDestinationKind = Literal["file", "syslog", "stderr", "memory", "null_device"]
+NginxSensitiveLocationKind = Literal[
+    "admin",
+    "documentation",
+    "monitoring",
+    "internal_api",
+    "support",
+    "custom",
+]
+NginxLocationSelectorModifier = Literal[
+    "exact",
+    "prefix",
+    "prefix_no_regex",
+    "regex",
+    "regex_i",
+    "named",
+]
+NginxSensitiveLocationExposure = Literal["external", "internal_only", "disabled"]
 TargetGlob = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
@@ -301,9 +321,122 @@ class NginxLoggingPolicy(_StrictModel):
     unmatched_scopes: UnmatchedRouteDisposition = "indeterminate"
 
 
+class NginxLocationSelector(_StrictModel):
+    modifier: NginxLocationSelectorModifier
+    pattern: NonEmptyText
+    source_path: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_selector(self) -> "NginxLocationSelector":
+        if self.modifier == "named":
+            if not self.pattern.startswith("@"):
+                raise ValueError("named location selectors must start with '@'.")
+            return self
+        if self.modifier in {"exact", "prefix", "prefix_no_regex"} and not self.pattern.startswith("/"):
+            raise ValueError("non-regex location selectors must start with '/'.")
+        if self.modifier in {"regex", "regex_i"}:
+            _validate_supported_regex(
+                self.pattern,
+                flags=re.IGNORECASE if self.modifier == "regex_i" else 0,
+            )
+        return self
+
+
+class _EmptySensitiveControl(_StrictModel):
+    pass
+
+
+class NginxIpAllowlistRequirement(_StrictModel):
+    allowed_cidrs: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=64)
+    require_deny_all_fallback: bool = False
+
+    @model_validator(mode="after")
+    def validate_allowed_cidrs(self) -> "NginxIpAllowlistRequirement":
+        for entry in self.allowed_cidrs:
+            _parse_ip_or_cidr(entry)
+        return self
+
+
+class NginxSensitiveLocationRequirement(_StrictModel):
+    all_of: tuple["NginxSensitiveLocationRequirement", ...] = Field(default=(), max_length=8)
+    one_of: tuple["NginxSensitiveLocationRequirement", ...] = Field(default=(), max_length=8)
+    satisfy: Literal["all", "any"] | None = None
+    internal: _EmptySensitiveControl | None = None
+    deny_all: _EmptySensitiveControl | None = None
+    auth_basic: _EmptySensitiveControl | None = None
+    auth_request: _EmptySensitiveControl | None = None
+    auth_jwt: _EmptySensitiveControl | None = None
+    auth_oidc: _EmptySensitiveControl | None = None
+    ip_allowlist: NginxIpAllowlistRequirement | None = None
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "NginxSensitiveLocationRequirement":
+        composite_count = int(bool(self.all_of)) + int(bool(self.one_of))
+        leaf_count = sum(
+            requirement is not None
+            for requirement in (
+                self.internal,
+                self.deny_all,
+                self.auth_basic,
+                self.auth_request,
+                self.auth_jwt,
+                self.auth_oidc,
+                self.ip_allowlist,
+            )
+        )
+        if composite_count + leaf_count != 1:
+            raise ValueError(
+                "sensitive location requirements must declare exactly one composite or leaf control."
+            )
+        if self.satisfy is not None and composite_count != 1:
+            raise ValueError("satisfy is supported only on composite requirement nodes.")
+        return self
+
+
+class NginxSensitiveLocationEntry(_StrictModel):
+    entry_id: Identifier
+    kind: NginxSensitiveLocationKind
+    server_names: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=128)
+    declared_location: NginxLocationSelector | None = None
+    sample_uris: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+    exposure: NginxSensitiveLocationExposure
+    required_controls: NginxSensitiveLocationRequirement
+
+    @model_validator(mode="after")
+    def validate_entry(self) -> "NginxSensitiveLocationEntry":
+        if self.declared_location is None and not self.sample_uris:
+            raise ValueError(
+                "sensitive location entries must declare a location selector, sample_uris, or both."
+            )
+        for uri in self.sample_uris:
+            _validate_sensitive_location_sample_uri(uri)
+        if self.exposure == "disabled" and not _requirement_tree_has_control(
+            self.required_controls,
+            control_name="deny_all",
+        ):
+            raise ValueError(
+                "exposure 'disabled' requires a deny_all requirement or equivalent unconditional deny control."
+            )
+        if self.exposure == "internal_only" and not (
+            _requirement_tree_has_control(self.required_controls, control_name="internal")
+            or _requirement_tree_has_control(self.required_controls, control_name="deny_all")
+        ):
+            raise ValueError(
+                "exposure 'internal_only' requires an internal or deny_all requirement."
+            )
+        return self
+
+
+class NginxSensitiveLocationsPolicy(_StrictModel):
+    catalog: tuple[NginxSensitiveLocationEntry, ...] = Field(min_length=1, max_length=128)
+    unmatched_entries: UnmatchedRouteDisposition = "indeterminate"
+    allow_unresolved_internal_redirects: bool = False
+
+
 class NginxPolicy(_StrictModel):
     reverse_proxy_headers: NginxReverseProxyHeadersPolicy | None = None
     logging: NginxLoggingPolicy | None = None
+    sensitive_locations: NginxSensitiveLocationsPolicy | None = None
 
 
 class ControlPolicy(_StrictModel):
@@ -434,6 +567,9 @@ __all__ = [
     "NginxErrorThresholdPolicy",
     "NginxEscapeMode",
     "NginxFieldGroupName",
+    "NginxIpAllowlistRequirement",
+    "NginxLocationSelector",
+    "NginxLocationSelectorModifier",
     "NginxLoggingConditionalPolicy",
     "NginxLoggingPolicy",
     "NginxLoggingProfile",
@@ -441,6 +577,11 @@ __all__ = [
     "NginxLogVariable",
     "NginxPolicy",
     "NginxReverseProxyHeadersPolicy",
+    "NginxSensitiveLocationEntry",
+    "NginxSensitiveLocationExposure",
+    "NginxSensitiveLocationKind",
+    "NginxSensitiveLocationRequirement",
+    "NginxSensitiveLocationsPolicy",
     "PolicyDefaults",
     "PolicyProvenance",
     "PolicySchemaVersion",
@@ -467,3 +608,70 @@ def _normalize_nginx_variable(value: str) -> str:
     if stripped.startswith("${") and stripped.endswith("}"):
         return f"${stripped[2:-1]}"
     return stripped
+
+
+def _validate_supported_regex(pattern: str, *, flags: int = 0) -> None:
+    if "(?<" in pattern or "\\K" in pattern or "(?>" in pattern or "(?R" in pattern or "(?0" in pattern:
+        raise ValueError(f"Unsupported regex construct in location selector pattern {pattern!r}.")
+    try:
+        re.compile(pattern, flags)
+    except re.error as exc:
+        raise ValueError(f"Invalid regex location selector pattern {pattern!r}: {exc}.") from exc
+
+
+def _parse_ip_or_cidr(value: str) -> None:
+    try:
+        if "/" in value:
+            ipaddress.ip_network(value, strict=True)
+        else:
+            ipaddress.ip_address(value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid IP or CIDR value {value!r}.") from exc
+
+
+def _validate_sensitive_location_sample_uri(value: str) -> None:
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc or parts.query or parts.fragment:
+        raise ValueError(
+            f"Sensitive location sample URI {value!r} must be an absolute path without scheme, host, query, or fragment."
+        )
+    if not value.startswith("/"):
+        raise ValueError(f"Sensitive location sample URI {value!r} must start with '/'.")
+    if value != _normalize_sensitive_location_uri(value):
+        raise ValueError(
+            f"Sensitive location sample URI {value!r} must already be normalized for static matching."
+        )
+
+
+def _normalize_sensitive_location_uri(value: str) -> str:
+    decoded = unquote(value)
+    normalized_parts: list[str] = []
+    for part in decoded.split("/"):
+        if part in {"", "."}:
+            continue
+        if part == "..":
+            if normalized_parts:
+                normalized_parts.pop()
+            continue
+        normalized_parts.append(part)
+    normalized = "/" + "/".join(normalized_parts)
+    if value.endswith("/") and normalized != "/":
+        normalized += "/"
+    compressed = re.sub(r"/{2,}", "/", normalized)
+    return compressed or "/"
+
+
+def _requirement_tree_has_control(
+    requirement: NginxSensitiveLocationRequirement,
+    *,
+    control_name: str,
+) -> bool:
+    if getattr(requirement, control_name) is not None:
+        return True
+    return any(
+        _requirement_tree_has_control(child, control_name=control_name)
+        for child in (*requirement.all_of, *requirement.one_of)
+    )
+
+
+NginxSensitiveLocationRequirement.model_rebuild()

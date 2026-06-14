@@ -53,7 +53,8 @@ Schema version 1 policy files contain:
 - selected coverage sources and per-item overrides;
 - optional requests for known opt-in rule tags such as `policy-review`;
 - optional analyzer-specific contracts under bounded top-level sections such as
-  `nginx.logging` and `nginx.reverse_proxy_headers`.
+  `nginx.logging`, `nginx.reverse_proxy_headers`, and
+  `nginx.sensitive_locations`.
 
 YAML is loaded with bounded safe parsing. Aliases, anchors, tags, and merge
 keys are rejected.
@@ -245,6 +246,93 @@ Important boundaries:
   findings and does not suppress existing findings.
 - Coverage percentages do not increase because this policy exists or because a
   route-level assessment passes.
+
+## Nginx sensitive-location policy
+
+Schema version 1 also supports `nginx.sensitive_locations` for an
+operator-supplied catalog of business-sensitive routes or declared Nginx
+locations and the access-control contract required for each one.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: nginx-sensitive-location-contract
+policy_version: "2026.06"
+title: Nginx sensitive location contract
+description: Policy-backed access control requirements for sensitive nginx routes.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: nginx-production
+    title: Production nginx
+    selectors:
+      - mode: local
+        server_type: nginx
+        target_glob: "*nginx.conf"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+        controls: []
+nginx:
+  sensitive_locations:
+    catalog:
+      - entry_id: admin-console
+        kind: admin
+        server_names: ["example.test"]
+        declared_location:
+          modifier: prefix_no_regex
+          pattern: /admin/
+        sample_uris: ["/admin/"]
+        exposure: external
+        required_controls:
+          all_of:
+            - ip_allowlist:
+                allowed_cidrs: ["10.20.0.0/16"]
+                require_deny_all_fallback: true
+            - auth_request: {}
+          satisfy: all
+      - entry_id: metrics
+        kind: monitoring
+        server_names: ["example.test"]
+        sample_uris: ["/metrics"]
+        exposure: internal_only
+        required_controls:
+          one_of:
+            - internal: {}
+            - deny_all: {}
+    unmatched_entries: indeterminate
+    allow_unresolved_internal_redirects: false
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-12
+  change_ref: SEC-2026-206
+```
+
+Important boundaries:
+
+- If the `nginx.sensitive_locations` section is omitted, existing Nginx
+  findings, baseline sensitive-path rules, and default analysis JSON remain
+  unchanged.
+- A sensitive-location policy emits versioned per-result
+  `control_assessments` only for the matching analysis run. The bounded
+  control IDs are `policy.nginx.sensitive-location.<entry_id>`,
+  `cis-nginx-5.1.1.sensitive-ip-filters`, and
+  `asvs-5.0.0-v13.4.5.sensitive-endpoint-exposure`.
+- Policy results do not suppress findings. In particular, a passing
+  sensitive-location assessment does not hide
+  `nginx.missing_access_restrictions_on_sensitive_locations`,
+  `nginx.sensitive_location_missing_ip_filter`, or any other invalid
+  configuration finding.
+- If routing, includes, optional auth-module visibility, dynamic address
+  rules, or unresolved internal redirects prevent a sound conclusion, the
+  assessment becomes `indeterminate` rather than an assumed `pass`.
+- Coverage percentages do not increase because this policy exists or because a
+  route-level assessment passes. CIS NGINX В§5.1.1 remains `partial` in the
+  canonical coverage tracker.
 
 ## Assessment interaction
 

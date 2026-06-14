@@ -133,12 +133,23 @@ depend on the AST or effective-configuration modules of local mode.
   and `error_log` across material scopes, preserving multiple
   same-level destinations, built-in `combined`, include source spans,
   and conservative completeness / condition classification.
+- Adds a bounded location matcher for exact, prefix, `^~`, regex, and
+  named-location declarations, plus normalized sample-URI resolution
+  for policy-backed route evidence.
+- Adds effective access-control semantics for ordered `allow` / `deny`,
+  `auth_basic`, `auth_request`, visible optional auth modules,
+  `satisfy all|any`, `internal`, unconditional deny returns, and
+  `limit_except`, retaining include source spans and incompleteness.
 - Policy-gated reverse-proxy header evaluation resolves effective
   request-header replacement and response hide/pass semantics per
   supported upstream family while preserving directive source spans.
 - Policy-gated logging evaluation compares those effective logging
   semantics with an explicit contract and emits scope-level
   `control_assessments` without changing no-policy findings.
+- Policy-gated sensitive-location evaluation compares an operator
+  catalog with those routing and access semantics, emits route-level
+  `control_assessments`, and leaves built-in findings unchanged when no
+  policy section is supplied.
 
 ### 6.2 Apache
 
