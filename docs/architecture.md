@@ -318,6 +318,15 @@ from `Finding` and `AnalysisIssue`, and the standalone `assess`
 command remains the only component that derives target-level control
 statuses from the analysis report plus the coverage ledger.
 
+The current Nginx policy-backed analyzers cover four bounded families:
+logging, reverse-proxy headers, sensitive locations, and rate limits.
+The rate-limit evaluator resolves exact `limit_req` / `limit_conn`
+replacement inheritance across `http`, `server`, and `location`,
+compares `r/s` and `r/m` values with rational arithmetic, links
+effective limits to their zone definitions, and emits separate
+route-scoped request and connection assessments without changing the
+default no-policy finding surface.
+
 Reporting features:
 
 - findings sorted by severity;

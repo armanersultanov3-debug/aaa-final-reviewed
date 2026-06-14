@@ -34,10 +34,15 @@ from webconf_audit.policy_models import (
     AuditTarget,
     ControlPolicy,
     LoadedPolicyProvenance,
+    NginxConnectionLimitRequirement,
     NginxLocationSelector,
     NginxLoggingProfile,
     NginxLoggingSelector,
     NginxPolicy,
+    NginxRateLimitProfile,
+    NginxRateLimitSelector,
+    NginxRateLimitsPolicy,
+    NginxRequestLimitRequirement,
     NginxSensitiveLocationEntry,
     ResolvedAuditPolicy,
     ResolvedControlPolicy,
@@ -458,6 +463,8 @@ def _validate_nginx_policy(
         issues.extend(_validate_nginx_logging_policy(nginx_policy))
     if nginx_policy.sensitive_locations is not None:
         issues.extend(_validate_nginx_sensitive_location_policy(nginx_policy))
+    if nginx_policy.rate_limits is not None:
+        issues.extend(_validate_nginx_rate_limit_policy(nginx_policy.rate_limits))
     return issues
 
 
@@ -589,6 +596,57 @@ def _validate_nginx_sensitive_location_policy(
     return issues
 
 
+def _validate_nginx_rate_limit_policy(
+    section: NginxRateLimitsPolicy,
+) -> list[AuditPolicyIssue]:
+    issues: list[AuditPolicyIssue] = []
+    profiles = section.profiles
+    request_inventory_ids = set(section.zone_inventory.request)
+    connection_inventory_ids = set(section.zone_inventory.connection)
+    seen_profile_ids: set[str] = set()
+    for profile in profiles:
+        if profile.profile_id in seen_profile_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="duplicate_nginx_rate_limit_profile_id",
+                    message=(
+                        "nginx.rate_limits repeats profile_id "
+                        f"{profile.profile_id!r}."
+                    ),
+                    profile_id=profile.profile_id,
+                )
+            )
+        seen_profile_ids.add(profile.profile_id)
+        issues.extend(
+            _validate_rate_limit_requirement_inventory_refs(
+                profile_id=profile.profile_id,
+                request=profile.request,
+                connection=profile.connection,
+                request_inventory_ids=request_inventory_ids,
+                connection_inventory_ids=connection_inventory_ids,
+            )
+        )
+
+    for index, profile in enumerate(profiles):
+        for other in profiles[index + 1 :]:
+            if not _rate_limit_selectors_overlap(profile.applies_to, other.applies_to):
+                continue
+            if _normalized_rate_limit_profile(profile) == _normalized_rate_limit_profile(other):
+                continue
+            issues.append(
+                AuditPolicyIssue(
+                    code="overlapping_nginx_rate_limit_profiles",
+                    message=(
+                        "nginx.rate_limits profiles "
+                        f"{profile.profile_id!r} and {other.profile_id!r} overlap "
+                        "without equivalent normalized requirements."
+                    ),
+                    profile_id=f"{profile.profile_id},{other.profile_id}",
+                )
+            )
+    return issues
+
+
 def _reverse_proxy_selectors_overlap(
     left: ReverseProxyRouteSelector,
     right: ReverseProxyRouteSelector,
@@ -686,6 +744,48 @@ def _sensitive_location_entries_overlap(
     if right.declared_location is not None and any(
         _sample_matches_declared_location(sample, right.declared_location)
         for sample in left_samples
+    ):
+        return True
+
+    return False
+
+
+def _rate_limit_selectors_overlap(
+    left: NginxRateLimitSelector,
+    right: NginxRateLimitSelector,
+) -> bool:
+    if not _selector_dimension_overlap(
+        left.server_names,
+        right.server_names,
+        all_values=None,
+        normalize=lambda value: value.lower(),
+    ):
+        return False
+    if not left.declared_locations and not left.sample_uris:
+        return True
+    if not right.declared_locations and not right.sample_uris:
+        return True
+
+    left_samples = {_normalize_sensitive_uri(value) for value in left.sample_uris}
+    right_samples = {_normalize_sensitive_uri(value) for value in right.sample_uris}
+    if left_samples & right_samples:
+        return True
+
+    for left_selector in left.declared_locations:
+        for right_selector in right.declared_locations:
+            if _normalized_location_selector(left_selector) == _normalized_location_selector(right_selector):
+                return True
+
+    if any(
+        _sample_matches_declared_location(sample, selector)
+        for sample in left_samples
+        for selector in right.declared_locations
+    ):
+        return True
+    if any(
+        _sample_matches_declared_location(sample, selector)
+        for sample in right_samples
+        for selector in left.declared_locations
     ):
         return True
 
@@ -840,6 +940,34 @@ def _normalized_logging_profile(
     }
 
 
+def _normalized_rate_limit_profile(
+    profile: NginxRateLimitProfile,
+) -> dict[str, object]:
+    return {
+        "selector": {
+            "server_names": sorted(
+                {server_name.lower() for server_name in profile.applies_to.server_names}
+            ),
+            "declared_locations": [
+                _normalized_location_selector(selector)
+                for selector in sorted(
+                    profile.applies_to.declared_locations,
+                    key=lambda value: (
+                        value.modifier,
+                        _normalize_expression(value.pattern),
+                        value.source_path or "",
+                    ),
+                )
+            ],
+            "sample_uris": sorted(
+                {_normalize_sensitive_uri(uri) for uri in profile.applies_to.sample_uris}
+            ),
+        },
+        "request": _normalized_request_requirement(profile.request),
+        "connection": _normalized_connection_requirement(profile.connection),
+    }
+
+
 def _normalized_sensitive_location_entry(
     entry: NginxSensitiveLocationEntry,
 ) -> dict[str, object]:
@@ -906,6 +1034,88 @@ def _normalize_expression(value: str) -> str:
 
 def _normalize_sensitive_uri(value: str) -> str:
     return _normalize_expression(value)
+
+
+def _normalized_request_requirement(
+    requirement: NginxRequestLimitRequirement | None,
+) -> dict[str, object] | None:
+    if requirement is None:
+        return None
+    return {
+        "required": requirement.required,
+        "accepted_zones": sorted(set(requirement.accepted_zones)),
+        "require_all_zones": requirement.require_all_zones,
+        "additional_zones": requirement.additional_zones,
+        "burst": _normalized_integer_range(requirement.burst),
+        "delay_mode": requirement.delay_mode,
+        "delayed_requests": _normalized_integer_range(requirement.delayed_requests),
+        "dry_run": requirement.dry_run,
+        "allowed_rejection_statuses": sorted(set(requirement.allowed_rejection_statuses)),
+        "allowed_log_levels": sorted(set(requirement.allowed_log_levels)),
+    }
+
+
+def _normalized_connection_requirement(
+    requirement: NginxConnectionLimitRequirement | None,
+) -> dict[str, object] | None:
+    if requirement is None:
+        return None
+    return {
+        "required": requirement.required,
+        "accepted_zones": sorted(set(requirement.accepted_zones)),
+        "require_all_zones": requirement.require_all_zones,
+        "additional_zones": requirement.additional_zones,
+        "connections": _normalized_integer_range(requirement.connections),
+        "dry_run": requirement.dry_run,
+        "allowed_rejection_statuses": sorted(set(requirement.allowed_rejection_statuses)),
+        "allowed_log_levels": sorted(set(requirement.allowed_log_levels)),
+    }
+
+
+def _normalized_integer_range(
+    value,
+) -> dict[str, int | None] | None:
+    if value is None:
+        return None
+    return {"min": value.min, "max": value.max}
+
+
+def _validate_rate_limit_requirement_inventory_refs(
+    *,
+    profile_id: str,
+    request: NginxRequestLimitRequirement | None,
+    connection: NginxConnectionLimitRequirement | None,
+    request_inventory_ids: set[str],
+    connection_inventory_ids: set[str],
+) -> list[AuditPolicyIssue]:
+    issues: list[AuditPolicyIssue] = []
+    if request is not None:
+        for zone_name in request.accepted_zones:
+            if zone_name not in request_inventory_ids:
+                issues.append(
+                    AuditPolicyIssue(
+                        code="unknown_nginx_rate_limit_request_zone_reference",
+                        message=(
+                            "nginx.rate_limits request requirement references "
+                            f"unknown zone inventory {zone_name!r}."
+                        ),
+                        profile_id=profile_id,
+                    )
+                )
+    if connection is not None:
+        for zone_name in connection.accepted_zones:
+            if zone_name not in connection_inventory_ids:
+                issues.append(
+                    AuditPolicyIssue(
+                        code="unknown_nginx_rate_limit_connection_zone_reference",
+                        message=(
+                            "nginx.rate_limits connection requirement references "
+                            f"unknown zone inventory {zone_name!r}."
+                        ),
+                        profile_id=profile_id,
+                    )
+                )
+    return issues
 
 
 def _normalize_ip_or_cidr(value: str) -> str:

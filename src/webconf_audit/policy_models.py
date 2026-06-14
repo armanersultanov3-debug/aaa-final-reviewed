@@ -5,6 +5,7 @@ from __future__ import annotations
 import ipaddress
 import re
 from datetime import date, datetime
+from fractions import Fraction
 from typing import Annotated, Literal
 from urllib.parse import unquote, urlsplit
 
@@ -32,6 +33,8 @@ UpstreamFamily = Literal["proxy", "fastcgi", "grpc", "uwsgi"]
 UnmatchedRouteDisposition = Literal["not-applicable", "fail", "indeterminate"]
 NginxConditionMode = Literal["forbid", "allow_dynamic", "allow_listed"]
 NginxEscapeMode = Literal["default", "json", "none"]
+NginxAdditionalZonesMode = Literal["allow", "require_in_inventory", "forbid"]
+NginxRateLimitDelayMode = Literal["default", "delayed", "nodelay"]
 NginxErrorLogSeverity = Literal[
     "debug",
     "info",
@@ -93,6 +96,15 @@ NginxFieldGroupName = Annotated[
         strip_whitespace=True,
         min_length=1,
         max_length=128,
+        pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
+    ),
+]
+NginxZoneIdentifier = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=160,
         pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
     ),
 ]
@@ -433,10 +445,220 @@ class NginxSensitiveLocationsPolicy(_StrictModel):
     allow_unresolved_internal_redirects: bool = False
 
 
+class NginxByteSize(_StrictModel):
+    raw: NonEmptyText
+    bytes: int
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_from_string(cls, value):
+        if isinstance(value, str):
+            return {"raw": value, "bytes": _parse_nginx_size(value)}
+        return value
+
+    @model_validator(mode="after")
+    def validate_positive(self) -> "NginxByteSize":
+        if self.bytes <= 0:
+            raise ValueError("Nginx byte sizes must be positive.")
+        return self
+
+
+class NginxRequestRate(_StrictModel):
+    raw: NonEmptyText
+    requests: int
+    period_seconds: int
+
+    @model_validator(mode="before")
+    @classmethod
+    def parse_from_string(cls, value):
+        if isinstance(value, str):
+            parsed_requests, parsed_period_seconds = _parse_request_rate(value)
+            return {
+                "raw": value,
+                "requests": parsed_requests,
+                "period_seconds": parsed_period_seconds,
+            }
+        return value
+
+    @model_validator(mode="after")
+    def validate_positive(self) -> "NginxRequestRate":
+        if self.requests <= 0 or self.period_seconds <= 0:
+            raise ValueError("Nginx request rates must be positive.")
+        return self
+
+
+class NginxRequestRateRange(_StrictModel):
+    min: NginxRequestRate | None = None
+    max: NginxRequestRate | None = None
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "NginxRequestRateRange":
+        if self.min is None and self.max is None:
+            raise ValueError("Request-rate ranges must declare min or max.")
+        if (
+            self.min is not None
+            and self.max is not None
+            and _request_rate_ratio(self.min) > _request_rate_ratio(self.max)
+        ):
+            raise ValueError("Request-rate range min must not exceed max.")
+        return self
+
+
+class NginxIntegerRange(_StrictModel):
+    min: int | None = Field(default=None, ge=0)
+    max: int | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "NginxIntegerRange":
+        if self.min is None and self.max is None:
+            raise ValueError("Integer ranges must declare min or max.")
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError("Integer range min must not exceed max.")
+        return self
+
+
+class NginxPositiveIntegerRange(_StrictModel):
+    min: int | None = Field(default=None, ge=1)
+    max: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_bounds(self) -> "NginxPositiveIntegerRange":
+        if self.min is None and self.max is None:
+            raise ValueError("Positive integer ranges must declare min or max.")
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError("Positive integer range min must not exceed max.")
+        return self
+
+
+class NginxRequestZoneInventoryEntry(_StrictModel):
+    allowed_keys: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=32)
+    min_size: NginxByteSize | None = None
+    max_size: NginxByteSize | None = None
+    rate: NginxRequestRateRange
+
+    @model_validator(mode="after")
+    def validate_sizes(self) -> "NginxRequestZoneInventoryEntry":
+        if (
+            self.min_size is not None
+            and self.max_size is not None
+            and self.min_size.bytes > self.max_size.bytes
+        ):
+            raise ValueError("Zone inventory min_size must not exceed max_size.")
+        return self
+
+
+class NginxConnectionZoneInventoryEntry(_StrictModel):
+    allowed_keys: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=32)
+    min_size: NginxByteSize | None = None
+    max_size: NginxByteSize | None = None
+
+    @model_validator(mode="after")
+    def validate_sizes(self) -> "NginxConnectionZoneInventoryEntry":
+        if (
+            self.min_size is not None
+            and self.max_size is not None
+            and self.min_size.bytes > self.max_size.bytes
+        ):
+            raise ValueError("Zone inventory min_size must not exceed max_size.")
+        return self
+
+
+class NginxRateLimitZoneInventory(_StrictModel):
+    request: dict[NginxZoneIdentifier, NginxRequestZoneInventoryEntry] = Field(default_factory=dict)
+    connection: dict[NginxZoneIdentifier, NginxConnectionZoneInventoryEntry] = Field(default_factory=dict)
+
+
+class NginxRateLimitSelector(_StrictModel):
+    server_names: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+    declared_locations: tuple[NginxLocationSelector, ...] = Field(default=(), max_length=32)
+    sample_uris: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+
+    @model_validator(mode="after")
+    def validate_selector(self) -> "NginxRateLimitSelector":
+        if not self.server_names:
+            raise ValueError("Rate-limit selectors must declare at least one server_name.")
+        for uri in self.sample_uris:
+            _validate_nginx_sample_uri(uri)
+        if not self.declared_locations and not self.sample_uris:
+            return self
+        return self
+
+
+class NginxRequestLimitRequirement(_StrictModel):
+    required: bool = True
+    accepted_zones: tuple[NginxZoneIdentifier, ...] = Field(default=(), max_length=32)
+    require_all_zones: bool = False
+    additional_zones: NginxAdditionalZonesMode = "allow"
+    burst: NginxIntegerRange | None = None
+    delay_mode: NginxRateLimitDelayMode | None = None
+    delayed_requests: NginxIntegerRange | None = None
+    dry_run: bool | None = None
+    allowed_rejection_statuses: tuple[int, ...] = Field(default=(), max_length=16)
+    allowed_log_levels: tuple[NginxErrorLogSeverity, ...] = Field(default=(), max_length=8)
+
+    @model_validator(mode="after")
+    def validate_requirement(self) -> "NginxRequestLimitRequirement":
+        _validate_status_codes(self.allowed_rejection_statuses)
+        if self.delay_mode == "nodelay" and self.delayed_requests is not None:
+            raise ValueError(
+                "delay_mode 'nodelay' cannot be combined with delayed_requests."
+            )
+        if self.delayed_requests is not None and self.burst is None:
+            raise ValueError("delayed_requests requires a burst range.")
+        if (
+            self.delayed_requests is not None
+            and self.burst is not None
+            and self.delayed_requests.max is not None
+            and self.burst.max is not None
+            and self.delayed_requests.max > self.burst.max
+        ):
+            raise ValueError("delayed_requests must not exceed burst bounds.")
+        return self
+
+
+class NginxConnectionLimitRequirement(_StrictModel):
+    required: bool = True
+    accepted_zones: tuple[NginxZoneIdentifier, ...] = Field(default=(), max_length=32)
+    require_all_zones: bool = False
+    additional_zones: NginxAdditionalZonesMode = "allow"
+    connections: NginxPositiveIntegerRange | None = None
+    dry_run: bool | None = None
+    allowed_rejection_statuses: tuple[int, ...] = Field(default=(), max_length=16)
+    allowed_log_levels: tuple[NginxErrorLogSeverity, ...] = Field(default=(), max_length=8)
+
+    @model_validator(mode="after")
+    def validate_requirement(self) -> "NginxConnectionLimitRequirement":
+        _validate_status_codes(self.allowed_rejection_statuses)
+        return self
+
+
+class NginxRateLimitProfile(_StrictModel):
+    profile_id: Identifier
+    applies_to: NginxRateLimitSelector
+    request: NginxRequestLimitRequirement | None = None
+    connection: NginxConnectionLimitRequirement | None = None
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> "NginxRateLimitProfile":
+        if self.request is None and self.connection is None:
+            raise ValueError(
+                "Rate-limit profiles must declare request and/or connection requirements."
+            )
+        return self
+
+
+class NginxRateLimitsPolicy(_StrictModel):
+    zone_inventory: NginxRateLimitZoneInventory
+    profiles: tuple[NginxRateLimitProfile, ...] = Field(min_length=1, max_length=128)
+    unmatched_routes: UnmatchedRouteDisposition = "indeterminate"
+    unresolved_internal_redirects: UnmatchedRouteDisposition = "indeterminate"
+
+
 class NginxPolicy(_StrictModel):
     reverse_proxy_headers: NginxReverseProxyHeadersPolicy | None = None
     logging: NginxLoggingPolicy | None = None
     sensitive_locations: NginxSensitiveLocationsPolicy | None = None
+    rate_limits: NginxRateLimitsPolicy | None = None
 
 
 class ControlPolicy(_StrictModel):
@@ -557,9 +779,13 @@ __all__ = [
     "NginxAccessDestinationEntry",
     "NginxAccessDestinationKind",
     "NginxAccessDestinationPolicy",
+    "NginxAdditionalZonesMode",
     "NginxAccessFormatPolicy",
     "NginxAccessLoggingPolicy",
+    "NginxByteSize",
     "NginxConditionMode",
+    "NginxConnectionLimitRequirement",
+    "NginxConnectionZoneInventoryEntry",
     "NginxErrorDestinationKind",
     "NginxErrorDestinationPolicy",
     "NginxErrorLogSeverity",
@@ -568,6 +794,7 @@ __all__ = [
     "NginxEscapeMode",
     "NginxFieldGroupName",
     "NginxIpAllowlistRequirement",
+    "NginxIntegerRange",
     "NginxLocationSelector",
     "NginxLocationSelectorModifier",
     "NginxLoggingConditionalPolicy",
@@ -576,6 +803,16 @@ __all__ = [
     "NginxLoggingSelector",
     "NginxLogVariable",
     "NginxPolicy",
+    "NginxPositiveIntegerRange",
+    "NginxRateLimitDelayMode",
+    "NginxRateLimitProfile",
+    "NginxRateLimitSelector",
+    "NginxRateLimitZoneInventory",
+    "NginxRateLimitsPolicy",
+    "NginxRequestLimitRequirement",
+    "NginxRequestRate",
+    "NginxRequestRateRange",
+    "NginxRequestZoneInventoryEntry",
     "NginxReverseProxyHeadersPolicy",
     "NginxSensitiveLocationEntry",
     "NginxSensitiveLocationExposure",
@@ -630,17 +867,26 @@ def _parse_ip_or_cidr(value: str) -> None:
 
 
 def _validate_sensitive_location_sample_uri(value: str) -> None:
+    _validate_nginx_sample_uri(value)
     parts = urlsplit(value)
     if parts.scheme or parts.netloc or parts.query or parts.fragment:
         raise ValueError(
             f"Sensitive location sample URI {value!r} must be an absolute path without scheme, host, query, or fragment."
         )
-    if not value.startswith("/"):
-        raise ValueError(f"Sensitive location sample URI {value!r} must start with '/'.")
     if value != _normalize_sensitive_location_uri(value):
         raise ValueError(
             f"Sensitive location sample URI {value!r} must already be normalized for static matching."
         )
+
+
+def _validate_nginx_sample_uri(value: str) -> None:
+    parts = urlsplit(value)
+    if parts.scheme or parts.netloc or parts.query or parts.fragment:
+        raise ValueError(
+            f"Nginx sample URI {value!r} must be an absolute path without scheme, host, query, or fragment."
+        )
+    if not value.startswith("/"):
+        raise ValueError(f"Nginx sample URI {value!r} must start with '/'.")
 
 
 def _normalize_sensitive_location_uri(value: str) -> str:
@@ -672,6 +918,42 @@ def _requirement_tree_has_control(
         _requirement_tree_has_control(child, control_name=control_name)
         for child in (*requirement.all_of, *requirement.one_of)
     )
+
+
+def _parse_nginx_size(value: str) -> int:
+    normalized = value.strip().lower()
+    match = re.fullmatch(r"(?P<number>\d+)(?P<unit>[kmg])?", normalized)
+    if match is None:
+        raise ValueError(f"Invalid Nginx size value {value!r}.")
+    number = int(match.group("number"), 10)
+    unit = match.group("unit")
+    multiplier = {
+        None: 1,
+        "k": 1024,
+        "m": 1024 * 1024,
+        "g": 1024 * 1024 * 1024,
+    }[unit]
+    return number * multiplier
+
+
+def _parse_request_rate(value: str) -> tuple[int, int]:
+    normalized = value.strip().lower()
+    match = re.fullmatch(r"(?P<number>\d+)r/(?P<unit>s|m)", normalized)
+    if match is None:
+        raise ValueError(f"Invalid Nginx request rate {value!r}.")
+    number = int(match.group("number"), 10)
+    period_seconds = 1 if match.group("unit") == "s" else 60
+    return number, period_seconds
+
+
+def _request_rate_ratio(value: NginxRequestRate):
+    return Fraction(value.requests, value.period_seconds)
+
+
+def _validate_status_codes(values: tuple[int, ...]) -> None:
+    for status in values:
+        if status < 100 or status > 599:
+            raise ValueError(f"Invalid HTTP status code {status!r}.")
 
 
 NginxSensitiveLocationRequirement.model_rebuild()

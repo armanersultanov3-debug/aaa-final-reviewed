@@ -9,6 +9,7 @@ from webconf_audit.audit_policy import (
 from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.load_context import LoadContext
 from webconf_audit.local.nginx.assessments.logging import evaluate_logging_policy
+from webconf_audit.local.nginx.assessments.rate_limits import evaluate_rate_limit_policy
 from webconf_audit.local.nginx.assessments.reverse_proxy_headers import (
     evaluate_reverse_proxy_header_policy,
 )
@@ -177,9 +178,19 @@ def analyze_nginx_config(
         else None,
         findings=findings,
     )
+    rate_limit_assessments = evaluate_rate_limit_policy(
+        ast,
+        scope_graph=scope_graph,
+        policy=policy.nginx.rate_limits
+        if policy is not None and policy.nginx is not None
+        else None,
+        findings=findings,
+    )
+    findings = _suppress_rate_limit_policy_review_findings(findings, rate_limit_assessments)
     control_assessments = (
         logging_assessments
         + sensitive_location_assessments
+        + rate_limit_assessments
         + evaluate_reverse_proxy_header_policy(
             ast,
             scope_graph=scope_graph,
@@ -272,4 +283,53 @@ def _suppress_logging_policy_review_findings(
         if finding.rule_id != "nginx.access_log_uses_default_format"
         or finding.location is None
         or (finding.location.file_path, finding.location.line) not in explicit_combined_sources
+    ]
+
+
+def _suppress_rate_limit_policy_review_findings(
+    findings: list[Finding],
+    assessments: list[PolicyControlAssessment],
+) -> list[Finding]:
+    request_sources = {
+        (
+            source.get("file_path"),
+            source.get("line"),
+        )
+        for assessment in assessments
+        if assessment.control_id == "cis-nginx-5.2.5.requests-per-ip"
+        for definition in assessment.metadata.get("request_zone_definitions", [])
+        if isinstance(definition, dict)
+        and isinstance(definition.get("source"), dict)
+        and (source := definition.get("source")) is not None
+    }
+    connection_sources = {
+        (
+            source.get("file_path"),
+            source.get("line"),
+        )
+        for assessment in assessments
+        if assessment.control_id == "cis-nginx-5.2.4.connections-per-ip"
+        for definition in assessment.metadata.get("connection_zone_definitions", [])
+        if isinstance(definition, dict)
+        and isinstance(definition.get("source"), dict)
+        and (source := definition.get("source")) is not None
+    }
+    if not request_sources and not connection_sources:
+        return findings
+    return [
+        finding
+        for finding in findings
+        if not (
+            finding.location is not None
+            and (
+                (
+                    finding.rule_id == "nginx.limit_req_zone_rate_review"
+                    and (finding.location.file_path, finding.location.line) in request_sources
+                )
+                or (
+                    finding.rule_id == "nginx.limit_conn_zone_review"
+                    and (finding.location.file_path, finding.location.line) in connection_sources
+                )
+            )
+        )
     ]
