@@ -126,6 +126,12 @@ depend on the AST or effective-configuration modules of local mode.
 - AST-first analyzer.
 - Supports glob patterns, cycle detection, and source location
   tracking on every directive.
+- Adds a read-only effective-scope graph over the expanded AST for
+  `main`/`http`/`server`/`location`/`if in location`/`limit_except`
+  inheritance work without introducing a second parser.
+- Policy-gated reverse-proxy header evaluation resolves effective
+  request-header replacement and response hide/pass semantics per
+  supported upstream family while preserving directive source spans.
 
 ### 6.2 Apache
 
@@ -286,6 +292,13 @@ The shared report layer adds:
 - `ReportSummary` — totals by severity, mode, and server type.
 - `TextFormatter` — human-readable output.
 - `JsonFormatter` — machine-readable output.
+
+Policy-aware analyzers may also attach versioned `control_assessments`
+to `AnalysisResult` when, and only when, an explicit audit policy asks
+for analyzer-native control evaluation. These records remain separate
+from `Finding` and `AnalysisIssue`, and the standalone `assess`
+command remains the only component that derives target-level control
+statuses from the analysis report plus the coverage ledger.
 
 Reporting features:
 

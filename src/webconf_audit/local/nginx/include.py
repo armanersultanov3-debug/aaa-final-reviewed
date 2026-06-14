@@ -132,7 +132,7 @@ def _resolved_include_path_nodes(
     issue = _include_path_issue(include_path, node, include_chain, current_file)
     if issue is not None:
         issues.append(issue)
-        return []
+        return [node]
 
     normalized_include_path = include_path.resolve(strict=False)
     normalized_current_file = current_file.resolve(strict=False)
@@ -145,7 +145,7 @@ def _resolved_include_path_nodes(
 
     include_ast = _parse_include_file(include_path, node, issues)
     if include_ast is None:
-        return []
+        return [node]
 
     include_ast.nodes = _resolve_include_nodes(
         include_ast.nodes,
@@ -240,6 +240,10 @@ def _parse_include_file(
                     file_path=exc.file_path or str(include_path),
                     line=exc.line,
                 ),
+                metadata={
+                    "include_parent_file": node.source.file_path,
+                    "include_parent_line": node.source.line,
+                },
             )
         )
         return None
@@ -261,4 +265,8 @@ def _build_include_issue(
             file_path=node.source.file_path,
             line=node.source.line,
         ),
+        metadata={
+            "include_parent_file": node.source.file_path,
+            "include_parent_line": node.source.line,
+        },
     )

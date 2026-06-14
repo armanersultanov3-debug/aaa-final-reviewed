@@ -41,6 +41,27 @@ Each result keeps its full finding and issue payloads and now also carries:
 
 - `result.metadata.audit_policy`
 - `result.metadata.rule_execution`
+- optional `result.control_assessments`
+
+`result.control_assessments` is reserved for analyzer-native, policy-gated
+assessment records. In schema version 1 it is emitted only when a compatible
+analyzer can evaluate an explicit contract such as the Nginx reverse-proxy
+header policy. The field is absent by default when no such policy section is
+supplied.
+
+Each `control_assessments` entry is independently versioned and currently
+contains:
+
+- `schema_version`
+- `control_id`
+- `title`
+- `status`
+- `scope`
+- `summary`
+- `evidence`
+- `related_rule_ids`
+- `policy_source`
+- `metadata`
 
 ### Required metadata for assessment
 
@@ -63,6 +84,11 @@ schema.
 
 Legacy analysis JSON without this metadata remains viewable through the normal
 report tooling, but it is rejected for control assessment.
+
+When present, analyzer-native `result.control_assessments` are preserved as
+analysis evidence. They do not replace the separate `assess` artifact, which
+still owns cross-target aggregation, ledger application, and final target
+status reporting.
 
 ## Finding fingerprints
 

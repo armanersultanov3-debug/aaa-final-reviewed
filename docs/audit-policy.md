@@ -75,6 +75,80 @@ Every analysis result, with or without a policy, also includes a versioned
 `result.metadata.rule_execution` manifest describing which rules completed,
 skipped, or failed. See [docs/report-format.md](report-format.md).
 
+## Nginx reverse-proxy header policy
+
+Schema version 1 also supports an optional top-level `nginx` section for
+policy-gated analyzer semantics. The first analyzer-specific policy contract is
+`nginx.reverse_proxy_headers`.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: nginx-reverse-proxy-contract
+policy_version: "2026.06"
+title: Nginx reverse proxy contract
+description: Route-level reverse proxy header requirements.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: nginx-production
+    title: Production nginx
+    selectors:
+      - mode: local
+        server_type: nginx
+        target_glob: "*nginx.conf"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+        controls: []
+nginx:
+  reverse_proxy_headers:
+    profiles:
+      - profile_id: public_http
+        applies_to:
+          upstream_families: [proxy]
+          server_names: ["api.example.test"]
+          location_patterns: ["/api/"]
+        request_headers:
+          required:
+            X-Forwarded-For:
+              any_of: ["$proxy_add_x_forwarded_for", "$remote_addr"]
+            X-Real-IP:
+              any_of: ["$remote_addr"]
+            X-Forwarded-Proto:
+              any_of: ["$scheme"]
+          host:
+            allowed_values: ["$host", "$proxy_host"]
+            allow_fixed_literals: true
+          forbidden_client_variables:
+            - "$http_x_forwarded_for"
+            - "$http_x_real_ip"
+            - "$http_host"
+        response_headers:
+          must_hide: ["X-Powered-By"]
+          must_not_pass: ["Server"]
+          allow_explicit_pass: []
+    unmatched_routes: indeterminate
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-12
+  change_ref: SEC-2026-204
+```
+
+Important boundaries:
+
+- If the `nginx` section is omitted, existing Nginx findings and default
+  analysis JSON remain unchanged.
+- A reverse-proxy policy emits versioned per-result `control_assessments`
+  records only for the matching analysis run; it does not create duplicate
+  findings and does not suppress existing findings.
+- Coverage percentages do not increase because this policy exists or because a
+  route-level assessment passes.
+
 ## Assessment interaction
 
 `assess` does not silently load a new policy. It trusts the embedded resolved

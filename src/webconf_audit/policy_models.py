@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from webconf_audit.coverage_models import Identifier, NonEmptyText, RuleIdentifier
 
@@ -25,7 +25,22 @@ EvidenceExpectation = Literal[
 AnalysisMode = Literal["local", "external"]
 ServerType = Literal["nginx", "apache", "lighttpd", "iis", "generic"]
 InheritedFrom = Literal["policy-default", "source", "control"]
+UpstreamFamily = Literal["proxy", "fastcgi", "grpc", "uwsgi"]
+UnmatchedRouteDisposition = Literal["not-applicable", "fail", "indeterminate"]
 TargetGlob = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+]
+HeaderName = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=256,
+        pattern=r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
+    ),
+]
+HeaderExpression = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
 ]
@@ -55,6 +70,70 @@ class TargetSelector(_StrictModel):
     mode: AnalysisMode
     server_type: ServerType | None = None
     target_glob: TargetGlob | None = None
+
+
+class ReverseProxyHeaderRequirement(_StrictModel):
+    any_of: tuple[HeaderExpression, ...] = Field(min_length=1, max_length=32)
+
+
+class ReverseProxyHostPolicy(_StrictModel):
+    allowed_values: tuple[HeaderExpression, ...] = Field(default=(), max_length=32)
+    allow_fixed_literals: bool = False
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> "ReverseProxyHostPolicy":
+        if not self.allowed_values and not self.allow_fixed_literals:
+            raise ValueError(
+                "host policy must declare allowed_values or allow_fixed_literals."
+            )
+        return self
+
+
+class ReverseProxyRequestHeadersPolicy(_StrictModel):
+    required: dict[HeaderName, ReverseProxyHeaderRequirement] = Field(default_factory=dict)
+    host: ReverseProxyHostPolicy | None = None
+    forbidden_client_variables: tuple[HeaderExpression, ...] = Field(
+        default=(),
+        max_length=64,
+    )
+
+
+class ReverseProxyResponseHeadersPolicy(_StrictModel):
+    must_hide: tuple[HeaderName, ...] = Field(default=(), max_length=64)
+    must_not_pass: tuple[HeaderName, ...] = Field(default=(), max_length=64)
+    allow_explicit_pass: tuple[HeaderName, ...] = Field(default=(), max_length=64)
+
+    @model_validator(mode="after")
+    def validate_contradictions(self) -> "ReverseProxyResponseHeadersPolicy":
+        must_hide = {header.lower() for header in self.must_hide}
+        allowed_pass = {header.lower() for header in self.allow_explicit_pass}
+        if must_hide & allowed_pass:
+            raise ValueError(
+                "response header policy cannot require must_hide and allow_explicit_pass for the same header."
+            )
+        return self
+
+
+class ReverseProxyRouteSelector(_StrictModel):
+    upstream_families: tuple[UpstreamFamily, ...] = Field(default=(), max_length=4)
+    server_names: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+    location_patterns: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+
+
+class ReverseProxyHeaderProfile(_StrictModel):
+    profile_id: Identifier
+    applies_to: ReverseProxyRouteSelector
+    request_headers: ReverseProxyRequestHeadersPolicy
+    response_headers: ReverseProxyResponseHeadersPolicy
+
+
+class NginxReverseProxyHeadersPolicy(_StrictModel):
+    profiles: tuple[ReverseProxyHeaderProfile, ...] = Field(min_length=1, max_length=128)
+    unmatched_routes: UnmatchedRouteDisposition = "indeterminate"
+
+
+class NginxPolicy(_StrictModel):
+    reverse_proxy_headers: NginxReverseProxyHeadersPolicy | None = None
 
 
 class ControlPolicy(_StrictModel):
@@ -101,6 +180,7 @@ class AuditPolicy(_StrictModel):
     description: NonEmptyText
     defaults: PolicyDefaults
     profiles: tuple[AuditProfile, ...] = Field(min_length=1, max_length=64)
+    nginx: NginxPolicy | None = None
     provenance: PolicyProvenance
     loaded_provenance: LoadedPolicyProvenance | None = Field(
         default=None,
@@ -146,6 +226,7 @@ class ResolvedAuditPolicy(_StrictModel):
     target: ResolvedTarget
     requested_opt_in_tags: tuple[Identifier, ...] = Field(default=(), max_length=32)
     sources: tuple[ResolvedSourcePolicy, ...] = Field(min_length=1, max_length=32)
+    nginx: NginxPolicy | None = None
 
 
 class AuditPolicyIssue(_StrictModel):
@@ -167,7 +248,11 @@ __all__ = [
     "ControlDisposition",
     "ControlPolicy",
     "EvidenceExpectation",
+    "HeaderExpression",
+    "HeaderName",
     "LoadedPolicyProvenance",
+    "NginxPolicy",
+    "NginxReverseProxyHeadersPolicy",
     "PolicyDefaults",
     "PolicyProvenance",
     "PolicySchemaVersion",
@@ -175,7 +260,15 @@ __all__ = [
     "ResolvedControlPolicy",
     "ResolvedSourcePolicy",
     "ResolvedTarget",
+    "ReverseProxyHeaderProfile",
+    "ReverseProxyHeaderRequirement",
+    "ReverseProxyHostPolicy",
+    "ReverseProxyRequestHeadersPolicy",
+    "ReverseProxyResponseHeadersPolicy",
+    "ReverseProxyRouteSelector",
     "ServerType",
     "SourcePolicy",
     "TargetSelector",
+    "UnmatchedRouteDisposition",
+    "UpstreamFamily",
 ]

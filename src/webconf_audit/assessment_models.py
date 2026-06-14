@@ -19,7 +19,13 @@ from webconf_audit.coverage_models import (
     RuleIdentifier,
 )
 from webconf_audit.execution_manifest import RuleExecutionManifest
-from webconf_audit.models import AnalysisIssue, AnalysisMode, Severity, SourceLocation
+from webconf_audit.models import (
+    AnalysisIssue,
+    AnalysisMode,
+    PolicyControlAssessment,
+    Severity,
+    SourceLocation,
+)
 from webconf_audit.policy_models import ControlDisposition, EvidenceExpectation, ResolvedAuditPolicy
 
 SHA256Hex = Annotated[
@@ -120,6 +126,10 @@ class AnalysisReportResult(_StrictModel):
     findings: tuple[AnalysisReportFinding, ...] = Field(default=(), max_length=20000)
     issues: tuple[AnalysisIssue, ...] = Field(default=(), max_length=20000)
     diagnostics: tuple[NonEmptyText, ...] = Field(default=(), max_length=20000)
+    control_assessments: tuple[PolicyControlAssessment, ...] = Field(
+        default=(),
+        max_length=4096,
+    )
     audit_policy: ResolvedAuditPolicy | None = Field(default=None, exclude=True)
     rule_execution: RuleExecutionManifest | None = Field(default=None, exclude=True)
     suppressed_findings: tuple[SuppressedFindingRecord, ...] = Field(

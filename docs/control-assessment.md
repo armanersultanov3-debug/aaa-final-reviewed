@@ -19,6 +19,12 @@ re-probe endpoints. It evaluates only the trusted inputs recorded above.
 The optional `--policy` argument is verification-only. It must resolve to the
 same embedded policy hashes that were captured at analysis time.
 
+Some analyzers can also embed versioned route- or scope-level
+`control_assessments` inside the analysis JSON when an explicit policy enables
+that feature. These records are trusted as additional structured evidence, but
+they do not replace the separate assessment artifact or its conservative status
+aggregation rules.
+
 ## Statuses
 
 Schema version 1 uses these statuses:
