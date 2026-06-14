@@ -45,9 +45,9 @@ Each result keeps its full finding and issue payloads and now also carries:
 
 `result.control_assessments` is reserved for analyzer-native, policy-gated
 assessment records. In schema version 1 it is emitted only when a compatible
-analyzer can evaluate an explicit contract such as the Nginx logging or
-reverse-proxy header policies. The field is absent by default when no such
-policy section is supplied.
+analyzer can evaluate an explicit contract such as the Nginx logging,
+reverse-proxy header, or sensitive-location policies. The field is absent by
+default when no such policy section is supplied.
 
 Each `control_assessments` entry is independently versioned and currently
 contains:
@@ -68,6 +68,13 @@ the analyzer, including `policy_section`, `profile_id`, `server_scope_id`,
 `logging_scope_id`, `logging_kind`, effective destinations, resolved format
 definitions, required/present/missing field groups, and any
 `indeterminate_reasons` or runtime-dependence notes.
+
+For `nginx.sensitive_locations`, `metadata` carries the catalog-scoped contract
+details used by the analyzer, including `policy_section`, `catalog_entry_id`,
+`server_scope_id`, declared location selector data, `sample_uris`,
+`effective_satisfy`, `protection_classification`, effective ordered
+`allow` / `deny` rules, `shadowed_samples`, and any
+`indeterminate_reasons` or coverage-boundary notes.
 
 ### Required metadata for assessment
 

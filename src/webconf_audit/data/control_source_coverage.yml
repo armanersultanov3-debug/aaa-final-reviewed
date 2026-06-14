@@ -372,9 +372,13 @@ sources:
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: The rule detects sensitive location scopes that lack an IP restriction.
+      rationale: The built-in rule detects sensitive location scopes that lack an IP restriction, and
+        `nginx.sensitive_locations` can add operator-catalog route assessments without changing the
+        counted source status.
       limitations:
       - A complete sensitive-path catalog is deployment-specific.
+      - Policy-backed route assessments remain per-target evidence and do not promote this item beyond
+        `partial`.
     exclusion: null
     provenance:
       reviewed_on: '2026-06-13'
@@ -3353,8 +3357,11 @@ sources:
       evidence_kinds:
       - safe-probe
       rationale: Safe probes and server rules detect public status, information, Swagger UI, and OpenAPI
-        specification endpoints.
-      limitations: []
+        specification endpoints, and `nginx.sensitive_locations` can add route-specific declared-endpoint
+        evidence for cataloged documentation or monitoring paths.
+      limitations:
+      - Runtime exposure and application intent remain separate corroboration layers for policy-backed
+        route assessments.
     exclusion: null
     provenance:
       reviewed_on: '2026-06-13'

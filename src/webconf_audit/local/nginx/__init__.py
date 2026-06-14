@@ -12,6 +12,9 @@ from webconf_audit.local.nginx.assessments.logging import evaluate_logging_polic
 from webconf_audit.local.nginx.assessments.reverse_proxy_headers import (
     evaluate_reverse_proxy_header_policy,
 )
+from webconf_audit.local.nginx.assessments.sensitive_locations import (
+    evaluate_sensitive_location_policy,
+)
 from webconf_audit.local.nginx.effective_scope import build_scope_graph
 from webconf_audit.local.nginx.include import resolve_includes
 from webconf_audit.local.nginx.parser.parser import NginxParseError, NginxParser, NginxTokenizer
@@ -166,13 +169,25 @@ def analyze_nginx_config(
         findings=findings,
     )
     findings = _suppress_logging_policy_review_findings(findings, logging_assessments)
-    control_assessments = logging_assessments + evaluate_reverse_proxy_header_policy(
+    sensitive_location_assessments = evaluate_sensitive_location_policy(
         ast,
         scope_graph=scope_graph,
-        policy=policy.nginx.reverse_proxy_headers
+        policy=policy.nginx.sensitive_locations
         if policy is not None and policy.nginx is not None
         else None,
         findings=findings,
+    )
+    control_assessments = (
+        logging_assessments
+        + sensitive_location_assessments
+        + evaluate_reverse_proxy_header_policy(
+            ast,
+            scope_graph=scope_graph,
+            policy=policy.nginx.reverse_proxy_headers
+            if policy is not None and policy.nginx is not None
+            else None,
+            findings=findings,
+        )
     )
 
     return _attach_context(

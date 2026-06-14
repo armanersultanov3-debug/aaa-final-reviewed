@@ -5,8 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from fnmatch import fnmatchcase
 import hashlib
+import ipaddress
 import json
 from pathlib import Path, PurePath
+import re
 from typing import Any
 
 from pydantic import ValidationError
@@ -32,9 +34,11 @@ from webconf_audit.policy_models import (
     AuditTarget,
     ControlPolicy,
     LoadedPolicyProvenance,
+    NginxLocationSelector,
     NginxLoggingProfile,
     NginxLoggingSelector,
     NginxPolicy,
+    NginxSensitiveLocationEntry,
     ResolvedAuditPolicy,
     ResolvedControlPolicy,
     ResolvedSourcePolicy,
@@ -452,6 +456,8 @@ def _validate_nginx_policy(
         issues.extend(_validate_nginx_reverse_proxy_policy(nginx_policy))
     if nginx_policy.logging is not None:
         issues.extend(_validate_nginx_logging_policy(nginx_policy))
+    if nginx_policy.sensitive_locations is not None:
+        issues.extend(_validate_nginx_sensitive_location_policy(nginx_policy))
     return issues
 
 
@@ -541,6 +547,48 @@ def _validate_nginx_logging_policy(
     return issues
 
 
+def _validate_nginx_sensitive_location_policy(
+    nginx_policy: NginxPolicy,
+) -> list[AuditPolicyIssue]:
+    issues: list[AuditPolicyIssue] = []
+    section = nginx_policy.sensitive_locations
+    assert section is not None
+    catalog = section.catalog
+    seen_entry_ids: set[str] = set()
+    for entry in catalog:
+        if entry.entry_id in seen_entry_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="duplicate_nginx_sensitive_location_entry_id",
+                    message=(
+                        "nginx.sensitive_locations repeats entry_id "
+                        f"{entry.entry_id!r}."
+                    ),
+                    item_id=entry.entry_id,
+                )
+            )
+        seen_entry_ids.add(entry.entry_id)
+
+    for index, entry in enumerate(catalog):
+        for other in catalog[index + 1 :]:
+            if not _sensitive_location_entries_overlap(entry, other):
+                continue
+            if _normalized_sensitive_location_entry(entry) == _normalized_sensitive_location_entry(other):
+                continue
+            issues.append(
+                AuditPolicyIssue(
+                    code="overlapping_nginx_sensitive_location_entries",
+                    message=(
+                        "nginx.sensitive_locations entries "
+                        f"{entry.entry_id!r} and {other.entry_id!r} overlap "
+                        "without equivalent normalized requirements."
+                    ),
+                    item_id=f"{entry.entry_id},{other.entry_id}",
+                )
+            )
+    return issues
+
+
 def _reverse_proxy_selectors_overlap(
     left: ReverseProxyRouteSelector,
     right: ReverseProxyRouteSelector,
@@ -602,6 +650,46 @@ def _logging_selectors_overlap(
             normalize=_normalize_expression,
         )
     )
+
+
+def _sensitive_location_entries_overlap(
+    left: NginxSensitiveLocationEntry,
+    right: NginxSensitiveLocationEntry,
+) -> bool:
+    if not _selector_dimension_overlap(
+        left.server_names,
+        right.server_names,
+        all_values=None,
+        normalize=lambda value: value.lower(),
+    ):
+        return False
+
+    left_samples = {_normalize_sensitive_uri(value) for value in left.sample_uris}
+    right_samples = {_normalize_sensitive_uri(value) for value in right.sample_uris}
+    if left_samples & right_samples:
+        return True
+
+    if (
+        left.declared_location is not None
+        and right.declared_location is not None
+        and _normalized_location_selector(left.declared_location)
+        == _normalized_location_selector(right.declared_location)
+    ):
+        return True
+
+    if left.declared_location is not None and any(
+        _sample_matches_declared_location(sample, left.declared_location)
+        for sample in right_samples
+    ):
+        return True
+
+    if right.declared_location is not None and any(
+        _sample_matches_declared_location(sample, right.declared_location)
+        for sample in left_samples
+    ):
+        return True
+
+    return False
 
 
 def _normalized_reverse_proxy_profile(
@@ -752,8 +840,97 @@ def _normalized_logging_profile(
     }
 
 
+def _normalized_sensitive_location_entry(
+    entry: NginxSensitiveLocationEntry,
+) -> dict[str, object]:
+    return {
+        "kind": entry.kind,
+        "server_names": sorted({server_name.lower() for server_name in entry.server_names}),
+        "declared_location": (
+            _normalized_location_selector(entry.declared_location)
+            if entry.declared_location is not None
+            else None
+        ),
+        "sample_uris": sorted({_normalize_sensitive_uri(uri) for uri in entry.sample_uris}),
+        "exposure": entry.exposure,
+        "required_controls": _normalized_sensitive_requirement(entry.required_controls),
+    }
+
+
+def _normalized_location_selector(
+    selector: NginxLocationSelector,
+) -> dict[str, object]:
+    return {
+        "modifier": selector.modifier,
+        "pattern": _normalize_expression(selector.pattern),
+        "source_path": selector.source_path,
+    }
+
+
+def _normalized_sensitive_requirement(requirement) -> dict[str, object]:
+    leaf_name = next(
+        name
+        for name in (
+            "internal",
+            "deny_all",
+            "auth_basic",
+            "auth_request",
+            "auth_jwt",
+            "auth_oidc",
+            "ip_allowlist",
+        )
+        if getattr(requirement, name) is not None
+    ) if not requirement.all_of and not requirement.one_of else None
+    if leaf_name is not None:
+        if leaf_name == "ip_allowlist":
+            ip_allowlist = requirement.ip_allowlist
+            assert ip_allowlist is not None
+            return {
+                "leaf": "ip_allowlist",
+                "allowed_cidrs": sorted({_normalize_ip_or_cidr(value) for value in ip_allowlist.allowed_cidrs}),
+                "require_deny_all_fallback": ip_allowlist.require_deny_all_fallback,
+            }
+        return {"leaf": leaf_name}
+    key = "all_of" if requirement.all_of else "one_of"
+    children = requirement.all_of if requirement.all_of else requirement.one_of
+    return {
+        "composite": key,
+        "satisfy": requirement.satisfy,
+        "children": [_normalized_sensitive_requirement(child) for child in children],
+    }
+
+
 def _normalize_expression(value: str) -> str:
     return " ".join(value.strip().split())
+
+
+def _normalize_sensitive_uri(value: str) -> str:
+    return _normalize_expression(value)
+
+
+def _normalize_ip_or_cidr(value: str) -> str:
+    normalized = str(value).strip()
+    if "/" in normalized:
+        return str(ipaddress.ip_network(normalized, strict=True))
+    ip_addr = ipaddress.ip_address(normalized)
+    suffix = "/32" if ip_addr.version == 4 else "/128"
+    return f"{ip_addr.compressed}{suffix}"
+
+
+def _sample_matches_declared_location(
+    sample_uri: str,
+    selector: NginxLocationSelector,
+) -> bool:
+    normalized_sample = _normalize_sensitive_uri(sample_uri)
+    pattern = selector.pattern
+    if selector.modifier == "exact":
+        return normalized_sample == pattern
+    if selector.modifier in {"prefix", "prefix_no_regex"}:
+        return normalized_sample.startswith(pattern)
+    if selector.modifier == "named":
+        return False
+    flags = re.IGNORECASE if selector.modifier == "regex_i" else 0
+    return re.search(pattern, normalized_sample, flags) is not None
 
 
 def _validate_source_policy(
