@@ -43,6 +43,8 @@ from webconf_audit.policy_models import (
     NginxRateLimitSelector,
     NginxRateLimitsPolicy,
     NginxRequestLimitRequirement,
+    NginxResponseHeaderRoute,
+    NginxResponseHeadersPolicy,
     NginxSensitiveLocationEntry,
     ResolvedAuditPolicy,
     ResolvedControlPolicy,
@@ -465,6 +467,8 @@ def _validate_nginx_policy(
         issues.extend(_validate_nginx_sensitive_location_policy(nginx_policy))
     if nginx_policy.rate_limits is not None:
         issues.extend(_validate_nginx_rate_limit_policy(nginx_policy.rate_limits))
+    if nginx_policy.response_headers is not None:
+        issues.extend(_validate_nginx_response_header_policy(nginx_policy.response_headers))
     return issues
 
 
@@ -645,6 +649,100 @@ def _validate_nginx_rate_limit_policy(
                 )
             )
     return issues
+
+
+def _validate_nginx_response_header_policy(
+    section: NginxResponseHeadersPolicy,
+) -> list[AuditPolicyIssue]:
+    issues: list[AuditPolicyIssue] = []
+    seen_route_ids: set[str] = set()
+    profile_ids = set(section.profiles)
+
+    for route in section.route_manifest:
+        if route.route_id in seen_route_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="duplicate_nginx_response_header_route_id",
+                    message=(
+                        "nginx.response_headers repeats route_manifest id "
+                        f"{route.route_id!r}."
+                    ),
+                    item_id=route.route_id,
+                )
+            )
+        seen_route_ids.add(route.route_id)
+        if route.profile not in profile_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="unknown_nginx_response_header_profile_reference",
+                    message=(
+                        "nginx.response_headers route_manifest entry "
+                        f"{route.route_id!r} references unknown profile {route.profile!r}."
+                    ),
+                    item_id=route.route_id,
+                    profile_id=route.profile,
+                )
+            )
+
+    routes = section.route_manifest
+    for index, route in enumerate(routes):
+        for other in routes[index + 1 :]:
+            if not _response_header_routes_overlap(route, other):
+                continue
+            if route.profile == other.profile:
+                continue
+            issues.append(
+                AuditPolicyIssue(
+                    code="overlapping_nginx_response_header_routes",
+                    message=(
+                        "nginx.response_headers route_manifest entries "
+                        f"{route.route_id!r} and {other.route_id!r} overlap "
+                        "without the same profile."
+                    ),
+                    item_id=f"{route.route_id},{other.route_id}",
+                )
+            )
+    return issues
+
+
+def _response_header_routes_overlap(
+    left: NginxResponseHeaderRoute,
+    right: NginxResponseHeaderRoute,
+) -> bool:
+    if not _selector_dimension_overlap(
+        left.server_names,
+        right.server_names,
+        all_values=None,
+        normalize=lambda value: value.lower(),
+    ):
+        return False
+
+    left_samples = {_normalize_sensitive_uri(value) for value in left.sample_uris}
+    right_samples = {_normalize_sensitive_uri(value) for value in right.sample_uris}
+    if left_samples & right_samples:
+        return True
+
+    if (
+        left.declared_location is not None
+        and right.declared_location is not None
+        and _normalized_location_selector(left.declared_location)
+        == _normalized_location_selector(right.declared_location)
+    ):
+        return True
+
+    if left.declared_location is not None and any(
+        _sample_matches_declared_location(sample, left.declared_location)
+        for sample in right_samples
+    ):
+        return True
+
+    if right.declared_location is not None and any(
+        _sample_matches_declared_location(sample, right.declared_location)
+        for sample in left_samples
+    ):
+        return True
+
+    return False
 
 
 def _reverse_proxy_selectors_overlap(

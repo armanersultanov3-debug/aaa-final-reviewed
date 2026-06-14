@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import re
 from datetime import date, datetime
@@ -64,6 +66,30 @@ NginxLocationSelectorModifier = Literal[
     "named",
 ]
 NginxSensitiveLocationExposure = Literal["external", "internal_only", "disabled"]
+NginxResponseKind = Literal[
+    "html_document",
+    "api",
+    "static_asset",
+    "download",
+    "redirect",
+    "error",
+    "internal",
+    "custom",
+]
+NginxResponseScheme = Literal["http", "https"]
+NginxConditionalBranchDisposition = Literal["require_all"]
+CspBaselinePolicy = Literal["any_enforcing", "each_enforcing"]
+CspAdditionalPoliciesMode = Literal["allow", "require_parseable", "forbid"]
+CspScriptAuthorizationMode = Literal[
+    "allowlist",
+    "nonce",
+    "hash",
+    "nonce_or_hash",
+    "strict_nonce_or_hash",
+]
+CspFrameAncestorsMode = Literal["deny"]
+CspReportingMode = Literal["report-to", "report-uri"]
+SingleValueHeaderMode = Literal["transitional_optional"]
 TargetGlob = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
@@ -117,6 +143,16 @@ SHA256Hex = Annotated[
         pattern=r"^[0-9a-f]{64}$",
     ),
 ]
+
+_DIRECTIVE_NAME_RE = re.compile(r"^[A-Za-z0-9-]+$")
+_CSP_HASH_SOURCE_PATTERN = (
+    r"^(?:"
+    r"'(?P<quoted_algorithm>sha256|sha384|sha512)-(?P<quoted_value>[A-Za-z0-9+/_-]+={0,2})'"
+    r"|"
+    r"(?P<plain_algorithm>sha256|sha384|sha512)-(?P<plain_value>[A-Za-z0-9+/_-]+={0,2})"
+    r")$"
+)
+_CSP_HASH_RE = re.compile(_CSP_HASH_SOURCE_PATTERN, re.IGNORECASE)
 
 
 class _StrictModel(BaseModel):
@@ -654,11 +690,182 @@ class NginxRateLimitsPolicy(_StrictModel):
     unresolved_internal_redirects: UnmatchedRouteDisposition = "indeterminate"
 
 
+class NginxResponseHeaderRoute(_StrictModel):
+    route_id: Identifier = Field(alias="id")
+    server_names: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=128)
+    declared_location: NginxLocationSelector | None = None
+    sample_uris: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+    response_kind: NginxResponseKind
+    schemes: tuple[NginxResponseScheme, ...] = Field(min_length=1, max_length=2)
+    expected_statuses: tuple[int, ...] = Field(min_length=1, max_length=64)
+    profile: Identifier
+
+    @model_validator(mode="after")
+    def validate_route(self) -> "NginxResponseHeaderRoute":
+        if self.declared_location is None and not self.sample_uris:
+            raise ValueError(
+                "response-header routes must declare a location selector, sample_uris, or both."
+            )
+        for uri in self.sample_uris:
+            _validate_nginx_sample_uri(uri)
+        _validate_status_codes(self.expected_statuses)
+        return self
+
+
+class NginxCspEnforcementPolicy(_StrictModel):
+    required: bool = False
+    baseline_policy: CspBaselinePolicy = "any_enforcing"
+    additional_policies: CspAdditionalPoliciesMode = "allow"
+
+
+class NginxCspScriptAuthorizationPolicy(_StrictModel):
+    mode: CspScriptAuthorizationMode
+    allowed_nonce_variables: tuple[NginxLogVariable, ...] = Field(default=(), max_length=32)
+    allow_static_nonce: bool = False
+    allowed_hashes: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+    allow_host_allowlist_fallback: bool = False
+    require_strict_dynamic: bool = False
+
+    @model_validator(mode="after")
+    def validate_authorization(self) -> "NginxCspScriptAuthorizationPolicy":
+        for raw_hash in self.allowed_hashes:
+            _validate_csp_hash_value(raw_hash)
+        has_nonce_strategy = bool(self.allowed_nonce_variables or self.allow_static_nonce)
+        has_hash_strategy = bool(self.allowed_hashes)
+        if self.mode == "nonce" and not has_nonce_strategy:
+            raise ValueError(
+                "nonce-based script authorization requires allowed_nonce_variables or allow_static_nonce."
+            )
+        if self.mode == "hash" and not has_hash_strategy:
+            raise ValueError("hash-based script authorization requires allowed_hashes.")
+        if self.mode in {"nonce_or_hash", "strict_nonce_or_hash"} and not (
+            has_nonce_strategy or has_hash_strategy
+        ):
+            raise ValueError(
+                "nonce_or_hash script authorization requires allowed_nonce_variables, allow_static_nonce, or allowed_hashes."
+            )
+        if self.mode == "strict_nonce_or_hash" and not self.require_strict_dynamic:
+            raise ValueError(
+                "strict_nonce_or_hash script authorization requires require_strict_dynamic."
+            )
+        return self
+
+
+class NginxCspFrameAncestorsPolicy(_StrictModel):
+    mode: CspFrameAncestorsMode
+
+
+class NginxCspReportingPolicy(_StrictModel):
+    required: bool = False
+    modes: tuple[CspReportingMode, ...] = Field(default=(), max_length=2)
+    allowed_groups: tuple[Identifier, ...] = Field(default=(), max_length=32)
+    allowed_endpoint_origins: tuple[NonEmptyText, ...] = Field(default=(), max_length=32)
+
+    @model_validator(mode="after")
+    def validate_reporting(self) -> "NginxCspReportingPolicy":
+        if self.required and not self.modes:
+            raise ValueError("required CSP reporting must declare at least one reporting mode.")
+        return self
+
+
+class NginxCspReportOnlyPolicy(_StrictModel):
+    required: bool = False
+
+
+class NginxCspProfile(_StrictModel):
+    enforcement: NginxCspEnforcementPolicy
+    required_directives: dict[NonEmptyText, tuple[NonEmptyText, ...]] = Field(default_factory=dict)
+    script_authorization: NginxCspScriptAuthorizationPolicy | None = None
+    forbidden_effective_capabilities: tuple[NonEmptyText, ...] = Field(default=(), max_length=32)
+    frame_ancestors: NginxCspFrameAncestorsPolicy | None = None
+    reporting: NginxCspReportingPolicy | None = None
+    report_only: NginxCspReportOnlyPolicy | None = None
+
+    @model_validator(mode="after")
+    def validate_csp_profile(self) -> "NginxCspProfile":
+        for directive_name, tokens in self.required_directives.items():
+            if not _DIRECTIVE_NAME_RE.fullmatch(directive_name):
+                raise ValueError(f"Invalid CSP directive name {directive_name!r}.")
+            if not tokens:
+                raise ValueError(
+                    f"CSP required_directives entry {directive_name!r} must contain at least one token."
+                )
+        return self
+
+
+class NginxHeaderValuePolicy(_StrictModel):
+    required: bool = True
+    allowed_values: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=32)
+    require_all_expected_statuses: bool = False
+
+
+class NginxHstsHeaderPolicy(_StrictModel):
+    required_on_schemes: tuple[NginxResponseScheme, ...] = Field(min_length=1, max_length=2)
+    min_max_age: int = Field(ge=1)
+    include_subdomains: bool = False
+    require_all_expected_statuses: bool = False
+
+
+class NginxXFrameOptionsPolicy(_StrictModel):
+    mode: SingleValueHeaderMode
+
+
+class NginxResponseHeaderProfileHeaders(_StrictModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, populate_by_name=True)
+
+    referrer_policy: NginxHeaderValuePolicy | None = Field(default=None, alias="Referrer-Policy")
+    x_content_type_options: NginxHeaderValuePolicy | None = Field(
+        default=None,
+        alias="X-Content-Type-Options",
+    )
+    cross_origin_opener_policy: NginxHeaderValuePolicy | None = Field(
+        default=None,
+        alias="Cross-Origin-Opener-Policy",
+    )
+    permissions_policy: NginxHeaderValuePolicy | None = Field(
+        default=None,
+        alias="Permissions-Policy",
+    )
+    strict_transport_security: NginxHstsHeaderPolicy | None = Field(
+        default=None,
+        alias="Strict-Transport-Security",
+    )
+    x_frame_options: NginxXFrameOptionsPolicy | None = Field(
+        default=None,
+        alias="X-Frame-Options",
+    )
+
+
+class NginxResponseHeaderProfile(_StrictModel):
+    conditional_branches: NginxConditionalBranchDisposition
+    csp: NginxCspProfile | None = None
+    headers: NginxResponseHeaderProfileHeaders = Field(default_factory=NginxResponseHeaderProfileHeaders)
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> "NginxResponseHeaderProfile":
+        if self.csp is None and not self.headers.model_fields_set:
+            raise ValueError("response-header profiles must declare csp and/or headers.")
+        return self
+
+
+class NginxReportingEndpointPolicy(_StrictModel):
+    allowed_urls: tuple[NonEmptyText, ...] = Field(min_length=1, max_length=32)
+
+
+class NginxResponseHeadersPolicy(_StrictModel):
+    route_manifest: tuple[NginxResponseHeaderRoute, ...] = Field(min_length=1, max_length=256)
+    profiles: dict[Identifier, NginxResponseHeaderProfile] = Field(min_length=1)
+    reporting_endpoints: dict[Identifier, NginxReportingEndpointPolicy] = Field(default_factory=dict)
+    unmatched_routes: UnmatchedRouteDisposition = "indeterminate"
+    unresolved_internal_redirects: UnmatchedRouteDisposition = "indeterminate"
+
+
 class NginxPolicy(_StrictModel):
     reverse_proxy_headers: NginxReverseProxyHeadersPolicy | None = None
     logging: NginxLoggingPolicy | None = None
     sensitive_locations: NginxSensitiveLocationsPolicy | None = None
     rate_limits: NginxRateLimitsPolicy | None = None
+    response_headers: NginxResponseHeadersPolicy | None = None
 
 
 class ControlPolicy(_StrictModel):
@@ -771,6 +978,11 @@ __all__ = [
     "AuditProfile",
     "AuditTarget",
     "ControlDisposition",
+    "CspAdditionalPoliciesMode",
+    "CspBaselinePolicy",
+    "CspFrameAncestorsMode",
+    "CspReportingMode",
+    "CspScriptAuthorizationMode",
     "ControlPolicy",
     "EvidenceExpectation",
     "HeaderExpression",
@@ -784,8 +996,15 @@ __all__ = [
     "NginxAccessLoggingPolicy",
     "NginxByteSize",
     "NginxConditionMode",
+    "NginxConditionalBranchDisposition",
     "NginxConnectionLimitRequirement",
     "NginxConnectionZoneInventoryEntry",
+    "NginxCspEnforcementPolicy",
+    "NginxCspFrameAncestorsPolicy",
+    "NginxCspProfile",
+    "NginxCspReportOnlyPolicy",
+    "NginxCspReportingPolicy",
+    "NginxCspScriptAuthorizationPolicy",
     "NginxErrorDestinationKind",
     "NginxErrorDestinationPolicy",
     "NginxErrorLogSeverity",
@@ -812,13 +1031,22 @@ __all__ = [
     "NginxRequestLimitRequirement",
     "NginxRequestRate",
     "NginxRequestRateRange",
+    "NginxReportingEndpointPolicy",
     "NginxRequestZoneInventoryEntry",
+    "NginxResponseHeaderProfile",
+    "NginxResponseHeaderProfileHeaders",
+    "NginxResponseHeaderRoute",
+    "NginxResponseHeadersPolicy",
+    "NginxResponseKind",
+    "NginxResponseScheme",
     "NginxReverseProxyHeadersPolicy",
     "NginxSensitiveLocationEntry",
     "NginxSensitiveLocationExposure",
     "NginxSensitiveLocationKind",
     "NginxSensitiveLocationRequirement",
     "NginxSensitiveLocationsPolicy",
+    "NginxHeaderValuePolicy",
+    "NginxHstsHeaderPolicy",
     "PolicyDefaults",
     "PolicyProvenance",
     "PolicySchemaVersion",
@@ -833,6 +1061,7 @@ __all__ = [
     "ReverseProxyResponseHeadersPolicy",
     "ReverseProxyRouteSelector",
     "ServerType",
+    "SingleValueHeaderMode",
     "SourcePolicy",
     "TargetSelector",
     "UnmatchedRouteDisposition",
@@ -954,6 +1183,26 @@ def _validate_status_codes(values: tuple[int, ...]) -> None:
     for status in values:
         if status < 100 or status > 599:
             raise ValueError(f"Invalid HTTP status code {status!r}.")
+
+
+def _validate_csp_hash_value(value: str) -> None:
+    match = _CSP_HASH_RE.match(value.strip())
+    if match is None:
+        raise ValueError(f"Invalid CSP hash source {value!r}.")
+    hash_value = match.group("quoted_value") or match.group("plain_value")
+    if hash_value is None or not _is_valid_csp_base64_value(hash_value):
+        raise ValueError(f"Invalid CSP hash source {value!r}.")
+
+
+def _is_valid_csp_base64_value(value: str) -> bool:
+    if not value or len(value) % 4 == 1:
+        return False
+    padded = value + ("=" * ((4 - len(value) % 4) % 4))
+    try:
+        base64.b64decode(padded, altchars=b"-_", validate=True)
+    except (ValueError, binascii.Error):
+        return False
+    return True
 
 
 NginxSensitiveLocationRequirement.model_rebuild()

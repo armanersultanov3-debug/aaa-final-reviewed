@@ -318,8 +318,23 @@ from `Finding` and `AnalysisIssue`, and the standalone `assess`
 command remains the only component that derives target-level control
 statuses from the analysis report plus the coverage ledger.
 
-The current Nginx policy-backed analyzers cover four bounded families:
-logging, reverse-proxy headers, sensitive locations, and rate limits.
+The current Nginx policy-backed analyzers cover five bounded families:
+logging, reverse-proxy headers, sensitive locations, rate limits, and
+response-header contracts.
+
+The response-header evaluator resolves effective `add_header` semantics
+across `http`, `server`, `location`, and `if in location`, preserves
+`add_header_inherit on|off|merge`, models `always` versus Nginx's
+default success/redirect status set, and feeds a structured CSP AST that
+retains policy-list commas, multiple header instances, duplicate
+directives, report-only disposition, and typed nonce/hash/source tokens.
+Route-manifest profiles can then emit scoped `control_assessments` for
+CSP minimums, reporting linkage, Referrer-Policy, HSTS,
+`X-Content-Type-Options`, COOP, explicit `Permissions-Policy` values,
+and optional transitional `X-Frame-Options` evidence without changing
+the default coverage numerator or turning a missing finding into an
+automatic pass.
+
 The rate-limit evaluator resolves exact `limit_req` / `limit_conn`
 replacement inheritance across `http`, `server`, and `location`,
 compares `r/s` and `r/m` values with rational arithmetic, links
