@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from tests.nginx_response_header_policy_helpers import (
+    browser_document_profile,
     resolved_response_headers_policy,
     response_headers_policy_payload,
     response_route,
@@ -210,3 +211,56 @@ def test_response_header_policy_keeps_shared_csp_review_when_other_scopes_remain
 
     assert _assessment_by_id(result, "cis-nginx-5.3.2.csp").status == "pass"
     assert "nginx.csp_value_review" in {finding.rule_id for finding in result.findings}
+
+
+def test_response_header_policy_marks_multiple_allowlist_policies_indeterminate(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        server_name www.example.test;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        location / {\n"
+        "            add_header Content-Security-Policy \"object-src 'none'; base-uri 'none'; script-src 'self'; frame-ancestors 'none'; report-to csp\" always;\n"
+        "            add_header Content-Security-Policy \"script-src https://cdn.example.test\" always;\n"
+        "            add_header Reporting-Endpoints 'csp=\"https://reports.example.test/csp\"' always;\n"
+        "            add_header Referrer-Policy no-referrer always;\n"
+        "            add_header X-Content-Type-Options nosniff always;\n"
+        "            add_header Cross-Origin-Opener-Policy same-origin always;\n"
+        "            add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    allowlist_profile = browser_document_profile()
+    allowlist_profile["csp"]["script_authorization"] = {
+        "mode": "allowlist",
+        "allowed_nonce_variables": [],
+        "allow_static_nonce": False,
+        "allowed_hashes": [],
+        "allow_host_allowlist_fallback": True,
+        "require_strict_dynamic": False,
+    }
+    policy = resolved_response_headers_policy(
+        tmp_path,
+        response_headers_policy_payload(
+            routes=[
+                response_route(
+                    route_id="app-html",
+                    server_names=("www.example.test",),
+                    profile="browser-document",
+                    declared_location={"modifier": "prefix", "pattern": "/"},
+                )
+            ],
+            profiles={"browser-document": allowlist_profile},
+        ),
+    )
+
+    result = analyze_nginx_config(str(config_path), policy=policy)
+
+    assert _assessment_by_id(result, "asvs-5.0.0-v3.4.3.csp-quality").status == "indeterminate"

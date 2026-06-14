@@ -829,16 +829,19 @@ def _script_authorization_satisfied(
     if expectation is None:
         return "pass"
 
+    directives = [
+        directive
+        for parsed in enforcing
+        for policy in parsed.policies
+        if (directive := _script_directive(policy)) is not None
+    ]
+    if expectation.mode == "allowlist" and len(directives) > 1:
+        return "indeterminate"
+
     satisfied = False
-    for parsed in enforcing:
-        for policy in parsed.policies:
-            directive = _script_directive(policy)
-            if directive is None:
-                continue
-            if _directive_satisfies_script_authorization(directive, expectation):
-                satisfied = True
-                break
-        if satisfied:
+    for directive in directives:
+        if _directive_satisfies_script_authorization(directive, expectation):
+            satisfied = True
             break
     return "pass" if satisfied else "fail"
 
