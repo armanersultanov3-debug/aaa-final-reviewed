@@ -19,7 +19,13 @@ from webconf_audit.local.normalized import NormalizedConfig
 from webconf_audit.local.nginx.rules_runner import run_nginx_rules
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
-from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
+from webconf_audit.models import (
+    AnalysisIssue,
+    AnalysisResult,
+    Finding,
+    PolicyControlAssessment,
+    SourceLocation,
+)
 from webconf_audit.policy_models import ResolvedAuditPolicy
 from webconf_audit.rule_registry import registry as rule_registry
 
@@ -228,7 +234,7 @@ def _attach_context(
 
 def _suppress_logging_policy_review_findings(
     findings: list[Finding],
-    assessments,
+    assessments: list[PolicyControlAssessment],
 ) -> list[Finding]:
     explicit_combined_sources = {
         (

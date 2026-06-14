@@ -14,6 +14,7 @@ from webconf_audit.local.nginx.logging_semantics import (
     AccessLogDestination,
     EffectiveLoggingScope,
     ErrorLogDestination,
+    LogFormatDefinition,
     NginxLoggingSemantics,
     resolve_logging_semantics,
 )
@@ -526,7 +527,7 @@ def _error_destination_status(
 def _evaluate_access_format(
     *,
     destination: AccessLogDestination,
-    format_definition,
+    format_definition: LogFormatDefinition,
     policy: NginxAccessLoggingPolicy,
 ) -> dict[str, object]:
     evidence: list[ControlAssessmentEvidence] = []
