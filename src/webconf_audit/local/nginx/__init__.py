@@ -238,10 +238,10 @@ def _suppress_logging_policy_review_findings(
         for assessment in assessments
         if assessment.metadata.get("logging_kind") == "access"
         and assessment.metadata.get("profile_id") is not None
-        for destination in assessment.metadata.get("effective_destinations", [])
-        if destination.get("format_name") == "combined"
-        and isinstance(destination.get("source"), dict)
-        and (source := destination.get("source")) is not None
+        for decision in assessment.metadata.get("evaluated_format_decisions", [])
+        if decision.get("format_name") == "combined"
+        and isinstance(decision.get("source"), dict)
+        and (source := decision.get("source")) is not None
     }
     if not explicit_combined_sources:
         return findings

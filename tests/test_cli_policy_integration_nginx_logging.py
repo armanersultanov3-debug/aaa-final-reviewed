@@ -3,111 +3,26 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import yaml
 from typer.testing import CliRunner
 
+from tests.nginx_logging_policy_helpers import (
+    logging_policy_payload,
+    server_logging_profile,
+    write_policy,
+)
 from webconf_audit.cli import app
 
 runner = CliRunner()
 
 
-def _policy_payload() -> dict[str, object]:
-    return {
-        "schema_version": 1,
-        "policy_id": "nginx-logging-contract",
-        "policy_version": "2026.06",
-        "title": "Nginx logging contract",
-        "description": "Policy-backed logging requirements for nginx.",
-        "defaults": {
-            "disposition": "advisory",
-            "evidence_expectation": "ledger-default",
-            "include_unmapped_findings": True,
-            "require_complete_execution_manifest": True,
-        },
-        "profiles": [
-            {
-                "profile_id": "nginx-production",
-                "title": "Production nginx",
-                "selectors": [
-                    {
-                        "mode": "local",
-                        "server_type": "nginx",
-                        "target_glob": "*nginx.conf",
-                    }
-                ],
-                "requested_opt_in_tags": ["policy-review"],
-                "sources": [
-                    {
-                        "source_id": "cis-nginx-3.0.0",
-                        "disposition": "required",
-                        "controls": [],
-                    }
-                ],
-            }
-        ],
-        "nginx": {
-            "logging": {
-                "profiles": [
-                    {
-                        "profile_id": "public-server",
-                        "applies_to": {"server_names": ["example.test"]},
-                        "access": {
-                            "required": True,
-                            "allow_off": False,
-                            "conditional": {
-                                "mode": "forbid",
-                                "allowed_conditions": [],
-                            },
-                            "destinations": {
-                                "allowed": [
-                                    {"kind": "file", "path": "/var/log/nginx/access.log"}
-                                ],
-                                "require_at_least_one_remote": False,
-                                "allow_variable_paths": False,
-                            },
-                            "formats": {
-                                "allowed_names": ["main_json"],
-                                "require_escape": "json",
-                                "required_field_groups": {
-                                    "timestamp": ["$time_iso8601"],
-                                    "client_ip": ["$remote_addr"],
-                                    "request": ["$request"],
-                                    "status": ["$status"],
-                                    "correlation": ["$request_id"],
-                                    "user_agent": ["$http_user_agent"],
-                                },
-                                "forbidden_variables": ["$http_authorization"],
-                            },
-                        },
-                        "error": {
-                            "required": True,
-                            "require_explicit_destination": True,
-                            "destinations": {
-                                "allowed_kinds": ["file", "syslog", "stderr"],
-                                "forbidden_paths": ["/dev/null"],
-                            },
-                            "threshold": {
-                                "most_restrictive_allowed": "info",
-                                "allow_debug": False,
-                            },
-                        },
-                    }
-                ],
-                "unmatched_scopes": "indeterminate",
-            }
-        },
-        "provenance": {
-            "owner": "Security Engineering",
-            "approved_on": "2026-06-12",
-            "change_ref": "SEC-2026-206",
-        },
-    }
-
-
 def _write_policy(tmp_path: Path) -> Path:
-    path = tmp_path / ".webconf-audit-policy.yml"
-    path.write_text(yaml.safe_dump(_policy_payload(), sort_keys=False), encoding="utf-8")
-    return path
+    return write_policy(
+        tmp_path,
+        logging_policy_payload(
+            logging_profiles=[server_logging_profile()],
+            requested_opt_in_tags=("policy-review",),
+        ),
+    )
 
 
 def test_policy_validate_json_accepts_nginx_logging_policy(tmp_path: Path) -> None:

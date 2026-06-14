@@ -229,6 +229,7 @@ def _access_assessment(
     present_groups: dict[str, list[str]] = defaultdict(list)
     missing_groups: dict[str, list[str]] = defaultdict(list)
     resolved_formats: dict[str, object] = {}
+    evaluated_format_decisions: list[dict[str, object]] = []
     effective_destinations = [
         _access_destination_payload(destination)
         for destination in effective.access_logs
@@ -320,6 +321,14 @@ def _access_assessment(
             "source": _source_payload(format_definition.source),
             "variables": sorted(format_definition.variables),
         }
+        evaluated_format_decisions.append(
+            {
+                "format_name": format_definition.name,
+                "source": _source_payload(destination.source),
+                "declared_scope_id": destination.declared_scope_id,
+                "effective_scope_id": destination.effective_scope_id,
+            }
+        )
         format_result = _evaluate_access_format(
             destination=destination,
             format_definition=format_definition,
@@ -378,6 +387,7 @@ def _access_assessment(
             "server_names": list(server_names),
             "effective_destinations": effective_destinations,
             "resolved_formats": list(resolved_formats.values()),
+            "evaluated_format_decisions": evaluated_format_decisions,
             "required_field_groups": {
                 key: list(values)
                 for key, values in policy.formats.required_field_groups.items()

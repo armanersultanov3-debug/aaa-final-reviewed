@@ -3,51 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 
+from tests.nginx_logging_policy_helpers import base_policy_payload, write_policy
 from webconf_audit.cli import _ensure_all_rules_loaded
 from webconf_audit.coverage_ledger import load_coverage_ledger
-
-
-def _base_policy_payload() -> dict[str, object]:
-    return {
-        "schema_version": 1,
-        "policy_id": "nginx-logging-contract",
-        "policy_version": "2026.06",
-        "title": "Nginx logging contract",
-        "description": "Policy-backed logging requirements for nginx.",
-        "defaults": {
-            "disposition": "advisory",
-            "evidence_expectation": "ledger-default",
-            "include_unmapped_findings": True,
-            "require_complete_execution_manifest": True,
-        },
-        "profiles": [
-            {
-                "profile_id": "nginx-production",
-                "title": "Production nginx",
-                "selectors": [
-                    {
-                        "mode": "local",
-                        "server_type": "nginx",
-                        "target_glob": "*nginx.conf",
-                    }
-                ],
-                "sources": [
-                    {
-                        "source_id": "cis-nginx-3.0.0",
-                        "disposition": "required",
-                        "controls": [],
-                    }
-                ],
-            }
-        ],
-        "provenance": {
-            "owner": "Security Engineering",
-            "approved_on": "2026-06-12",
-            "change_ref": "SEC-2026-206",
-        },
-    }
 
 
 def _logging_profile() -> dict[str, object]:
@@ -101,7 +60,7 @@ def _logging_profile() -> dict[str, object]:
 
 
 def _logging_policy_payload() -> dict[str, object]:
-    payload = _base_policy_payload()
+    payload = base_policy_payload()
     payload["nginx"] = {
         "logging": {
             "profiles": [_logging_profile()],
@@ -109,14 +68,6 @@ def _logging_policy_payload() -> dict[str, object]:
         }
     }
     return payload
-
-
-def _write_policy(tmp_path: Path, payload: dict[str, object]) -> Path:
-    policy_path = tmp_path / ".webconf-audit-policy.yml"
-    policy_path.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
-    return policy_path
-
-
 def _load_registry():
     from webconf_audit.rule_registry import registry
 
@@ -131,7 +82,7 @@ def test_load_validate_and_resolve_policy_with_nginx_logging(
 
     ledger = load_coverage_ledger()
     registry = _load_registry()
-    policy = load_audit_policy(_write_policy(tmp_path, _logging_policy_payload()))
+    policy = load_audit_policy(write_policy(tmp_path, _logging_policy_payload()))
 
     assert validate_audit_policy(policy, ledger, registry) == ()
 
@@ -193,7 +144,7 @@ def test_validate_policy_rejects_overlapping_nginx_logging_profiles(
 
     ledger = load_coverage_ledger()
     registry = _load_registry()
-    policy = load_audit_policy(_write_policy(tmp_path, payload))
+    policy = load_audit_policy(write_policy(tmp_path, payload))
     issues = validate_audit_policy(policy, ledger, registry)
 
     assert [issue.code for issue in issues] == ["overlapping_nginx_logging_profiles"]
@@ -210,6 +161,6 @@ def test_load_policy_rejects_forbidden_variable_inside_required_group(
     ] = ["$http_authorization"]
 
     with pytest.raises(AuditPolicyLoadError) as excinfo:
-        load_audit_policy(_write_policy(tmp_path, payload))
+        load_audit_policy(write_policy(tmp_path, payload))
 
     assert excinfo.value.issue.code == "policy_schema_invalid"
