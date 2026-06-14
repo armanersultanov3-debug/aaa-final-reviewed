@@ -62,6 +62,45 @@ def _policy_payload() -> dict[str, object]:
     }
 
 
+def _policy_payload_with_reverse_proxy_headers() -> dict[str, object]:
+    payload = _policy_payload()
+    payload["nginx"] = {
+        "reverse_proxy_headers": {
+            "profiles": [
+                {
+                    "profile_id": "public-proxy-route",
+                    "applies_to": {
+                        "upstream_families": ["proxy"],
+                        "server_names": ["example.test"],
+                        "location_patterns": ["/api/"],
+                    },
+                    "request_headers": {
+                        "required": {
+                            "X-Forwarded-For": {
+                                "any_of": ["$proxy_add_x_forwarded_for", "$remote_addr"]
+                            },
+                            "X-Real-IP": {"any_of": ["$remote_addr"]},
+                            "X-Forwarded-Proto": {"any_of": ["$scheme"]},
+                        },
+                        "host": {
+                            "allowed_values": ["$host", "$proxy_host"],
+                            "allow_fixed_literals": True,
+                        },
+                        "forbidden_client_variables": ["$http_host"],
+                    },
+                    "response_headers": {
+                        "must_hide": ["X-Powered-By"],
+                        "must_not_pass": ["Server"],
+                        "allow_explicit_pass": [],
+                    },
+                }
+            ],
+            "unmatched_routes": "indeterminate",
+        }
+    }
+    return payload
+
+
 def _write_policy(tmp_path: Path, payload: dict[str, object] | None = None) -> Path:
     path = tmp_path / ".webconf-audit-policy.yml"
     path.write_text(
@@ -181,6 +220,52 @@ def test_analyze_nginx_without_policy_keeps_additive_null_policy_metadata(
     metadata = payload["results"][0]["metadata"]
     assert metadata["audit_policy"] is None
     assert metadata["rule_execution"]["schema_version"] == 1
+    assert "control_assessments" not in payload["results"][0]
+
+
+def test_analyze_nginx_with_reverse_proxy_policy_emits_control_assessments(
+    tmp_path: Path,
+) -> None:
+    policy_path = _write_policy(tmp_path, _policy_payload_with_reverse_proxy_headers())
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "events {}\n"
+        "http {\n"
+        "    server {\n"
+        "        server_name example.test;\n"
+        "        location /api/ {\n"
+        "            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n"
+        "            proxy_set_header X-Real-IP $remote_addr;\n"
+        "            proxy_set_header X-Forwarded-Proto $scheme;\n"
+        "            proxy_set_header Host $host;\n"
+        "            proxy_hide_header X-Powered-By;\n"
+        "            proxy_pass http://backend;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze-nginx",
+            str(config_path),
+            "--policy",
+            str(policy_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assessments = payload["results"][0]["control_assessments"]
+    assert {entry["control_id"] for entry in assessments} >= {
+        "cis-nginx-3.4.proxy-source-identity",
+        "cis-nginx-2.5.4.proxy-response-disclosure",
+        "policy.nginx.reverse-proxy-host",
+    }
 
 
 def test_analyze_nginx_with_invalid_policy_fails_before_analyzer_runs(

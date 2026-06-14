@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     from webconf_audit.execution_manifest import RuleExecutionManifest
@@ -68,6 +68,50 @@ class AnalysisIssue(_BaseResultEntry):
     details: str | None = None
 
 
+ControlAssessmentStatus = Literal["pass", "fail", "not-applicable", "indeterminate"]
+ControlAssessmentEvidenceKind = Literal[
+    "request-header",
+    "response-header",
+    "unsupported",
+    "route",
+]
+
+
+class _StrictAnalysisModel(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ControlAssessmentScope(_StrictAnalysisModel):
+    server_scope_id: str
+    route_scope_id: str
+    route_selector: str | None = None
+    server_name: str | None = None
+
+
+class ControlAssessmentEvidence(_StrictAnalysisModel):
+    kind: ControlAssessmentEvidenceKind
+    status: str
+    message: str
+    header_name: str | None = None
+    locations: tuple[SourceLocation, ...] = Field(default=(), max_length=64)
+    declared_scope_id: str | None = None
+    effective_scope_id: str | None = None
+    values: tuple[str, ...] = Field(default=(), max_length=64)
+
+
+class PolicyControlAssessment(_StrictAnalysisModel):
+    schema_version: Literal[1] = 1
+    control_id: str
+    title: str
+    status: ControlAssessmentStatus
+    scope: ControlAssessmentScope
+    summary: str
+    evidence: tuple[ControlAssessmentEvidence, ...] = Field(default=(), max_length=512)
+    related_rule_ids: tuple[str, ...] = Field(default=(), max_length=128)
+    policy_source: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class AnalysisResult(BaseModel):
     mode: AnalysisMode
     target: str
@@ -76,6 +120,10 @@ class AnalysisResult(BaseModel):
     issues: list[AnalysisIssue] = Field(default_factory=list)
     diagnostics: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    control_assessments: list[PolicyControlAssessment] = Field(
+        default_factory=list,
+        exclude=True,
+    )
     audit_policy: "ResolvedAuditPolicy | None" = Field(default=None, exclude=True)
     rule_execution: "RuleExecutionManifest | None" = Field(default=None, exclude=True)
 
@@ -92,9 +140,13 @@ __all__ = [
     "AnalysisIssue",
     "AnalysisMode",
     "AnalysisResult",
+    "ControlAssessmentEvidence",
+    "ControlAssessmentScope",
+    "ControlAssessmentStatus",
     "Finding",
     "IssueLevel",
     "LocationKind",
+    "PolicyControlAssessment",
     "ResultKind",
     "Severity",
     "SourceLocation",

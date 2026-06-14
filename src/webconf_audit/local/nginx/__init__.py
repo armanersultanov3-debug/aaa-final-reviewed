@@ -8,6 +8,10 @@ from webconf_audit.audit_policy import (
 )
 from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.load_context import LoadContext
+from webconf_audit.local.nginx.assessments.reverse_proxy_headers import (
+    evaluate_reverse_proxy_header_policy,
+)
+from webconf_audit.local.nginx.effective_scope import build_scope_graph
 from webconf_audit.local.nginx.include import resolve_includes
 from webconf_audit.local.nginx.parser.parser import NginxParseError, NginxParser, NginxTokenizer
 from webconf_audit.local.normalized import NormalizedConfig
@@ -129,6 +133,7 @@ def analyze_nginx_config(
 
     load_ctx = LoadContext(root_file=str(path))
     issues = resolve_includes(ast, path, load_context=load_ctx)
+    scope_graph = build_scope_graph(ast, issues=issues, root_file=str(path))
     recorder = RuleExecutionRecorder()
     findings = run_nginx_rules(
         ast,
@@ -145,6 +150,14 @@ def analyze_nginx_config(
             execution_recorder=recorder,
         )
     )
+    control_assessments = evaluate_reverse_proxy_header_policy(
+        ast,
+        scope_graph=scope_graph,
+        policy=policy.nginx.reverse_proxy_headers
+        if policy is not None and policy.nginx is not None
+        else None,
+        findings=findings,
+    )
 
     return _attach_context(
         AnalysisResult(
@@ -154,6 +167,7 @@ def analyze_nginx_config(
             findings=findings,
             issues=issues,
             metadata={"load_context": load_ctx.to_dict()},
+            control_assessments=control_assessments,
         ),
         policy=policy,
         recorder=recorder,

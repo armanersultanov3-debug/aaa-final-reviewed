@@ -62,6 +62,49 @@ def _base_policy_payload() -> dict[str, object]:
     }
 
 
+def _reverse_proxy_policy_payload() -> dict[str, object]:
+    payload = _base_policy_payload()
+    payload["nginx"] = {
+        "reverse_proxy_headers": {
+            "profiles": [
+                {
+                    "profile_id": "public-http",
+                    "applies_to": {
+                        "upstream_families": ["proxy"],
+                        "server_names": ["example.test"],
+                        "location_patterns": ["/api/"],
+                    },
+                    "request_headers": {
+                        "required": {
+                            "X-Forwarded-For": {
+                                "any_of": ["$proxy_add_x_forwarded_for", "$remote_addr"]
+                            },
+                            "X-Real-IP": {"any_of": ["$remote_addr"]},
+                            "X-Forwarded-Proto": {"any_of": ["$scheme"]},
+                        },
+                        "host": {
+                            "allowed_values": ["$host", "$proxy_host"],
+                            "allow_fixed_literals": True,
+                        },
+                        "forbidden_client_variables": [
+                            "$http_x_forwarded_for",
+                            "$http_x_real_ip",
+                            "$http_host",
+                        ],
+                    },
+                    "response_headers": {
+                        "must_hide": ["X-Powered-By"],
+                        "must_not_pass": ["Server"],
+                        "allow_explicit_pass": [],
+                    },
+                }
+            ],
+            "unmatched_routes": "indeterminate",
+        }
+    }
+    return payload
+
+
 def _write_policy(tmp_path: Path, payload: dict[str, object]) -> Path:
     policy_path = tmp_path / ".webconf-audit-policy.yml"
     policy_path.write_text(
@@ -123,6 +166,93 @@ def test_load_validate_and_resolve_policy_happy_path(tmp_path: Path) -> None:
         "nginx.content_security_policy_missing_reporting_endpoint"
         in overridden.required_rule_ids
     )
+
+
+def test_load_validate_and_resolve_policy_with_reverse_proxy_headers(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.audit_policy import AuditTarget, load_audit_policy, resolve_audit_policy, validate_audit_policy
+
+    ledger = load_coverage_ledger()
+    registry = _load_registry()
+    policy = load_audit_policy(_write_policy(tmp_path, _reverse_proxy_policy_payload()))
+
+    assert validate_audit_policy(policy, ledger, registry) == ()
+
+    resolved = resolve_audit_policy(
+        policy,
+        AuditTarget(
+            mode="local",
+            server_type="nginx",
+            target="production/edge-01",
+        ),
+        ledger,
+    )
+
+    assert resolved.nginx is not None
+    assert resolved.nginx.reverse_proxy_headers is not None
+    profile = resolved.nginx.reverse_proxy_headers.profiles[0]
+    assert profile.profile_id == "public-http"
+    assert profile.request_headers.host is not None
+    assert profile.response_headers.must_hide == ("X-Powered-By",)
+
+
+def test_validate_policy_rejects_conflicting_reverse_proxy_response_headers(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.audit_policy import AuditPolicyLoadError, load_audit_policy
+
+    payload = _reverse_proxy_policy_payload()
+    payload["nginx"]["reverse_proxy_headers"]["profiles"][0]["response_headers"] = {  # type: ignore[index]
+        "must_hide": ["Server"],
+        "must_not_pass": [],
+        "allow_explicit_pass": ["server"],
+    }
+
+    with pytest.raises(AuditPolicyLoadError) as excinfo:
+        load_audit_policy(_write_policy(tmp_path, payload))
+
+    assert excinfo.value.issue.code == "policy_schema_invalid"
+
+
+def test_validate_policy_rejects_overlapping_reverse_proxy_profiles(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.audit_policy import load_audit_policy, validate_audit_policy
+
+    payload = _reverse_proxy_policy_payload()
+    payload["nginx"]["reverse_proxy_headers"]["profiles"].append(  # type: ignore[index]
+        {
+            "profile_id": "public-http-alt",
+            "applies_to": {
+                "upstream_families": ["proxy"],
+                "server_names": ["example.test"],
+                "location_patterns": ["/api/"],
+            },
+            "request_headers": {
+                "required": {
+                    "X-Forwarded-For": {"any_of": ["$remote_addr"]},
+                },
+                "host": {
+                    "allowed_values": ["$host"],
+                    "allow_fixed_literals": False,
+                },
+                "forbidden_client_variables": ["$http_host"],
+            },
+            "response_headers": {
+                "must_hide": ["X-Powered-By"],
+                "must_not_pass": [],
+                "allow_explicit_pass": [],
+            },
+        }
+    )
+
+    ledger = load_coverage_ledger()
+    registry = _load_registry()
+    policy = load_audit_policy(_write_policy(tmp_path, payload))
+    issues = validate_audit_policy(policy, ledger, registry)
+
+    assert [issue.code for issue in issues] == ["overlapping_nginx_reverse_proxy_profiles"]
 
 
 def test_resolve_policy_expands_inherited_defaults_for_selected_source(

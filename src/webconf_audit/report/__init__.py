@@ -1051,6 +1051,11 @@ def _result_payload(result: AnalysisResult) -> dict[str, object]:
     kept verbatim so callers retain the full detector output for each target.
     """
     payload = result.model_dump()
+    if result.control_assessments:
+        payload["control_assessments"] = [
+            assessment.model_dump(mode="json")
+            for assessment in result.control_assessments
+        ]
     metadata = payload.get("metadata")
     if isinstance(metadata, dict):
         suppressed = metadata.get("suppressed_findings")

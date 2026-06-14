@@ -69,6 +69,45 @@ def test_verify_assessment_inputs_rejects_legacy_report_without_schema_version(
     assert {issue.code for issue in issues} == {"unassessable_legacy_report"}
 
 
+def test_load_analysis_report_keeps_invalid_control_assessment_as_metadata_issue(
+    tmp_path,
+) -> None:
+    ledger = subset_ledger(
+        source_id="owasp-asvs-5.0.0",
+        item_id="asvs-3.4.5-referrer-policy",
+    )
+    policy = resolve_policy(
+        ledger,
+        source_id="owasp-asvs-5.0.0",
+        item_id="asvs-3.4.5-referrer-policy",
+    )
+    result = result_with_context(
+        policy=policy,
+        manifest=manifest_for(selected=(), completed=()),
+    )
+    payload = mutate_payload(
+        result,
+        lambda raw: raw["results"][0].update(
+            {
+                "control_assessments": [
+                    {
+                        "schema_version": 1,
+                        "title": "broken",
+                    }
+                ]
+            }
+        ),
+    )
+
+    report = load_analysis_report(write_payload(tmp_path / "analysis.json", payload))
+
+    assert report.results[0].control_assessments == ()
+    assert [issue.code for issue in report.results[0].metadata_issues] == [
+        "analysis_report_schema_invalid"
+    ]
+    assert "control_assessments entry 0 is invalid" in report.results[0].metadata_issues[0].message
+
+
 def test_control_assessment_no_finding_without_pass_semantics_stays_not_assessed(
     tmp_path,
 ) -> None:

@@ -15,6 +15,10 @@ from that file, while release checks reconcile this section's summary against
 the same data. Explicit audit policies are a separate review layer and do not
 raise this coverage numerator by themselves.
 
+The current tree also includes policy-gated Nginx reverse-proxy header
+assessments for route-level evidence. They remain separate from executable
+finding rules and do not change the canonical full numerator by themselves.
+
 This revision includes the implemented opt-in
 `nginx.http3_alt_svc_review` policy-review rule and the corresponding
 control-source mapping updates. Candidate mappings elsewhere in the document

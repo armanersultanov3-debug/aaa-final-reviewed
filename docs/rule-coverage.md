@@ -97,6 +97,16 @@ Categories (canonical tags used in the table below):
 | ASVS v5.0.0-11.x broader cryptography | application-layer | `docs/standards-roadmap.md` (Partial Or Follow-up Gaps) | Only `iis.machine_key_validation_weak -> v5.0.0-11.4.1` is in scope (partial: MachineKey HMAC/hash selection only). Broader application crypto inventory / key lifecycle / runtime semantics are outside web-server config / safe-probe visibility. |
 | ASVS v5.0.0-16.x application logging | application-layer | `docs/standards-roadmap.md` (Partial Or Follow-up Gaps) | Application security event inventory and SOC log protection are application/SIEM concerns. Local access/error-log presence is supporting evidence only. |
 
+## Policy-backed assessment capabilities
+
+These capabilities are not executable finding rules. They appear only in
+analysis `control_assessments` when an explicit audit policy enables them, and
+they never change the default finding set by themselves.
+
+| Capability | Scope | Output records | Coverage effect |
+| --- | --- | --- | --- |
+| Nginx reverse-proxy header contract | Policy-gated analysis for effective route-level proxy request and response header semantics. | `cis-nginx-3.4.proxy-source-identity`, `cis-nginx-2.5.4.proxy-response-disclosure`, `policy.nginx.reverse-proxy-host` | No automatic coverage change. CIS NGINX §2.5.4 stays `partial`; CIS NGINX §3.4 stays `full` because the counted built-in rule basis is unchanged. |
+
 ## Inventory tables
 
 Columns:
@@ -474,6 +484,12 @@ Nginx CIS v3.0.0 gap table:
 | §5.2.4-§5.2.5 | `partial` | Current connection/rate-limit rules check presence, defined zones, per-IP keys, positive connection limits, and positive request rates; opt-in review rules expose the configured values. Remaining CIS judgment is whether the values and application scopes are reasonable for the deployment. |
 | §5.3.2, §5.3.3 | `partial` | Current coverage checks CSP/Referrer-Policy presence plus baseline CSP directives, unsafe script tokens, Referrer-Policy values, and `always`; `nginx.csp_value_review` exposes the effective CSP value, while full application-specific semantics remain manual. |
 | §6 | `out-of-scope` | The benchmark reserves Mandatory Access Control and points to OS/IdP/application sources rather than an Nginx config check. |
+
+Follow-up 05 adds policy-gated reverse-proxy header assessments as a separate
+analysis capability. They provide route-level evidence for CIS NGINX §2.5.4
+and §3.4 without changing the direct-rule inventory: §2.5.4 still remains
+`partial`, and §3.4 still remains `direct-rule` / counted `full` through
+`nginx.proxy_missing_source_ip_headers`.
 
 ### Apache (Local)
 

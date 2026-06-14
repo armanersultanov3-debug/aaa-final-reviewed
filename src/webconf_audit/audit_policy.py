@@ -32,10 +32,13 @@ from webconf_audit.policy_models import (
     AuditTarget,
     ControlPolicy,
     LoadedPolicyProvenance,
+    NginxPolicy,
     ResolvedAuditPolicy,
     ResolvedControlPolicy,
     ResolvedSourcePolicy,
     ResolvedTarget,
+    ReverseProxyHeaderProfile,
+    ReverseProxyRouteSelector,
     SourcePolicy,
     TargetSelector,
 )
@@ -256,6 +259,8 @@ def validate_audit_policy(
                 )
             )
 
+    issues.extend(_validate_nginx_policy(policy.nginx))
+
     unique = {issue: None for issue in issues}
     return tuple(sorted(unique.keys(), key=_issue_sort_key))
 
@@ -324,6 +329,7 @@ def resolve_audit_policy(
         ),
         requested_opt_in_tags=profile.requested_opt_in_tags,
         sources=resolved_sources,
+        nginx=policy.nginx,
     )
     return resolved.model_copy(
         update={"resolved_sha256": _resolved_policy_sha(resolved)}
@@ -428,6 +434,166 @@ def _validate_requested_tags(
         for tag in tags
         if tag not in OPT_IN_TAGS
     ]
+
+
+_ALL_UPSTREAM_FAMILIES = frozenset({"proxy", "fastcgi", "grpc", "uwsgi"})
+
+
+def _validate_nginx_policy(
+    nginx_policy: NginxPolicy | None,
+) -> list[AuditPolicyIssue]:
+    if nginx_policy is None or nginx_policy.reverse_proxy_headers is None:
+        return []
+
+    issues: list[AuditPolicyIssue] = []
+    section = nginx_policy.reverse_proxy_headers
+    profiles = section.profiles
+    seen_profile_ids: set[str] = set()
+    for profile in profiles:
+        if profile.profile_id in seen_profile_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="duplicate_nginx_reverse_proxy_profile_id",
+                    message=(
+                        "nginx.reverse_proxy_headers repeats profile_id "
+                        f"{profile.profile_id!r}."
+                    ),
+                    profile_id=profile.profile_id,
+                )
+            )
+        seen_profile_ids.add(profile.profile_id)
+
+    for index, profile in enumerate(profiles):
+        for other in profiles[index + 1 :]:
+            if not _reverse_proxy_selectors_overlap(profile.applies_to, other.applies_to):
+                continue
+            if _normalized_reverse_proxy_profile(profile) == _normalized_reverse_proxy_profile(other):
+                continue
+            issues.append(
+                AuditPolicyIssue(
+                    code="overlapping_nginx_reverse_proxy_profiles",
+                    message=(
+                        "nginx.reverse_proxy_headers profiles "
+                        f"{profile.profile_id!r} and {other.profile_id!r} overlap "
+                        "without equivalent normalized requirements."
+                    ),
+                    profile_id=f"{profile.profile_id},{other.profile_id}",
+                )
+            )
+
+    return issues
+
+
+def _reverse_proxy_selectors_overlap(
+    left: ReverseProxyRouteSelector,
+    right: ReverseProxyRouteSelector,
+) -> bool:
+    return (
+        _selector_dimension_overlap(
+            left.upstream_families,
+            right.upstream_families,
+            all_values=_ALL_UPSTREAM_FAMILIES,
+            normalize=lambda value: value,
+        )
+        and _selector_dimension_overlap(
+            left.server_names,
+            right.server_names,
+            all_values=None,
+            normalize=lambda value: value.lower(),
+        )
+        and _selector_dimension_overlap(
+            left.location_patterns,
+            right.location_patterns,
+            all_values=None,
+            normalize=_normalize_expression,
+        )
+    )
+
+
+def _selector_dimension_overlap(
+    left: tuple[str, ...],
+    right: tuple[str, ...],
+    *,
+    all_values: frozenset[str] | None,
+    normalize,
+) -> bool:
+    if not left or not right:
+        return True
+    left_values = {normalize(value) for value in left}
+    right_values = {normalize(value) for value in right}
+    if all_values is not None:
+        if left_values == all_values or right_values == all_values:
+            return True
+    return bool(left_values & right_values)
+
+
+def _normalized_reverse_proxy_profile(
+    profile: ReverseProxyHeaderProfile,
+) -> dict[str, object]:
+    request_required = {
+        header.lower(): sorted(
+            {
+                _normalize_expression(value)
+                for value in requirement.any_of
+            }
+        )
+        for header, requirement in profile.request_headers.required.items()
+    }
+    host_policy = profile.request_headers.host
+    return {
+        "selector": {
+            "upstream_families": sorted(set(profile.applies_to.upstream_families)),
+            "server_names": sorted(
+                {
+                    server_name.lower()
+                    for server_name in profile.applies_to.server_names
+                }
+            ),
+            "location_patterns": sorted(
+                {
+                    _normalize_expression(pattern)
+                    for pattern in profile.applies_to.location_patterns
+                }
+            ),
+        },
+        "request": {
+            "required": request_required,
+            "host": (
+                {
+                    "allowed_values": sorted(
+                        {
+                            _normalize_expression(value)
+                            for value in host_policy.allowed_values
+                        }
+                    ),
+                    "allow_fixed_literals": host_policy.allow_fixed_literals,
+                }
+                if host_policy is not None
+                else None
+            ),
+            "forbidden_client_variables": sorted(
+                {
+                    _normalize_expression(value).lower()
+                    for value in profile.request_headers.forbidden_client_variables
+                }
+            ),
+        },
+        "response": {
+            "must_hide": sorted(
+                {header.lower() for header in profile.response_headers.must_hide}
+            ),
+            "must_not_pass": sorted(
+                {header.lower() for header in profile.response_headers.must_not_pass}
+            ),
+            "allow_explicit_pass": sorted(
+                {header.lower() for header in profile.response_headers.allow_explicit_pass}
+            ),
+        },
+    }
+
+
+def _normalize_expression(value: str) -> str:
+    return " ".join(value.strip().split())
 
 
 def _validate_source_policy(
