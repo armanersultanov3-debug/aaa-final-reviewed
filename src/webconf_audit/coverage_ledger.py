@@ -778,11 +778,7 @@ def _validate_item(
                     rule_id=assessment_rule.rule_id,
                 )
             )
-    claims_by_rule = {
-        claim.rule_id
-        for claim in evidence.registry_references
-        if _claim_matches_item_reference(item, claim.standard, claim.reference)
-    }
+    claims_by_rule = {claim.rule_id for claim in claims_for_item}
     for rule_id in evidence.rule_ids:
         if rule_id not in claims_by_rule:
             issues.append(

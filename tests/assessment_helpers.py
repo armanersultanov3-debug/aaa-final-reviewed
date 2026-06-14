@@ -39,7 +39,12 @@ def ensure_rules_loaded() -> None:
     register_external_rule_metas()
 
 
+_ALLOWED_FIXTURE_STATUSES = {"full", "partial", "policy-review", "uncovered", "excluded"}
+
+
 def _summary_for_status(status: str) -> CoverageSummary:
+    if status not in _ALLOWED_FIXTURE_STATUSES:
+        raise AssertionError(f"Unsupported status for test fixture: {status!r}")
     full = 1 if status == "full" else 0
     partial = 1 if status == "partial" else 0
     policy_review = 1 if status == "policy-review" else 0
@@ -77,6 +82,8 @@ def subset_ledger(
             }
         )
     if status is not None:
+        if status not in _ALLOWED_FIXTURE_STATUSES:
+            raise AssertionError(f"Unsupported status for test fixture: {status!r}")
         item = item.model_copy(update={"status": status})
     source = source.model_copy(
         update={

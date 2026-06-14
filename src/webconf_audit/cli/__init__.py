@@ -8,6 +8,7 @@ import typer
 
 from webconf_audit.assessment import (
     AssessmentBuildError,
+    AnalysisReportLoadError,
     build_control_assessment,
     load_analysis_report,
     verify_assessment_inputs,
@@ -25,7 +26,11 @@ from webconf_audit.audit_policy import (
     validate_audit_policy,
 )
 from webconf_audit.baselines import apply_baseline_diff, load_baseline_file, write_baseline_file
-from webconf_audit.coverage_ledger import load_coverage_ledger, write_coverage_output
+from webconf_audit.coverage_ledger import (
+    CoverageLedgerLoadError,
+    load_coverage_ledger,
+    write_coverage_output,
+)
 from webconf_audit.external import analyze_external_target
 from webconf_audit.local.apache import analyze_apache_config
 from webconf_audit.local.iis import analyze_iis_config
@@ -1000,34 +1005,18 @@ def assess_command(
 
     try:
         loaded_report = load_analysis_report(report)
-    except Exception as exc:
-        issue = (
-            exc.issue  # type: ignore[attr-defined]
-            if hasattr(exc, "issue")
-            else AssessmentIssue(
-                code="analysis_report_schema_invalid",
-                severity="error",
-                message=str(exc),
-            )
-        )
-        _emit_assessment_failure(output_format, (issue,))
+    except AnalysisReportLoadError as exc:
+        _emit_assessment_failure(output_format, (exc.issue,))
         raise typer.Exit(1)
 
     try:
         loaded_ledger = load_coverage_ledger(ledger)
-    except Exception as exc:
-        if hasattr(exc, "issue"):
-            issue = AssessmentIssue(
-                code="ledger_validation_failed",
-                severity="error",
-                message=f"{exc.issue.code}: {exc.issue.message}",  # type: ignore[attr-defined]
-            )
-        else:
-            issue = AssessmentIssue(
-                code="ledger_validation_failed",
-                severity="error",
-                message=str(exc),
-            )
+    except CoverageLedgerLoadError as exc:
+        issue = AssessmentIssue(
+            code="ledger_validation_failed",
+            severity="error",
+            message=f"{exc.issue.code}: {exc.issue.message}",
+        )
         _emit_assessment_failure(output_format, (issue,))
         raise typer.Exit(1)
 

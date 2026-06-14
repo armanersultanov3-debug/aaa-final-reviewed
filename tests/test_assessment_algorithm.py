@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from hashlib import sha256
 
 import pytest
 
@@ -425,6 +426,51 @@ def test_build_control_assessment_rejects_duplicate_finding_ids(tmp_path) -> Non
         build_control_assessment(report, ledger, registry)
 
 
+def test_verify_assessment_inputs_rejects_embedded_policy_control_missing_from_ledger(
+    tmp_path,
+) -> None:
+    ensure_rules_loaded()
+    ledger = subset_ledger(
+        source_id="owasp-asvs-5.0.0",
+        item_id="asvs-3.4.5-referrer-policy",
+    )
+    policy = resolve_policy(
+        ledger,
+        source_id="owasp-asvs-5.0.0",
+        item_id="asvs-3.4.5-referrer-policy",
+    )
+    result = result_with_context(
+        policy=policy,
+        manifest=manifest_for(selected=(), completed=()),
+    )
+
+    payload = mutate_payload(
+        result,
+        lambda data: data["results"][0]["metadata"]["audit_policy"]["sources"][0][
+            "controls"
+        ][0].update({"item_id": "missing-control"}),
+    )
+    embedded_policy = payload["results"][0]["metadata"]["audit_policy"]
+    embedded_policy["resolved_sha256"] = _resolved_policy_sha_payload(embedded_policy)
+
+    report = load_analysis_report(write_payload(tmp_path / "analysis.json", payload))
+    issues = verify_assessment_inputs(report, ledger, registry)
+
+    assert any(issue.code == "policy_ledger_mismatch" for issue in issues)
+    with pytest.raises(AssessmentBuildError) as exc_info:
+        build_control_assessment(report, ledger, registry)
+    assert any(issue.code == "policy_ledger_mismatch" for issue in exc_info.value.issues)
+
+
+def test_subset_ledger_rejects_unsupported_fixture_status() -> None:
+    with pytest.raises(AssertionError, match="Unsupported status"):
+        subset_ledger(
+            source_id="owasp-asvs-5.0.0",
+            item_id="asvs-3.4.5-referrer-policy",
+            status="definitely-unsupported",
+        )
+
+
 def test_assessment_json_render_is_deterministic_except_generation_time(tmp_path) -> None:
     from webconf_audit.coverage_models import AssessableRuleEvidence
 
@@ -463,3 +509,15 @@ def test_assessment_json_render_is_deterministic_except_generation_time(tmp_path
     first["generated_at"] = second["generated_at"] = None
 
     assert first == second
+
+
+def _resolved_policy_sha_payload(policy_payload: dict[str, object]) -> str:
+    payload = dict(policy_payload)
+    payload["resolved_sha256"] = None
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return sha256(encoded).hexdigest()

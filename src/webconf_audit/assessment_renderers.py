@@ -180,7 +180,7 @@ def _safe(value: object) -> str:
     text = str(value)
     return "".join(
         character
-        if " " <= character <= "~" or ord(character) > 0x7E
+        if " " <= character <= "~" or ord(character) >= 0x80
         else f"\\x{ord(character):02x}"
         for character in text
     )

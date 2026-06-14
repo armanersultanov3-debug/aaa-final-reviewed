@@ -221,6 +221,11 @@ def verify_assessment_inputs(
 ) -> tuple[AssessmentIssue, ...]:
     """Return all input-trust and compatibility issues for assessment."""
     issues: list[AssessmentIssue] = list(report.load_issues)
+    ledger_keys = {
+        (source.source_id, item.item_id)
+        for source in ledger.sources
+        for item in source.items
+    }
     if report.schema_version is None:
         issues.append(
             AssessmentIssue(
@@ -307,6 +312,24 @@ def verify_assessment_inputs(
                         ),
                     )
                 )
+            for source_policy in result.audit_policy.sources:
+                for control_policy in source_policy.controls:
+                    if (source_policy.source_id, control_policy.item_id) in ledger_keys:
+                        continue
+                    issues.append(
+                        AssessmentIssue(
+                            code="policy_ledger_mismatch",
+                            severity="error",
+                            message=(
+                                f"Embedded policy references item "
+                                f"{control_policy.item_id!r} in source "
+                                f"{source_policy.source_id!r}, which is not "
+                                "present in the assessment ledger."
+                            ),
+                            source_id=source_policy.source_id,
+                            item_id=control_policy.item_id,
+                        )
+                    )
             if verification_policy is not None:
                 issues.extend(
                     _verify_policy_match(
@@ -442,7 +465,26 @@ def build_control_assessment(
         target_id = target_map[(result.mode, result.server_type, result.target)].target_id
         for source_policy in result.audit_policy.sources:
             for control_policy in source_policy.controls:
-                ledger_source, ledger_item = ledger_lookup[(source_policy.source_id, control_policy.item_id)]
+                key = (source_policy.source_id, control_policy.item_id)
+                ledger_entry = ledger_lookup.get(key)
+                if ledger_entry is None:
+                    raise AssessmentBuildError(
+                        (
+                            AssessmentIssue(
+                                code="policy_ledger_mismatch",
+                                severity="error",
+                                message=(
+                                    f"Embedded policy references item "
+                                    f"{control_policy.item_id!r} in source "
+                                    f"{source_policy.source_id!r}, which is not "
+                                    "present in the assessment ledger."
+                                ),
+                                source_id=source_policy.source_id,
+                                item_id=control_policy.item_id,
+                            ),
+                        )
+                    )
+                ledger_source, ledger_item = ledger_entry
                 control, control_issues = _assess_single_control(
                     result=result,
                     target_id=target_id,

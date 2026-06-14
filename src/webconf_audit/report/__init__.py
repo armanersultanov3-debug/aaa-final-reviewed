@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version as package_version
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from typing import Literal
 from typing_extensions import TypedDict
 
@@ -1088,7 +1088,7 @@ def _enriched_suppressed_payload(
         return enriched
     try:
         finding = Finding.model_validate(finding_data)
-    except Exception:
+    except ValidationError:
         return enriched
     enriched["finding"] = finding_payload(result, finding)
     return enriched
