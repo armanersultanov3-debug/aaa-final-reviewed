@@ -129,9 +129,16 @@ depend on the AST or effective-configuration modules of local mode.
 - Adds a read-only effective-scope graph over the expanded AST for
   `main`/`http`/`server`/`location`/`if in location`/`limit_except`
   inheritance work without introducing a second parser.
+- Builds effective logging semantics for `access_log`, `log_format`,
+  and `error_log` across material scopes, preserving multiple
+  same-level destinations, built-in `combined`, include source spans,
+  and conservative completeness / condition classification.
 - Policy-gated reverse-proxy header evaluation resolves effective
   request-header replacement and response hide/pass semantics per
   supported upstream family while preserving directive source spans.
+- Policy-gated logging evaluation compares those effective logging
+  semantics with an explicit contract and emits scope-level
+  `control_assessments` without changing no-policy findings.
 
 ### 6.2 Apache
 

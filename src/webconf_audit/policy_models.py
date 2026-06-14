@@ -27,6 +27,20 @@ ServerType = Literal["nginx", "apache", "lighttpd", "iis", "generic"]
 InheritedFrom = Literal["policy-default", "source", "control"]
 UpstreamFamily = Literal["proxy", "fastcgi", "grpc", "uwsgi"]
 UnmatchedRouteDisposition = Literal["not-applicable", "fail", "indeterminate"]
+NginxConditionMode = Literal["forbid", "allow_dynamic", "allow_listed"]
+NginxEscapeMode = Literal["default", "json", "none"]
+NginxErrorLogSeverity = Literal[
+    "debug",
+    "info",
+    "notice",
+    "warn",
+    "error",
+    "crit",
+    "alert",
+    "emerg",
+]
+NginxAccessDestinationKind = Literal["file", "syslog", "stderr"]
+NginxErrorDestinationKind = Literal["file", "syslog", "stderr", "memory", "null_device"]
 TargetGlob = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
@@ -43,6 +57,24 @@ HeaderName = Annotated[
 HeaderExpression = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
+]
+NginxLogVariable = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=2,
+        max_length=256,
+        pattern=r"^\$(?:\{[A-Za-z0-9_]+\}|[A-Za-z0-9_]+)$",
+    ),
+]
+NginxFieldGroupName = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$",
+    ),
 ]
 SHA256Hex = Annotated[
     str,
@@ -132,8 +164,146 @@ class NginxReverseProxyHeadersPolicy(_StrictModel):
     unmatched_routes: UnmatchedRouteDisposition = "indeterminate"
 
 
+class NginxLoggingSelector(_StrictModel):
+    server_names: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+    location_patterns: tuple[NonEmptyText, ...] = Field(default=(), max_length=128)
+
+
+class NginxLoggingConditionalPolicy(_StrictModel):
+    mode: NginxConditionMode
+    allowed_conditions: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+
+    @model_validator(mode="after")
+    def validate_mode_requirements(self) -> "NginxLoggingConditionalPolicy":
+        if self.mode == "allow_listed" and not self.allowed_conditions:
+            raise ValueError("allow_listed conditional mode requires allowed_conditions.")
+        if self.mode != "allow_listed" and self.allowed_conditions:
+            raise ValueError(
+                "allowed_conditions is supported only for conditional mode allow_listed."
+            )
+        return self
+
+
+class NginxAccessDestinationEntry(_StrictModel):
+    kind: NginxAccessDestinationKind
+    path: NonEmptyText | None = None
+    prefix: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> "NginxAccessDestinationEntry":
+        if self.kind == "file":
+            if self.path is None:
+                raise ValueError("file access-log destinations require path.")
+            if self.prefix is not None:
+                raise ValueError("file access-log destinations cannot declare prefix.")
+        elif self.kind == "syslog":
+            if self.prefix is None:
+                raise ValueError("syslog access-log destinations require prefix.")
+            if self.path is not None:
+                raise ValueError("syslog access-log destinations cannot declare path.")
+        else:
+            if self.path is not None or self.prefix is not None:
+                raise ValueError(
+                    "stderr access-log destinations cannot declare path or prefix."
+                )
+        return self
+
+
+class NginxAccessDestinationPolicy(_StrictModel):
+    allowed: tuple[NginxAccessDestinationEntry, ...] = Field(default=(), max_length=64)
+    require_at_least_one_remote: bool = False
+    allow_variable_paths: bool = False
+
+    @model_validator(mode="after")
+    def validate_remote_requirements(self) -> "NginxAccessDestinationPolicy":
+        if self.require_at_least_one_remote and not any(
+            entry.kind == "syslog" for entry in self.allowed
+        ):
+            raise ValueError(
+                "require_at_least_one_remote requires at least one syslog allowed destination."
+            )
+        return self
+
+
+class NginxAccessFormatPolicy(_StrictModel):
+    allowed_names: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+    require_escape: NginxEscapeMode | None = None
+    required_field_groups: dict[NginxFieldGroupName, tuple[NginxLogVariable, ...]] = Field(
+        default_factory=dict
+    )
+    forbidden_variables: tuple[NginxLogVariable, ...] = Field(default=(), max_length=128)
+
+    @model_validator(mode="after")
+    def validate_groups(self) -> "NginxAccessFormatPolicy":
+        normalized_required: set[str] = set()
+        for group_name, variables in self.required_field_groups.items():
+            if not variables:
+                raise ValueError(
+                    f"required field group {group_name!r} must contain at least one variable."
+                )
+            normalized_required.update(_normalize_nginx_variable(variable) for variable in variables)
+        forbidden = {
+            _normalize_nginx_variable(variable)
+            for variable in self.forbidden_variables
+        }
+        overlap = sorted(normalized_required & forbidden)
+        if overlap:
+            raise ValueError(
+                "forbidden_variables cannot also satisfy required field groups: "
+                + ", ".join(overlap)
+            )
+        return self
+
+
+class NginxAccessLoggingPolicy(_StrictModel):
+    required: bool = True
+    allow_off: bool = False
+    conditional: NginxLoggingConditionalPolicy
+    destinations: NginxAccessDestinationPolicy
+    formats: NginxAccessFormatPolicy
+
+
+class NginxErrorDestinationPolicy(_StrictModel):
+    allowed_kinds: tuple[NginxErrorDestinationKind, ...] = Field(
+        min_length=1,
+        max_length=8,
+    )
+    forbidden_paths: tuple[NonEmptyText, ...] = Field(default=(), max_length=32)
+
+
+class NginxErrorThresholdPolicy(_StrictModel):
+    most_restrictive_allowed: NginxErrorLogSeverity
+    allow_debug: bool = False
+
+
+class NginxErrorLoggingPolicy(_StrictModel):
+    required: bool = True
+    require_explicit_destination: bool = False
+    destinations: NginxErrorDestinationPolicy
+    threshold: NginxErrorThresholdPolicy
+
+
+class NginxLoggingProfile(_StrictModel):
+    profile_id: Identifier
+    applies_to: NginxLoggingSelector
+    access: NginxAccessLoggingPolicy | None = None
+    error: NginxErrorLoggingPolicy | None = None
+
+    @model_validator(mode="after")
+    def validate_non_empty(self) -> "NginxLoggingProfile":
+        if self.access is None and self.error is None:
+            raise ValueError("logging profile must declare access or error requirements.")
+        return self
+
+
+class NginxLoggingPolicy(_StrictModel):
+    profiles: tuple[NginxLoggingProfile, ...] = Field(min_length=1, max_length=128)
+    unmatched_scopes: UnmatchedRouteDisposition = "indeterminate"
+
+
 class NginxPolicy(_StrictModel):
     reverse_proxy_headers: NginxReverseProxyHeadersPolicy | None = None
+    logging: NginxLoggingPolicy | None = None
 
 
 class ControlPolicy(_StrictModel):
@@ -251,6 +421,24 @@ __all__ = [
     "HeaderExpression",
     "HeaderName",
     "LoadedPolicyProvenance",
+    "NginxAccessDestinationEntry",
+    "NginxAccessDestinationKind",
+    "NginxAccessDestinationPolicy",
+    "NginxAccessFormatPolicy",
+    "NginxAccessLoggingPolicy",
+    "NginxConditionMode",
+    "NginxErrorDestinationKind",
+    "NginxErrorDestinationPolicy",
+    "NginxErrorLogSeverity",
+    "NginxErrorLoggingPolicy",
+    "NginxErrorThresholdPolicy",
+    "NginxEscapeMode",
+    "NginxFieldGroupName",
+    "NginxLoggingConditionalPolicy",
+    "NginxLoggingPolicy",
+    "NginxLoggingProfile",
+    "NginxLoggingSelector",
+    "NginxLogVariable",
     "NginxPolicy",
     "NginxReverseProxyHeadersPolicy",
     "PolicyDefaults",
@@ -272,3 +460,10 @@ __all__ = [
     "UnmatchedRouteDisposition",
     "UpstreamFamily",
 ]
+
+
+def _normalize_nginx_variable(value: str) -> str:
+    stripped = value.strip()
+    if stripped.startswith("${") and stripped.endswith("}"):
+        return f"${stripped[2:-1]}"
+    return stripped

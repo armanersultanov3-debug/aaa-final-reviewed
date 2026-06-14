@@ -32,6 +32,8 @@ from webconf_audit.policy_models import (
     AuditTarget,
     ControlPolicy,
     LoadedPolicyProvenance,
+    NginxLoggingProfile,
+    NginxLoggingSelector,
     NginxPolicy,
     ResolvedAuditPolicy,
     ResolvedControlPolicy,
@@ -442,11 +444,23 @@ _ALL_UPSTREAM_FAMILIES = frozenset({"proxy", "fastcgi", "grpc", "uwsgi"})
 def _validate_nginx_policy(
     nginx_policy: NginxPolicy | None,
 ) -> list[AuditPolicyIssue]:
-    if nginx_policy is None or nginx_policy.reverse_proxy_headers is None:
-        return []
+    issues: list[AuditPolicyIssue] = []
+    if nginx_policy is None:
+        return issues
 
+    if nginx_policy.reverse_proxy_headers is not None:
+        issues.extend(_validate_nginx_reverse_proxy_policy(nginx_policy))
+    if nginx_policy.logging is not None:
+        issues.extend(_validate_nginx_logging_policy(nginx_policy))
+    return issues
+
+
+def _validate_nginx_reverse_proxy_policy(
+    nginx_policy: NginxPolicy,
+) -> list[AuditPolicyIssue]:
     issues: list[AuditPolicyIssue] = []
     section = nginx_policy.reverse_proxy_headers
+    assert section is not None
     profiles = section.profiles
     seen_profile_ids: set[str] = set()
     for profile in profiles:
@@ -474,6 +488,49 @@ def _validate_nginx_policy(
                     code="overlapping_nginx_reverse_proxy_profiles",
                     message=(
                         "nginx.reverse_proxy_headers profiles "
+                        f"{profile.profile_id!r} and {other.profile_id!r} overlap "
+                        "without equivalent normalized requirements."
+                    ),
+                    profile_id=f"{profile.profile_id},{other.profile_id}",
+                )
+            )
+
+    return issues
+
+
+def _validate_nginx_logging_policy(
+    nginx_policy: NginxPolicy,
+) -> list[AuditPolicyIssue]:
+    issues: list[AuditPolicyIssue] = []
+    section = nginx_policy.logging
+    assert section is not None
+    profiles = section.profiles
+    seen_profile_ids: set[str] = set()
+    for profile in profiles:
+        if profile.profile_id in seen_profile_ids:
+            issues.append(
+                AuditPolicyIssue(
+                    code="duplicate_nginx_logging_profile_id",
+                    message=(
+                        "nginx.logging repeats profile_id "
+                        f"{profile.profile_id!r}."
+                    ),
+                    profile_id=profile.profile_id,
+                )
+            )
+        seen_profile_ids.add(profile.profile_id)
+
+    for index, profile in enumerate(profiles):
+        for other in profiles[index + 1 :]:
+            if not _logging_selectors_overlap(profile.applies_to, other.applies_to):
+                continue
+            if _normalized_logging_profile(profile) == _normalized_logging_profile(other):
+                continue
+            issues.append(
+                AuditPolicyIssue(
+                    code="overlapping_nginx_logging_profiles",
+                    message=(
+                        "nginx.logging profiles "
                         f"{profile.profile_id!r} and {other.profile_id!r} overlap "
                         "without equivalent normalized requirements."
                     ),
@@ -525,6 +582,26 @@ def _selector_dimension_overlap(
         if left_values == all_values or right_values == all_values:
             return True
     return bool(left_values & right_values)
+
+
+def _logging_selectors_overlap(
+    left: NginxLoggingSelector,
+    right: NginxLoggingSelector,
+) -> bool:
+    return (
+        _selector_dimension_overlap(
+            left.server_names,
+            right.server_names,
+            all_values=None,
+            normalize=lambda value: value.lower(),
+        )
+        and _selector_dimension_overlap(
+            left.location_patterns,
+            right.location_patterns,
+            all_values=None,
+            normalize=_normalize_expression,
+        )
+    )
 
 
 def _normalized_reverse_proxy_profile(
@@ -589,6 +666,89 @@ def _normalized_reverse_proxy_profile(
                 {header.lower() for header in profile.response_headers.allow_explicit_pass}
             ),
         },
+    }
+
+
+def _normalized_logging_profile(
+    profile: NginxLoggingProfile,
+) -> dict[str, object]:
+    access = profile.access
+    error = profile.error
+    return {
+        "selector": {
+            "server_names": sorted(
+                {server_name.lower() for server_name in profile.applies_to.server_names}
+            ),
+            "location_patterns": sorted(
+                {_normalize_expression(pattern) for pattern in profile.applies_to.location_patterns}
+            ),
+        },
+        "access": (
+            {
+                "required": access.required,
+                "allow_off": access.allow_off,
+                "conditional": {
+                    "mode": access.conditional.mode,
+                    "allowed_conditions": sorted(
+                        {
+                            _normalize_expression(value)
+                            for value in access.conditional.allowed_conditions
+                        }
+                    ),
+                },
+                "destinations": {
+                    "allowed": sorted(
+                        (
+                            entry.kind,
+                            _normalize_expression(entry.path or ""),
+                            _normalize_expression(entry.prefix or ""),
+                        )
+                        for entry in access.destinations.allowed
+                    ),
+                    "require_at_least_one_remote": access.destinations.require_at_least_one_remote,
+                    "allow_variable_paths": access.destinations.allow_variable_paths,
+                },
+                "formats": {
+                    "allowed_names": sorted(
+                        {_normalize_expression(value) for value in access.formats.allowed_names}
+                    ),
+                    "require_escape": access.formats.require_escape,
+                    "required_field_groups": {
+                        group_name.lower(): sorted(
+                            {
+                                _normalize_expression(variable).lower()
+                                for variable in variables
+                            }
+                        )
+                        for group_name, variables in access.formats.required_field_groups.items()
+                    },
+                    "forbidden_variables": sorted(
+                        {
+                            _normalize_expression(variable).lower()
+                            for variable in access.formats.forbidden_variables
+                        }
+                    ),
+                },
+            }
+            if access is not None
+            else None
+        ),
+        "error": (
+            {
+                "required": error.required,
+                "require_explicit_destination": error.require_explicit_destination,
+                "allowed_kinds": sorted(set(error.destinations.allowed_kinds)),
+                "forbidden_paths": sorted(
+                    {_normalize_expression(path) for path in error.destinations.forbidden_paths}
+                ),
+                "threshold": {
+                    "most_restrictive_allowed": error.threshold.most_restrictive_allowed,
+                    "allow_debug": error.threshold.allow_debug,
+                },
+            }
+            if error is not None
+            else None
+        ),
     }
 
 

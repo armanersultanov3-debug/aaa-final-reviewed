@@ -25,6 +25,12 @@ that feature. These records are trusted as additional structured evidence, but
 they do not replace the separate assessment artifact or its conservative status
 aggregation rules.
 
+Current analyzer-native examples include the Nginx reverse-proxy header
+contract and the Nginx logging contract. These scope-level records may say
+`pass`, `fail`, `not-applicable`, or `indeterminate` for the declared contract,
+but they do not rewrite finding severity, suppressions, baselines, or source
+coverage totals.
+
 ## Statuses
 
 Schema version 1 uses these statuses:

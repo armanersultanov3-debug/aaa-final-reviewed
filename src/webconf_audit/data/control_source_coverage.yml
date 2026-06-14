@@ -139,9 +139,10 @@ sources:
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: The rule validates the presence of significant audit fields in a named log format.
+      rationale: Built-in findings validate significant audit fields in a named log format, and optional `nginx.logging` control assessments can compare effective destinations, escaping, and exact variables against an operator contract without changing the counted source status.
       limitations:
       - The final JSON, SIEM, and organization-specific log format remains an operator policy.
+      - Static policy-backed assessments do not prove delivery, retention, clock synchronization, or application event completeness.
     exclusion: null
     provenance:
       reviewed_on: '2026-06-13'
@@ -166,9 +167,10 @@ sources:
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: The rule detects an error log level that is too restrictive for useful security diagnostics.
+      rationale: Built-in findings detect an error log level that is too restrictive for useful security diagnostics, and optional `nginx.logging` control assessments can enforce explicit destination and threshold contracts without changing the counted source status.
       limitations:
       - The preferred warn, notice, or info level depends on operating policy and workload.
+      - Static policy-backed assessments do not prove downstream alerting, retention, or successful log delivery.
     exclusion: null
     provenance:
       reviewed_on: '2026-06-13'
