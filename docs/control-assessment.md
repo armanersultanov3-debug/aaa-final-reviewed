@@ -50,6 +50,22 @@ Assessment extends ledger evidence with versioned absence semantics:
 
 Default migrated evidence uses `none`.
 
+Required-rule skips are mapped conservatively from the embedded execution
+manifest:
+
+- `mode-incompatible` becomes missing evidence with reason
+  `mode-unavailable`, which yields `indeterminate`
+- `server-incompatible` becomes missing evidence with reason
+  `server-unavailable`, which yields `indeterminate`
+- `input-unavailable`, `opt-in-not-selected`, and `prerequisite-failed` are
+  normalized to missing evidence reason `skipped`, which yields
+  `indeterminate`
+- a required rule omitted from `selected_rule_ids` entirely becomes
+  `not-selected`; if no other positive or negative path exists, the control
+  remains `not-assessed`
+- a completed required rule with `absence_semantics=none` adds
+  `no-pass-semantics`; this remains `not-assessed`, not `indeterminate`
+
 ## Status precedence
 
 For applicable controls, the engine resolves conflicts conservatively:
@@ -70,6 +86,8 @@ context and are not silently suppressed.
 - A suppressed direct finding still yields `fail`.
 - A completed rule with `absence_semantics=none` and no finding yields
   `not-assessed`, not `pass`.
+- A single required rule skipped with `opt-in-not-selected` yields
+  `indeterminate`, because the required evidence path did not complete.
 - A `policy-review` ledger item or `review` policy disposition yields `review`
   unless execution was incomplete.
 - A skipped required rule yields `indeterminate`.

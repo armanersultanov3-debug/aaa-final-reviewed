@@ -69,7 +69,9 @@ per-target results, the deduplicated findings list, repeated finding groups
 under `finding_groups`, standards references under each finding and the
 top-level `standards` summary, and the issues list. Schema version 1 also
 adds top-level `schema_version` and `generator` fields so downstream tooling
-can verify the report format and registry revision.
+can verify the report format, generator package name and version, and registry
+revision. See [docs/report-format.md](docs/report-format.md) for the full JSON
+contract.
 
 When an explicit policy is supplied, JSON results also include additive
 `result.metadata.audit_policy` and `result.metadata.rule_execution` entries.

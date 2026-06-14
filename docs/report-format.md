@@ -49,9 +49,17 @@ Each result keeps its full finding and issue payloads and now also carries:
 - stable finding `fingerprint` values
 - complete standards mappings on findings, including `coverage`, `origin`, and
   any `derived_from` provenance
-- embedded resolved policy metadata
+- embedded resolved policy metadata under `result.metadata.audit_policy`,
+  including `policy_id`, `policy_version`, `raw_sha256`, and
+  `resolved_sha256`
 - embedded versioned rule execution manifest
 - generator registry revision
+
+`raw_sha256` and `resolved_sha256` are lowercase 64-character SHA-256 hex
+digests. When `assess --policy ...` is supplied, the policy is re-resolved
+against the assessment ledger and those hashes are compared with the embedded
+metadata. See [docs/audit-policy.md](audit-policy.md) for the full policy
+schema.
 
 Legacy analysis JSON without this metadata remains viewable through the normal
 report tooling, but it is rejected for control assessment.
@@ -111,8 +119,17 @@ Top-level fields:
 
 Important semantics:
 
-- `coverage_summary` under each source is copied from the canonical ledger
-  snapshot; it is not recalculated from target results.
+- `coverage_summary` under each source is copied from the ledger used at
+  assessment time: the packaged canonical ledger by default, or the explicitly
+  supplied `assess --ledger ...` file. It is not recalculated from target
+  results.
+- only sources that are present in the resolved target assessment are emitted,
+  and each emitted source carries the full copied summary for that source from
+  the assessment ledger
+- if the ledger changes between `analyze-*` and `assess`, assessment uses the
+  current ledger input and verifies that the embedded resolved policy still
+  points at valid `source_id` and `item_id` entries; mismatches fail trust
+  checks instead of silently re-scoring coverage
 - every resolved policy control gets exactly one assessment status
 - `pass` requires explicit direct pass semantics; a no-finding default does not
   imply pass

@@ -96,11 +96,20 @@ Policy dispositions affect assessment conservatively:
 
 - `required` can become `fail`, `partial`, `pass`, `indeterminate`, or
   `not-assessed`
-- `advisory` uses the same evidence model but does not change coverage totals
+- `advisory` uses the same evidence model and can still be rendered with the
+  same per-control assessment statuses, but the disposition itself does not
+  change how the engine derives `pass` or `fail`; it remains additive context
+  and does not change source coverage totals
 - `review` yields `review` unless direct negative evidence produces `fail` or
   incomplete execution produces `indeterminate`
 - `not-applicable` keeps the control out of in-scope target conclusions, but
   mapped findings are retained as out-of-policy context rather than deleted
+
+Example: the same `control-pass` evidence can render a control `pass` under
+both `required` and `advisory`; the difference is policy intent and coverage
+accounting, not a different status algorithm. Neither disposition changes the
+canonical ledger numerators during assessment. See
+[docs/control-assessment.md](control-assessment.md) for the status rules.
 
 Policies remain separate from:
 
