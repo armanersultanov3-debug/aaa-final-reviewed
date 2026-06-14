@@ -53,7 +53,7 @@ Schema version 1 policy files contain:
 - selected coverage sources and per-item overrides;
 - optional requests for known opt-in rule tags such as `policy-review`;
 - optional analyzer-specific contracts under bounded top-level sections such as
-  `nginx.logging`, `nginx.reverse_proxy_headers`, and
+  `nginx.logging`, `nginx.rate_limits`, `nginx.reverse_proxy_headers`, and
   `nginx.sensitive_locations`.
 
 YAML is loaded with bounded safe parsing. Aliases, anchors, tags, and merge
@@ -246,6 +246,115 @@ Important boundaries:
   findings and does not suppress existing findings.
 - Coverage percentages do not increase because this policy exists or because a
   route-level assessment passes.
+
+## Nginx rate-limit policy
+
+Schema version 1 also supports `nginx.rate_limits` for route-aware request and
+connection limit contracts. The policy is optional and only emits control
+assessments when it is supplied explicitly.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: nginx-rate-limit-contract
+policy_version: "2026.06"
+title: Nginx rate-limit contract
+description: Policy-backed request and connection limit requirements for nginx.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: nginx-production
+    title: Production nginx
+    selectors:
+      - mode: local
+        server_type: nginx
+        target_glob: "*nginx.conf"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+        controls: []
+nginx:
+  rate_limits:
+    zone_inventory:
+      request:
+        api_per_ip:
+          allowed_keys: ["$binary_remote_addr"]
+          min_size: 10m
+          rate:
+            min: 1r/s
+            max: 20r/s
+      connection:
+        api_conn_per_ip:
+          allowed_keys: ["$binary_remote_addr"]
+          min_size: 10m
+    profiles:
+      - profile_id: public-api
+        applies_to:
+          server_names: ["api.example.test"]
+          declared_locations:
+            - modifier: prefix
+              pattern: /v1/
+          sample_uris: ["/v1/users", "/v1/orders"]
+        request:
+          required: true
+          accepted_zones: [api_per_ip]
+          require_all_zones: false
+          additional_zones: allow
+          burst:
+            min: 0
+            max: 40
+          delay_mode: default
+          dry_run: false
+          allowed_rejection_statuses: [429]
+          allowed_log_levels: [notice, warn, error]
+        connection:
+          required: true
+          accepted_zones: [api_conn_per_ip]
+          require_all_zones: false
+          additional_zones: allow
+          connections:
+            min: 1
+            max: 20
+          dry_run: false
+          allowed_rejection_statuses: [429, 503]
+          allowed_log_levels: [notice, warn, error]
+    unmatched_routes: indeterminate
+    unresolved_internal_redirects: indeterminate
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-12
+  change_ref: SEC-2026-208
+```
+
+Important boundaries:
+
+- If the `nginx.rate_limits` section is omitted, existing Nginx findings,
+  fixed heuristics, opt-in review findings, and default analysis JSON remain
+  unchanged.
+- A rate-limit policy emits versioned per-result `control_assessments` only
+  for the matching analysis run. The bounded control IDs are
+  `cis-nginx-5.2.4.connections-per-ip` and
+  `cis-nginx-5.2.5.requests-per-ip`.
+- Policy results do not suppress findings. In particular, a passing
+  rate-limit assessment does not hide `nginx.missing_limit_req`,
+  `nginx.limit_req_unknown_zone`, `nginx.missing_limit_conn`, or any other
+  invalid-configuration finding.
+- `nginx.limit_req_zone_rate_review` and `nginx.limit_conn_zone_review`
+  remain opt-in review findings when no explicit rate-limit policy applies.
+  They are suppressed only for explicitly assessed subjects so the operator
+  does not see duplicate policy-review work.
+- Route matching reuses the bounded declared-location and sample-URI semantics
+  from the Nginx route matcher. Named or internal locations are only assessed
+  when the policy targets them explicitly.
+- Request and connection limits are evaluated independently. A route can pass
+  one control and fail or remain indeterminate for the other.
+- Coverage percentages do not increase because this policy exists or because a
+  route-level assessment passes. CIS NGINX §5.2.4 and §5.2.5 remain `partial`
+  in the canonical coverage tracker.
 
 ## Nginx sensitive-location policy
 
