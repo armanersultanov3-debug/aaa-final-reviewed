@@ -58,6 +58,29 @@ def test_load_validate_and_resolve_policy_with_nginx_rate_limits(
     assert profile.request.accepted_zones == ("api_per_ip",)
 
 
+def test_policy_payload_preserves_explicitly_empty_rate_limit_inventories(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.audit_policy import load_audit_policy
+
+    payload = rate_limits_policy_payload(
+        profiles=[
+            public_api_rate_limit_profile(
+                request={"required": False},
+                connection={"required": False},
+            )
+        ],
+        request_inventory={},
+        connection_inventory={},
+    )
+    policy = load_audit_policy(write_policy(tmp_path, payload))
+
+    assert policy.nginx is not None
+    assert policy.nginx.rate_limits is not None
+    assert policy.nginx.rate_limits.zone_inventory.request == {}
+    assert policy.nginx.rate_limits.zone_inventory.connection == {}
+
+
 def test_validate_policy_rejects_overlapping_nginx_rate_limit_profiles(
     tmp_path: Path,
 ) -> None:

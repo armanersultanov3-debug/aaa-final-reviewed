@@ -100,11 +100,13 @@ def rate_limits_policy_payload(
         "rate_limits": {
             "zone_inventory": {
                 "request": request_inventory
-                or {
+                if request_inventory is not None
+                else {
                     "api_per_ip": request_zone_inventory_entry(),
                 },
                 "connection": connection_inventory
-                or {
+                if connection_inventory is not None
+                else {
                     "api_conn_per_ip": connection_zone_inventory_entry(),
                 },
             },
