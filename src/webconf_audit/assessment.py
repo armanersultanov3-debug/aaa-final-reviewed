@@ -634,6 +634,7 @@ def _parse_result_payload(raw: object, *, legacy: bool) -> AnalysisReportResult:
             )
         diagnostics = tuple(diagnostics_raw)
 
+    metadata_issues: list[AssessmentIssue] = []
     control_assessments: tuple[PolicyControlAssessment, ...] = ()
     control_assessments_raw = raw.get("control_assessments")
     if control_assessments_raw is not None:
@@ -642,15 +643,25 @@ def _parse_result_payload(raw: object, *, legacy: bool) -> AnalysisReportResult:
                 "analysis_report_schema_invalid",
                 "Analysis report result control_assessments must be an array.",
             )
-        control_assessments = tuple(
-            PolicyControlAssessment.model_validate(entry)
-            for entry in control_assessments_raw
-        )
+        validated_control_assessments: list[PolicyControlAssessment] = []
+        for index, entry in enumerate(control_assessments_raw):
+            try:
+                validated_control_assessments.append(
+                    PolicyControlAssessment.model_validate(entry)
+                )
+            except ValidationError as exc:
+                metadata_issues.append(
+                    _load_issue(
+                        "analysis_report_schema_invalid",
+                        "Analysis report result control_assessments entry "
+                        f"{index} is invalid: {exc}",
+                    ).issue
+                )
+        control_assessments = tuple(validated_control_assessments)
 
     audit_policy = None
     rule_execution = None
     suppressed_findings: tuple[SuppressedFindingRecord, ...] = ()
-    metadata_issues: list[AssessmentIssue] = []
     metadata = raw.get("metadata")
     if isinstance(metadata, dict):
         if metadata.get("audit_policy") is not None:

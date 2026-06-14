@@ -155,14 +155,7 @@ def build_scope_graph(
             incomplete_by_scope[descendant].add(issue.code)
 
     finalized_scopes = tuple(
-        scope.model_copy(  # type: ignore[attr-defined]
-            update={
-                "complete": scope.scope_id not in incomplete_by_scope,
-                "completeness_issues": tuple(sorted(incomplete_by_scope.get(scope.scope_id, ()))),
-            }
-        )
-        if hasattr(scope, "model_copy")
-        else NginxScope(
+        NginxScope(
             scope_id=scope.scope_id,
             kind=scope.kind,
             parent_id=scope.parent_id,

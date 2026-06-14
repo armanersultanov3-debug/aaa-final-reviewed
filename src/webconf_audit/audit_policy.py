@@ -505,7 +505,7 @@ def _reverse_proxy_selectors_overlap(
             left.location_patterns,
             right.location_patterns,
             all_values=None,
-            normalize=_normalize_selector_text,
+            normalize=_normalize_expression,
         )
     )
 
@@ -551,7 +551,7 @@ def _normalized_reverse_proxy_profile(
             ),
             "location_patterns": sorted(
                 {
-                    _normalize_selector_text(pattern)
+                    _normalize_expression(pattern)
                     for pattern in profile.applies_to.location_patterns
                 }
             ),
@@ -593,10 +593,6 @@ def _normalized_reverse_proxy_profile(
 
 
 def _normalize_expression(value: str) -> str:
-    return " ".join(value.strip().split())
-
-
-def _normalize_selector_text(value: str) -> str:
     return " ".join(value.strip().split())
 
 
