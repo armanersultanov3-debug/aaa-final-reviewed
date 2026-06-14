@@ -8,6 +8,7 @@ from webconf_audit.audit_policy import (
 )
 from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.load_context import LoadContext
+from webconf_audit.local.nginx.assessments.logging import evaluate_logging_policy
 from webconf_audit.local.nginx.assessments.reverse_proxy_headers import (
     evaluate_reverse_proxy_header_policy,
 )
@@ -18,7 +19,13 @@ from webconf_audit.local.normalized import NormalizedConfig
 from webconf_audit.local.nginx.rules_runner import run_nginx_rules
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
-from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
+from webconf_audit.models import (
+    AnalysisIssue,
+    AnalysisResult,
+    Finding,
+    PolicyControlAssessment,
+    SourceLocation,
+)
 from webconf_audit.policy_models import ResolvedAuditPolicy
 from webconf_audit.rule_registry import registry as rule_registry
 
@@ -150,7 +157,16 @@ def analyze_nginx_config(
             execution_recorder=recorder,
         )
     )
-    control_assessments = evaluate_reverse_proxy_header_policy(
+    logging_assessments = evaluate_logging_policy(
+        ast,
+        scope_graph=scope_graph,
+        policy=policy.nginx.logging
+        if policy is not None and policy.nginx is not None
+        else None,
+        findings=findings,
+    )
+    findings = _suppress_logging_policy_review_findings(findings, logging_assessments)
+    control_assessments = logging_assessments + evaluate_reverse_proxy_header_policy(
         ast,
         scope_graph=scope_graph,
         policy=policy.nginx.reverse_proxy_headers
@@ -214,3 +230,31 @@ def _attach_context(
         registry=rule_registry,
     )
     return attach_audit_context(result, policy, manifest)
+
+
+def _suppress_logging_policy_review_findings(
+    findings: list[Finding],
+    assessments: list[PolicyControlAssessment],
+) -> list[Finding]:
+    explicit_combined_sources = {
+        (
+            source.get("file_path"),
+            source.get("line"),
+        )
+        for assessment in assessments
+        if assessment.metadata.get("logging_kind") == "access"
+        and assessment.metadata.get("profile_id") is not None
+        for decision in assessment.metadata.get("evaluated_format_decisions", [])
+        if decision.get("format_name") == "combined"
+        and isinstance(decision.get("source"), dict)
+        and (source := decision.get("source")) is not None
+    }
+    if not explicit_combined_sources:
+        return findings
+    return [
+        finding
+        for finding in findings
+        if finding.rule_id != "nginx.access_log_uses_default_format"
+        or finding.location is None
+        or (finding.location.file_path, finding.location.line) not in explicit_combined_sources
+    ]

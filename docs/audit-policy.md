@@ -51,7 +51,9 @@ Schema version 1 policy files contain:
 - defaults for disposition and evidence expectation;
 - one or more target profiles with selectors;
 - selected coverage sources and per-item overrides;
-- optional requests for known opt-in rule tags such as `policy-review`.
+- optional requests for known opt-in rule tags such as `policy-review`;
+- optional analyzer-specific contracts under bounded top-level sections such as
+  `nginx.logging` and `nginx.reverse_proxy_headers`.
 
 YAML is loaded with bounded safe parsing. Aliases, anchors, tags, and merge
 keys are rejected.
@@ -75,11 +77,106 @@ Every analysis result, with or without a policy, also includes a versioned
 `result.metadata.rule_execution` manifest describing which rules completed,
 skipped, or failed. See [docs/report-format.md](report-format.md).
 
+## Nginx logging policy
+
+Schema version 1 also supports an optional top-level `nginx.logging` contract
+for scope-aware access-log and error-log evaluation.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: nginx-logging-contract
+policy_version: "2026.06"
+title: Nginx logging contract
+description: Policy-backed logging requirements for nginx.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: nginx-production
+    title: Production nginx
+    selectors:
+      - mode: local
+        server_type: nginx
+        target_glob: "*nginx.conf"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+        controls: []
+nginx:
+  logging:
+    profiles:
+      - profile_id: public_server
+        applies_to:
+          server_names: ["www.example.test"]
+          location_patterns: ["/", "/api/"]
+        access:
+          required: true
+          allow_off: false
+          conditional:
+            mode: forbid
+          destinations:
+            allowed:
+              - kind: file
+                path: /var/log/nginx/access.log
+              - kind: syslog
+                prefix: "syslog:server=logs.example.test"
+            require_at_least_one_remote: false
+            allow_variable_paths: false
+          formats:
+            allowed_names: [main_json]
+            require_escape: json
+            required_field_groups:
+              timestamp: ["$time_iso8601"]
+              client_ip: ["$remote_addr", "$realip_remote_addr"]
+              request: ["$request"]
+              status: ["$status"]
+              correlation: ["$request_id", "$http_x_request_id"]
+              user_agent: ["$http_user_agent"]
+            forbidden_variables:
+              - "$http_authorization"
+              - "$cookie_session"
+        error:
+          required: true
+          require_explicit_destination: true
+          destinations:
+            allowed_kinds: [file, syslog, stderr]
+            forbidden_paths: ["/dev/null"]
+          threshold:
+            most_restrictive_allowed: info
+            allow_debug: false
+    unmatched_scopes: indeterminate
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-12
+  change_ref: SEC-2026-205
+```
+
+Important boundaries:
+
+- If the `nginx.logging` section is omitted, existing Nginx findings and
+  default analysis JSON remain unchanged.
+- A logging policy emits versioned per-result `control_assessments` for the
+  matching analysis run only. The bounded control IDs are
+  `cis-nginx-3.1.detailed-access-logging`,
+  `cis-nginx-3.3.error-log-info-level`, and `policy.nginx.logging`.
+- Policy results do not suppress findings. In particular, a passing logging
+  assessment does not hide `nginx.missing_log_format` or any other invalid
+  configuration finding.
+- The generic `nginx.access_log_uses_default_format` opt-in review can be
+  suppressed only where an explicit logging policy evaluates the same explicit
+  format choice, to avoid duplicate operator work.
+- Coverage percentages do not increase because this policy exists or because a
+  scope-level assessment passes. CIS NGINX §3.1 and §3.3 remain `partial` in
+  the canonical coverage tracker.
+
 ## Nginx reverse-proxy header policy
 
-Schema version 1 also supports an optional top-level `nginx` section for
-policy-gated analyzer semantics. The first analyzer-specific policy contract is
-`nginx.reverse_proxy_headers`.
+Schema version 1 also supports `nginx.reverse_proxy_headers` under the same
+optional top-level `nginx` section for policy-gated analyzer semantics.
 
 Minimal example:
 
