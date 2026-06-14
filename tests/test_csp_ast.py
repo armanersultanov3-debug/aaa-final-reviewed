@@ -71,3 +71,36 @@ def test_parse_csp_header_value_rejects_invalid_static_nonce_base64() -> None:
     assert token.kind == CspTokenKind.NONCE
     assert token.valid is False
     assert "invalid-nonce" in {issue.code for issue in parsed.issues}
+
+
+def test_parse_csp_header_value_marks_only_structural_failures_as_fatal() -> None:
+    parsed = parse_csp_header_value(
+        "default-src 'self';, , invalid@directive value",
+        disposition=CspDisposition.ENFORCE,
+    )
+
+    fatal_codes = {
+        issue.code
+        for issue in parsed.issues
+        if issue.fatal_for_structure
+    }
+    nonfatal_codes = {
+        issue.code
+        for issue in parsed.issues
+        if not issue.fatal_for_structure
+    }
+
+    assert fatal_codes == {"empty-policy-member", "invalid-directive-name"}
+    assert "empty-directive-member" in nonfatal_codes
+
+
+def test_parse_csp_header_value_marks_dynamic_structure_as_fatal() -> None:
+    parsed = parse_csp_header_value(
+        "$generated_policy",
+        disposition=CspDisposition.ENFORCE,
+    )
+
+    assert any(
+        issue.code == "dynamic-structure" and issue.fatal_for_structure
+        for issue in parsed.issues
+    )

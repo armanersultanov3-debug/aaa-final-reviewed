@@ -7,7 +7,7 @@ from typing import Iterable
 from urllib.parse import urlsplit
 
 from webconf_audit.csp_ast import CspDirective, CspDisposition, CspParsedHeaderValue, CspPolicy, parse_csp_header_value
-from webconf_audit.header_policy import referrer_policy_is_safe
+from webconf_audit.header_policy import referrer_policy_is_safe, x_frame_options_is_safe
 from webconf_audit.hsts_policy import hsts_policy_reason
 from webconf_audit.local.nginx.effective_scope import NginxScope, NginxScopeGraph, NginxScopeKind
 from webconf_audit.local.nginx.location_matcher import bind_declared_location, resolve_location_sample
@@ -32,6 +32,7 @@ from webconf_audit.policy_models import (
     NginxResponseHeaderProfile,
     NginxResponseHeaderRoute,
     NginxResponseHeadersPolicy,
+    NginxXFrameOptionsPolicy,
 )
 
 _POLICY_SECTION = "nginx.response_headers"
@@ -313,6 +314,40 @@ def _evaluate_selected_route(
         assessments.append(coop)
         component_statuses.append(coop.status)
         component_related.update(coop.related_rule_ids)
+
+    if headers.permissions_policy is not None:
+        permissions = _single_value_header_assessment(
+            control_id=_permissions_policy_control_id(selected.profile_id),
+            title="Verify Permissions-Policy on selected responses",
+            selected=selected,
+            targets=targets,
+            header_name="Permissions-Policy",
+            expectation=headers.permissions_policy,
+            metadata=shared_metadata,
+            shared_indeterminate=shared_indeterminate,
+            findings=findings,
+            related_rule_pool=(
+                "nginx.missing_permissions_policy",
+                "nginx.permissions_policy_unsafe",
+            ),
+            validator=_exact_single_value_validator,
+        )
+        assessments.append(permissions)
+        component_statuses.append(permissions.status)
+        component_related.update(permissions.related_rule_ids)
+
+    if headers.x_frame_options is not None:
+        x_frame_options = _x_frame_options_assessment(
+            selected=selected,
+            targets=targets,
+            expectation=headers.x_frame_options,
+            metadata=shared_metadata,
+            shared_indeterminate=shared_indeterminate,
+            findings=findings,
+        )
+        assessments.append(x_frame_options)
+        component_statuses.append(x_frame_options.status)
+        component_related.update(x_frame_options.related_rule_ids)
 
     aggregate_status = (
         "indeterminate"
@@ -611,20 +646,27 @@ def _single_value_header_assessment(
     failures: list[str] = []
     indeterminate = set(shared_indeterminate)
     evidence: list[ControlAssessmentEvidence] = []
+    observed = False
     wanted = header_name.lower()
 
     for target in targets:
         values = [header for header in target.headers if header.normalized_name == wanted]
         if not values:
-            failures.append(f"missing:{wanted}:{target.response_scope_id}")
+            if expectation.required:
+                failures.append(f"missing:{wanted}:{target.response_scope_id}")
             evidence.append(
                 _header_presence_evidence(
                     header_name=header_name,
-                    status="missing",
-                    message=f"{header_name} is absent from the effective response headers.",
+                    status="missing" if expectation.required else "optional-absent",
+                    message=(
+                        f"{header_name} is absent from the effective response headers."
+                        if expectation.required
+                        else f"Optional {header_name} is absent from the effective response headers."
+                    ),
                 )
             )
             continue
+        observed = True
         if expectation.require_all_expected_statuses and not any(
             _header_covers_statuses(header, selected.route.expected_statuses)
             for header in values
@@ -650,7 +692,15 @@ def _single_value_header_assessment(
                 )
             )
 
-    status = "indeterminate" if indeterminate else "fail" if failures else "pass"
+    status = (
+        "indeterminate"
+        if indeterminate
+        else "fail"
+        if failures
+        else "not-applicable"
+        if not observed and not expectation.required
+        else "pass"
+    )
     return _assessment(
         control_id=control_id,
         title=title,
@@ -666,6 +716,97 @@ def _single_value_header_assessment(
         evidence=tuple(evidence),
         related_rule_ids=_related_rule_ids(findings, *related_rule_pool),
         metadata={**metadata, "header_name": header_name, "failures": sorted(set(failures)), "indeterminate_reasons": sorted(indeterminate)},
+    )
+
+
+def _x_frame_options_assessment(
+    *,
+    selected: _SelectedRoute,
+    targets: tuple[_HeaderEvaluationTarget, ...],
+    expectation: NginxXFrameOptionsPolicy,
+    metadata: dict[str, object],
+    shared_indeterminate: set[str],
+    findings: tuple[object, ...],
+) -> PolicyControlAssessment:
+    failures: list[str] = []
+    indeterminate = set(shared_indeterminate)
+    evidence: list[ControlAssessmentEvidence] = []
+    observed = False
+    wanted = "x-frame-options"
+
+    for target in targets:
+        values = [
+            header for header in target.headers if header.normalized_name == wanted
+        ]
+        if not values:
+            evidence.append(
+                _header_presence_evidence(
+                    header_name="X-Frame-Options",
+                    status="optional-absent",
+                    message=(
+                        "Optional transitional X-Frame-Options is absent; "
+                        "CSP frame-ancestors remains the authoritative control."
+                    ),
+                )
+            )
+            continue
+        observed = True
+        rendered = {
+            _normalized_header_value(header.rendered_static_value)
+            for header in values
+        }
+        if len(rendered) > 1:
+            failures.append(
+                f"conflicting-values:{wanted}:{target.response_scope_id}"
+            )
+        for header in values:
+            if header.dynamic_variables:
+                indeterminate.add(f"value:{wanted}")
+            elif not x_frame_options_is_safe(header.rendered_static_value):
+                failures.append(f"value:{wanted}:{target.response_scope_id}")
+            evidence.append(
+                _header_evidence(
+                    header=header,
+                    status="observed",
+                    message="Observed effective X-Frame-Options value.",
+                )
+            )
+
+    status = (
+        "indeterminate"
+        if indeterminate
+        else "fail"
+        if failures
+        else "pass"
+        if observed
+        else "not-applicable"
+    )
+    return _assessment(
+        control_id=_x_frame_options_control_id(selected.profile_id),
+        title="Verify optional transitional X-Frame-Options",
+        status=status,
+        summary=(
+            "Effective X-Frame-Options uses a safe transitional value."
+            if status == "pass"
+            else "Effective X-Frame-Options uses an unsafe or conflicting value."
+            if status == "fail"
+            else "Effective X-Frame-Options evidence is dynamically ambiguous."
+            if status == "indeterminate"
+            else "The profile treats X-Frame-Options as optional transitional evidence."
+        ),
+        selected=selected,
+        evidence=tuple(evidence),
+        related_rule_ids=_related_rule_ids(
+            findings,
+            "nginx.missing_x_frame_options",
+        ),
+        metadata={
+            **metadata,
+            "header_name": "X-Frame-Options",
+            "mode": expectation.mode,
+            "failures": sorted(set(failures)),
+            "indeterminate_reasons": sorted(indeterminate),
+        },
     )
 
 
@@ -814,8 +955,8 @@ def _policy_satisfies_required_directives(
         directive = policy.first_directive(directive_name)
         if directive is None:
             return False
-        normalized_tokens = tuple(token.normalized for token in directive.tokens)
-        if tuple(required_tokens) != normalized_tokens:
+        normalized_tokens = {token.normalized for token in directive.tokens}
+        if not set(required_tokens).issubset(normalized_tokens):
             return False
     return True
 
@@ -868,8 +1009,7 @@ def _directive_satisfies_script_authorization(
     has_hash = any(
         token.kind.name == "HASH"
         and (
-            not allowed_hashes
-            or _canonical_csp_hash_source(token.raw) in allowed_hashes
+            _canonical_csp_hash_source(token.raw) in allowed_hashes
             or _canonical_csp_hash_source(token.normalized) in allowed_hashes
         )
         for token in tokens
@@ -908,8 +1048,8 @@ def _effective_csp_capability_allowed(
     if not policy_directives:
         return False
     return all(
-        directive is not None
-        and any(token.normalized == token_name for token in directive.tokens)
+        directive is None
+        or any(token.normalized == token_name for token in directive.tokens)
         for directive in policy_directives
     )
 
@@ -1249,18 +1389,7 @@ def _unmatched_route_assessments(
         route_selector=route.declared_location.pattern if route.declared_location is not None else None,
         server_name=route.server_names[0] if route.server_names else None,
     )
-    control_ids = [
-        _CONTROL_CSP,
-        _CONTROL_ASVS_CSP,
-        _CONTROL_ASVS_FRAME_ANCESTORS,
-        _CONTROL_ASVS_CSP_REPORTING,
-        _CONTROL_REFERRER,
-        _CONTROL_ASVS_REFERRER,
-        _CONTROL_ASVS_HSTS,
-        _CONTROL_ASVS_XCTO,
-        _CONTROL_ASVS_COOP,
-        f"policy.nginx.response-headers.{route.profile}",
-    ]
+    control_ids = _profile_component_control_ids(profile, route.profile)
     return [
         PolicyControlAssessment(
             control_id=control_id,
@@ -1287,6 +1416,44 @@ def _unmatched_route_assessments(
         )
         for control_id in control_ids
     ]
+
+
+def _profile_component_control_ids(
+    profile: NginxResponseHeaderProfile,
+    profile_id: str,
+) -> tuple[str, ...]:
+    control_ids: list[str] = []
+    if profile.csp is not None:
+        control_ids.extend((_CONTROL_CSP, _CONTROL_ASVS_CSP))
+        if profile.csp.frame_ancestors is not None:
+            control_ids.append(_CONTROL_ASVS_FRAME_ANCESTORS)
+        if profile.csp.reporting is not None:
+            control_ids.append(_CONTROL_ASVS_CSP_REPORTING)
+
+    headers = profile.headers
+    if headers.referrer_policy is not None:
+        control_ids.extend((_CONTROL_REFERRER, _CONTROL_ASVS_REFERRER))
+    if headers.strict_transport_security is not None:
+        control_ids.append(_CONTROL_ASVS_HSTS)
+    if headers.x_content_type_options is not None:
+        control_ids.append(_CONTROL_ASVS_XCTO)
+    if headers.cross_origin_opener_policy is not None:
+        control_ids.append(_CONTROL_ASVS_COOP)
+    if headers.permissions_policy is not None:
+        control_ids.append(_permissions_policy_control_id(profile_id))
+    if headers.x_frame_options is not None:
+        control_ids.append(_x_frame_options_control_id(profile_id))
+
+    control_ids.append(f"policy.nginx.response-headers.{profile_id}")
+    return tuple(control_ids)
+
+
+def _permissions_policy_control_id(profile_id: str) -> str:
+    return f"policy.nginx.response-headers.{profile_id}.permissions-policy"
+
+
+def _x_frame_options_control_id(profile_id: str) -> str:
+    return f"policy.nginx.response-headers.{profile_id}.x-frame-options"
 
 
 def _header_evidence(

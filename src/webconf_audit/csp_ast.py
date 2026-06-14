@@ -159,7 +159,7 @@ def parse_csp_header_value(
                 policy_index=None,
                 directive_index=None,
                 token_index=None,
-                fatal_for_structure=False,
+                fatal_for_structure=True,
             )
         )
 
@@ -174,7 +174,7 @@ def parse_csp_header_value(
                 policy_index=policy_index,
                 directive_index=None,
                 token_index=None,
-                fatal_for_structure=False,
+                fatal_for_structure=True,
             )
             policy_issues.append(issue)
             issues.append(issue)
@@ -209,7 +209,7 @@ def parse_csp_header_value(
                     policy_index=policy_index,
                     directive_index=directive_index,
                     token_index=None,
-                    fatal_for_structure=False,
+                    fatal_for_structure=True,
                 )
                 policy_issues.append(issue)
                 issues.append(issue)
@@ -285,7 +285,15 @@ def parse_csp_header_value(
 
 
 def _contains_dynamic_structure(value: str) -> bool:
-    return "$" in value
+    for raw_policy in _split_top_level(value, ","):
+        for raw_directive in _split_top_level(raw_policy, ";"):
+            directive_text = raw_directive.strip()
+            if not directive_text:
+                continue
+            raw_name = directive_text.split(None, 1)[0]
+            if _DYNAMIC_VARIABLE_RE.search(raw_name):
+                return True
+    return False
 
 
 def _split_top_level(value: str, separator: str) -> list[str]:

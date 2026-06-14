@@ -109,6 +109,13 @@ they never change the default finding set by themselves.
 | Nginx reverse-proxy header contract | Policy-gated analysis for effective route-level proxy request and response header semantics. | `cis-nginx-3.4.proxy-source-identity`, `cis-nginx-2.5.4.proxy-response-disclosure`, `policy.nginx.reverse-proxy-host` | No automatic coverage change. CIS NGINX §2.5.4 stays `partial`; CIS NGINX §3.4 stays `full` because the counted built-in rule basis is unchanged. |
 | Nginx response-header contract | Policy-gated analysis for effective route-level `add_header` evidence, structured CSP parsing, `add_header_inherit on\|off\|merge`, and `always` status applicability. | `cis-nginx-5.3.2.csp`, `cis-nginx-5.3.3.referrer-policy`, `asvs-5.0.0-v3.4.1.hsts`, `asvs-5.0.0-v3.4.3.csp-quality`, `asvs-5.0.0-v3.4.4.x-content-type-options`, `asvs-5.0.0-v3.4.5.referrer-policy`, `asvs-5.0.0-v3.4.6.frame-ancestors`, `asvs-5.0.0-v3.4.7.csp-reporting`, `asvs-5.0.0-v3.4.8.coop`, `policy.nginx.response-headers.<profile_id>` | No automatic coverage change. CIS NGINX §5.3.2 / §5.3.3 stay `partial`, ASVS V3.4.3 stays `partial`, and policy-backed route assessments do not prove nonce freshness, hash/body correspondence, reporting delivery, or application content types. |
 
+The Nginx response-header contract also emits
+`policy.nginx.response-headers.<profile_id>.permissions-policy` for declared
+`Permissions-Policy` requirements and
+`policy.nginx.response-headers.<profile_id>.x-frame-options` for optional
+transitional `X-Frame-Options` evidence. These policy-specific assessments do
+not change the coverage numerator.
+
 ## Inventory tables
 
 Columns:

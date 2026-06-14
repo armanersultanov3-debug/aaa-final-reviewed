@@ -333,6 +333,10 @@ nginx:
             required: true
             allowed_values: [same-origin, same-origin-allow-popups]
             require_all_expected_statuses: true
+          Permissions-Policy:
+            required: true
+            allowed_values: ["geolocation=(), camera=()"]
+            require_all_expected_statuses: true
           Strict-Transport-Security:
             required_on_schemes: [https]
             min_max_age: 31536000
@@ -364,6 +368,9 @@ Important boundaries:
   infer response kinds, prove nonce freshness, match hashes to bodies, or
   execute rewrites and internal redirects.
 - Report-only CSP never satisfies an enforcement requirement.
+- `Permissions-Policy` is checked against the profile's explicit allowed
+  values. `X-Frame-Options` is optional transitional evidence and does not
+  replace the authoritative CSP `frame-ancestors` requirement.
 - Policy-backed CSP/header results are assessments only. They do not suppress
   findings automatically, they do not raise coverage percentages, and they do
   not claim CIS / ASVS / NIST / PCI DSS / ISO certification.

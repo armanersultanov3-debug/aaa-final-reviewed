@@ -330,8 +330,10 @@ retains policy-list commas, multiple header instances, duplicate
 directives, report-only disposition, and typed nonce/hash/source tokens.
 Route-manifest profiles can then emit scoped `control_assessments` for
 CSP minimums, reporting linkage, Referrer-Policy, HSTS,
-`X-Content-Type-Options`, and COOP without changing the default
-coverage numerator or turning a missing finding into an automatic pass.
+`X-Content-Type-Options`, COOP, explicit `Permissions-Policy` values,
+and optional transitional `X-Frame-Options` evidence without changing
+the default coverage numerator or turning a missing finding into an
+automatic pass.
 
 The rate-limit evaluator resolves exact `limit_req` / `limit_conn`
 replacement inheritance across `http`, `server`, and `location`,
