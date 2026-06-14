@@ -122,3 +122,36 @@ def test_validate_policy_rejects_overlapping_response_header_routes(
     assert [issue.code for issue in issues] == [
         "overlapping_nginx_response_header_routes"
     ]
+
+
+def test_load_validate_and_resolve_policy_accepts_quoted_csp_hash_sources(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.audit_policy import load_audit_policy, validate_audit_policy
+
+    profile = browser_document_profile()
+    profile["csp"]["script_authorization"] = {
+        "mode": "hash",
+        "allowed_nonce_variables": [],
+        "allow_static_nonce": False,
+        "allowed_hashes": [
+            "'sha256-QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE='",
+        ],
+        "allow_host_allowlist_fallback": False,
+        "require_strict_dynamic": False,
+    }
+    payload = response_headers_policy_payload(
+        routes=[
+            response_route(
+                route_id="app-html",
+                server_names=("www.example.test",),
+                profile="browser-document",
+            )
+        ],
+        profiles={"browser-document": profile},
+    )
+    ledger = load_coverage_ledger()
+    registry = _load_registry()
+    policy = load_audit_policy(write_policy(tmp_path, payload))
+
+    assert validate_audit_policy(policy, ledger, registry) == ()

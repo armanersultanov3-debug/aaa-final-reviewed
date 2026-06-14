@@ -105,7 +105,12 @@ def build_scope_graph(
     scope_nodes: dict[str, list[AstNode]] = defaultdict(list)
     scope_ordinals: dict[tuple[str, str], int] = defaultdict(int)
 
-    def visit_nodes(nodes: list[AstNode], *, current_scope_id: str) -> None:
+    def visit_nodes(
+        nodes: list[AstNode],
+        *,
+        current_scope_id: str,
+        nested_main_container: bool = False,
+    ) -> None:
         current_scope = scopes_by_id[current_scope_id]
         for node in nodes:
             node_scope_ids[id(node)] = current_scope_id
@@ -113,9 +118,18 @@ def build_scope_graph(
             if not isinstance(node, BlockNode):
                 continue
 
-            child_scope_kind = _scope_kind_for_block(node, current_scope.kind)
+            child_scope_kind = _scope_kind_for_block(
+                node,
+                current_scope.kind,
+                nested_main_container=nested_main_container,
+            )
             if child_scope_kind is None:
-                visit_nodes(node.children, current_scope_id=current_scope_id)
+                visit_nodes(
+                    node.children,
+                    current_scope_id=current_scope_id,
+                    nested_main_container=nested_main_container
+                    or current_scope.kind == NginxScopeKind.MAIN,
+                )
                 continue
 
             scope_ordinals[(current_scope_id, child_scope_kind.value)] += 1
@@ -195,13 +209,20 @@ def _graph_root_source(config_ast: ConfigAst, *, root_file: str | None) -> Sourc
 def _scope_kind_for_block(
     block: BlockNode,
     parent_kind: NginxScopeKind,
+    *,
+    nested_main_container: bool = False,
 ) -> NginxScopeKind | None:
     if block.name == "http" and parent_kind == NginxScopeKind.MAIN:
         return NginxScopeKind.HTTP
     if block.name == "server" and parent_kind in {
-        NginxScopeKind.MAIN,
         NginxScopeKind.HTTP,
     }:
+        return NginxScopeKind.SERVER
+    if (
+        block.name == "server"
+        and parent_kind == NginxScopeKind.MAIN
+        and not nested_main_container
+    ):
         return NginxScopeKind.SERVER
     if block.name == "location" and parent_kind in {
         NginxScopeKind.SERVER,

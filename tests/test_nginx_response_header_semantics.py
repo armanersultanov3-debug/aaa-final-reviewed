@@ -65,3 +65,38 @@ def test_response_header_semantics_track_non_always_status_applicability() -> No
     assert header.applicability.all_statuses is False
     assert 200 in header.applicability.known_statuses
     assert 500 not in header.applicability.known_statuses
+
+
+def test_response_header_semantics_mark_invalid_inherit_modes_indeterminate() -> None:
+    ast = _parse_nginx(
+        "http {\n"
+        "    add_header Content-Security-Policy \"default-src 'self'\" always;\n"
+        "    server {\n"
+        "        add_header_inherit invalid;\n"
+        "        add_header_inherit merge;\n"
+        "        location / {\n"
+        "            add_header X-Content-Type-Options nosniff;\n"
+        "        }\n"
+        "    }\n"
+        "}\n"
+    )
+    scope_graph = build_scope_graph(ast)
+    semantics = resolve_response_header_semantics(ast, scope_graph=scope_graph)
+
+    server_scope = next(
+        scope for scope in scope_graph.scopes if scope.kind == NginxScopeKind.SERVER
+    )
+    location_scope = next(
+        scope for scope in scope_graph.scopes if scope.kind == NginxScopeKind.LOCATION
+    )
+
+    assert "invalid-add-header-inherit-mode" in semantics.effective_scopes_by_id[
+        server_scope.scope_id
+    ].indeterminate_reasons
+    assert "invalid-add-header-inherit-mode" in semantics.effective_scopes_by_id[
+        location_scope.scope_id
+    ].indeterminate_reasons
+    assert semantics.effective_scopes_by_id[server_scope.scope_id].inherit_mode == "merge"
+    assert {
+        entry.reason for entry in semantics.unsupported_evidence
+    } == {"invalid-add-header-inherit-mode"}

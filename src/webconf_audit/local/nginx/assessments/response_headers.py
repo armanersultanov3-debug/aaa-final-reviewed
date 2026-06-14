@@ -73,9 +73,9 @@ def evaluate_response_header_policy(
     scope_graph: NginxScopeGraph,
     policy: NginxResponseHeadersPolicy | None,
     findings: Iterable[object] = (),
-) -> list[PolicyControlAssessment]:
+) -> tuple[list[PolicyControlAssessment], NginxResponseHeaderSemantics | None]:
     if policy is None:
-        return []
+        return [], None
 
     semantics = resolve_response_header_semantics(config_ast, scope_graph=scope_graph)
     server_scopes = tuple(
@@ -142,7 +142,7 @@ def evaluate_response_header_policy(
             )
 
     assessments.sort(key=_assessment_sort_key)
-    return assessments
+    return assessments, semantics
 
 
 def _evaluate_selected_route(
@@ -851,6 +851,10 @@ def _directive_satisfies_script_authorization(
     expectation,
 ) -> bool:
     tokens = directive.tokens
+    allowed_hashes = {
+        _canonical_csp_hash_source(value)
+        for value in expectation.allowed_hashes
+    }
     has_nonce = any(
         token.kind.name == "NONCE"
         and (
@@ -864,9 +868,9 @@ def _directive_satisfies_script_authorization(
     has_hash = any(
         token.kind.name == "HASH"
         and (
-            not expectation.allowed_hashes
-            or token.raw in set(expectation.allowed_hashes)
-            or token.normalized in {value.lower() for value in expectation.allowed_hashes}
+            not allowed_hashes
+            or _canonical_csp_hash_source(token.raw) in allowed_hashes
+            or _canonical_csp_hash_source(token.normalized) in allowed_hashes
         )
         for token in tokens
     )
@@ -1368,6 +1372,16 @@ def _normalized_header_value(value: str) -> str:
 
 def _normalize_text(value: str) -> str:
     return " ".join(value.strip().split())
+
+
+def _canonical_csp_hash_source(value: str) -> str:
+    cleaned = value.strip()
+    if len(cleaned) >= 2 and cleaned[0] == cleaned[-1] == "'":
+        cleaned = cleaned[1:-1].strip()
+    algorithm, _, hash_value = cleaned.partition("-")
+    if not hash_value:
+        return cleaned
+    return f"{algorithm.lower()}-{hash_value}"
 
 
 def _source_location(source: SourceSpan) -> SourceLocation:

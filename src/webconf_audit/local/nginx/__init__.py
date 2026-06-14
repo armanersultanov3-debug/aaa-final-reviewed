@@ -23,7 +23,7 @@ from webconf_audit.local.nginx.effective_scope import build_scope_graph
 from webconf_audit.local.nginx.include import resolve_includes
 from webconf_audit.local.nginx.parser.parser import NginxParseError, NginxParser, NginxTokenizer
 from webconf_audit.local.nginx.response_header_semantics import (
-    resolve_response_header_semantics,
+    NginxResponseHeaderSemantics,
 )
 from webconf_audit.local.normalized import NormalizedConfig
 from webconf_audit.local.nginx.rules_runner import run_nginx_rules
@@ -193,7 +193,7 @@ def analyze_nginx_config(
         findings=findings,
     )
     findings = _suppress_rate_limit_policy_review_findings(findings, rate_limit_assessments)
-    response_header_assessments = evaluate_response_header_policy(
+    response_header_assessments, response_header_semantics = evaluate_response_header_policy(
         ast,
         scope_graph=scope_graph,
         policy=policy.nginx.response_headers
@@ -204,8 +204,7 @@ def analyze_nginx_config(
     findings = _suppress_response_header_policy_review_findings(
         findings,
         assessments=response_header_assessments,
-        ast=ast,
-        scope_graph=scope_graph,
+        semantics=response_header_semantics,
     )
     control_assessments = (
         logging_assessments
@@ -360,8 +359,7 @@ def _suppress_response_header_policy_review_findings(
     findings: list[Finding],
     *,
     assessments: list[PolicyControlAssessment],
-    ast,
-    scope_graph,
+    semantics: NginxResponseHeaderSemantics | None,
 ) -> list[Finding]:
     if not any(finding.rule_id == "nginx.csp_value_review" for finding in findings):
         return findings
@@ -393,7 +391,8 @@ def _suppress_response_header_policy_review_findings(
     if not assessed_scope_ids:
         return findings
 
-    semantics = resolve_response_header_semantics(ast, scope_graph=scope_graph)
+    if semantics is None:
+        return findings
     source_scope_ids: dict[tuple[str | None, int | None], set[str]] = {}
     for effective_scope in semantics.effective_scopes:
         for header in effective_scope.base_headers:

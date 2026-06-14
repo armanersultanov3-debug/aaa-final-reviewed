@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
@@ -86,7 +88,14 @@ _SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:$")
 _HOST_SOURCE_RE = re.compile(
     r"^(?:(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*)://)?(?P<host>\*|\*\.[^/:]+|[^/:]+)(?::(?P<port>\*|[0-9]+))?(?P<path>/.*)?$"
 )
-_HASH_RE = re.compile(r"^(sha256|sha384|sha512)-([A-Za-z0-9+/=]+)$", re.IGNORECASE)
+_HASH_SOURCE_PATTERN = (
+    r"^(?:"
+    r"'(?P<quoted_algorithm>sha256|sha384|sha512)-(?P<quoted_value>[A-Za-z0-9+/_-]+={0,2})'"
+    r"|"
+    r"(?P<plain_algorithm>sha256|sha384|sha512)-(?P<plain_value>[A-Za-z0-9+/_-]+={0,2})"
+    r")$"
+)
+_HASH_RE = re.compile(_HASH_SOURCE_PATTERN, re.IGNORECASE)
 
 _KNOWN_KEYWORDS = frozenset(
     {
@@ -351,7 +360,7 @@ def _parse_csp_token(
 
     if normalized.startswith("'nonce-") and normalized.endswith("'"):
         nonce_value = token[7:-1]
-        valid = bool(nonce_value)
+        valid = _is_valid_base64_value(nonce_value)
         details = {
             "nonce_kind": "static_literal",
             "fingerprint": _fingerprint(token),
@@ -375,16 +384,29 @@ def _parse_csp_token(
             details=details,
         )
 
-    hash_match = _HASH_RE.match(token)
-    if hash_match is not None:
+    hash_source = _match_hash_source(token)
+    if hash_source is not None:
+        algorithm, hash_value = hash_source
+        valid = _is_valid_base64_value(hash_value)
+        if not valid:
+            issue = CspParseIssue(
+                code="invalid-hash",
+                message=f"Hash source {token!r} is invalid.",
+                policy_index=policy_index,
+                directive_index=directive_index,
+                token_index=token_index,
+                fatal_for_structure=False,
+            )
+            policy_issues.append(issue)
+            issues.append(issue)
         return CspToken(
             kind=CspTokenKind.HASH,
             raw=token,
-            normalized=f"{hash_match.group(1).lower()}-{hash_match.group(2)}",
-            valid=True,
+            normalized=f"{algorithm}-{hash_value}",
+            valid=valid,
             details={
-                "algorithm": hash_match.group(1).lower(),
-                "fingerprint": _fingerprint(hash_match.group(2)),
+                "algorithm": algorithm,
+                "fingerprint": _fingerprint(hash_value),
             },
         )
 
@@ -450,6 +472,28 @@ def _extract_variables(value: str) -> tuple[str, ...]:
         f"${match.group('braced') or match.group('plain')}"
         for match in _DYNAMIC_VARIABLE_RE.finditer(value)
     )
+
+
+def _is_valid_base64_value(value: str) -> bool:
+    if not value or len(value) % 4 == 1:
+        return False
+    padded = value + ("=" * ((4 - len(value) % 4) % 4))
+    try:
+        base64.b64decode(padded, altchars=b"-_", validate=True)
+    except (ValueError, binascii.Error):
+        return False
+    return True
+
+
+def _match_hash_source(token: str) -> tuple[str, str] | None:
+    match = _HASH_RE.match(token)
+    if match is None:
+        return None
+    algorithm = match.group("quoted_algorithm") or match.group("plain_algorithm")
+    hash_value = match.group("quoted_value") or match.group("plain_value")
+    if algorithm is None or hash_value is None:
+        return None
+    return algorithm.lower(), hash_value
 
 
 def _fingerprint(value: str) -> str:

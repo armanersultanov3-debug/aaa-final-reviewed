@@ -98,6 +98,7 @@ def resolve_response_header_semantics(
     unsupported: list[UnsupportedResponseHeaderEvidence] = []
     local_headers_by_scope: dict[str, tuple[DirectiveNode, ...]] = {}
     local_inherit_modes: dict[str, HeaderInheritanceMode] = {}
+    semantic_issues_by_scope: dict[str, set[str]] = {}
 
     for scope in scope_graph.scopes:
         directives = tuple(
@@ -132,7 +133,26 @@ def resolve_response_header_semantics(
                     for directive in add_header_inherit
                 )
                 continue
-            local_inherit_modes[scope.scope_id] = _last_inherit_mode(add_header_inherit, default="on")
+            inherit_mode, invalid_directives = _last_inherit_mode(
+                add_header_inherit,
+                default="on",
+            )
+            local_inherit_modes[scope.scope_id] = inherit_mode
+            if invalid_directives:
+                unsupported.extend(
+                    UnsupportedResponseHeaderEvidence(
+                        reason="invalid-add-header-inherit-mode",
+                        directive_name="add_header_inherit",
+                        scope_id=scope.scope_id,
+                        source=invalid_directive.source,
+                        details=tuple(invalid_directive.args[:1]),
+                    )
+                    for invalid_directive in invalid_directives
+                )
+                for affected_scope in (scope, *scope_graph.descendants(scope.scope_id)):
+                    semantic_issues_by_scope.setdefault(affected_scope.scope_id, set()).add(
+                        "invalid-add-header-inherit-mode"
+                    )
 
     resolved_headers: dict[str, tuple[EffectiveResponseHeader, ...]] = {}
     resolved_modes: dict[str, HeaderInheritanceMode] = {}
@@ -156,6 +176,14 @@ def resolve_response_header_semantics(
             _branch_payload(
                 scope_graph.scopes_by_id[child_scope_id],
                 headers=resolved_headers.get(child_scope_id, ()),
+                complete=scope_graph.scopes_by_id[child_scope_id].complete
+                and child_scope_id not in semantic_issues_by_scope,
+                indeterminate_reasons=tuple(
+                    sorted(
+                        set(scope_graph.scopes_by_id[child_scope_id].completeness_issues)
+                        | semantic_issues_by_scope.get(child_scope_id, set())
+                    )
+                ),
             )
             for child_scope_id in scope_graph.child_scope_ids.get(scope.scope_id, ())
             if scope_graph.scopes_by_id[child_scope_id].kind == NginxScopeKind.IF_IN_LOCATION
@@ -165,8 +193,13 @@ def resolve_response_header_semantics(
             base_headers=resolved_headers.get(scope.scope_id, ()),
             conditional_branches=branches,
             inherit_mode=resolved_modes.get(scope.scope_id, "on"),
-            complete=scope.complete,
-            indeterminate_reasons=scope.completeness_issues,
+            complete=scope.complete and scope.scope_id not in semantic_issues_by_scope,
+            indeterminate_reasons=tuple(
+                sorted(
+                    set(scope.completeness_issues)
+                    | semantic_issues_by_scope.get(scope.scope_id, set())
+                )
+            ),
         )
 
     effective_scopes = tuple(
@@ -260,6 +293,8 @@ def _branch_payload(
     branch_scope: NginxScope,
     *,
     headers: tuple[EffectiveResponseHeader, ...],
+    complete: bool,
+    indeterminate_reasons: tuple[str, ...],
 ) -> EffectiveResponseBranch:
     condition = " ".join(branch_scope.block.args).strip() if branch_scope.block is not None else None
     branch_headers = tuple(
@@ -284,8 +319,8 @@ def _branch_payload(
         condition=condition,
         condition_kind=_classify_condition(condition),
         headers=branch_headers,
-        complete=branch_scope.complete,
-        indeterminate_reasons=branch_scope.completeness_issues,
+        complete=complete,
+        indeterminate_reasons=indeterminate_reasons,
     )
 
 
@@ -325,14 +360,19 @@ def _last_inherit_mode(
     directives: tuple[DirectiveNode, ...],
     *,
     default: HeaderInheritanceMode,
-) -> HeaderInheritanceMode:
+) -> tuple[HeaderInheritanceMode, tuple[DirectiveNode, ...]]:
+    invalid_directives = tuple(
+        directive
+        for directive in directives
+        if directive.args and directive.args[0].lower() not in _ADD_HEADER_INHERIT_MODES
+    )
     for directive in reversed(directives):
         if not directive.args:
             continue
         mode = directive.args[0].lower()
         if mode in _ADD_HEADER_INHERIT_MODES:
-            return mode  # type: ignore[return-value]
-    return default
+            return mode, invalid_directives  # type: ignore[return-value]
+    return default, invalid_directives
 
 
 def _classify_condition(condition: str | None) -> ConditionKind:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import re
 from datetime import date, datetime
@@ -143,7 +145,14 @@ SHA256Hex = Annotated[
 ]
 
 _DIRECTIVE_NAME_RE = re.compile(r"^[A-Za-z0-9-]+$")
-_CSP_HASH_RE = re.compile(r"^(sha256|sha384|sha512)-([A-Za-z0-9+/=]+)$", re.IGNORECASE)
+_CSP_HASH_SOURCE_PATTERN = (
+    r"^(?:"
+    r"'(?P<quoted_algorithm>sha256|sha384|sha512)-(?P<quoted_value>[A-Za-z0-9+/_-]+={0,2})'"
+    r"|"
+    r"(?P<plain_algorithm>sha256|sha384|sha512)-(?P<plain_value>[A-Za-z0-9+/_-]+={0,2})"
+    r")$"
+)
+_CSP_HASH_RE = re.compile(_CSP_HASH_SOURCE_PATTERN, re.IGNORECASE)
 
 
 class _StrictModel(BaseModel):
@@ -1177,8 +1186,23 @@ def _validate_status_codes(values: tuple[int, ...]) -> None:
 
 
 def _validate_csp_hash_value(value: str) -> None:
-    if _CSP_HASH_RE.match(value.strip()) is None:
+    match = _CSP_HASH_RE.match(value.strip())
+    if match is None:
         raise ValueError(f"Invalid CSP hash source {value!r}.")
+    hash_value = match.group("quoted_value") or match.group("plain_value")
+    if hash_value is None or not _is_valid_csp_base64_value(hash_value):
+        raise ValueError(f"Invalid CSP hash source {value!r}.")
+
+
+def _is_valid_csp_base64_value(value: str) -> bool:
+    if not value or len(value) % 4 == 1:
+        return False
+    padded = value + ("=" * ((4 - len(value) % 4) % 4))
+    try:
+        base64.b64decode(padded, altchars=b"-_", validate=True)
+    except (ValueError, binascii.Error):
+        return False
+    return True
 
 
 NginxSensitiveLocationRequirement.model_rebuild()

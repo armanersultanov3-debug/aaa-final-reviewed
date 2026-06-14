@@ -12,11 +12,22 @@ from webconf_audit.local.nginx import analyze_nginx_config
 
 
 def _assessment_by_id(result, control_id: str):
-    return next(
-        assessment
-        for assessment in result.control_assessments
-        if assessment.control_id == control_id
+    assessment = next(
+        (
+            candidate
+            for candidate in result.control_assessments
+            if candidate.control_id == control_id
+        ),
+        None,
     )
+    if assessment is None:
+        available_ids = sorted(
+            candidate.control_id for candidate in result.control_assessments
+        )
+        raise AssertionError(
+            f"Control assessment {control_id!r} not found. Available controls: {available_ids!r}"
+        )
+    return assessment
 
 
 def test_response_header_policy_emits_csp_and_header_assessments(
@@ -264,3 +275,57 @@ def test_response_header_policy_marks_multiple_allowlist_policies_indeterminate(
     result = analyze_nginx_config(str(config_path), policy=policy)
 
     assert _assessment_by_id(result, "asvs-5.0.0-v3.4.3.csp-quality").status == "indeterminate"
+
+
+def test_response_header_policy_accepts_quoted_hash_sources_in_csp_and_policy(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "        server_name www.example.test;\n"
+        "        ssl_certificate cert.pem;\n"
+        "        ssl_certificate_key cert.key;\n"
+        "        location / {\n"
+        "            add_header Content-Security-Policy \"object-src 'none'; base-uri 'none'; script-src 'sha256-QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE='; frame-ancestors 'none'; report-to csp\" always;\n"
+        "            add_header Reporting-Endpoints 'csp=\"https://reports.example.test/csp\"' always;\n"
+        "            add_header Referrer-Policy no-referrer always;\n"
+        "            add_header X-Content-Type-Options nosniff always;\n"
+        "            add_header Cross-Origin-Opener-Policy same-origin always;\n"
+        "            add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;\n"
+        "        }\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    profile = browser_document_profile()
+    profile["csp"]["script_authorization"] = {
+        "mode": "hash",
+        "allowed_nonce_variables": [],
+        "allow_static_nonce": False,
+        "allowed_hashes": [
+            "'sha256-QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE='",
+        ],
+        "allow_host_allowlist_fallback": False,
+        "require_strict_dynamic": False,
+    }
+    policy = resolved_response_headers_policy(
+        tmp_path,
+        response_headers_policy_payload(
+            routes=[
+                response_route(
+                    route_id="app-html",
+                    server_names=("www.example.test",),
+                    profile="browser-document",
+                    declared_location={"modifier": "prefix", "pattern": "/"},
+                )
+            ],
+            profiles={"browser-document": profile},
+        ),
+    )
+
+    result = analyze_nginx_config(str(config_path), policy=policy)
+
+    assert _assessment_by_id(result, "asvs-5.0.0-v3.4.3.csp-quality").status == "pass"
