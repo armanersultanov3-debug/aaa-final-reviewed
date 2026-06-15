@@ -33,6 +33,7 @@ from webconf_audit.policy_models import (
     AuditPolicyIssue,
     AuditTarget,
     ControlPolicy,
+    ExternalPolicy,
     LoadedPolicyProvenance,
     NginxConnectionLimitRequirement,
     NginxLocationSelector,
@@ -273,6 +274,16 @@ def validate_audit_policy(
             )
 
     issues.extend(_validate_nginx_policy(policy.nginx))
+    issues.extend(
+        _validate_external_policy(
+            policy.external,
+            loaded_policy_path=(
+                policy.loaded_provenance.path
+                if policy.loaded_provenance is not None
+                else None
+            ),
+        )
+    )
 
     unique = {issue: None for issue in issues}
     return tuple(sorted(unique.keys(), key=_issue_sort_key))
@@ -343,6 +354,7 @@ def resolve_audit_policy(
         requested_opt_in_tags=profile.requested_opt_in_tags,
         sources=resolved_sources,
         nginx=policy.nginx,
+        external=policy.external,
     )
     return resolved.model_copy(
         update={"resolved_sha256": _resolved_policy_sha(resolved)}
@@ -447,6 +459,48 @@ def _validate_requested_tags(
         for tag in tags
         if tag not in OPT_IN_TAGS
     ]
+
+
+def _validate_external_policy(
+    external_policy: ExternalPolicy | None,
+    *,
+    loaded_policy_path: str | None,
+) -> list[AuditPolicyIssue]:
+    if external_policy is None:
+        return []
+
+    issues: list[AuditPolicyIssue] = []
+    for inventory in external_policy.tls_inventories:
+        trust = inventory.trust
+        if trust.mode != "custom":
+            continue
+        assert trust.ca_path is not None
+        ca_path = Path(trust.ca_path)
+        if not ca_path.is_absolute():
+            if loaded_policy_path is None:
+                resolved_ca_path = ca_path.resolve()
+            else:
+                resolved_ca_path = (
+                    Path(loaded_policy_path).resolve().parent / ca_path
+                ).resolve()
+        else:
+            resolved_ca_path = ca_path
+        try:
+            with resolved_ca_path.open("rb"):
+                pass
+        except OSError:
+            issues.append(
+                AuditPolicyIssue(
+                    code="tls_inventory_custom_ca_unreadable",
+                    message=(
+                        "TLS inventory custom CA path is not a readable file: "
+                        f"{resolved_ca_path}."
+                    ),
+                    item_id=inventory.inventory_id,
+                    path=str(resolved_ca_path),
+                )
+            )
+    return issues
 
 
 _ALL_UPSTREAM_FAMILIES = frozenset({"proxy", "fastcgi", "grpc", "uwsgi"})

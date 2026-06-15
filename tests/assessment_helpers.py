@@ -9,6 +9,7 @@ from pathlib import Path
 from webconf_audit.audit_policy import attach_audit_context, resolve_audit_policy
 from webconf_audit.coverage_ledger import load_coverage_ledger
 from webconf_audit.coverage_models import (
+    AssessableControlEvidence,
     AssessableRuleEvidence,
     CoverageLedger,
     CoverageSummary,
@@ -20,7 +21,13 @@ from webconf_audit.execution_manifest import (
     build_rule_execution_manifest,
     registry_revision,
 )
-from webconf_audit.models import AnalysisIssue, AnalysisResult, Finding, SourceLocation
+from webconf_audit.models import (
+    AnalysisIssue,
+    AnalysisResult,
+    Finding,
+    PolicyControlAssessment,
+    SourceLocation,
+)
 from webconf_audit.policy_models import AuditPolicy, AuditTarget, ResolvedAuditPolicy
 from webconf_audit.report import JsonFormatter, ReportData
 from webconf_audit.rule_registry import registry
@@ -68,16 +75,20 @@ def subset_ledger(
     item_id: str,
     status: str | None = None,
     assessment_rules: tuple[AssessableRuleEvidence, ...] = (),
+    assessment_controls: tuple[AssessableControlEvidence, ...] = (),
 ) -> CoverageLedger:
     ensure_rules_loaded()
     ledger = load_coverage_ledger()
     source = next(source for source in ledger.sources if source.source_id == source_id)
     item = next(item for item in source.items if item.item_id == item_id)
-    if assessment_rules:
+    if assessment_rules or assessment_controls:
         item = item.model_copy(
             update={
                 "evidence": item.evidence.model_copy(
-                    update={"assessment_rules": assessment_rules}
+                    update={
+                        "assessment_rules": assessment_rules,
+                        "assessment_controls": assessment_controls,
+                    }
                 )
             }
         )
@@ -265,6 +276,7 @@ def result_with_context(
     server_type: str | None = "nginx",
     findings: list[Finding] | None = None,
     issues: list[AnalysisIssue] | None = None,
+    control_assessments: list[PolicyControlAssessment] | None = None,
     policy: ResolvedAuditPolicy,
     manifest: RuleExecutionManifest,
     suppressions: SuppressionSet | None = None,
@@ -275,6 +287,7 @@ def result_with_context(
         server_type=server_type,
         findings=findings or [],
         issues=issues or [],
+        control_assessments=control_assessments or [],
     )
     if suppressions is not None:
         apply_suppressions(result, suppressions)

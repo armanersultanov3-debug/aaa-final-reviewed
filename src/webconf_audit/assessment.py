@@ -18,6 +18,7 @@ from webconf_audit.assessment_models import (
     AnalysisReport,
     AnalysisReportFinding,
     AnalysisReportResult,
+    AnalyzerControlEvidence,
     AssessmentEvidence,
     AssessmentInputs,
     AssessmentIssue,
@@ -875,6 +876,48 @@ def _assess_single_control(
     context_negative = False
     completed_positive_control_pass: set[str] = set()
     completed_positive_facet_pass: set[str] = set()
+    analyzer_evidence = _mapped_analyzer_evidence(
+        result=result,
+        target_id=target_id,
+        item=item,
+    )
+    native_direct_fail = any(
+        entry.mapping_strength == "direct"
+        and entry.mapping_origin == "declared"
+        and entry.status == "fail"
+        for entry in analyzer_evidence
+    )
+    native_direct_indeterminate = any(
+        entry.mapping_strength == "direct"
+        and entry.mapping_origin == "declared"
+        and (
+            entry.status == "indeterminate"
+            or (
+                entry.status == "pass"
+                and (
+                    entry.inventory_complete is not True
+                    or entry.observations_complete is not True
+                )
+            )
+        )
+        for entry in analyzer_evidence
+    )
+    native_control_pass = any(
+        entry.mapping_strength == "direct"
+        and entry.mapping_origin == "declared"
+        and entry.absence_semantics == "control-pass"
+        and entry.status == "pass"
+        and entry.inventory_complete is True
+        and entry.observations_complete is True
+        for entry in analyzer_evidence
+    )
+    native_facet_pass = any(
+        entry.mapping_strength == "direct"
+        and entry.mapping_origin == "declared"
+        and entry.absence_semantics == "facet-pass"
+        and entry.status == "pass"
+        for entry in analyzer_evidence
+    )
 
     for rule_id, definition in sorted(definitions.items()):
         active_for_rule = finding_map.get(rule_id, ())
@@ -1011,6 +1054,7 @@ def _assess_single_control(
                 status="not-applicable",
                 rationale=control_policy.rationale,
                 evidence=tuple(evidence_entries),
+                analyzer_evidence=analyzer_evidence,
                 missing_evidence=(),
                 issues=(),
             ),
@@ -1093,15 +1137,21 @@ def _assess_single_control(
         rule_id in completed_positive_control_pass
         for rule_id in required_positive_rule_ids
     )
-    if direct_negative and pass_candidate:
+    if (direct_negative or native_direct_fail) and (
+        pass_candidate or native_control_pass
+    ):
         control_issue_codes.add("conflicting_evidence")
 
     status = "not-assessed"
     rationale = "No applicable evidence was selected or completed for this control."
-    if direct_negative:
+    if direct_negative or native_direct_fail:
         status = "fail"
         rationale = "Declared direct negative evidence shows the control is not met."
-    elif any(entry.reason in {"execution-failed", "skipped", "mode-unavailable", "server-unavailable"} for entry in missing_evidence):
+    elif native_direct_indeterminate or any(
+        entry.reason
+        in {"execution-failed", "skipped", "mode-unavailable", "server-unavailable"}
+        for entry in missing_evidence
+    ):
         status = "indeterminate"
         rationale = "Required evidence did not complete, so the control cannot be concluded safely."
     elif control_policy.disposition == "review" or item.status == "policy-review":
@@ -1110,13 +1160,18 @@ def _assess_single_control(
     elif partial_negative:
         status = "partial"
         rationale = "Only partial or derived negative evidence is available for this control."
-    elif pass_candidate and item.status == "full":
+    elif (pass_candidate or native_control_pass) and item.status == "full":
         status = "pass"
         rationale = "Explicit declared direct control-pass evidence completed with no contradictory findings."
-    elif pass_candidate and item.status == "partial":
+    elif (pass_candidate or native_control_pass) and item.status == "partial":
         status = "partial"
         rationale = "Positive evidence completed, but the canonical ledger caps this control at partial."
-    elif completed_positive_facet_pass or completed_positive_control_pass:
+    elif (
+        completed_positive_facet_pass
+        or completed_positive_control_pass
+        or native_facet_pass
+        or native_control_pass
+    ):
         status = "partial"
         rationale = "Completed evidence supports only a partial or facet-level conclusion."
     elif any(entry.reason == "no-pass-semantics" for entry in missing_evidence):
@@ -1143,6 +1198,7 @@ def _assess_single_control(
             status=status,  # type: ignore[arg-type]
             rationale=rationale,
             evidence=tuple(sorted(evidence_entries, key=_evidence_sort_key)),
+            analyzer_evidence=analyzer_evidence,
             missing_evidence=tuple(sorted(missing_evidence, key=_missing_evidence_sort_key)),
             issues=tuple(sorted(control_issue_codes)),
         ),
@@ -1175,6 +1231,16 @@ def _merge_control_assessments(
                     key=_evidence_sort_key,
                 )
             ),
+            "analyzer_evidence": tuple(
+                sorted(
+                    (
+                        evidence
+                        for control in controls
+                        for evidence in control.analyzer_evidence
+                    ),
+                    key=_analyzer_evidence_sort_key,
+                )
+            ),
             "missing_evidence": tuple(
                 sorted(
                     (
@@ -1196,6 +1262,75 @@ def _merge_control_assessments(
             ),
         }
     )
+
+
+def _mapped_analyzer_evidence(
+    *,
+    result: AnalysisReportResult,
+    target_id: str,
+    item: CoverageItem,
+) -> tuple[AnalyzerControlEvidence, ...]:
+    mappings = {
+        mapping.control_id: mapping
+        for mapping in item.evidence.assessment_controls
+    }
+    evidence: list[AnalyzerControlEvidence] = []
+    for assessment in result.control_assessments:
+        mapping = mappings.get(assessment.control_id)
+        if mapping is None:
+            continue
+        metadata = assessment.metadata
+        evidence.append(
+            AnalyzerControlEvidence(
+                control_id=assessment.control_id,
+                target_id=target_id,
+                mapping_strength=mapping.strength,
+                mapping_origin=mapping.origin,
+                absence_semantics=mapping.absence_semantics,
+                status=assessment.status,
+                summary=assessment.summary,
+                inventory_id=_optional_string(metadata.get("inventory_id")),
+                inventory_complete=_optional_bool(metadata.get("inventory_complete")),
+                observations_complete=_optional_bool(
+                    metadata.get("observations_complete")
+                ),
+                evidence_references=_string_tuple(
+                    metadata.get("evidence_references")
+                ),
+                related_rule_ids=tuple(sorted(set(assessment.related_rule_ids))),
+                missing_evidence=_string_tuple(metadata.get("missing_evidence")),
+                limitations=_string_tuple(metadata.get("limitations")),
+            )
+        )
+    return tuple(sorted(evidence, key=_analyzer_evidence_sort_key))
+
+
+def _optional_string(value: object) -> str | None:
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _optional_bool(value: object) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
+def _string_tuple(value: object) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(
+        sorted(
+            {
+                entry.strip()
+                for entry in value
+                if isinstance(entry, str) and entry.strip()
+            }
+        )
+    )
+
+
+def _analyzer_evidence_sort_key(
+    evidence: AnalyzerControlEvidence,
+) -> tuple[str, str, str]:
+    return (evidence.control_id, evidence.target_id, evidence.status)
 
 
 def _rule_definitions(item: CoverageItem) -> tuple[_RuleDefinition, ...]:

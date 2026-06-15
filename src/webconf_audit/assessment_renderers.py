@@ -138,6 +138,21 @@ def _control_lines(control: ControlAssessment) -> list[str]:
         lines.append("      Evidence:")
         for evidence in control.evidence:
             lines.append(f"        - {_evidence_line(evidence)}")
+    if control.analyzer_evidence:
+        lines.append("      Analyzer control evidence:")
+        for evidence in control.analyzer_evidence:
+            lines.append(
+                "        - "
+                f"control={_safe(evidence.control_id)} "
+                f"target={_safe(evidence.target_id)} "
+                f"status={_safe(evidence.status)} "
+                f"mapping={_safe(evidence.mapping_strength)}/"
+                f"{_safe(evidence.mapping_origin)} "
+                f"inventory={_safe(evidence.inventory_id or '<none>')} "
+                f"inventory-complete={_safe(evidence.inventory_complete)} "
+                f"observations-complete={_safe(evidence.observations_complete)} "
+                f"summary={_safe(evidence.summary)}"
+            )
     if control.missing_evidence:
         lines.append("      Missing evidence:")
         for missing in control.missing_evidence:

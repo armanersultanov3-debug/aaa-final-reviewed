@@ -11,7 +11,14 @@ from fractions import Fraction
 from typing import Annotated, Literal
 from urllib.parse import unquote, urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 from webconf_audit.coverage_models import Identifier, NonEmptyText, RuleIdentifier
 
@@ -90,6 +97,16 @@ CspScriptAuthorizationMode = Literal[
 CspFrameAncestorsMode = Literal["deny"]
 CspReportingMode = Literal["report-to", "report-uri"]
 SingleValueHeaderMode = Literal["transitional_optional"]
+TLSTrustMode = Literal["system", "custom"]
+TLSRequiredEvidence = Literal[
+    "handshake",
+    "certificate_name",
+    "certificate_chain",
+    "protocol_support",
+    "negotiated_cipher",
+    "ocsp_stapling",
+]
+TLSObservationRequirement = TLSRequiredEvidence
 TargetGlob = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=512),
@@ -868,6 +885,147 @@ class NginxPolicy(_StrictModel):
     response_headers: NginxResponseHeadersPolicy | None = None
 
 
+class TLSInventoryAttestation(_StrictModel):
+    asserted_by: NonEmptyText
+    asserted_at: datetime
+    basis: NonEmptyText
+
+
+class TLSTrustPolicy(_StrictModel):
+    mode: TLSTrustMode
+    ca_path: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_mode(self) -> "TLSTrustPolicy":
+        if self.mode == "custom" and self.ca_path is None:
+            raise ValueError("Custom TLS trust mode requires ca_path.")
+        if self.mode == "system" and self.ca_path is not None:
+            raise ValueError("System TLS trust mode cannot declare ca_path.")
+        return self
+
+
+class TLSNotApplicableDeclaration(_StrictModel):
+    reason: NonEmptyText
+
+
+class TLSInventoryEntry(_StrictModel):
+    entry_id: Identifier = Field(alias="id")
+    connect_host: NonEmptyText
+    connect_port: int = Field(ge=1, le=65535)
+    sni_name: NonEmptyText | None = None
+    http_host: NonEmptyText | None = None
+    path: NonEmptyText = "/"
+    expected_certificate_names: tuple[NonEmptyText, ...] = Field(
+        default=(),
+        max_length=128,
+    )
+    not_applicable: dict[TLSRequiredEvidence, TLSNotApplicableDeclaration] = Field(
+        default_factory=dict,
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def default_http_host(cls, value):
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "http_host" not in normalized:
+            normalized["http_host"] = normalized.get("sni_name")
+        return normalized
+
+    @field_validator("connect_host", "sni_name", "http_host", mode="before")
+    @classmethod
+    def normalize_host_identity(cls, value):
+        if value is None:
+            return None
+        return _normalize_tls_identity(value)
+
+    @field_validator("expected_certificate_names", mode="before")
+    @classmethod
+    def normalize_expected_certificate_names(cls, value):
+        if value is None:
+            return value
+        if not isinstance(value, (list, tuple)):
+            raise ValueError(
+                "expected_certificate_names must be a list of TLS identities."
+            )
+        return tuple(
+            _normalize_tls_identity(name, allow_wildcard=True)
+            for name in value
+        )
+
+    @model_validator(mode="after")
+    def validate_entry(self) -> "TLSInventoryEntry":
+        _validate_tls_inventory_path(self.path)
+        if (
+            self.sni_name is None
+            and "certificate_name" not in self.not_applicable
+        ):
+            raise ValueError(
+                "TLS inventory entries without sni_name must declare "
+                "certificate_name not-applicable with a reason."
+            )
+        return self
+
+
+class TLSInventory(_StrictModel):
+    inventory_id: Identifier = Field(alias="id")
+    environment: NonEmptyText | None = None
+    declared_complete: bool = False
+    completeness_attestation: TLSInventoryAttestation | None = None
+    trust: TLSTrustPolicy
+    required_evidence: tuple[TLSRequiredEvidence, ...] = Field(
+        min_length=1,
+        max_length=16,
+    )
+    entries: tuple[TLSInventoryEntry, ...] = Field(min_length=1, max_length=1024)
+
+    @model_validator(mode="after")
+    def validate_inventory(self) -> "TLSInventory":
+        if self.declared_complete and self.completeness_attestation is None:
+            raise ValueError(
+                "declared_complete TLS inventories require completeness attestation."
+            )
+        if len(set(self.required_evidence)) != len(self.required_evidence):
+            raise ValueError("TLS inventory required_evidence values must be unique.")
+
+        seen_entry_ids: set[str] = set()
+        seen_identities: set[tuple[str, int, str | None, str | None]] = set()
+        for entry in self.entries:
+            if entry.entry_id in seen_entry_ids:
+                raise ValueError(
+                    f"TLS inventory repeats entry id {entry.entry_id!r}."
+                )
+            seen_entry_ids.add(entry.entry_id)
+
+            identity = (
+                entry.connect_host,
+                entry.connect_port,
+                entry.sni_name,
+                entry.http_host,
+            )
+            if identity in seen_identities:
+                raise ValueError(
+                    "TLS inventory entries must have unique normalized identity tuples."
+                )
+            seen_identities.add(identity)
+        return self
+
+
+class ExternalPolicy(_StrictModel):
+    tls_inventories: tuple[TLSInventory, ...] = Field(
+        default=(),
+        max_length=128,
+    )
+
+    @model_validator(mode="after")
+    def validate_inventory_ids(self) -> "ExternalPolicy":
+        inventory_ids = [inventory.inventory_id for inventory in self.tls_inventories]
+        if len(set(inventory_ids)) != len(inventory_ids):
+            raise ValueError("external.tls_inventories ids must be unique.")
+        return self
+
+
 class ControlPolicy(_StrictModel):
     item_id: Identifier
     disposition: ControlDisposition
@@ -913,6 +1071,10 @@ class AuditPolicy(_StrictModel):
     defaults: PolicyDefaults
     profiles: tuple[AuditProfile, ...] = Field(min_length=1, max_length=64)
     nginx: NginxPolicy | None = None
+    external: ExternalPolicy | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     provenance: PolicyProvenance
     loaded_provenance: LoadedPolicyProvenance | None = Field(
         default=None,
@@ -959,6 +1121,10 @@ class ResolvedAuditPolicy(_StrictModel):
     requested_opt_in_tags: tuple[Identifier, ...] = Field(default=(), max_length=32)
     sources: tuple[ResolvedSourcePolicy, ...] = Field(min_length=1, max_length=32)
     nginx: NginxPolicy | None = None
+    external: ExternalPolicy | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
 
 
 class AuditPolicyIssue(_StrictModel):
@@ -985,6 +1151,7 @@ __all__ = [
     "CspScriptAuthorizationMode",
     "ControlPolicy",
     "EvidenceExpectation",
+    "ExternalPolicy",
     "HeaderExpression",
     "HeaderName",
     "LoadedPolicyProvenance",
@@ -1064,6 +1231,14 @@ __all__ = [
     "SingleValueHeaderMode",
     "SourcePolicy",
     "TargetSelector",
+    "TLSInventory",
+    "TLSInventoryAttestation",
+    "TLSInventoryEntry",
+    "TLSNotApplicableDeclaration",
+    "TLSObservationRequirement",
+    "TLSRequiredEvidence",
+    "TLSTrustMode",
+    "TLSTrustPolicy",
     "UnmatchedRouteDisposition",
     "UpstreamFamily",
 ]
@@ -1074,6 +1249,65 @@ def _normalize_nginx_variable(value: str) -> str:
     if stripped.startswith("${") and stripped.endswith("}"):
         return f"${stripped[2:-1]}"
     return stripped
+
+
+def _normalize_tls_identity(
+    value: str,
+    *,
+    allow_wildcard: bool = False,
+) -> str:
+    if not isinstance(value, str):
+        raise ValueError("TLS identities must be strings.")
+    normalized = value.strip()
+    wildcard = normalized.startswith("*.")
+    if wildcard:
+        if not allow_wildcard:
+            raise ValueError(f"TLS identity {value!r} cannot be a wildcard.")
+        normalized = normalized[2:]
+    elif "*" in normalized:
+        raise ValueError(f"TLS identity {value!r} contains an invalid wildcard.")
+
+    ip_candidate = normalized
+    if ip_candidate.startswith("[") and ip_candidate.endswith("]"):
+        ip_candidate = ip_candidate[1:-1]
+    try:
+        ip_value = ipaddress.ip_address(ip_candidate)
+    except ValueError:
+        dns_name = normalized.rstrip(".")
+        if not dns_name or any(not label for label in dns_name.split(".")):
+            raise ValueError(f"Invalid DNS identity {value!r}.")
+        try:
+            ascii_name = dns_name.encode("idna").decode("ascii").lower()
+        except UnicodeError as exc:
+            raise ValueError(f"Invalid DNS identity {value!r}.") from exc
+        if len(ascii_name) > 253 or any(
+            len(label) > 63
+            or re.fullmatch(r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?", label)
+            is None
+            for label in ascii_name.split(".")
+        ):
+            raise ValueError(f"Invalid DNS identity {value!r}.")
+        normalized_identity = ascii_name
+    else:
+        normalized_identity = ip_value.compressed
+
+    if wildcard:
+        return f"*.{normalized_identity}"
+    return normalized_identity
+
+
+def _validate_tls_inventory_path(value: str) -> None:
+    parts = urlsplit(value)
+    if (
+        parts.scheme
+        or parts.netloc
+        or parts.query
+        or parts.fragment
+        or not value.startswith("/")
+    ):
+        raise ValueError(
+            f"TLS inventory path {value!r} must be an absolute path without scheme, host, query, or fragment."
+        )
 
 
 def _validate_supported_regex(pattern: str, *, flags: int = 0) -> None:

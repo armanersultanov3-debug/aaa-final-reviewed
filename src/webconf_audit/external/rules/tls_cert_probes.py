@@ -11,7 +11,7 @@ from webconf_audit.external.recon.tls_probe import (
     describe_signature_algorithm,
     signature_algorithm_is_weak,
 )
-from webconf_audit.external.rules._helpers import _successful_attempts_for_scheme
+from webconf_audit.external.rules._helpers import _tls_observed_attempts_for_scheme
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import asvs_5, cwe, nist_sp, owasp_top10_2021
@@ -40,7 +40,7 @@ def find_tls_ct_log_evidence_missing(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None or _leaf_certificate_is_self_signed(tls_info):
             continue
@@ -94,7 +94,7 @@ def find_tls_weak_signature_algorithm(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None or _leaf_certificate_is_self_signed(tls_info):
             continue
@@ -163,7 +163,7 @@ def find_tls_must_staple_not_observed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None:
             continue

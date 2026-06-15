@@ -25,7 +25,7 @@ from webconf_audit.external.rules._helpers import (
     _WEAK_CIPHER_KEYWORDS,
     _hostname_matches_san,
     _parse_cert_date,
-    _successful_attempts_for_scheme,
+    _tls_observed_attempts_for_scheme,
 )
 from webconf_audit.models import Finding, SourceLocation
 
@@ -38,7 +38,7 @@ def _find_certificate_expired(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.cert_not_after is None:
@@ -76,7 +76,7 @@ def _find_certificate_expires_soon(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.cert_not_after is None:
@@ -121,7 +121,7 @@ def _find_tls_certificate_self_signed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.cert_subject is None or attempt.tls_info.cert_issuer is None:
@@ -161,7 +161,7 @@ def _find_tls_1_0_supported(
     """Flag endpoints where active probing detected TLSv1.0 support."""
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if "TLSv1" not in attempt.tls_info.supported_protocols:
@@ -196,7 +196,7 @@ def _find_tls_1_1_supported(
     """Flag endpoints where active probing detected TLSv1.1 support."""
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if "TLSv1.1" not in attempt.tls_info.supported_protocols:
@@ -235,7 +235,7 @@ def _find_tls_1_3_not_supported(
     """
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         # Only evaluate when active probing actually ran.
@@ -273,7 +273,7 @@ def _find_weak_cipher_suite(
     """Flag negotiated cipher suites that contain known weak algorithms."""
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.cipher_name is None:
@@ -314,7 +314,7 @@ def _find_tls_forward_secrecy_not_observed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         cipher_name = attempt.tls_info.cipher_name
@@ -368,7 +368,7 @@ def _find_tls_server_cipher_preference_not_observed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.server_cipher_preference is not False:
@@ -411,7 +411,7 @@ def _find_ocsp_stapling_not_observed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if attempt.tls_info.ocsp_stapled is not False:
@@ -455,7 +455,7 @@ def _find_cert_chain_incomplete(
     """
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         # Only fire on a definitive chain failure (False), not
@@ -511,7 +511,7 @@ def _find_cert_chain_length_unusual(
     """
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         depth = attempt.tls_info.cert_chain_depth
@@ -568,6 +568,8 @@ def _find_cert_chain_length_unusual(
 def _find_cert_san_mismatch(
     probe_attempts: list["ProbeAttempt"],
     target: str,
+    *,
+    expected_certificate_names: tuple[str, ...] = (),
 ) -> list[Finding]:
     """Flag HTTPS endpoints where the target hostname is not in the SAN list.
 
@@ -577,30 +579,40 @@ def _find_cert_san_mismatch(
     """
     from urllib.parse import urlsplit  # noqa: PLC0415
 
-    # Extract the hostname the user intended to reach.
-    normalized = target.strip()
-    if "://" in normalized:
-        hostname = urlsplit(normalized).hostname
-    else:
-        hostname = urlsplit(f"//{normalized}").hostname
+    expected_names = expected_certificate_names
+    if not expected_names:
+        # Extract the hostname the user intended to reach.
+        normalized = target.strip()
+        if "://" in normalized:
+            hostname = urlsplit(normalized).hostname
+        else:
+            hostname = urlsplit(f"//{normalized}").hostname
 
-    if hostname is None:
-        return []
+        if hostname is None:
+            return []
 
-    hostname_lower = hostname.lower()
-    if _is_ip_literal(hostname_lower):
+        expected_names = (hostname.lower(),)
+
+    normalized_names = tuple(name.lower() for name in expected_names)
+    if not normalized_names or all(_is_ip_literal(name) for name in normalized_names):
         return []
 
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         if attempt.tls_info is None:
             continue
         if not attempt.tls_info.cert_san:
             continue
 
-        if _hostname_matches_san(hostname_lower, attempt.tls_info.cert_san):
+        missing_names = tuple(
+            name
+            for name in normalized_names
+            if not _hostname_matches_san(name, attempt.tls_info.cert_san)
+        )
+        if not missing_names:
             continue
+        display_names = ", ".join(missing_names)
 
         findings.append(
             Finding(
@@ -608,7 +620,7 @@ def _find_cert_san_mismatch(
                 title="Certificate SAN does not match target hostname",
                 severity="medium",
                 description=(
-                    f"The target hostname '{hostname}' was not found in the "
+                    f"The expected certificate name(s) '{display_names}' were not found in the "
                     f"certificate's Subject Alternative Names: "
                     f"{', '.join(attempt.tls_info.cert_san)}."
                 ),
@@ -620,7 +632,7 @@ def _find_cert_san_mismatch(
                     mode="external",
                     kind="tls",
                     target=attempt.target.url,
-                    details=f"hostname: {hostname}, san: {', '.join(attempt.tls_info.cert_san)}",
+                    details=f"hostname: {display_names}, san: {', '.join(attempt.tls_info.cert_san)}",
                 ),
             )
         )
@@ -639,6 +651,8 @@ def _is_ip_literal(hostname: str) -> bool:
 def collect_tls_findings(
     probe_attempts: list["ProbeAttempt"],
     target: str,
+    *,
+    expected_certificate_names: tuple[str, ...] = (),
 ) -> list[Finding]:
     findings: list[Finding] = []
     findings.extend(_find_certificate_expired(probe_attempts))
@@ -659,7 +673,13 @@ def collect_tls_findings(
     findings.extend(find_tls_ct_log_evidence_missing(probe_attempts))
     findings.extend(find_tls_weak_signature_algorithm(probe_attempts))
     findings.extend(find_tls_must_staple_not_observed(probe_attempts))
-    findings.extend(_find_cert_san_mismatch(probe_attempts, target))
+    findings.extend(
+        _find_cert_san_mismatch(
+            probe_attempts,
+            target,
+            expected_certificate_names=expected_certificate_names,
+        )
+    )
     return findings
 
 

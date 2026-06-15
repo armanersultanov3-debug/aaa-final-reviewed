@@ -251,6 +251,17 @@ def _successful_attempts_for_scheme(
     ]
 
 
+def _tls_observed_attempts_for_scheme(
+    probe_attempts: list["ProbeAttempt"],
+    scheme: str,
+) -> list["ProbeAttempt"]:
+    return [
+        attempt
+        for attempt in probe_attempts
+        if attempt.target.scheme == scheme and attempt.tls_info is not None
+    ]
+
+
 def _attempt_redirects_to_https(attempt: "ProbeAttempt") -> bool:
     if attempt.status_code not in HTTPS_REDIRECT_STATUS_CODES:
         return False

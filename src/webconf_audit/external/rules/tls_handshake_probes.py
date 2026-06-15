@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from webconf_audit.external.rules._helpers import _successful_attempts_for_scheme
+from webconf_audit.external.rules._helpers import _tls_observed_attempts_for_scheme
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import asvs_5, cwe, nist_sp, owasp_top10_2021
@@ -53,7 +53,7 @@ def find_tls_secure_renegotiation_not_observed(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None or not _tls12_or_earlier(tls_info.protocol_version):
             continue
@@ -119,7 +119,7 @@ def find_tls_negotiated_compression(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None or not _tls12_or_earlier(tls_info.protocol_version):
             continue
@@ -186,7 +186,7 @@ def find_tls_aead_cipher_not_negotiated(
 ) -> list[Finding]:
     findings: list[Finding] = []
 
-    for attempt in _successful_attempts_for_scheme(probe_attempts, "https"):
+    for attempt in _tls_observed_attempts_for_scheme(probe_attempts, "https"):
         tls_info = attempt.tls_info
         if tls_info is None or not _tls12_or_earlier(tls_info.protocol_version):
             continue
