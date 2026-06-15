@@ -8,7 +8,7 @@ import platform
 import socket
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -148,7 +148,9 @@ class IISRegistryTLS:
             ciphers_enabled=evidence.enabled_ciphers()
             if evidence.completeness.ciphers != "unknown"
             else None,
-            cipher_suite_order=evidence.effective_cipher_suite_order(),
+            cipher_suite_order=evidence.effective_cipher_suite_order()
+            if evidence.completeness.cipher_suite_order != "unknown"
+            else None,
             source_kind=evidence.source_kind,
             source_label=evidence.source_label,
             host=evidence.host,
@@ -229,7 +231,7 @@ def read_live_schannel(
         reader = _WinregReader()
 
     host = socket.gethostname() or None
-    captured_at = datetime.now(UTC)
+    captured_at = datetime.now(timezone.utc)
     collection_issues: list[SchannelCollectionIssue] = []
 
     os_identity, os_completeness = _read_live_os_identity(reader, collection_issues)
@@ -535,7 +537,7 @@ def _adapt_v1_export(raw: dict[str, object], export_path: str) -> IISSchannelEvi
 
     return IISSchannelEvidence(
         host=_optional_string(raw.get("host")),
-        captured_at=datetime.now(UTC),
+        captured_at=datetime.now(timezone.utc),
         os=SchannelOSIdentity(),
         completeness=SchannelCompleteness(
             os_build="unknown",
@@ -818,58 +820,13 @@ def _parse_v2_cipher_suite_order(
         export_path,
         "cipher_suite_order",
     )
-    effective_order, default_source, default_catalog_ref = cipher_suite_order_default(os_identity)
-    if raw_value.present and raw_value.status == "present":
-        return SchannelCipherSuiteOrderEvidence(
-            raw_value=raw_value,
-            order_source="explicit",
-            effective_order=raw_value.value,
-            state_reason="Cipher-suite order was explicitly configured in the evidence source.",
-            source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
-            completeness=completeness,
-        )
-    if raw_value.status in {"access-denied", "malformed", "error"}:
-        return SchannelCipherSuiteOrderEvidence(
-            raw_value=raw_value,
-            order_source="unknown",
-            effective_order=(),
-            state_reason="Cipher-suite order could not be safely read from the evidence source.",
-            source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
-            completeness=completeness,
-        )
-    if completeness == "complete":
-        if effective_order:
-            return SchannelCipherSuiteOrderEvidence(
-                raw_value=raw_value,
-                order_source="default",
-                effective_order=effective_order,
-                state_reason=(
-                    "Cipher-suite order override was absent in a complete collection, so the "
-                    "reviewed exact-build default order was used."
-                ),
-                source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
-                completeness=completeness,
-                default_source=default_source,
-                default_catalog_ref=default_catalog_ref,
-            )
-        return SchannelCipherSuiteOrderEvidence(
-            raw_value=raw_value,
-            order_source="unknown",
-            effective_order=(),
-            state_reason=(
-                "Cipher-suite order override was absent in a complete collection, but the "
-                "exact-build default order is not reviewed."
-            ),
-            source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
-            completeness=completeness,
-        )
-    return SchannelCipherSuiteOrderEvidence(
+    return _resolve_cipher_suite_order_evidence(
         raw_value=raw_value,
-        order_source="unknown",
-        effective_order=(),
-        state_reason="Cipher-suite order override was absent in incomplete evidence.",
-        source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
         completeness=completeness,
+        os_identity=os_identity,
+        explicit_reason="Cipher-suite order was explicitly configured in the evidence source.",
+        unreadable_reason="Cipher-suite order could not be safely read from the evidence source.",
+        incomplete_reason="Cipher-suite order override was absent in incomplete evidence.",
     )
 
 
@@ -1004,7 +961,7 @@ def _read_live_os_identity(
                 )
 
     if not product_name or build is None:
-        completeness = "unknown" if completeness == "complete" else completeness
+        completeness = "unknown"
 
     return (
         SchannelOSIdentity(
@@ -1170,13 +1127,32 @@ def _parse_live_cipher_suite_order(
     completeness: CompletenessState,
     os_identity: SchannelOSIdentity,
 ) -> SchannelCipherSuiteOrderEvidence:
+    return _resolve_cipher_suite_order_evidence(
+        raw_value=raw_value,
+        completeness=completeness,
+        os_identity=os_identity,
+        explicit_reason="Cipher-suite order was explicitly configured in the live registry.",
+        unreadable_reason="Cipher-suite order could not be safely read from the live registry.",
+        incomplete_reason="Cipher-suite order override was absent in incomplete evidence.",
+    )
+
+
+def _resolve_cipher_suite_order_evidence(
+    *,
+    raw_value: SchannelRegistryStringList,
+    completeness: CompletenessState,
+    os_identity: SchannelOSIdentity,
+    explicit_reason: str,
+    unreadable_reason: str,
+    incomplete_reason: str,
+) -> SchannelCipherSuiteOrderEvidence:
     effective_order, default_source, default_catalog_ref = cipher_suite_order_default(os_identity)
     if raw_value.present and raw_value.status == "present":
         return SchannelCipherSuiteOrderEvidence(
             raw_value=raw_value,
             order_source="explicit",
             effective_order=raw_value.value,
-            state_reason="Cipher-suite order was explicitly configured in the live registry.",
+            state_reason=explicit_reason,
             source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
             completeness=completeness,
         )
@@ -1185,7 +1161,7 @@ def _parse_live_cipher_suite_order(
             raw_value=raw_value,
             order_source="unknown",
             effective_order=(),
-            state_reason="Cipher-suite order could not be safely read from the live registry.",
+            state_reason=unreadable_reason,
             source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
             completeness=completeness,
         )
@@ -1219,7 +1195,7 @@ def _parse_live_cipher_suite_order(
         raw_value=raw_value,
         order_source="unknown",
         effective_order=(),
-        state_reason="Cipher-suite order override was absent in incomplete evidence.",
+        state_reason=incomplete_reason,
         source_path=f"HKLM/{_CIPHER_SUITE_ORDER_PATH}",
         completeness=completeness,
     )
@@ -1478,7 +1454,7 @@ def _legacy_wrapper_to_evidence(registry_tls: IISRegistryTLS) -> IISSchannelEvid
     )
     return IISSchannelEvidence(
         host=registry_tls.host,
-        captured_at=datetime.now(UTC),
+        captured_at=datetime.now(timezone.utc),
         os=SchannelOSIdentity(),
         completeness=SchannelCompleteness(
             os_build="unknown",
