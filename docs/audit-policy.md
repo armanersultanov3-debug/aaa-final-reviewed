@@ -639,7 +639,7 @@ Run it with:
 
 ```bash
 webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml
-webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml --format json
+webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml --format json > tls-inventory-analysis.json
 webconf-audit assess --report tls-inventory-analysis.json --fail-on fail,indeterminate
 ```
 

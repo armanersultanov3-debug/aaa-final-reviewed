@@ -994,7 +994,6 @@ def analyze_tls_inventory(
             group_repeated=group_repeated,
             group_by_cause=group_by_cause,
         )
-        return
     _output_result(
         result,
         output_format,

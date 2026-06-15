@@ -478,12 +478,13 @@ def _validate_external_policy(
         ca_path = Path(trust.ca_path)
         if not ca_path.is_absolute():
             if loaded_policy_path is None:
-                resolved_ca_path = ca_path
+                resolved_ca_path = ca_path.resolve()
             else:
-                resolved_ca_path = Path(loaded_policy_path).resolve().parent / ca_path
+                resolved_ca_path = (
+                    Path(loaded_policy_path).resolve().parent / ca_path
+                ).resolve()
         else:
             resolved_ca_path = ca_path
-        resolved_ca_path = resolved_ca_path.resolve()
         try:
             with resolved_ca_path.open("rb"):
                 pass

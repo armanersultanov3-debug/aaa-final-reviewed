@@ -67,8 +67,8 @@ def _policy_path(tmp_path: Path) -> Path:
 def test_analyze_tls_inventory_cli_requires_policy(tmp_path: Path) -> None:
     result = runner.invoke(app, ["analyze-tls-inventory", "production-edge"])
 
-    assert result.exit_code != 0
-    assert "--policy" in result.output
+    assert result.exit_code == 2
+    assert "Missing option" in result.output
 
 
 def test_analyze_tls_inventory_cli_uses_existing_output_options(

@@ -199,6 +199,34 @@ def test_tls_inventory_rejects_non_string_identity_values(
     assert excinfo.value.issue.code == "policy_schema_invalid"
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("connect_host", ""),
+        ("connect_host", "   "),
+        ("sni_name", ""),
+        ("sni_name", "   "),
+        ("expected_certificate_names", [""]),
+        ("expected_certificate_names", ["   "]),
+    ],
+)
+def test_tls_inventory_rejects_empty_or_whitespace_identity_values(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    from webconf_audit.audit_policy import AuditPolicyLoadError, load_audit_policy
+
+    payload = _policy_payload()
+    _first_entry(payload)[field] = value
+
+    with pytest.raises(AuditPolicyLoadError) as excinfo:
+        load_audit_policy(_write_policy(tmp_path, payload))
+
+    assert excinfo.value.issue.code == "policy_schema_invalid"
+    assert "identity" in excinfo.value.issue.message.lower()
+
+
 def test_tls_inventory_rejects_unknown_evidence_and_unknown_keys(
     tmp_path: Path,
 ) -> None:
