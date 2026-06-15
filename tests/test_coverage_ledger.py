@@ -602,6 +602,25 @@ def test_render_coverage_markdown_is_deterministic_and_escapes_tables() -> None:
     assert "Header A \\| Header B<br>Observed." in first
 
 
+def test_packaged_ledger_splits_apache_authorization_sections() -> None:
+    ledger = load_coverage_ledger()
+    apache_source = next(
+        source
+        for source in ledger.sources
+        if source.source_id == "cis-apache-http-server-2.4-2.3.0"
+    )
+    items = {item.item_id: item for item in apache_source.items}
+
+    assert "apache-4.1-authorization-posture" not in items
+    assert "apache-4.1-os-root-access-denied" in items
+    assert "apache-4.2-web-content-access" in items
+    assert items["apache-4.2-web-content-access"].status == "partial"
+    assert any(
+        "deployment" in limitation.lower() or "application" in limitation.lower()
+        for limitation in items["apache-4.2-web-content-access"].evidence.limitations
+    )
+
+
 def test_check_coverage_documentation_detects_tracker_and_summary_drift(
     tmp_path: Path,
 ) -> None:

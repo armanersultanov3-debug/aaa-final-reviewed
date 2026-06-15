@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
+from webconf_audit.local.apache.root_directory import (
+    group_directory_blocks_by_path,
+    is_os_root_directory_group,
+)
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
     ApacheConfigAst,
@@ -51,9 +53,9 @@ RULE_ID = "apache.allowoverride_not_none"
 def find_allowoverride_not_none(config_ast: ApacheConfigAst) -> list[Finding]:
     findings: list[Finding] = []
     directory_blocks = list(iter_blocks(config_ast.nodes, frozenset({"directory"})))
-    groups = _group_directory_blocks_by_path(directory_blocks)
+    groups = group_directory_blocks_by_path(directory_blocks)
 
-    if not any(_is_os_root_directory(blocks) for blocks in groups.values()):
+    if not any(is_os_root_directory_group(blocks) for blocks in groups.values()):
         findings.append(_make_missing_root_finding(config_ast))
 
     for blocks in groups.values():
@@ -61,7 +63,7 @@ def find_allowoverride_not_none(config_ast: ApacheConfigAst) -> list[Finding]:
         if directive is not None and _is_allowoverride_none(directive):
             continue
 
-        if directive is None and not _is_os_root_directory(blocks):
+        if directive is None and not is_os_root_directory_group(blocks):
             continue
 
         findings.append(_make_finding(blocks[-1], directive=directive))
@@ -117,42 +119,6 @@ def _make_finding(
             line=(directive.source if directive is not None else block.source).line,
         ),
     )
-
-
-def _group_directory_blocks_by_path(
-    directory_blocks: list[ApacheBlockNode],
-) -> dict[Path | str, list[ApacheBlockNode]]:
-    groups: dict[Path | str, list[ApacheBlockNode]] = {}
-    for block in directory_blocks:
-        key = _directory_key(block)
-        if key is None:
-            continue
-        groups.setdefault(key, []).append(block)
-    return groups
-
-
-def _directory_key(block: ApacheBlockNode) -> Path | str | None:
-    if not block.args:
-        return None
-
-    raw_path = block.args[0]
-    if raw_path == "/":
-        return Path("/")
-
-    path = Path(raw_path)
-    if path.is_absolute():
-        return path.resolve()
-
-    source_file_path = block.source.file_path
-    if source_file_path is None:
-        return path.resolve()
-
-    return (Path(source_file_path).parent / path).resolve()
-
-
-def _is_os_root_directory(blocks: list[ApacheBlockNode]) -> bool:
-    return any(block.args and block.args[0] == "/" for block in blocks)
-
 
 def _is_allowoverride_none(directive: ApacheDirectiveNode) -> bool:
     return len(directive.args) == 1 and directive.args[0].lower() == "none"

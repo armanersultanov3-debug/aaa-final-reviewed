@@ -310,12 +310,12 @@ human-readable view remains available at
 the methodology and headline summary are documented in
 [docs/benchmarks-covering.md](docs/benchmarks-covering.md).
 
-The catalog currently contains 472 rules:
+The catalog currently contains 473 rules:
 
 | Category | Rules |
 |----------|------:|
 | Local — Nginx | 96 |
-| Local — Apache | 87 |
+| Local — Apache | 88 |
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |

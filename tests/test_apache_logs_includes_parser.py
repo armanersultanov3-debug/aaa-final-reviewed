@@ -8,6 +8,21 @@ from tests.apache_helpers import (
     _with_backup_files_restriction,
 )
 
+
+def _assert_include_issue_with_root_authorization(
+    result,
+    *,
+    include_issue_code: str,
+):
+    assert result.findings == []
+    issue_codes = {issue.code for issue in result.issues}
+    assert issue_codes == {
+        include_issue_code,
+        "apache_root_authorization_indeterminate",
+    }
+    return next(issue for issue in result.issues if issue.code == include_issue_code)
+
+
 def test_analyze_apache_config_does_not_report_missing_top_level_logs_when_both_present(
     tmp_path: Path,
 ) -> None:
@@ -378,9 +393,10 @@ def test_analyze_apache_config_reports_issue_for_self_include(tmp_path: Path) ->
 
     result = analyze_apache_config(str(config_path))
 
-    assert result.findings == []
-    assert len(result.issues) == 1
-    issue = result.issues[0]
+    issue = _assert_include_issue_with_root_authorization(
+        result,
+        include_issue_code="apache_include_self_include",
+    )
     assert issue.code == "apache_include_self_include"
     assert issue.location is not None
     assert issue.location.file_path == str(config_path)
@@ -416,9 +432,10 @@ def test_analyze_apache_config_reports_issue_for_include_cycle(tmp_path: Path) -
 
     result = analyze_apache_config(str(config_path))
 
-    assert result.findings == []
-    assert len(result.issues) == 1
-    issue = result.issues[0]
+    issue = _assert_include_issue_with_root_authorization(
+        result,
+        include_issue_code="apache_include_cycle",
+    )
     assert issue.code == "apache_include_cycle"
     assert issue.location is not None
     assert issue.location.file_path == str(conf_dir / "b.conf")
@@ -449,9 +466,10 @@ def test_analyze_apache_config_reports_issue_for_missing_include_file(tmp_path: 
 
     result = analyze_apache_config(str(config_path))
 
-    assert result.findings == []
-    assert len(result.issues) == 1
-    issue = result.issues[0]
+    issue = _assert_include_issue_with_root_authorization(
+        result,
+        include_issue_code="apache_include_not_found",
+    )
     assert issue.code == "apache_include_not_found"
     assert issue.location is not None
     assert issue.location.file_path == str(config_path)
@@ -464,14 +482,32 @@ def test_analyze_apache_config_reports_invalid_utf8_include(tmp_path: Path) -> N
 
     config_path = tmp_path / "httpd.conf"
     config_path.write_text(
-        _with_backup_files_restriction(f'Include "{_posix_path(include_path)}"\n'),
+        _with_backup_files_restriction(
+            "\n".join(
+                [
+                    f'Include "{_posix_path(include_path)}"',
+                    "ServerSignature Off",
+                    "TraceEnable Off",
+                    "ServerTokens Prod",
+                    "LimitRequestBody 102400",
+                    "LimitRequestFields 100",
+                    "ErrorLog logs/error_log",
+                    "CustomLog logs/access_log combined",
+                    "ErrorDocument 404 /custom404.html",
+                    "ErrorDocument 500 /custom500.html",
+                ]
+            )
+        ),
         encoding="utf-8",
     )
 
     result = analyze_apache_config(str(config_path))
 
-    assert len(result.issues) == 1
-    assert result.issues[0].code == "apache_include_read_error"
+    issue = _assert_include_issue_with_root_authorization(
+        result,
+        include_issue_code="apache_include_read_error",
+    )
+    assert issue.code == "apache_include_read_error"
 
 
 def test_analyze_apache_config_ignores_missing_includeoptional_file(tmp_path: Path) -> None:
@@ -531,9 +567,10 @@ def test_analyze_apache_config_reports_parse_error_in_included_file(tmp_path: Pa
 
     result = analyze_apache_config(str(config_path))
 
-    assert result.findings == []
-    assert len(result.issues) == 1
-    issue = result.issues[0]
+    issue = _assert_include_issue_with_root_authorization(
+        result,
+        include_issue_code="apache_include_parse_error",
+    )
     assert issue.code == "apache_include_parse_error"
     assert issue.location is not None
     assert issue.location.file_path == str(bad_include_path)

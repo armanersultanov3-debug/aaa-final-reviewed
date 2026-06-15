@@ -7,6 +7,7 @@ which registers it at import time.
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 from webconf_audit.execution_manifest import RuleExecutionRecorder
@@ -53,7 +54,11 @@ def run_apache_ast_rules(
             run_rule_entry(
                 entry,
                 issues=issues,
-                invoke=lambda entry=entry: entry.fn(config_ast),
+                invoke=lambda entry=entry: _invoke_apache_ast_rule(
+                    entry.fn,
+                    config_ast,
+                    issues,
+                ),
                 execution_recorder=execution_recorder,
             )
         )
@@ -150,6 +155,17 @@ def run_apache_rules(
             )
         )
     return findings
+
+
+def _invoke_apache_ast_rule(
+    fn,
+    config_ast: ApacheConfigAst,
+    issues: list[AnalysisIssue] | None,
+):
+    parameters = inspect.signature(fn).parameters
+    if "issues" in parameters:
+        return fn(config_ast, issues=issues)
+    return fn(config_ast)
 
 
 __all__ = ["run_apache_ast_rules", "run_apache_htaccess_rules", "run_apache_rules"]

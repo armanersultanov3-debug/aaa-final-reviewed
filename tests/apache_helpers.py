@@ -77,6 +77,9 @@ _SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES = [
 _SAFE_APACHE_CIS_ROOT_OPTIONS_LINES = [
     "    Options None",
 ]
+_SAFE_APACHE_CIS_ROOT_AUTHORIZATION_LINES = [
+    "    Require all denied",
+]
 _SAFE_APACHE_CIS_SENSITIVE_FILE_LINES = [
     '<FilesMatch "^\\.ht">',
     "    Require all denied",
@@ -102,6 +105,7 @@ _SAFE_APACHE_CIS_BASELINE_LINES = [
     "<Directory />",
     *_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES,
     *_SAFE_APACHE_CIS_ROOT_OPTIONS_LINES,
+    *_SAFE_APACHE_CIS_ROOT_AUTHORIZATION_LINES,
     "</Directory>",
     *_SAFE_APACHE_CIS_SENSITIVE_FILE_LINES,
 ]
@@ -113,6 +117,7 @@ def _with_backup_files_restriction(
     include_security_headers: bool = True,
     include_cis_allowoverride_root: bool = True,
     include_cis_root_options: bool = True,
+    include_cis_root_authorization: bool = True,
     include_cis_http_protocol: bool = True,
     include_cis_modsecurity: bool = True,
 ) -> str:
@@ -128,6 +133,8 @@ def _with_backup_files_restriction(
         root_directory_lines.extend(_SAFE_APACHE_CIS_ALLOWOVERRIDE_LINES)
         if include_cis_root_options:
             root_directory_lines.extend(_SAFE_APACHE_CIS_ROOT_OPTIONS_LINES)
+        if include_cis_root_authorization:
+            root_directory_lines.extend(_SAFE_APACHE_CIS_ROOT_AUTHORIZATION_LINES)
         root_directory_lines.extend(["</Directory>"])
     elif include_cis_root_options:
         global_options_lines.extend(["Options None"])

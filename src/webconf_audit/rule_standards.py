@@ -112,6 +112,7 @@ _LEGACY_CATCH_ALL_RULES = frozenset(
         "apache.options_indexes",
         "apache.options_multiviews_enabled",
         "apache.options_not_none_in_root_directory",
+        "apache.os_root_access_not_denied",
         "apache.permissions_policy_runtime_quality",
         "apache.permissions_policy_unsafe",
         "apache.referrer_policy_unsafe",
@@ -627,6 +628,7 @@ _APACHE_NAMED_ACCESS_CONTROL_RULES = frozenset(
         "apache.htaccess_enables_directory_listing",
         "apache.htaccess_rewrite_without_limit",
         "apache.htaccess_weakens_security",
+        "apache.os_root_access_not_denied",
     }
 )
 
@@ -1154,9 +1156,6 @@ def _ledger_reference_bindings(rule_id: str) -> list[StandardReference]:
         "apache.modsecurity_module_missing": (
             _cis_apache("2.1-§2.9", coverage="partial", note=partial),
             _cis_apache("6.6-§6.7"),
-        ),
-        "apache.htaccess_auth_without_require": (
-            _cis_apache("4.1-§4.2", coverage="partial", note=partial),
         ),
         "apache.directory_without_allowoverride": (
             _cis_apache("4.3-§4.4"),

@@ -60,10 +60,10 @@ def full_reg() -> RuleRegistry:
 
 class TestTotalCounts:
     def test_catalog_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._catalog) == 472
+        assert len(full_reg._catalog) == 473
 
     def test_executable_total(self, full_reg: RuleRegistry) -> None:
-        assert len(full_reg._executable) == 311
+        assert len(full_reg._executable) == 312
 
 
 # ---------------------------------------------------------------------------
@@ -81,7 +81,7 @@ class TestCategoryCounts:
 
     def test_apache(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="apache")
-        assert len(rules) == 87
+        assert len(rules) == 88
 
     def test_lighttpd(self, full_reg: RuleRegistry) -> None:
         rules = full_reg.list_rules(category="local", server_type="lighttpd")
@@ -172,6 +172,31 @@ class TestStandardsMetadata:
 
             references = {(ref.standard, ref.reference) for ref in meta.standards}
             assert expected_refs.issubset(references)
+
+    def test_apache_os_root_authorization_rule_has_expected_standards(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        meta = full_reg.get_meta("apache.os_root_access_not_denied")
+        assert meta is not None
+
+        references = {(ref.standard, ref.reference) for ref in meta.standards}
+        assert {
+            ("CWE", "CWE-284"),
+            ("OWASP Top 10", "A05:2021"),
+            ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.1"),
+        }.issubset(references)
+
+    def test_apache_htaccess_auth_without_require_uses_split_cis_reference(
+        self,
+        full_reg: RuleRegistry,
+    ) -> None:
+        meta = full_reg.get_meta("apache.htaccess_auth_without_require")
+        assert meta is not None
+
+        references = {(ref.standard, ref.reference) for ref in meta.standards}
+        assert ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.2") in references
+        assert ("CIS", "Apache HTTP Server 2.4 v2.3.0 §4.1-§4.2") not in references
 
     def test_followup_rules_have_expected_standards(self, full_reg: RuleRegistry) -> None:
         expectations = {

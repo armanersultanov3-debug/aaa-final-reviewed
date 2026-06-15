@@ -12,7 +12,7 @@ The denominator is `full + partial + policy-review + uncovered`. Only `full` ite
 | Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
-| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 18 | 2 | 0 | 0 | 90.0% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
 | OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
@@ -58,12 +58,13 @@ Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1.
 
 Selected configuration-visible CIS Apache HTTP Server controls. Installation planning, service accounts, filesystem permissions, log storage and rotation, private-key metadata, SELinux, and AppArmor remain outside this scanner-evidence denominator.
 
-Applicable count: 19. Full count: 17. Partial count: 2. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+Applicable count: 20. Full count: 18. Partial count: 2. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
 | Apache HTTP Server 2.4 v2.3.0 §2.1-§2.9 (Apache HTTP Server 2.4 v2.3.0 §2.1, Apache HTTP Server 2.4 v2.3.0 §2.2, Apache HTTP Server 2.4 v2.3.0 §2.3, Apache HTTP Server 2.4 v2.3.0 §2.4, Apache HTTP Server 2.4 v2.3.0 §2.5, Apache HTTP Server 2.4 v2.3.0 §2.6, Apache HTTP Server 2.4 v2.3.0 §2.7, Apache HTTP Server 2.4 v2.3.0 §2.8, Apache HTTP Server 2.4 v2.3.0 §2.9) Module minimization | `partial` | Visible LoadModule inventory and selected risky-module checks provide a bounded minimization signal. Limitations: Package and build-time module inventory and business justification are not available. |
-| Apache HTTP Server 2.4 v2.3.0 §4.1-§4.2 (Apache HTTP Server 2.4 v2.3.0 §4.1, Apache HTTP Server 2.4 v2.3.0 §4.2) Authorization posture | `partial` | Effective Require and legacy allow/deny semantics are analyzed in visible configuration. Limitations: A deployment-wide authorization claim still depends on application and business context. |
+| Apache HTTP Server 2.4 v2.3.0 §4.1 OS-root access denied by default | `full` | A direct root-baseline rule evaluates exact OS-root Directory authorization, same-path AuthMerging behavior, legacy Order/Allow/Deny defaults, and incomplete evidence as indeterminate rather than pass. |
+| Apache HTTP Server 2.4 v2.3.0 §4.2 Appropriate access to web content | `partial` | Visible Apache and .htaccess authentication signals can highlight incomplete web-content access declarations in the configuration surface. Limitations: Intended principals, content inventory, and business access matrix remain deployment-specific.; Application-layer authorization beyond Apache is outside static web-server configuration evidence. |
 | Apache HTTP Server 2.4 v2.3.0 §4.3-§4.4 (Apache HTTP Server 2.4 v2.3.0 §4.3, Apache HTTP Server 2.4 v2.3.0 §4.4) AllowOverride baseline | `full` | Root and inherited AllowOverride rules cover the visible configuration baseline. |
 | Apache HTTP Server 2.4 v2.3.0 §5.1-§5.3 (Apache HTTP Server 2.4 v2.3.0 §5.1, Apache HTTP Server 2.4 v2.3.0 §5.2, Apache HTTP Server 2.4 v2.3.0 §5.3) Options baseline | `full` | Effective Options semantics cover None, ExecCGI, Includes, Indexes, MultiViews, and subtractive options. |
 | Apache HTTP Server 2.4 v2.3.0 §5.4-§5.6 (Apache HTTP Server 2.4 v2.3.0 §5.4, Apache HTTP Server 2.4 v2.3.0 §5.5, Apache HTTP Server 2.4 v2.3.0 §5.6) Default content | `full` | The local probe checks active DocumentRoot paths for default HTML and CGI sample content. |

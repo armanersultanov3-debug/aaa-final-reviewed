@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 from webconf_audit.local.apache.effective import APACHE_ALL_OPTIONS
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
     ApacheConfigAst,
     ApacheDirectiveNode,
+)
+from webconf_audit.local.apache.root_directory import (
+    group_directory_blocks_by_path,
+    is_os_root_directory_group,
 )
 from webconf_audit.local.apache.rules._block_policy_utils import default_location, iter_blocks
 from webconf_audit.models import Finding, SourceLocation
@@ -55,9 +58,11 @@ def find_options_not_none_in_root_directory(
 ) -> list[Finding]:
     findings: list[Finding] = []
     directory_blocks = list(iter_blocks(config_ast.nodes, frozenset({"directory"})))
-    groups = _group_directory_blocks_by_path(directory_blocks)
+    groups = group_directory_blocks_by_path(directory_blocks)
 
-    root_blocks = [blocks for blocks in groups.values() if _is_os_root_directory(blocks)]
+    root_blocks = [
+        blocks for blocks in groups.values() if is_os_root_directory_group(blocks)
+    ]
     if not root_blocks:
         global_options = _effective_global_options_state(config_ast)
         if global_options is not None and _is_empty_options_baseline(global_options):
@@ -130,42 +135,6 @@ def _make_finding(
             line=(directive.source if directive is not None else block.source).line,
         ),
     )
-
-
-def _group_directory_blocks_by_path(
-    directory_blocks: list[ApacheBlockNode],
-) -> dict[Path | str, list[ApacheBlockNode]]:
-    groups: dict[Path | str, list[ApacheBlockNode]] = {}
-    for block in directory_blocks:
-        key = _directory_key(block)
-        if key is None:
-            continue
-        groups.setdefault(key, []).append(block)
-    return groups
-
-
-def _directory_key(block: ApacheBlockNode) -> Path | str | None:
-    if not block.args:
-        return None
-
-    raw_path = block.args[0]
-    if raw_path == "/":
-        return Path("/")
-
-    path = Path(raw_path)
-    if path.is_absolute():
-        return path.resolve()
-
-    source_file_path = block.source.file_path
-    if source_file_path is None:
-        return path.resolve()
-
-    return (Path(source_file_path).parent / path).resolve()
-
-
-def _is_os_root_directory(blocks: list[ApacheBlockNode]) -> bool:
-    return any(block.args and block.args[0] == "/" for block in blocks)
-
 
 def _iter_options_directives(block: ApacheBlockNode) -> list[ApacheDirectiveNode]:
     directives: list[ApacheDirectiveNode] = []

@@ -247,12 +247,12 @@ dependency for the rule's default severity. The methodology is
 documented in [severity-methodology.md](severity-methodology.md), and
 `list-rules --format json` exposes the profile for tooling.
 
-Current catalog: 472 rules total.
+Current catalog: 473 rules total.
 
 | Category | Rules |
 |----------|------:|
 | Local — Nginx | 96 |
-| Local — Apache | 87 |
+| Local — Apache | 88 |
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |

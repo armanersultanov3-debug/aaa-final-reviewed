@@ -10,6 +10,7 @@ from webconf_audit.audit_policy import (
     requested_opt_in_tags,
 )
 from webconf_audit.execution_manifest import RuleExecutionRecorder
+from webconf_audit.local.apache.authorization import evaluate_root_authorization
 from webconf_audit.local.apache.effective import (
     ApacheVirtualHostContext,
     EffectiveConfig,
@@ -447,4 +448,9 @@ def _attach_context(
     return attach_audit_context(result, policy, manifest)
 
 
-__all__ = ["ApacheAnalysisContext", "analyze_apache_config", "run_apache_rules"]
+__all__ = [
+    "ApacheAnalysisContext",
+    "analyze_apache_config",
+    "evaluate_root_authorization",
+    "run_apache_rules",
+]

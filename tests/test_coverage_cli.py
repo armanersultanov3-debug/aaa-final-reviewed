@@ -21,7 +21,7 @@ def test_coverage_validate_text_succeeds() -> None:
     assert result.exit_code == 0, result.output
     assert "Coverage ledger is valid" in result.stdout
     assert "8 sources" in result.stdout
-    assert "109 items" in result.stdout
+    assert "110 items" in result.stdout
 
 
 def test_coverage_validate_json_has_stable_top_level_shape() -> None:
