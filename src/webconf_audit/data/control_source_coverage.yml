@@ -511,6 +511,14 @@ sources:
     evidence:
       rule_ids:
       - apache.modsecurity_module_missing
+      assessment_controls:
+      - control_id: apache.module_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - explicit-runtime-module-inventory
+        - operator-module-policy
       registry_references:
       - rule_id: apache.modsecurity_module_missing
         standard: CIS
@@ -519,15 +527,19 @@ sources:
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: Visible LoadModule inventory and selected risky-module checks provide a bounded minimization
-        signal.
+      rationale: Visible LoadModule inventory and selected risky-module checks remain the counted built-in
+        basis, while optional explicit module snapshots plus typed operator policy can now produce bounded
+        concrete-run control assessments without executing Apache.
       limitations:
-      - Package and build-time module inventory and business justification are not available.
+      - Repository source capability remains partial until the final cross-standard evidence recount in
+        follow-up 14 validates every grouped module-minimization subclaim.
+      - Concrete runs still require an explicit operator snapshot and typed module policy; config-visible
+        LoadModule evidence alone is not sufficient.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-15'
       source_url: https://www.cisecurity.org/benchmark/apache_http_server
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-12-apache-module-inventory-policy
   - item_id: apache-4.1-os-root-access-denied
     title: OS-root access denied by default
     references:

@@ -29,6 +29,7 @@ from webconf_audit.execution_manifest import (
 )
 from webconf_audit.models import AnalysisResult, rebuild_analysis_result_models
 from webconf_audit.policy_models import (
+    ApachePolicy,
     AuditPolicy,
     AuditPolicyIssue,
     AuditTarget,
@@ -273,6 +274,7 @@ def validate_audit_policy(
                 )
             )
 
+    issues.extend(_validate_apache_policy(policy.apache))
     issues.extend(_validate_nginx_policy(policy.nginx))
     issues.extend(
         _validate_external_policy(
@@ -353,6 +355,7 @@ def resolve_audit_policy(
         ),
         requested_opt_in_tags=profile.requested_opt_in_tags,
         sources=resolved_sources,
+        apache=policy.apache,
         nginx=policy.nginx,
         external=policy.external,
     )
@@ -501,6 +504,14 @@ def _validate_external_policy(
                 )
             )
     return issues
+
+
+def _validate_apache_policy(
+    apache_policy: ApachePolicy | None,
+) -> list[AuditPolicyIssue]:
+    if apache_policy is None or apache_policy.module_inventory is None:
+        return []
+    return []
 
 
 _ALL_UPSTREAM_FAMILIES = frozenset({"proxy", "fastcgi", "grpc", "uwsgi"})
