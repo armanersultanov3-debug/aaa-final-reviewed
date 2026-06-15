@@ -8,7 +8,7 @@ from webconf_audit.local.apache.rules.htaccess_rule_utils import (
     iter_directives,
 )
 from webconf_audit.models import Finding, SourceLocation
-from webconf_audit.rule_registry import rule
+from webconf_audit.rule_registry import StandardReference, rule
 
 RULE_ID = "apache.htaccess_auth_without_require"
 _AUTH_DIRECTIVES = frozenset(
@@ -41,6 +41,18 @@ _AUTH_DIRECTIVES = frozenset(
     server_type="apache",
     input_kind="htaccess",
     tags=('htaccess',),
+    standards=(
+        StandardReference(
+            standard="CIS",
+            reference="Apache HTTP Server 2.4 v2.3.0 §4.2",
+            url="https://www.cisecurity.org/benchmark/apache_http_server",
+            coverage="partial",
+            note=(
+                "Highlights incomplete .htaccess authentication policy, which is "
+                "bounded evidence for deployment-specific web-content access."
+            ),
+        ),
+    ),
     order=307,
 )
 def find_htaccess_auth_without_require(

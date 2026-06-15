@@ -17,6 +17,7 @@ _NEW_CIS_RULE_IDS = {
     "apache.permissions_policy_runtime_quality",
     "apache.sensitive_config_files_not_restricted",
     "apache.sensitive_path_environment_policy",
+    "apache.os_root_access_not_denied",
     "apache.timeout_keepalive_default_policy",
     "apache.request_read_timeout_semantics",
     "apache.vcs_metadata_not_restricted",
@@ -49,6 +50,16 @@ def test_analyze_apache_config_reports_missing_root_options_none(
     findings = _analyze_config(tmp_path, config)
 
     assert "apache.options_not_none_in_root_directory" in _rule_ids(findings)
+
+
+def test_analyze_apache_config_reports_missing_root_authorization_baseline(
+    tmp_path: Path,
+) -> None:
+    config = _remove_simple_block(_safe_apache_config(), "<Directory />")
+
+    findings = _analyze_config(tmp_path, config)
+
+    assert "apache.os_root_access_not_denied" in _rule_ids(findings)
 
 
 def test_analyze_apache_config_reports_non_none_root_options_scope(
@@ -115,7 +126,13 @@ def test_analyze_apache_config_reports_global_subtractive_only_options_scope(
     tmp_path: Path,
 ) -> None:
     config = _safe_apache_config().replace(
-        "<Directory />\n    AllowOverride None\n    Options None\n</Directory>",
+        (
+            "<Directory />\n"
+            "    AllowOverride None\n"
+            "    Options None\n"
+            "    Require all denied\n"
+            "</Directory>"
+        ),
         "Options -ExecCGI",
         1,
     )

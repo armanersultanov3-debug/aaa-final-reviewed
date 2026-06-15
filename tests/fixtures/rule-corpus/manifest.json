@@ -594,6 +594,7 @@
         "apache.generated_artifacts_not_restricted",
         "apache.ht_files_not_restricted",
         "apache.htaccess_auth_without_require",
+        "apache.os_root_access_not_denied",
         "apache.htaccess_contains_security_directive",
         "apache.http_protocol_options_unsafe",
         "apache.limit_request_body_missing_or_invalid",

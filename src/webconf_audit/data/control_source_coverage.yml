@@ -483,13 +483,13 @@ sources:
     accounts, filesystem permissions, log storage and rotation, private-key metadata, SELinux, and AppArmor
     remain outside this scanner-evidence denominator.
   expected_summary:
-    applicable: 19
-    full: 17
+    applicable: 20
+    full: 18
     partial: 2
     policy_review: 0
     uncovered: 0
     excluded: 0
-    full_percent: '89.5'
+    full_percent: '90.0'
   items:
   - item_id: apache-2.1-module-minimization
     title: Module minimization
@@ -528,14 +528,40 @@ sources:
       reviewed_on: '2026-06-13'
       source_url: https://www.cisecurity.org/benchmark/apache_http_server
       change_ref: followup-02-machine-readable-coverage-ledger
-  - item_id: apache-4.1-authorization-posture
-    title: Authorization posture
+  - item_id: apache-4.1-os-root-access-denied
+    title: OS-root access denied by default
     references:
     - standard: CIS
-      reference: Apache HTTP Server 2.4 v2.3.0 §4.1-§4.2
-      grouped_references:
-      - Apache HTTP Server 2.4 v2.3.0 §4.1
-      - Apache HTTP Server 2.4 v2.3.0 §4.2
+      reference: Apache HTTP Server 2.4 v2.3.0 §4.1
+      grouped_references: []
+    applicability: applicable
+    status: full
+    evidence:
+      rule_ids:
+      - apache.os_root_access_not_denied
+      registry_references:
+      - rule_id: apache.os_root_access_not_denied
+        standard: CIS
+        reference: Apache HTTP Server 2.4 v2.3.0 §4.1
+        strength: direct
+        origin: declared
+      evidence_kinds:
+      - local-config
+      rationale: A direct root-baseline rule evaluates exact OS-root Directory authorization, same-path
+        AuthMerging behavior, legacy Order/Allow/Deny defaults, and incomplete evidence as indeterminate
+        rather than pass.
+      limitations: []
+    exclusion: null
+    provenance:
+      reviewed_on: '2026-06-15'
+      source_url: https://www.cisecurity.org/benchmark/apache_http_server
+      change_ref: followup-11-apache-root-authorization-baseline
+  - item_id: apache-4.2-web-content-access
+    title: Appropriate access to web content
+    references:
+    - standard: CIS
+      reference: Apache HTTP Server 2.4 v2.3.0 §4.2
+      grouped_references: []
     applicability: applicable
     status: partial
     evidence:
@@ -544,19 +570,21 @@ sources:
       registry_references:
       - rule_id: apache.htaccess_auth_without_require
         standard: CIS
-        reference: Apache HTTP Server 2.4 v2.3.0 §4.1-§4.2
+        reference: Apache HTTP Server 2.4 v2.3.0 §4.2
         strength: partial
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: Effective Require and legacy allow/deny semantics are analyzed in visible configuration.
+      rationale: Visible Apache and .htaccess authentication signals can highlight incomplete web-content
+        access declarations in the configuration surface.
       limitations:
-      - A deployment-wide authorization claim still depends on application and business context.
+      - Intended principals, content inventory, and business access matrix remain deployment-specific.
+      - Application-layer authorization beyond Apache is outside static web-server configuration evidence.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-15'
       source_url: https://www.cisecurity.org/benchmark/apache_http_server
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-11-apache-root-authorization-baseline
   - item_id: apache-4.3-allowoverride-baseline
     title: AllowOverride baseline
     references:

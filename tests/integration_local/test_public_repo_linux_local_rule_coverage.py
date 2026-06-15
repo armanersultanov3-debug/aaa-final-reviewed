@@ -59,6 +59,7 @@ _PACK_COVERAGE_EXCLUDED_LOCAL_RULE_IDS: dict[str, frozenset[str]] = {
             "apache.modsecurity_crs_not_configured",
             "apache.modsecurity_module_missing",
             "apache.options_not_none_in_root_directory",
+            "apache.os_root_access_not_denied",
             "apache.permissions_policy_runtime_quality",
             "apache.request_read_timeout_semantics",
             "apache.sensitive_path_environment_policy",
