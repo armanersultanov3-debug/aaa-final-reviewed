@@ -95,6 +95,26 @@ def test_evaluate_root_authorization_reports_requireany_granted_branch_as_permis
     assert assessment.effective.syntax == "modern"
 
 
+def test_evaluate_root_authorization_treats_nested_requirenone_as_deny_all(
+    tmp_path: Path,
+) -> None:
+    _config_path, ast, issues = _parse_with_includes(
+        tmp_path,
+        _root_block(
+            "    <RequireNone>",
+            "        <RequireNone>",
+            "            Require all denied",
+            "        </RequireNone>",
+            "    </RequireNone>",
+        ),
+    )
+
+    assessment = evaluate_root_authorization(ast, issues=issues)
+
+    assert assessment.effective.decision == "deny_all"
+    assert assessment.effective.syntax == "modern"
+
+
 def test_evaluate_root_authorization_accepts_legacy_allow_deny_default_deny(
     tmp_path: Path,
 ) -> None:
@@ -124,6 +144,55 @@ def test_evaluate_root_authorization_reports_legacy_deny_allow_default_allow(
 
     assert assessment.effective.decision == "not_deny_all"
     assert assessment.effective.syntax == "legacy"
+
+
+def test_evaluate_root_authorization_allows_later_root_block_to_replace_indeterminate_merge(
+    tmp_path: Path,
+) -> None:
+    _config_path, ast, issues = _parse_with_includes(
+        tmp_path,
+        "\n".join(
+            (
+                _root_block("    Require all denied"),
+                _root_block(
+                    "    AuthMerging Or",
+                    '    Require expr "%{REMOTE_ADDR} =~ /127\\.0\\.0\\.1/"',
+                ),
+                _root_block("    Require all denied"),
+            )
+        ),
+    )
+
+    assessment = evaluate_root_authorization(ast, issues=issues)
+
+    assert assessment.effective.decision == "deny_all"
+    assert assessment.effective.syntax == "modern"
+
+
+def test_evaluate_root_authorization_handles_multiple_root_blocks_in_same_virtualhost(
+    tmp_path: Path,
+) -> None:
+    _config_path, ast, issues = _parse_with_includes(
+        tmp_path,
+        "\n".join(
+            (
+                "<VirtualHost *:80>",
+                "    <Directory />",
+                "        Require all denied",
+                "    </Directory>",
+                "    <Directory />",
+                "        AuthMerging Or",
+                "        Require all denied",
+                "    </Directory>",
+                "</VirtualHost>",
+            )
+        ),
+    )
+
+    assessment = evaluate_root_authorization(ast, issues=issues)
+
+    assert assessment.effective.decision == "deny_all"
+    assert assessment.effective.syntax == "modern"
 
 
 def test_analyze_apache_config_reports_missing_root_baseline_when_complete(

@@ -174,7 +174,7 @@ def _evaluate_root_contexts(
     modules: frozenset[str],
 ) -> list[_DetailedAuthorizationResult]:
     global_blocks = [entry for entry in occurrences if entry.virtualhost is None]
-    vhosts = list(dict.fromkeys(entry.virtualhost for entry in occurrences if entry.virtualhost is not None))
+    vhosts = _unique_virtualhosts_by_identity(occurrences)
 
     contexts: list[list[DirectoryBlockOccurrence]] = []
     if global_blocks:
@@ -207,8 +207,6 @@ def _evaluate_root_context(
             current = block_result
             continue
         current = _merge_root_results(current, block_result)
-        if current.decision == "indeterminate":
-            return current
 
     if current is None:
         return _detailed_result(
@@ -453,6 +451,17 @@ def _evaluate_modern_nodes(
                 syntax="modern",
                 evidence=evidence,
                 reasons=_merge_reason_sets(reasons, ("requirenone_indeterminate_child",)),
+            )
+        if all(result.decision == "deny_all" for result in child_results):
+            return _detailed_result(
+                decision="not_deny_all",
+                syntax="modern",
+                evidence=evidence,
+                reasons=_merge_reason_sets(
+                    reasons,
+                    ("requirenone_negates_all_denying_children",),
+                ),
+                grants_all=True,
             )
         return _detailed_result(
             decision="not_deny_all",
@@ -902,6 +911,23 @@ def _decision_projection(
         grants_all=result.grants_all,
         syntax=result.syntax,
     )
+
+
+def _unique_virtualhosts_by_identity(
+    occurrences: list[DirectoryBlockOccurrence],
+) -> list[ApacheBlockNode]:
+    seen: set[int] = set()
+    vhosts: list[ApacheBlockNode] = []
+    for entry in occurrences:
+        vhost = entry.virtualhost
+        if vhost is None:
+            continue
+        identity = id(vhost)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        vhosts.append(vhost)
+    return vhosts
 
 
 def _merge_syntax(

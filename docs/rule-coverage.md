@@ -642,8 +642,10 @@ Mapping rationale (apache rules):
   than intentional application assets. This is a hardening misconfiguration, so
   CWE stays empty and OWASP A05 carries the mapping.
 - `htaccess_auth_without_require` -- declaring `AuthType` / `AuthName`
-  without a matching `Require` leaves the realm effectively open: CWE-287
-  (improper authentication), OWASP A07.
+  without a matching `Require` is bounded `.htaccess` evidence for incomplete
+  deployment-specific web-content access policy. The per-rule inventory keeps
+  CWE and OWASP empty because this signal is narrower than a stable weakness
+  mapping on its own.
 - `htaccess_disables_security_headers` -- `Header unset` against security
   response headers turns the protection off: CWE-693 (protection mechanism
   failure), OWASP A05.
