@@ -60,7 +60,12 @@ from webconf_audit.models import (
     PolicyControlAssessment,
     SourceLocation,
 )
-from webconf_audit.policy_models import AuditPolicy, AuditTarget, ResolvedAuditPolicy
+from webconf_audit.policy_models import (
+    ApacheModulePolicy,
+    AuditPolicy,
+    AuditTarget,
+    ResolvedAuditPolicy,
+)
 from webconf_audit.rule_registry import registry as rule_registry
 
 _APACHE_SPECIFIC_UNIVERSAL_REPLACEMENTS = frozenset(
@@ -677,9 +682,9 @@ def _attach_apache_module_inventory(
 
 
 def _select_module_policy(
-    policies,
+    policies: tuple[ApacheModulePolicy, ...],
     snapshot: ApacheModuleSnapshot,
-):
+) -> tuple[ApacheModulePolicy | None, AnalysisIssue | None]:
     if not policies:
         return None, None
     matches = [policy for policy in policies if _module_policy_matches(policy, snapshot)]
@@ -706,7 +711,10 @@ def _select_module_policy(
     )
 
 
-def _module_policy_matches(policy, snapshot: ApacheModuleSnapshot) -> bool:
+def _module_policy_matches(
+    policy: ApacheModulePolicy,
+    snapshot: ApacheModuleSnapshot,
+) -> bool:
     if policy.inventory_snapshot_id != snapshot.snapshot_id:
         return False
     if policy.selectors is None:

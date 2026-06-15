@@ -55,6 +55,8 @@ def _normalized_module_aliases(value: str) -> set[str]:
     elif normalized.endswith(".so"):
         bare = normalized.removesuffix(".so")
         aliases.add(bare)
+        if "/" not in normalized and "\\" not in normalized:
+            aliases.add(f"{bare}_module")
 
     return aliases
 

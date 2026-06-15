@@ -509,8 +509,6 @@ def _validate_external_policy(
 def _validate_apache_policy(
     apache_policy: ApachePolicy | None,
 ) -> list[AuditPolicyIssue]:
-    if apache_policy is None or apache_policy.module_inventory is None:
-        return []
     return []
 
 

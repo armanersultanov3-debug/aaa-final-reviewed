@@ -299,6 +299,36 @@ def test_load_apache_module_snapshot_normalizes_equivalent_aliases(tmp_path: Pat
     assert snapshot.modules[0].aliases == ("mod_ssl.c", "mod_ssl.so", "ssl", "ssl_module")
 
 
+def test_load_apache_module_snapshot_normalizes_plain_shared_object_aliases(
+    tmp_path: Path,
+) -> None:
+    snapshot_path = _write_snapshot(
+        tmp_path,
+        payload=_snapshot_payload(
+            modules=[
+                {
+                    "name": "ssl_module",
+                    "state": "loaded",
+                    "linkage": "shared",
+                    "source": "runtime-snapshot",
+                },
+                {
+                    "name": "modules/ssl.so",
+                    "state": "loaded",
+                    "linkage": "shared",
+                    "source": "runtime-snapshot",
+                },
+            ]
+        ),
+    )
+
+    snapshot = load_apache_module_snapshot(snapshot_path)
+
+    assert snapshot.modules[0].name == "ssl_module"
+    assert len(snapshot.modules) == 1
+    assert snapshot.modules[0].aliases == ("mod_ssl.c", "ssl", "ssl.so", "ssl_module")
+
+
 def test_load_apache_module_snapshot_rejects_conflicting_aliases(tmp_path: Path) -> None:
     snapshot_path = _write_snapshot(
         tmp_path,
@@ -370,6 +400,34 @@ def test_evaluate_apache_modules_marks_visible_loadmodule_conflict_indeterminate
         and comparison.config_visible is True
         and comparison.snapshot_state == "absent"
         for comparison in evaluation.comparisons
+    )
+
+
+def test_evaluate_apache_modules_missing_benchmark_scope_is_indeterminate(
+    tmp_path: Path,
+) -> None:
+    snapshot = load_apache_module_snapshot(_write_snapshot(tmp_path))
+    policy_payload = _policy_payload()
+    del policy_payload["apache"]["module_inventory"]["policies"][0]["benchmark_scope"][
+        "cis_apache_2_4_v2_3_0"
+    ]
+    policy = AuditPolicy.model_validate(policy_payload)
+    module_policy = policy.apache.module_inventory.policies[0]  # type: ignore[union-attr]
+    config_ast = parse_apache_config(
+        "\n".join(
+            [
+                "LoadModule authz_core_module modules/mod_authz_core.so",
+                "LoadModule ssl_module modules/mod_ssl.so",
+            ]
+        )
+    )
+
+    evaluation = evaluate_apache_modules(snapshot, module_policy, config_ast)
+
+    assert evaluation.status == "indeterminate"
+    assert (
+        "benchmark applicability was not declared for cis_apache_2_4_v2_3_0"
+        in evaluation.missing_evidence
     )
 
 

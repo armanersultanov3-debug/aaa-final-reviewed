@@ -22,6 +22,7 @@ from webconf_audit.local.apache.rules._policy_semantics_utils import (
 )
 from webconf_audit.policy_models import (
     ApacheModulePolicy,
+    ApacheUnlistedLoadedModules,
     CompletenessState,
     ModuleEvidenceState,
     ModuleExpectation,
@@ -291,7 +292,7 @@ def evaluate_apache_modules(
         missing_evidence.append(
             "unlisted loaded module posture must be 'fail' for a closed least-functionality conclusion"
         )
-    elif not benchmark.applicable:
+    elif benchmark is not None and not benchmark.applicable:
         rationale = benchmark.rationale or "benchmark scope marked not applicable."
         return ApacheModuleEvaluation(
             policy_id=policy.policy_id,
@@ -430,7 +431,7 @@ def _comparison_result(
     observation: ApacheModuleObservation,
     expectation: ModuleExpectation | None,
     config_visible: bool,
-    unlisted_loaded_modules: str,
+    unlisted_loaded_modules: ApacheUnlistedLoadedModules,
 ) -> tuple[str, ModulePredicateResult]:
     if (
         config_visible
