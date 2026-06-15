@@ -41,6 +41,10 @@ from webconf_audit.local.apache.module_inventory import (
     load_apache_module_snapshot,
 )
 from webconf_audit.local.iis import analyze_iis_config
+from webconf_audit.local.iis.registry import (
+    SchannelEvidenceLoadError,
+    load_schannel_export,
+)
 from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
 from webconf_audit.models import AnalysisIssue, AnalysisResult, Severity, SourceLocation
@@ -680,6 +684,48 @@ def _load_validated_apache_module_inventory_or_exit(
     return module_inventory_path
 
 
+def _load_validated_iis_tls_registry_or_exit(
+    *,
+    tls_registry_path: str,
+    mode: str,
+    target: str,
+    server_type: str | None,
+    output_format: OutputFormat,
+    group_by: GroupBy,
+    group_repeated: bool,
+    group_by_cause: bool,
+) -> str:
+    try:
+        load_schannel_export(Path(tls_registry_path))
+    except SchannelEvidenceLoadError as exc:
+        _output_fatal_result(
+            AnalysisResult(
+                mode=mode,
+                target=target,
+                server_type=server_type,
+                issues=[
+                    AnalysisIssue(
+                        code=exc.code,
+                        level="error",
+                        message=str(exc),
+                        location=SourceLocation(
+                            mode=mode,
+                            kind="file",
+                            file_path=exc.path or tls_registry_path,
+                            details="tls_registry",
+                        ),
+                    )
+                ],
+            ),
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        raise AssertionError("unreachable")
+    return tls_registry_path
+
+
 @app.command("analyze-nginx")
 def analyze_nginx(
     config_path: str = typer.Argument(..., help="Path to nginx config file"),
@@ -908,7 +954,16 @@ def analyze_iis(
     if machine_config is not None:
         kwargs["machine_config_path"] = machine_config
     if tls_registry is not None:
-        kwargs["tls_registry_path"] = tls_registry
+        kwargs["tls_registry_path"] = _load_validated_iis_tls_registry_or_exit(
+            tls_registry_path=tls_registry,
+            mode="local",
+            target=config_path,
+            server_type="iis",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
     if no_tls_registry:
         kwargs["use_tls_registry"] = False
 

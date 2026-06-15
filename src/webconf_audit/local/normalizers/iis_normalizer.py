@@ -11,7 +11,8 @@ import logging
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig, IISEffectiveSection
 from webconf_audit.local.iis.parser import IISConfigDocument, IISSourceRef
-from webconf_audit.local.iis.registry import IISRegistryTLS
+from webconf_audit.local.iis.registry import IISRegistryTLS, coerce_schannel_evidence
+from webconf_audit.local.iis.schannel_models import IISSchannelEvidence
 from webconf_audit.local.normalized import (
     AuthRequiringLocation,
     NormalizedAccessPolicy,
@@ -53,7 +54,7 @@ _logger = logging.getLogger(__name__)
 def normalize_iis(
     doc: IISConfigDocument,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> NormalizedConfig:
     """Extract normalized entities from IIS config."""
     if effective_config is None:
@@ -105,7 +106,7 @@ def _build_scope(
     scope_name: str | None,
     doc: IISConfigDocument,
     *,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
     listen_points: list[NormalizedListenPoint],
 ) -> NormalizedScope:
     tls = _extract_tls(sections, registry_tls=registry_tls)
@@ -224,8 +225,9 @@ def _parse_binding(
 def _extract_tls(
     sections: dict[str, IISEffectiveSection],
     *,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> NormalizedTLS | None:
+    evidence = coerce_schannel_evidence(registry_tls)
     access = sections.get(_ACCESS_SUFFIX)
     require_ssl: bool | None = None
     xml_source: SourceRef | None = None
@@ -234,13 +236,13 @@ def _extract_tls(
         ssl_flags = access.attributes.get("sslFlags", "").lower()
         if ssl_flags:
             require_ssl = "ssl" in ssl_flags
-            xml_source = _ref(access.source, details=_registry_details(registry_tls))
+            xml_source = _ref(access.source, details=_registry_details(evidence))
 
-    if registry_tls is not None and registry_tls.has_data:
+    if evidence is not None and evidence.has_data:
         return NormalizedTLS(
-            source=xml_source or registry_tls.source_ref(),
-            protocols=registry_tls.protocols_enabled,
-            ciphers=_registry_cipher_string(registry_tls),
+            source=xml_source or evidence.source_ref(),
+            protocols=evidence.enabled_protocols(),
+            ciphers=_registry_cipher_string(evidence),
             require_ssl=require_ssl,
         )
 
@@ -531,13 +533,14 @@ def _source_location(source: IISSourceRef) -> SourceLocation:
     )
 
 
-def _registry_cipher_string(registry_tls: IISRegistryTLS) -> str | None:
-    if registry_tls.ciphers_enabled is None:
+def _registry_cipher_string(registry_tls: IISSchannelEvidence) -> str | None:
+    ciphers = registry_tls.enabled_ciphers()
+    if not ciphers:
         return None
-    return ", ".join(registry_tls.ciphers_enabled)
+    return ", ".join(ciphers)
 
 
-def _registry_details(registry_tls: IISRegistryTLS | None) -> str | None:
+def _registry_details(registry_tls: IISSchannelEvidence | None) -> str | None:
     if registry_tls is None or not registry_tls.has_data:
         return None
     return registry_tls.source_details

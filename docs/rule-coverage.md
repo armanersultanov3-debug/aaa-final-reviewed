@@ -1157,6 +1157,15 @@ IIS CIS v1.2.1 / Windows source-of-truth gap table:
 | §7.1-§7.6/§7.10/§7.11/§7.12 | `partial` | `iis.schannel_weak_protocol_enabled`, `iis.schannel_tls12_not_enabled`, `iis.schannel_aes128_enabled`, `iis.schannel_aes256_not_enabled`, and `iis.schannel_cipher_suite_order_not_preferred` cover known SChannel registry/export evidence. SChannel evidence is **registry-based** (`HKLM\SYSTEM\CurrentControlSet\Control\SecurityProviders\SCHANNEL\...`), not stored in IIS XML — `machine.config` / `applicationHost.config` / `web.config` inheritance does not apply to this group, so the PR-5 effective-chain work does not change the gap shape here. External TLS runtime probes now corroborate negotiated protocol, weak/AEAD cipher posture, forward secrecy, server cipher preference, secure-renegotiation extension, compression, OCSP staple observation, certificate expiry/chain/SAN posture, must-staple, signature algorithm, and SCT/CT-log evidence (`external.certificate_expired`, `external.certificate_expires_soon`, `external.tls_certificate_self_signed`, `external.tls_1_0_supported`, `external.tls_1_1_supported`, `external.tls_1_3_not_supported`, `external.weak_cipher_suite`, `external.tls_forward_secrecy_not_observed`, `external.tls_server_cipher_preference_not_observed`, `external.ocsp_stapling_not_observed`, `external.cert_chain_incomplete`, `external.cert_chain_length_unusual`, `external.cert_san_mismatch`, `external.tls_ct_log_evidence_missing`, `external.tls_weak_signature_algorithm`, `external.tls_must_staple_not_observed`, `external.tls_secure_renegotiation_not_observed`, `external.tls_negotiated_compression`, `external.tls_aead_cipher_not_negotiated`). Remaining follow-up is deeper SChannel-specific evidence collection where the registry/export view is incomplete. |
 | CIS IIS 7/8 archive PDFs | `out-of-scope` | IIS 7/8 is not actively maintained; the archive PDFs are historical context only and must not become primary references unless a future PR explicitly scopes legacy IIS. |
 
+SChannel v2 note: canonical IIS registry evidence now records
+`enabled` / `disabled` / `default` / `unknown`, per-class completeness, and
+exact-build OS context. Reviewed defaults can support a conclusion only for the
+matching Windows build; unsupported builds and incomplete evidence stay
+indeterminate. Legacy v1 exports remain readable through conservative
+adaptation, so omitted entries no longer create false disabled/default
+conclusions. Coverage stays `partial` here until the later recount step, and
+IIS FTP remains uncovered and in scope.
+
 ### External (Probe-based)
 
 Count: 172

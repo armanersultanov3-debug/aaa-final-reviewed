@@ -20,7 +20,8 @@ from webconf_audit.local.iis.parser import (
     IISParseError,
     parse_iis_config,
 )
-from webconf_audit.local.iis.registry import IISRegistryTLS, resolve_registry_tls
+from webconf_audit.local.iis.registry import resolve_schannel_evidence
+from webconf_audit.local.iis.schannel_models import IISSchannelEvidence
 from webconf_audit.local.iis.rules_runner import run_iis_rules
 from webconf_audit.local.normalizers import normalize_config
 from webconf_audit.local.universal_rules import run_universal_rules
@@ -166,7 +167,7 @@ def analyze_iis_config(
             policy=policy,
         )
 
-    registry_tls, registry_issues = resolve_registry_tls(
+    registry_tls, registry_issues = resolve_schannel_evidence(
         tls_registry_path,
         use_live_registry=use_tls_registry,
     )
@@ -200,7 +201,7 @@ def _analyze_single_config(
     config_path: str,
     *,
     machine_config_path: str | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
     policy: ResolvedAuditPolicy | None = None,
@@ -278,7 +279,7 @@ def _analyze_application_host(
     config_path: str,
     *,
     machine_config_path: str | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | None = None,
     registry_issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
     policy: ResolvedAuditPolicy | None = None,
@@ -539,16 +540,57 @@ def _try_parse_iis_config_path(
         ]
 
 
-def _registry_metadata(registry_tls: IISRegistryTLS | None) -> dict[str, object] | None:
+def _registry_metadata(registry_tls: IISSchannelEvidence | None) -> dict[str, object] | None:
     if registry_tls is None:
         return None
     return {
         "source_kind": registry_tls.source_kind,
         "source": registry_tls.source_file_path,
         "host": registry_tls.host,
-        "protocols_known": registry_tls.protocols_enabled is not None,
-        "ciphers_known": registry_tls.ciphers_enabled is not None,
-        "cipher_suite_order_known": registry_tls.cipher_suite_order is not None,
+        "schema_version": registry_tls.schema_version,
+        "input_schema_version": registry_tls.input_schema_version,
+        "adapted_to_v2": registry_tls.adapted_to_v2,
+        "protocols_known": registry_tls.completeness.protocols == "complete",
+        "ciphers_known": registry_tls.completeness.ciphers == "complete",
+        "cipher_suite_order_known": registry_tls.completeness.cipher_suite_order == "complete",
+        "os": registry_tls.os.model_dump(mode="json"),
+        "completeness": registry_tls.completeness.model_dump(mode="json"),
+        "collection_issues": [
+            issue.model_dump(mode="json") for issue in registry_tls.collection_issues
+        ],
+        "protocols": [
+            {
+                "name": entry.name,
+                "raw_name": entry.raw_name,
+                "state": entry.state,
+                "effective_state": entry.effective_state,
+                "state_reason": entry.state_reason,
+                "completeness": entry.completeness,
+                "default_effective_state": entry.default_effective_state,
+                "default_source": entry.default_source,
+            }
+            for entry in registry_tls.schannel.protocols
+        ],
+        "ciphers": [
+            {
+                "name": entry.name,
+                "raw_name": entry.raw_name,
+                "state": entry.state,
+                "effective_state": entry.effective_state,
+                "state_reason": entry.state_reason,
+                "completeness": entry.completeness,
+                "default_effective_state": entry.default_effective_state,
+                "default_source": entry.default_source,
+            }
+            for entry in registry_tls.schannel.ciphers
+        ],
+        "cipher_suite_order": {
+            "order_source": registry_tls.schannel.cipher_suite_order.order_source,
+            "effective_order": list(registry_tls.schannel.cipher_suite_order.effective_order),
+            "state_reason": registry_tls.schannel.cipher_suite_order.state_reason,
+            "completeness": registry_tls.schannel.cipher_suite_order.completeness,
+            "default_source": registry_tls.schannel.cipher_suite_order.default_source,
+        },
     }
 
 

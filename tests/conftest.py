@@ -66,7 +66,23 @@ def _disable_ambient_iis_live_registry(monkeypatch: pytest.MonkeyPatch) -> None:
     """Keep IIS tests independent from the developer/CI Windows registry."""
     from webconf_audit.local.iis import registry as iis_registry
 
-    monkeypatch.setattr(iis_registry, "read_live_registry", lambda: (None, []))
+    original_read_live_schannel = iis_registry.read_live_schannel
+    original_read_live_registry = iis_registry.read_live_registry
+
+    monkeypatch.setattr(
+        iis_registry,
+        "read_live_schannel",
+        lambda reader=None: (
+            original_read_live_schannel(reader) if reader is not None else (None, [])
+        ),
+    )
+    monkeypatch.setattr(
+        iis_registry,
+        "read_live_registry",
+        lambda reader=None: (
+            original_read_live_registry(reader) if reader is not None else (None, [])
+        ),
+    )
 
 
 @pytest.fixture(autouse=True)

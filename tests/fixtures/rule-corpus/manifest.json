@@ -1016,7 +1016,7 @@
       "id": "iis-schannel",
       "server_type": "iis",
       "profile": "targeted-vulnerable",
-      "description": "IIS web.config paired with a local SChannel JSON export for registry-backed TLS policy rules.",
+      "description": "IIS web.config paired with a canonical v2 SChannel JSON export for registry-backed TLS policy rules.",
       "entrypoint": "iis/schannel.web.config",
       "provenance": "synthetic-targeted",
       "references": [
