@@ -36,7 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     work_dir = _resolve_inside_repo(repo_root, args.work_dir)
 
     if args.dry_run:
-        _print_dry_run_plan(work_dir)
+        _print_dry_run_plan(work_dir, repo_root=repo_root)
         return 0
 
     _prepare_work_dir(repo_root, work_dir)
@@ -84,8 +84,17 @@ def main(argv: Sequence[str] | None = None) -> int:
             ],
         )
         coverage_payload = _run_json(
-            "Run installed coverage CLI validation",
-            [str(console_script), "coverage", "validate", "--format", "json"],
+            "Run installed coverage reconciliation check",
+            [
+                str(console_script),
+                "coverage",
+                "reconcile",
+                "--check",
+                "--format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+            ],
         )
         _validate_coverage_payload(coverage_payload)
         catalog_payload = _run_json(
@@ -135,7 +144,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _print_dry_run_plan(work_dir: Path) -> None:
+def _print_dry_run_plan(work_dir: Path, *, repo_root: Path) -> None:
     dist_dir = work_dir / "dist"
     venv_dir = work_dir / "venv"
     venv_python = _venv_python(venv_dir)
@@ -150,7 +159,16 @@ def _print_dry_run_plan(work_dir: Path) -> None:
             [str(venv_python), "-m", "pip", "check"],
             "Validate installed rule crosswalk",
             "Validate installed coverage ledger",
-            ["webconf-audit", "coverage", "validate", "--format", "json"],
+            [
+                "webconf-audit",
+                "coverage",
+                "reconcile",
+                "--check",
+                "--format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+            ],
             ["webconf-audit", "list-rules", "--format", "json"],
             [
                 "webconf-audit",
@@ -240,9 +258,8 @@ def _run_json(label: str, command: Sequence[str]) -> object:
 def _validate_source_coverage(repo_root: Path) -> None:
     from webconf_audit.cli import _ensure_all_rules_loaded
     from webconf_audit.coverage_ledger import (
-        check_coverage_documentation,
+        check_coverage_reconciliation,
         load_coverage_ledger,
-        validate_coverage_ledger,
     )
     from webconf_audit.crosswalk_integrity import validate_registry_crosswalk
     from webconf_audit.rule_registry import registry
@@ -250,13 +267,12 @@ def _validate_source_coverage(repo_root: Path) -> None:
     _ensure_all_rules_loaded()
     ledger = load_coverage_ledger()
     crosswalk_issues = validate_registry_crosswalk(registry.list_rules())
-    ledger_issues = validate_coverage_ledger(ledger, registry)
-    documentation_issues = check_coverage_documentation(
+    reconciliation_issues = check_coverage_reconciliation(
         ledger,
-        repo_root / "docs" / "control-source-coverage-tracker.md",
-        repo_root / "docs" / "benchmarks-covering.md",
+        registry,
+        repo_root=repo_root,
     )
-    issues = (*crosswalk_issues, *ledger_issues, *documentation_issues)
+    issues = (*crosswalk_issues, *reconciliation_issues)
     if issues:
         details = "\n".join(
             f"- {issue.code}: {issue.message}"

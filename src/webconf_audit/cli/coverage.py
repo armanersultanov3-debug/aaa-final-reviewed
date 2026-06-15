@@ -11,13 +11,17 @@ import typer
 from webconf_audit.coverage_ledger import (
     CoverageLedgerLoadError,
     check_coverage_documentation,
+    check_coverage_reconciliation,
     load_coverage_ledger,
+    reconcile_coverage_documents,
     render_coverage_markdown,
     summarize_coverage,
     validate_coverage_ledger,
+    write_coverage_reconciliation,
     write_coverage_output,
 )
 from webconf_audit.coverage_models import (
+    CoverageReconciliation,
     CoverageLedger,
     CoverageLedgerIssue,
     CoverageStatus,
@@ -190,6 +194,107 @@ def export_command(
     typer.echo(f"Wrote coverage export to {output}.")
 
 
+@coverage_app.command("reconcile")
+def reconcile_command(
+    check_mode: bool = typer.Option(
+        False,
+        "--check",
+        help="Check tracked coverage documents for reconciliation drift without writing.",
+    ),
+    write_mode: bool = typer.Option(
+        False,
+        "--write",
+        help="Atomically rewrite the tracked coverage documents from the packaged ledger.",
+    ),
+    ledger_path: Path | None = typer.Option(
+        None,
+        "--ledger",
+        help="Use a local ledger instead of the packaged canonical ledger.",
+    ),
+    repo_root: Path | None = typer.Option(
+        None,
+        "--repo-root",
+        help=(
+            "Repository root whose tracked coverage documents should be checked "
+            "or rewritten. Defaults to the package-relative repository root."
+        ),
+    ),
+    output_format: CoverageDisplayFormat = typer.Option(
+        CoverageDisplayFormat.text,
+        "--format",
+        "-f",
+        help="Output format: text, json.",
+    ),
+) -> None:
+    """Check or atomically rewrite the reconciled counted-coverage documents."""
+    if check_mode and write_mode:
+        typer.echo("Choose exactly one of --check or --write.", err=True)
+        raise typer.Exit(2)
+    if not check_mode and not write_mode:
+        check_mode = True
+
+    ledger, issues = _load_and_validate(ledger_path)
+    if issues or ledger is None:
+        _emit_failure(output_format, ledger, issues)
+        raise typer.Exit(1)
+
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    reconciliation = reconcile_coverage_documents(
+        ledger,
+        registry,
+        repo_root=repo_root,
+    )
+    if check_mode:
+        issues = check_coverage_reconciliation(
+            ledger,
+            registry,
+            repo_root=repo_root,
+        )
+        if output_format == CoverageDisplayFormat.json:
+            typer.echo(_render_reconciliation_json(reconciliation, issues))
+        elif issues:
+            _echo_reconciliation_issues(issues)
+        else:
+            typer.echo(
+                "Coverage reconciliation is clean: "
+                f"{len(reconciliation.artifacts)} tracked artifacts match the ledger."
+            )
+        if issues:
+            raise typer.Exit(1)
+        return
+
+    issues = check_coverage_reconciliation(
+        ledger,
+        registry,
+        repo_root=repo_root,
+        compare_tracked=False,
+    )
+    if issues:
+        if output_format == CoverageDisplayFormat.json:
+            typer.echo(_render_reconciliation_json(reconciliation, issues))
+        else:
+            _echo_reconciliation_issues(issues)
+        raise typer.Exit(1)
+
+    write_issues = write_coverage_reconciliation(reconciliation)
+    if write_issues:
+        if output_format == CoverageDisplayFormat.json:
+            typer.echo(_render_reconciliation_json(reconciliation, write_issues))
+        else:
+            _echo_reconciliation_issues(write_issues)
+        raise typer.Exit(1)
+    if output_format == CoverageDisplayFormat.json:
+        typer.echo(_render_reconciliation_json(reconciliation, ()))
+    else:
+        typer.echo(
+            "Coverage reconciliation updated: "
+            + ", ".join(Path(artifact.path).name for artifact in reconciliation.artifacts)
+        )
+
+
 def _load_and_validate(
     ledger_path: Path | None,
 ) -> tuple[CoverageLedger | None, tuple[CoverageLedgerIssue, ...]]:
@@ -284,6 +389,46 @@ def _render_cli_json(
     )
 
 
+def _render_reconciliation_json(
+    reconciliation: CoverageReconciliation,
+    issues: tuple[CoverageLedgerIssue, ...],
+) -> str:
+    return (
+        json.dumps(
+            {
+                "schema_version": 1,
+                "valid": not issues,
+                "issues": [issue.model_dump(mode="json") for issue in issues],
+                "sources": [
+                    {
+                        "source_id": source.source_id,
+                        "title": source.title,
+                        "baseline": source.baseline.model_dump(mode="json"),
+                        "current": source.current.model_dump(mode="json"),
+                        "delta": source.delta.model_dump(mode="json"),
+                        "changed_items": [
+                            item.model_dump(mode="json")
+                            for item in source.changed_items
+                        ],
+                    }
+                    for source in reconciliation.sources
+                ],
+                "artifacts": [
+                    {
+                        "label": artifact.label,
+                        "path": artifact.path,
+                    }
+                    for artifact in reconciliation.artifacts
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+
+
 def _emit_failure(
     output_format: CoverageDisplayFormat,
     ledger: CoverageLedger | None,
@@ -297,6 +442,20 @@ def _emit_failure(
 
 def _echo_issues(issues: tuple[CoverageLedgerIssue, ...]) -> None:
     for issue in issues:
+        typer.echo(f"{issue.code}: {issue.message}", err=True)
+
+
+def _echo_reconciliation_issues(issues: tuple[CoverageLedgerIssue, ...]) -> None:
+    for issue in issues:
+        if issue.source_id is not None:
+            typer.echo(
+                f"{issue.code}: {issue.source_id}: {issue.message}",
+                err=True,
+            )
+            continue
+        if issue.path is not None:
+            typer.echo(f"{issue.code}: {issue.path}: {issue.message}", err=True)
+            continue
         typer.echo(f"{issue.code}: {issue.message}", err=True)
 
 

@@ -298,14 +298,18 @@ Validate or inspect the shipped ledger with:
 ```bash
 webconf-audit coverage validate
 webconf-audit coverage validate --format json
+webconf-audit coverage reconcile --check
+webconf-audit coverage reconcile --check --format json
+webconf-audit coverage reconcile --write
 webconf-audit coverage show --source owasp-asvs-5.0.0
 webconf-audit coverage show --status partial --format json
 webconf-audit coverage export --format markdown
 ```
 
 Custom local ledgers can be supplied with `--ledger PATH`. Exports refuse to
-overwrite an existing file unless `--force` is given. The generated
-human-readable view remains available at
+overwrite an existing file unless `--force` is given. The `reconcile`
+maintainer command checks or atomically rewrites the tracked coverage
+documents from the packaged ledger. The generated human-readable view remains available at
 [docs/control-source-coverage-tracker.md](docs/control-source-coverage-tracker.md);
 the methodology and headline summary are documented in
 [docs/benchmarks-covering.md](docs/benchmarks-covering.md).

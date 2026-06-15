@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
+import os
 from pathlib import Path
 
 import pytest
@@ -13,15 +14,18 @@ import yaml
 
 from webconf_audit.coverage_ledger import (
     CoverageLedgerLoadError,
+    check_coverage_reconciliation,
     check_coverage_documentation,
     load_coverage_ledger,
+    reconcile_coverage_documents,
     render_coverage_markdown,
     render_coverage_json,
     summarize_coverage,
     validate_coverage_ledger,
+    write_coverage_reconciliation,
     write_coverage_output,
 )
-from webconf_audit.coverage_models import CoverageLedger
+from webconf_audit.coverage_models import CoverageLedger, CoverageReconciliation
 from webconf_audit.rule_registry import RuleMeta, RuleRegistry, StandardReference
 from webconf_audit.standard_catalog import is_valid_ledger_reference
 
@@ -602,6 +606,23 @@ def test_render_coverage_markdown_is_deterministic_and_escapes_tables() -> None:
     assert "Header A \\| Header B<br>Observed." in first
 
 
+def test_coverage_ledger_rejects_implemented_subclaim_without_binding() -> None:
+    payload = _ledger_payload()
+    payload["sources"][0]["items"][0]["subclaims"] = [  # type: ignore[index]
+        {
+            "subclaim_id": "asvs-hsts-complete",
+            "title": "All mandatory HSTS evidence is implemented.",
+            "mandatory": True,
+            "implemented": True,
+            "bindings": [],
+            "limitations": [],
+        }
+    ]
+
+    with pytest.raises(ValueError, match="Implemented subclaims require at least one binding"):
+        CoverageLedger.model_validate(payload)
+
+
 def test_packaged_ledger_splits_apache_authorization_sections() -> None:
     ledger = load_coverage_ledger()
     apache_source = next(
@@ -619,6 +640,232 @@ def test_packaged_ledger_splits_apache_authorization_sections() -> None:
         "deployment" in limitation.lower() or "application" in limitation.lower()
         for limitation in items["apache-4.2-web-content-access"].evidence.limitations
     )
+
+
+def test_packaged_ledger_matches_final_reconciled_source_counts() -> None:
+    summaries = {
+        summary.source_id: summary.model_dump(mode="json")
+        for summary in summarize_coverage(load_coverage_ledger())
+    }
+
+    assert summaries == {
+        "cis-nginx-3.0.0": {
+            "source_id": "cis-nginx-3.0.0",
+            "title": "CIS NGINX Benchmark v3.0.0",
+            "applicable": 15,
+            "full": 8,
+            "partial": 6,
+            "policy_review": 1,
+            "uncovered": 0,
+            "excluded": 0,
+            "full_percent": "53.3",
+        },
+        "cis-apache-http-server-2.4-2.3.0": {
+            "source_id": "cis-apache-http-server-2.4-2.3.0",
+            "title": "CIS Apache HTTP Server 2.4 Benchmark v2.3.0",
+            "applicable": 20,
+            "full": 19,
+            "partial": 1,
+            "policy_review": 0,
+            "uncovered": 0,
+            "excluded": 0,
+            "full_percent": "95.0",
+        },
+        "cis-microsoft-iis-10-1.2.1": {
+            "source_id": "cis-microsoft-iis-10-1.2.1",
+            "title": "CIS Microsoft IIS 10 Benchmark v1.2.1",
+            "applicable": 10,
+            "full": 9,
+            "partial": 0,
+            "policy_review": 0,
+            "uncovered": 1,
+            "excluded": 0,
+            "full_percent": "90.0",
+        },
+        "owasp-top10-2025": {
+            "source_id": "owasp-top10-2025",
+            "title": "OWASP Top 10:2025",
+            "applicable": 8,
+            "full": 0,
+            "partial": 8,
+            "policy_review": 0,
+            "uncovered": 0,
+            "excluded": 2,
+            "full_percent": "0.0",
+        },
+        "owasp-asvs-5.0.0": {
+            "source_id": "owasp-asvs-5.0.0",
+            "title": "OWASP ASVS v5.0.0",
+            "applicable": 22,
+            "full": 14,
+            "partial": 8,
+            "policy_review": 0,
+            "uncovered": 0,
+            "excluded": 0,
+            "full_percent": "63.6",
+        },
+        "nist-sp-800-52r2": {
+            "source_id": "nist-sp-800-52r2",
+            "title": "NIST SP 800-52 Rev. 2",
+            "applicable": 10,
+            "full": 6,
+            "partial": 4,
+            "policy_review": 0,
+            "uncovered": 0,
+            "excluded": 0,
+            "full_percent": "60.0",
+        },
+        "pci-dss-4.0.1": {
+            "source_id": "pci-dss-4.0.1",
+            "title": "PCI DSS v4.0.1",
+            "applicable": 11,
+            "full": 0,
+            "partial": 9,
+            "policy_review": 0,
+            "uncovered": 2,
+            "excluded": 2,
+            "full_percent": "0.0",
+        },
+        "iso-iec-27002-2022": {
+            "source_id": "iso-iec-27002-2022",
+            "title": "ISO/IEC 27002:2022",
+            "applicable": 10,
+            "full": 8,
+            "partial": 2,
+            "policy_review": 0,
+            "uncovered": 0,
+            "excluded": 0,
+            "full_percent": "80.0",
+        },
+    }
+
+
+def test_check_coverage_reconciliation_requires_frozen_accepted_revisions() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    snapshot = ledger.snapshot.model_copy(
+        update={"accepted_revisions": ledger.snapshot.accepted_revisions[:-1]}
+    )
+
+    issues = check_coverage_reconciliation(
+        ledger.model_copy(update={"snapshot": snapshot}),
+        registry,
+        compare_tracked=False,
+    )
+
+    assert "accepted_revisions_missing" in {issue.code for issue in issues}
+
+
+def test_validate_coverage_ledger_requires_denominator_reason_for_program_delta() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id == "cis-apache-http-server-2.4-2.3.0":
+            source = source.model_copy(update={"denominator_notes": ()})
+        sources.append(source)
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert "missing_denominator_change_reason" in {issue.code for issue in issues}
+
+
+def test_reconcile_coverage_documents_renders_final_deltas() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    reconciliation = reconcile_coverage_documents(load_coverage_ledger(), registry)
+
+    assert isinstance(reconciliation, CoverageReconciliation)
+    assert len(reconciliation.artifacts) == 3
+    assert "## Final Counted Coverage Reconciliation (2026-06-16)" in next(
+        artifact.content
+        for artifact in reconciliation.artifacts
+        if artifact.label == "standards-roadmap-final-reconciliation"
+    )
+    nist = next(
+        source
+        for source in reconciliation.sources
+        if source.source_id == "nist-sp-800-52r2"
+    )
+    assert nist.baseline.full == 10
+    assert nist.current.full == 6
+    assert nist.delta.full == -4
+    assert any(
+        item.item_id == "apache-2.1-module-minimization"
+        and item.from_status == "partial"
+        and item.to_status == "full"
+        for source in reconciliation.sources
+        for item in source.changed_items
+    )
+
+
+def test_packaged_ledger_keeps_iis_ftp_uncovered_and_unbound() -> None:
+    ledger = load_coverage_ledger()
+    source = next(
+        entry
+        for entry in ledger.sources
+        if entry.source_id == "cis-microsoft-iis-10-1.2.1"
+    )
+    item = next(
+        entry
+        for entry in source.items
+        if entry.item_id == "iis-6.1-ftp-encryption-logon-restrictions"
+    )
+
+    assert item.applicability == "applicable"
+    assert item.status == "uncovered"
+    assert item.evidence.rule_ids == ()
+    assert item.evidence.assessment_rules == ()
+    assert item.evidence.assessment_controls == ()
+
+
+def test_check_coverage_reconciliation_detects_prohibited_language(
+    tmp_path: Path,
+) -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    repo_root = Path(__file__).resolve().parents[1]
+    (tmp_path / "docs").mkdir()
+    for relative in (
+        "README.md",
+        "docs/architecture.md",
+        "docs/benchmarks-covering.md",
+        "docs/control-source-coverage-tracker.md",
+        "docs/standards-roadmap.md",
+    ):
+        source = repo_root / relative
+        target = tmp_path / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    benchmark = tmp_path / "docs" / "benchmarks-covering.md"
+    benchmark.write_text(
+        benchmark.read_text(encoding="utf-8").replace(
+            "does not certify CIS, OWASP, ASVS, NIST, PCI DSS, or ISO compliance.",
+            "the project is NIST compliant.",
+        ),
+        encoding="utf-8",
+    )
+
+    issues = check_coverage_reconciliation(
+        load_coverage_ledger(),
+        registry,
+        repo_root=tmp_path,
+    )
+
+    assert "prohibited_compliance_language" in {issue.code for issue in issues}
 
 
 def test_check_coverage_documentation_detects_tracker_and_summary_drift(
@@ -670,6 +917,89 @@ def test_check_coverage_documentation_detects_extra_benchmark_source(
 
     assert [issue.code for issue in issues] == ["benchmark_summary_drift"]
     assert "Removed source" in issues[0].message
+
+
+def test_write_coverage_reconciliation_rolls_back_on_replace_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    first = tmp_path / "first.md"
+    second = tmp_path / "second.md"
+    first.write_text("first-old\n", encoding="utf-8")
+    second.write_text("second-old\n", encoding="utf-8")
+    reconciliation = CoverageReconciliation(
+        sources=(
+            reconcile_coverage_documents(  # type: ignore[arg-type]
+                load_coverage_ledger(),
+                _registry(),
+                repo_root=Path(__file__).resolve().parents[1],
+            ).sources[0],
+        ),
+        artifacts=(
+            {
+                "label": "first-artifact",
+                "path": str(first),
+                "content": "first-new\n",
+            },
+            {
+                "label": "second-artifact",
+                "path": str(second),
+                "content": "second-new\n",
+            },
+        ),
+    )
+    real_replace = os.replace
+    calls = {"count": 0}
+
+    def failing_replace(src, dst):
+        calls["count"] += 1
+        if calls["count"] == 4:
+            raise OSError("simulated publish failure")
+        return real_replace(src, dst)
+
+    monkeypatch.setattr("webconf_audit.coverage_ledger.os.replace", failing_replace)
+
+    issues = write_coverage_reconciliation(reconciliation)
+
+    assert [issue.code for issue in issues] == ["reconciliation_write_failed"]
+    assert first.read_text(encoding="utf-8") == "first-old\n"
+    assert second.read_text(encoding="utf-8") == "second-old\n"
+
+
+def test_write_coverage_reconciliation_reports_cross_drive_staging_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source = reconcile_coverage_documents(  # type: ignore[arg-type]
+        load_coverage_ledger(),
+        _registry(),
+        repo_root=Path(__file__).resolve().parents[1],
+    ).sources[0]
+    reconciliation = CoverageReconciliation(
+        sources=(source,),
+        artifacts=(
+            {
+                "label": "first-artifact",
+                "path": str(tmp_path / "first.md"),
+                "content": "first-new\n",
+            },
+            {
+                "label": "second-artifact",
+                "path": str(tmp_path / "second.md"),
+                "content": "second-new\n",
+            },
+        ),
+    )
+
+    def fail_commonpath(paths: list[str]) -> str:
+        raise ValueError("Paths don't have the same drive")
+
+    monkeypatch.setattr("webconf_audit.coverage_ledger.os.path.commonpath", fail_commonpath)
+
+    issues = write_coverage_reconciliation(reconciliation)
+
+    assert [issue.code for issue in issues] == ["reconciliation_write_failed"]
+    assert "different drives" in issues[0].message
 
 
 def test_write_coverage_output_refuses_existing_file(tmp_path: Path) -> None:

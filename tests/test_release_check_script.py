@@ -31,7 +31,8 @@ def test_release_check_dry_run_lists_packaging_smoke_steps() -> None:
     assert "webconf-audit list-rules --format json" in output
     assert "Validate installed rule crosswalk" in output
     assert "Validate installed coverage ledger" in output
-    assert "webconf-audit coverage validate --format json" in output
+    assert "webconf-audit coverage reconcile --check --format json" in output
+    assert "--repo-root" in output
     assert "webconf-audit analyze-iis" in output
     assert "--no-tls-registry --format json" in output
 

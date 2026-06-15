@@ -157,41 +157,77 @@ This document does not duplicate those mappings. It only references them when
 a row crosses standards (for example, the same TLS rule that already cites
 ASVS v5.0.0-12.1.1 is also a NIST SP 800-52 Rev. 2 §3.1 candidate).
 
+<!-- BEGIN GENERATED: coverage-snapshot -->
 ### 4.1 Current coverage snapshot
 
-The current snapshot is computed from the packaged coverage ledger. It retains
-the pre-diploma coverage denominator and full numerator while separating the
-evidence states more precisely. The
-denominator contains only applicable items after explicitly out-of-scope items
-are removed. The numerator contains only fully covered items; partial evidence
-and opt-in policy review are tracked separately and do not increase the
-full-coverage percentage.
+The final post-program snapshot is computed from the packaged coverage ledger. It reports scanner-evidence coverage within the documented scope; it does not certify CIS, OWASP, ASVS, NIST, PCI DSS, or ISO compliance.
 
-PR #7 strengthened the OpenAPI / Swagger documentation-endpoint probes and the
-ASVS v5.0.0-13.4.5 evidence trail, but it did not change the conservative
-full-coverage numerator.
-
-Follow-up 07 adds policy-backed Nginx sensitive-location assessments for an
-operator-supplied route catalog. Those per-target results strengthen declared
-route evidence for access-control and documentation-endpoint decisions without
-changing the counted coverage numerator or promoting CIS NGINX В§5.1.1 beyond
-`partial`.
+Historical PR #9 before snapshot:
 
 | Control source | Applicable items | Fully covered | Partially covered | Policy review | Uncovered | Full coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
-| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 18 | 2 | 0 | 0 | 90.0% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 19 | 17 | 2 | 0 | 0 | 89.5% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
+| OWASP Top 10:2025 | 8 | 2 | 6 | 0 | 0 | 25.0% |
+| OWASP ASVS v5.0.0 | 22 | 15 | 7 | 0 | 0 | 68.2% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
+| PCI DSS v4.0.1 | 11 | 11 | 0 | 0 | 0 | 100.0% |
+| ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
+
+Final reconciled snapshot (accepted follow-ups 01-13 frozen in the standards roadmap section below):
+
+| Control source | Applicable items | Fully covered | Partially covered | Policy review | Uncovered | Full coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | 15 | 8 | 6 | 1 | 0 | 53.3% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 19 | 1 | 0 | 0 | 95.0% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
 | OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
-| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
+| NIST SP 800-52 Rev. 2 | 10 | 6 | 4 | 0 | 0 | 60.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
-Each source reconciles as `Applicable = Full + Partial + Policy review +
-Uncovered`. Excluded items do not enter the applicable denominator. The
-counted-item ledger and evidence rationale are recorded in
-`docs/control-source-coverage-tracker.md`.
+Per-source numerator and denominator deltas vs PR #9:
+
+| Control source | Applicable delta | Full delta | Partial delta | Policy review delta | Uncovered delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | +0 | +1 | -1 | +0 | +0 |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | +1 | +2 | -1 | +0 | +0 |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | +0 | +1 | -1 | +0 | +0 |
+| OWASP Top 10:2025 | +0 | -2 | +2 | +0 | +0 |
+| OWASP ASVS v5.0.0 | +0 | -1 | +1 | +0 | +0 |
+| NIST SP 800-52 Rev. 2 | +0 | -4 | +4 | +0 | +0 |
+| PCI DSS v4.0.1 | +0 | -11 | +9 | +0 | +2 |
+| ISO/IEC 27002:2022 | +0 | +0 | +0 | +0 | +0 |
+
+Status changes finalized by this recount:
+
+| Counted item | Source | Status change | Accepted implementation |
+| --- | --- | --- | --- |
+| `nginx-4.1.2-trusted-certificate-chain` Trusted certificate chain | CIS NGINX Benchmark v3.0.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
+| `apache-2.1-module-minimization` Module minimization | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
+| `iis-7.1-schannel-tls` SChannel TLS posture | CIS Microsoft IIS 10 Benchmark v1.2.1 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
+| `nist-3.3.1-recommended-cipher-posture` Recommended cipher posture | NIST SP 800-52 Rev. 2 | `full` -> `partial` | `followup-14-final-cross-standard-reconciliation` |
+| `nist-3.3.2-server-cipher-preference` Server cipher preference | NIST SP 800-52 Rev. 2 | `full` -> `partial` | `followup-14-final-cross-standard-reconciliation` |
+| `nist-4.2-ocsp-must-staple` OCSP and must-staple | NIST SP 800-52 Rev. 2 | `full` -> `partial` | `followup-14-final-cross-standard-reconciliation` |
+| `nist-4.3-revocation-evidence` Revocation evidence | NIST SP 800-52 Rev. 2 | `full` -> `partial` | `followup-14-final-cross-standard-reconciliation` |
+
+Explicit denominator changes:
+
+| Source | Applicable delta | Reason |
+| --- | ---: | --- |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | +1 | Follow-up 11 split the historical Apache 4.1/4.2 grouped row into two counted items without automatically increasing the full numerator. (`followup-11-apache-root-authorization-baseline`) |
+
+Unchanged conservative boundaries remain explicit in the ledger:
+
+- IIS FTP Section 6.1 / 6.2 remains one applicable `uncovered` item in the IIS denominator.
+- OWASP Top 10:2025 remains bounded category alignment rather than application-wide coverage proof.
+- ASVS TLS cipher and revocation groups stay `partial` where only bounded runtime evidence is available.
+- PCI DSS organizational, governance, and password-reset process controls remain outside scanner-evidence `full` coverage.
+
+Each source reconciles as `Applicable = Full + Partial + Policy review + Uncovered`. Excluded items do not enter the applicable denominator. The counted-item ledger and evidence rationale are recorded in `docs/control-source-coverage-tracker.md`.
+<!-- END GENERATED: coverage-snapshot -->
 
 ## 5. Standards not yet planned — candidate coverage
 

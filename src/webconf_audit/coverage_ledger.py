@@ -19,12 +19,18 @@ from yaml.resolver import BaseResolver
 from yaml.tokens import AliasToken, AnchorToken, ScalarToken, TagToken
 
 from webconf_audit.coverage_models import (
+    CoverageReconciliation,
     CoverageItem,
     CoverageLedger,
     CoverageLedgerIssue,
+    CoverageStatusChange,
     CoverageSource,
+    GeneratedCoverageArtifact,
+    ReconciledSourceCoverage,
     RegistryReferenceClaim,
+    SourceCoverageDelta,
     SourceCoverageSummary,
+    SourceRecount,
 )
 from webconf_audit.rule_registry import RuleRegistry
 from webconf_audit.standard_catalog import (
@@ -35,6 +41,142 @@ from webconf_audit.standard_catalog import (
 DEFAULT_LEDGER_MAX_BYTES = 2 * 1024 * 1024
 _PACKAGED_LEDGER = "control_source_coverage.yml"
 _APPLICABLE_STATUSES = ("full", "partial", "policy-review", "uncovered")
+_RECONCILIATION_SNAPSHOT_BEGIN = "<!-- BEGIN GENERATED: coverage-snapshot -->"
+_RECONCILIATION_SNAPSHOT_END = "<!-- END GENERATED: coverage-snapshot -->"
+_RECONCILIATION_ROADMAP_BEGIN = (
+    "<!-- BEGIN GENERATED: final-coverage-reconciliation -->"
+)
+_RECONCILIATION_ROADMAP_END = "<!-- END GENERATED: final-coverage-reconciliation -->"
+_FINAL_CHANGE_REF = "followup-14-final-cross-standard-reconciliation"
+_PROGRAM_BASELINE_RECOUNTS: tuple[SourceRecount, ...] = (
+    SourceRecount(
+        source_id="cis-nginx-3.0.0",
+        title="CIS NGINX Benchmark v3.0.0",
+        version="3.0.0",
+        applicable=15,
+        full=7,
+        partial=7,
+        policy_review=1,
+        uncovered=0,
+        excluded=0,
+        full_percent=Decimal("46.7"),
+    ),
+    SourceRecount(
+        source_id="cis-apache-http-server-2.4-2.3.0",
+        title="CIS Apache HTTP Server 2.4 Benchmark v2.3.0",
+        version="2.3.0",
+        applicable=19,
+        full=17,
+        partial=2,
+        policy_review=0,
+        uncovered=0,
+        excluded=0,
+        full_percent=Decimal("89.5"),
+    ),
+    SourceRecount(
+        source_id="cis-microsoft-iis-10-1.2.1",
+        title="CIS Microsoft IIS 10 Benchmark v1.2.1",
+        version="1.2.1",
+        applicable=10,
+        full=8,
+        partial=1,
+        policy_review=0,
+        uncovered=1,
+        excluded=0,
+        full_percent=Decimal("80.0"),
+    ),
+    SourceRecount(
+        source_id="owasp-top10-2025",
+        title="OWASP Top 10:2025",
+        version="2025",
+        applicable=8,
+        full=2,
+        partial=6,
+        policy_review=0,
+        uncovered=0,
+        excluded=2,
+        full_percent=Decimal("25.0"),
+    ),
+    SourceRecount(
+        source_id="owasp-asvs-5.0.0",
+        title="OWASP ASVS v5.0.0",
+        version="5.0.0",
+        applicable=22,
+        full=15,
+        partial=7,
+        policy_review=0,
+        uncovered=0,
+        excluded=0,
+        full_percent=Decimal("68.2"),
+    ),
+    SourceRecount(
+        source_id="nist-sp-800-52r2",
+        title="NIST SP 800-52 Rev. 2",
+        version="Rev. 2",
+        applicable=10,
+        full=10,
+        partial=0,
+        policy_review=0,
+        uncovered=0,
+        excluded=0,
+        full_percent=Decimal("100.0"),
+    ),
+    SourceRecount(
+        source_id="pci-dss-4.0.1",
+        title="PCI DSS v4.0.1",
+        version="4.0.1",
+        applicable=11,
+        full=11,
+        partial=0,
+        policy_review=0,
+        uncovered=0,
+        excluded=2,
+        full_percent=Decimal("100.0"),
+    ),
+    SourceRecount(
+        source_id="iso-iec-27002-2022",
+        title="ISO/IEC 27002:2022",
+        version="2022",
+        applicable=10,
+        full=8,
+        partial=2,
+        policy_review=0,
+        uncovered=0,
+        excluded=0,
+        full_percent=Decimal("80.0"),
+    ),
+)
+_FINAL_STATUS_BASELINE_BY_ITEM: dict[str, str] = {
+    "nginx-4.1.2-trusted-certificate-chain": "partial",
+    "apache-2.1-module-minimization": "partial",
+    "iis-7.1-schannel-tls": "partial",
+    "nist-3.3.1-recommended-cipher-posture": "full",
+    "nist-3.3.2-server-cipher-preference": "full",
+    "nist-4.2-ocsp-must-staple": "full",
+    "nist-4.3-revocation-evidence": "full",
+}
+_PROHIBITED_COMPLIANCE_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("cis compliant", "Use scanner-evidence coverage wording, not compliance claims."),
+    ("owasp compliant", "Use scanner-evidence coverage wording, not compliance claims."),
+    ("asvs certified", "Use scanner-evidence coverage wording, not certification claims."),
+    ("nist compliant", "Use scanner-evidence coverage wording, not compliance claims."),
+    ("pci dss compliant", "Use scanner-evidence coverage wording, not compliance claims."),
+    ("iso 27002 compliant", "Use scanner-evidence coverage wording, not compliance claims."),
+    (
+        "fully implements the organizational control",
+        "Keep ISO and similar mappings bounded to technical-control alignment.",
+    ),
+    (
+        "all tls endpoints are secure",
+        "Bound TLS statements to the declared inventory and observed scope.",
+    ),
+)
+_ALLOWED_NEGATION_SNIPPETS = (
+    "does not certify compliance",
+    "not a claim of certification",
+    "does not emit a compliance percentage",
+    "does not claim",
+)
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):
@@ -178,6 +320,7 @@ def validate_coverage_ledger(
     issues: list[CoverageLedgerIssue] = []
     seen_sources: set[str] = set()
     seen_items: set[str] = set()
+    enforce_program_baseline = bool(ledger.snapshot.accepted_revisions)
     for source in ledger.sources:
         if source.source_id in seen_sources:
             issues.append(
@@ -199,7 +342,13 @@ def validate_coverage_ledger(
                     )
                 )
             seen_items.add(item.item_id)
-        issues.extend(_validate_source(source, registry))
+        issues.extend(
+            _validate_source(
+                source,
+                registry,
+                enforce_program_baseline=enforce_program_baseline,
+            )
+        )
     return tuple(sorted(set(issues), key=_issue_sort_key))
 
 
@@ -229,8 +378,7 @@ def render_coverage_markdown(ledger: CoverageLedger) -> str:
     lines = [
         "<!-- Generated from "
         "src/webconf_audit/data/control_source_coverage.yml; "
-        "refresh with `webconf-audit coverage export --format markdown "
-        "--output docs/control-source-coverage-tracker.md --force`. -->",
+        "refresh with `webconf-audit coverage reconcile --write`. -->",
         "# Control Source Coverage Tracker",
         "",
         "This generated view summarizes scanner-evidence coverage within the "
@@ -376,6 +524,119 @@ def check_coverage_documentation(
     return tuple(sorted(set(issues), key=_issue_sort_key))
 
 
+def reconcile_coverage_documents(
+    ledger: CoverageLedger,
+    registry: RuleRegistry,
+    *,
+    repo_root: Path | None = None,
+) -> CoverageReconciliation:
+    """Render the synchronized final coverage snapshot artifacts."""
+    del registry  # Reserved for future typed reconciliation checks.
+    repo_root = repo_root or Path(__file__).resolve().parents[2]
+    baseline_by_source = {
+        recount.source_id: recount for recount in _PROGRAM_BASELINE_RECOUNTS
+    }
+    reconciled_sources: list[ReconciledSourceCoverage] = []
+    for source in ledger.sources:
+        baseline = baseline_by_source.get(source.source_id)
+        if baseline is None:
+            baseline = _source_recount(source)
+        current = _source_recount(source)
+        changed_items = tuple(
+            CoverageStatusChange(
+                source_id=source.source_id,
+                item_id=item.item_id,
+                title=item.title,
+                from_status=_FINAL_STATUS_BASELINE_BY_ITEM[item.item_id],  # type: ignore[arg-type]
+                to_status=item.status,
+                change_ref=item.provenance.change_ref,
+            )
+            for item in source.items
+            if item.item_id in _FINAL_STATUS_BASELINE_BY_ITEM
+        )
+        reconciled_sources.append(
+            ReconciledSourceCoverage(
+                source_id=source.source_id,
+                title=source.title,
+                baseline=baseline,
+                current=current,
+                delta=_source_delta(baseline, current),
+                changed_items=changed_items,
+                denominator_notes=source.denominator_notes,
+            )
+        )
+    reconciliation = CoverageReconciliation(
+        sources=tuple(reconciled_sources),
+        artifacts=(
+            GeneratedCoverageArtifact(
+                label="coverage-tracker",
+                path=str(repo_root / "docs" / "control-source-coverage-tracker.md"),
+                content=render_coverage_markdown(ledger),
+            ),
+            GeneratedCoverageArtifact(
+                label="benchmarks-snapshot",
+                path=str(repo_root / "docs" / "benchmarks-covering.md"),
+                content=_render_benchmark_document(
+                    repo_root / "docs" / "benchmarks-covering.md",
+                    tuple(reconciled_sources),
+                ),
+            ),
+            GeneratedCoverageArtifact(
+                label="standards-roadmap-final-reconciliation",
+                path=str(repo_root / "docs" / "standards-roadmap.md"),
+                content=_render_standards_roadmap_document(
+                    repo_root / "docs" / "standards-roadmap.md",
+                    ledger,
+                    tuple(reconciled_sources),
+                ),
+            ),
+        ),
+    )
+    return reconciliation
+
+
+def check_coverage_reconciliation(
+    ledger: CoverageLedger,
+    registry: RuleRegistry,
+    *,
+    repo_root: Path | None = None,
+    compare_tracked: bool = True,
+) -> tuple[CoverageLedgerIssue, ...]:
+    """Validate the final reconciliation state across ledger and synced docs."""
+    repo_root = repo_root or Path(__file__).resolve().parents[2]
+    issues = list(validate_coverage_ledger(ledger, registry))
+    reconciliation = reconcile_coverage_documents(
+        ledger,
+        registry,
+        repo_root=repo_root,
+    )
+    issues.extend(_validate_acceptance_freeze(ledger))
+    issues.extend(_validate_iis_ftp_invariant(ledger))
+    if compare_tracked:
+        issues.extend(_compare_reconciled_artifacts(reconciliation))
+        issues.extend(
+            _scan_prohibited_compliance_language(
+                (
+                    repo_root / "README.md",
+                    repo_root / "docs" / "architecture.md",
+                    repo_root / "docs" / "benchmarks-covering.md",
+                    repo_root / "docs" / "control-source-coverage-tracker.md",
+                    repo_root / "docs" / "standards-roadmap.md",
+                )
+            )
+        )
+    else:
+        issues.extend(
+            _scan_prohibited_compliance_texts(
+                tuple(
+                    (artifact.path, artifact.content)
+                    for artifact in reconciliation.artifacts
+                )
+            )
+        )
+    return tuple(sorted(set(issues), key=_issue_sort_key))
+
+
 def write_coverage_output(
     path: Path,
     content: str,
@@ -431,9 +692,508 @@ def write_coverage_output(
     return None
 
 
+def write_coverage_reconciliation(
+    reconciliation: CoverageReconciliation,
+) -> tuple[CoverageLedgerIssue, ...]:
+    """Replace all rendered reconciliation artifacts as one atomic unit."""
+    outputs = {
+        Path(artifact.path): artifact.content for artifact in reconciliation.artifacts
+    }
+    issues = _preflight_reconciliation_outputs(outputs)
+    if issues:
+        return issues
+
+    try:
+        with tempfile.TemporaryDirectory(
+            dir=str(_common_output_root(outputs))
+        ) as temp_root_name:
+            temp_root = Path(temp_root_name)
+            staged: dict[Path, Path] = {}
+            backups: dict[Path, Path] = {}
+            replaced: list[Path] = []
+            for output_path, content in outputs.items():
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                staged_path = temp_root / f"{len(staged):02d}-{output_path.name}"
+                with staged_path.open("w", encoding="utf-8", newline="\n") as handle:
+                    handle.write(content)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                staged[output_path] = staged_path
+
+            try:
+                for output_path in sorted(outputs):
+                    if output_path.exists():
+                        backup_path = temp_root / f"backup-{len(backups):02d}-{output_path.name}"
+                        os.replace(output_path, backup_path)
+                        backups[output_path] = backup_path
+                    os.replace(staged[output_path], output_path)
+                    replaced.append(output_path)
+            except OSError as exc:
+                for output_path in reversed(replaced):
+                    try:
+                        output_path.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+                    backup = backups.get(output_path)
+                    if backup is not None and backup.exists():
+                        os.replace(backup, output_path)
+                for output_path, backup in backups.items():
+                    if output_path not in replaced and backup.exists():
+                        os.replace(backup, output_path)
+                return (
+                    CoverageLedgerIssue(
+                        code="reconciliation_write_failed",
+                        message=(
+                            "Could not atomically publish reconciled coverage "
+                            f"artifacts: {exc}"
+                        ),
+                    ),
+                )
+    except OSError as exc:
+        return (
+            CoverageLedgerIssue(
+                code="reconciliation_write_failed",
+                message=(
+                    "Could not stage reconciled coverage artifacts for atomic "
+                    f"publish: {exc}"
+                ),
+            ),
+        )
+    return ()
+
+
+def _source_recount(source: CoverageSource) -> SourceRecount:
+    summary = _summarize_source(source)
+    return SourceRecount(
+        source_id=source.source_id,
+        title=source.title,
+        version=source.version,
+        applicable=summary.applicable,
+        full=summary.full,
+        partial=summary.partial,
+        policy_review=summary.policy_review,
+        uncovered=summary.uncovered,
+        excluded=summary.excluded,
+        full_percent=summary.full_percent,
+    )
+
+
+def _source_delta(
+    baseline: SourceRecount,
+    current: SourceRecount,
+) -> SourceCoverageDelta:
+    return SourceCoverageDelta(
+        applicable=current.applicable - baseline.applicable,
+        full=current.full - baseline.full,
+        partial=current.partial - baseline.partial,
+        policy_review=current.policy_review - baseline.policy_review,
+        uncovered=current.uncovered - baseline.uncovered,
+        excluded=current.excluded - baseline.excluded,
+    )
+
+
+def _render_benchmark_document(
+    path: Path,
+    sources: tuple[ReconciledSourceCoverage, ...],
+) -> str:
+    text = path.read_text(encoding="utf-8")
+    generated = _render_benchmark_snapshot_section(sources)
+    return _replace_generated_section(
+        text,
+        _RECONCILIATION_SNAPSHOT_BEGIN,
+        _RECONCILIATION_SNAPSHOT_END,
+        generated,
+    )
+
+
+def _render_standards_roadmap_document(
+    path: Path,
+    ledger: CoverageLedger,
+    sources: tuple[ReconciledSourceCoverage, ...],
+) -> str:
+    text = path.read_text(encoding="utf-8")
+    generated = _render_standards_reconciliation_section(ledger, sources)
+    return _replace_generated_section(
+        text,
+        _RECONCILIATION_ROADMAP_BEGIN,
+        _RECONCILIATION_ROADMAP_END,
+        generated,
+    )
+
+
+def _render_benchmark_snapshot_section(
+    sources: tuple[ReconciledSourceCoverage, ...],
+) -> str:
+    changed_items = [
+        change
+        for source in sources
+        for change in source.changed_items
+    ]
+    denominator_notes = [
+        (source.title, note)
+        for source in sources
+        for note in source.denominator_notes
+    ]
+    lines = [
+        "### 4.1 Current coverage snapshot",
+        "",
+        "The final post-program snapshot is computed from the packaged coverage "
+        "ledger. It reports scanner-evidence coverage within the documented "
+        "scope; it does not certify CIS, OWASP, ASVS, NIST, PCI DSS, or ISO "
+        "compliance.",
+        "",
+        "Historical PR #9 before snapshot:",
+        "",
+        "| Control source | Applicable items | Fully covered | Partially covered | Policy review | Uncovered | Full coverage |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for source in sources:
+        baseline = source.baseline
+        lines.append(
+            f"| {_markdown_cell(source.title)} | {baseline.applicable} | {baseline.full} | "
+            f"{baseline.partial} | {baseline.policy_review} | {baseline.uncovered} | "
+            f"{baseline.full_percent:.1f}% |"
+        )
+    lines.extend(
+        [
+            "",
+            "Final reconciled snapshot (accepted follow-ups 01-13 frozen in the "
+            "standards roadmap section below):",
+            "",
+            "| Control source | Applicable items | Fully covered | Partially covered | Policy review | Uncovered | Full coverage |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for source in sources:
+        current = source.current
+        lines.append(
+            f"| {_markdown_cell(source.title)} | {current.applicable} | {current.full} | "
+            f"{current.partial} | {current.policy_review} | {current.uncovered} | "
+            f"{current.full_percent:.1f}% |"
+        )
+    lines.extend(
+        [
+            "",
+            "Per-source numerator and denominator deltas vs PR #9:",
+            "",
+            "| Control source | Applicable delta | Full delta | Partial delta | Policy review delta | Uncovered delta |",
+            "| --- | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for source in sources:
+        delta = source.delta
+        lines.append(
+            f"| {_markdown_cell(source.title)} | {delta.applicable:+d} | {delta.full:+d} | "
+            f"{delta.partial:+d} | {delta.policy_review:+d} | {delta.uncovered:+d} |"
+        )
+    if changed_items:
+        lines.extend(
+            [
+                "",
+                "Status changes finalized by this recount:",
+                "",
+                "| Counted item | Source | Status change | Accepted implementation |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
+        for change in changed_items:
+            lines.append(
+                f"| `{change.item_id}` { _markdown_cell(change.title)} | "
+                f"{_markdown_cell(next(source.title for source in sources if source.source_id == change.source_id))} | "
+                f"`{change.from_status}` -> `{change.to_status}` | `{change.change_ref}` |"
+            )
+    if denominator_notes:
+        lines.extend(
+            [
+                "",
+                "Explicit denominator changes:",
+                "",
+                "| Source | Applicable delta | Reason |",
+                "| --- | ---: | --- |",
+            ]
+        )
+        for title, note in denominator_notes:
+            lines.append(
+                f"| {_markdown_cell(title)} | {note.delta_applicable:+d} | "
+                f"{_markdown_cell(note.reason)} (`{note.change_ref}`) |"
+            )
+    lines.extend(
+        [
+            "",
+            "Unchanged conservative boundaries remain explicit in the ledger:",
+            "",
+            "- IIS FTP Section 6.1 / 6.2 remains one applicable `uncovered` item in the IIS denominator.",
+            "- OWASP Top 10:2025 remains bounded category alignment rather than application-wide coverage proof.",
+            "- ASVS TLS cipher and revocation groups stay `partial` where only bounded runtime evidence is available.",
+            "- PCI DSS organizational, governance, and password-reset process controls remain outside scanner-evidence `full` coverage.",
+            "",
+            "Each source reconciles as `Applicable = Full + Partial + Policy review + "
+            "Uncovered`. Excluded items do not enter the applicable denominator. "
+            "The counted-item ledger and evidence rationale are recorded in "
+            "`docs/control-source-coverage-tracker.md`.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _render_standards_reconciliation_section(
+    ledger: CoverageLedger,
+    sources: tuple[ReconciledSourceCoverage, ...],
+) -> str:
+    lines = [
+        f"## Final Counted Coverage Reconciliation ({ledger.snapshot.effective_date.isoformat()})",
+        "",
+        "This terminal program recount freezes the accepted follow-up merge SHAs, "
+        "recomputes each counted source from the packaged ledger, and keeps "
+        "generated coverage prose synchronized with the rule registry and the "
+        "machine-readable tracker.",
+        "",
+        "Accepted follow-up merge SHAs:",
+        "",
+        "| Follow-up | Merge SHA | Summary |",
+        "| --- | --- | --- |",
+    ]
+    for revision in ledger.snapshot.accepted_revisions:
+        lines.append(
+            f"| `{revision.step_id}` | `{revision.merge_sha}` | "
+            f"{_markdown_cell(revision.summary)} |"
+        )
+    lines.extend(
+        [
+            "",
+            "Final source snapshot:",
+            "",
+            "| Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+    )
+    for source in sources:
+        current = source.current
+        lines.append(
+            f"| {_markdown_cell(source.title)} | {current.applicable} | {current.full} | "
+            f"{current.partial} | {current.policy_review} | {current.uncovered} | "
+            f"{current.full_percent:.1f}% |"
+        )
+    lines.extend(
+        [
+            "",
+            "Reconciliation guardrails:",
+            "",
+            "- Apache's denominator is explicitly +1 versus PR #9 because follow-up 11 split the historical grouped CIS 4.1 / 4.2 row into two counted items.",
+            "- IIS FTP remains visible, applicable, `uncovered`, and outside implementation scope.",
+            "- NIST TLS rows that still rely on bounded cipher-preference or revocation observations remain `partial` rather than inheriting an old 100% snapshot.",
+            "- Documentation uses scanner-scope and technical-control-alignment wording rather than compliance or certification language.",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _replace_generated_section(
+    text: str,
+    begin_marker: str,
+    end_marker: str,
+    replacement: str,
+) -> str:
+    begin = text.find(begin_marker)
+    end = text.find(end_marker)
+    if begin == -1 or end == -1 or end < begin:
+        raise ValueError(
+            f"Missing generated section markers {begin_marker!r} / {end_marker!r}."
+        )
+    end += len(end_marker)
+    block = f"{begin_marker}\n{replacement.rstrip()}\n{end_marker}"
+    return text[:begin] + block + text[end:]
+
+
+def _validate_acceptance_freeze(
+    ledger: CoverageLedger,
+) -> tuple[CoverageLedgerIssue, ...]:
+    revisions = ledger.snapshot.accepted_revisions
+    expected_steps = {f"followup-{index:02d}" for index in range(1, 14)}
+    actual_steps = {revision.step_id for revision in revisions}
+    if actual_steps != expected_steps:
+        return (
+            CoverageLedgerIssue(
+                code="accepted_revisions_missing",
+                message=(
+                    "Coverage snapshot must freeze accepted follow-up merge SHAs "
+                    f"01-13; got {sorted(actual_steps)!r}."
+                ),
+            ),
+        )
+    return ()
+
+
+def _validate_iis_ftp_invariant(
+    ledger: CoverageLedger,
+) -> tuple[CoverageLedgerIssue, ...]:
+    source = next(
+        (
+            candidate
+            for candidate in ledger.sources
+            if candidate.source_id == "cis-microsoft-iis-10-1.2.1"
+        ),
+        None,
+    )
+    if source is None:
+        return (
+            CoverageLedgerIssue(
+                code="iis_ftp_invariant_failed",
+                message="IIS source is missing from the coverage ledger.",
+                source_id="cis-microsoft-iis-10-1.2.1",
+            ),
+        )
+    item = next(
+        (candidate for candidate in source.items if candidate.item_id == "iis-6.1-ftp-encryption-logon-restrictions"),
+        None,
+    )
+    if item is None:
+        return (
+            CoverageLedgerIssue(
+                code="iis_ftp_invariant_failed",
+                message="IIS FTP grouped item is missing from the coverage ledger.",
+                source_id=source.source_id,
+            ),
+        )
+    issues: list[CoverageLedgerIssue] = []
+    if item.status != "uncovered" or item.applicability != "applicable":
+        issues.append(
+            CoverageLedgerIssue(
+                code="iis_ftp_invariant_failed",
+                message="IIS FTP must remain applicable and uncovered.",
+                source_id=source.source_id,
+                item_id=item.item_id,
+            )
+        )
+    if item.evidence.rule_ids or item.evidence.assessment_rules or item.evidence.assessment_controls:
+        issues.append(
+            CoverageLedgerIssue(
+                code="iis_ftp_invariant_failed",
+                message="IIS FTP must not gain rule or control bindings in the reconciliation.",
+                source_id=source.source_id,
+                item_id=item.item_id,
+            )
+        )
+    return tuple(issues)
+
+
+def _compare_reconciled_artifacts(
+    reconciliation: CoverageReconciliation,
+) -> tuple[CoverageLedgerIssue, ...]:
+    issues: list[CoverageLedgerIssue] = []
+    for artifact in reconciliation.artifacts:
+        path = Path(artifact.path)
+        try:
+            actual = path.read_text(encoding="utf-8")
+        except OSError:
+            actual = ""
+        if actual != artifact.content:
+            issues.append(
+                CoverageLedgerIssue(
+                    code="reconciliation_render_drift",
+                    message=f"{path} does not match the reconciled coverage render.",
+                    path=str(path),
+                )
+            )
+    return tuple(issues)
+
+
+def _scan_prohibited_compliance_language(
+    paths: tuple[Path, ...],
+) -> tuple[CoverageLedgerIssue, ...]:
+    entries: list[tuple[str, str]] = []
+    for path in paths:
+        try:
+            entries.append((str(path), path.read_text(encoding="utf-8")))
+        except OSError:
+            continue
+    return _scan_prohibited_compliance_texts(tuple(entries))
+
+
+def _scan_prohibited_compliance_texts(
+    entries: tuple[tuple[str, str], ...],
+) -> tuple[CoverageLedgerIssue, ...]:
+    issues: list[CoverageLedgerIssue] = []
+    for label, text in entries:
+        lowered = text.lower()
+        for phrase, hint in _PROHIBITED_COMPLIANCE_PATTERNS:
+            if phrase not in lowered:
+                continue
+            line = next(
+                (
+                    candidate
+                    for candidate in text.splitlines()
+                    if phrase in candidate.lower()
+                ),
+                phrase,
+            )
+            if any(allow in line.lower() for allow in _ALLOWED_NEGATION_SNIPPETS):
+                continue
+            issues.append(
+                CoverageLedgerIssue(
+                    code="prohibited_compliance_language",
+                    message=(
+                        f"{label} contains prohibited wording {phrase!r}. {hint}"
+                    ),
+                    path=label,
+                )
+            )
+    return tuple(issues)
+
+
+def _preflight_reconciliation_outputs(
+    outputs: dict[Path, str],
+) -> tuple[CoverageLedgerIssue, ...]:
+    issues: list[CoverageLedgerIssue] = []
+    for path in outputs:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            issues.append(
+                CoverageLedgerIssue(
+                    code="reconciliation_write_failed",
+                    message=f"Could not prepare parent directory for {path}: {exc}",
+                    path=str(path),
+                )
+            )
+            continue
+        if path.is_symlink():
+            issues.append(
+                CoverageLedgerIssue(
+                    code="reconciliation_write_failed",
+                    message=f"Refusing to replace symlink output path: {path}",
+                    path=str(path),
+                )
+            )
+            continue
+        if path.exists() and not path.is_file():
+            issues.append(
+                CoverageLedgerIssue(
+                    code="reconciliation_write_failed",
+                    message=f"Reconciled output path is not a regular file: {path}",
+                    path=str(path),
+                )
+            )
+    return tuple(issues)
+
+
+def _common_output_root(outputs: dict[Path, str]) -> Path:
+    roots = [path.parent.resolve() for path in outputs]
+    try:
+        common = Path(os.path.commonpath([str(root) for root in roots]))
+    except ValueError as exc:
+        raise OSError(
+            "Could not compute a common staging directory for reconciliation "
+            "artifacts because the output paths are on different drives."
+        ) from exc
+    return common
+
+
 def _validate_source(
     source: CoverageSource,
     registry: RuleRegistry,
+    *,
+    enforce_program_baseline: bool,
 ) -> list[CoverageLedgerIssue]:
     issues: list[CoverageLedgerIssue] = []
     catalog_source = find_standard_source(source.source_id)
@@ -499,6 +1259,30 @@ def _validate_source(
                 source=source,
             )
         )
+    baseline = next(
+        (
+            recount
+            for recount in _PROGRAM_BASELINE_RECOUNTS
+            if recount.source_id == source.source_id
+        ),
+        None,
+    )
+    if baseline is not None and enforce_program_baseline:
+        denominator_delta = actual.applicable - baseline.applicable
+        if denominator_delta != 0:
+            declared_delta = sum(note.delta_applicable for note in source.denominator_notes)
+            if declared_delta != denominator_delta or not source.denominator_notes:
+                issues.append(
+                    _issue(
+                        "missing_denominator_change_reason",
+                        (
+                            "Applicable-denominator changes must carry a machine-readable "
+                            f"reason; expected delta {denominator_delta:+d}, got "
+                            f"{declared_delta:+d}."
+                        ),
+                        source=source,
+                    )
+                )
     return issues
 
 
@@ -856,6 +1640,9 @@ def _validate_item(
             )
 
     if item.status == "full":
+        mandatory_subclaims = tuple(
+            subclaim for subclaim in item.subclaims if subclaim.mandatory
+        )
         declared_direct = any(
             claim.strength == "direct" and claim.origin == "declared"
             and _registry_claim_is_primary(registry, claim)
@@ -875,7 +1662,29 @@ def _validate_item(
                 claim.reference,
             )
         )
-        if has_derived_claim and not declared_direct:
+        subclaim_direct_support = any(
+            (
+                binding.kind == "control"
+                and binding.strength == "direct"
+                and binding.origin == "declared"
+            )
+            or (
+                binding.kind == "rule"
+                and binding.strength == "direct"
+                and binding.origin == "declared"
+                and any(
+                    claim.rule_id == binding.target
+                    and claim.strength == "direct"
+                    and claim.origin == "declared"
+                    and _registry_claim_is_primary(registry, claim)
+                    for claim in claims_for_item
+                )
+            )
+            for subclaim in mandatory_subclaims
+            for binding in subclaim.bindings
+        )
+        direct_support = declared_direct or subclaim_direct_support
+        if has_derived_claim and not direct_support:
             issues.append(
                 _issue(
                     "derived_reference_used_for_full",
@@ -887,12 +1696,13 @@ def _validate_item(
         has_non_registry_evidence = any(
             kind != "registry-export" for kind in evidence.evidence_kinds
         )
-        if not declared_direct or not has_non_registry_evidence:
+        if not direct_support or not has_non_registry_evidence:
             issues.append(
                 _issue(
                     "insufficient_full_evidence",
                     "Full coverage requires declared direct registry evidence "
-                    "and at least one non-registry evidence kind.",
+                    "or a declared direct control binding, plus at least one "
+                    "non-registry evidence kind.",
                     source=source,
                     item=item,
                 )
@@ -956,6 +1766,113 @@ def _validate_item(
                 item=item,
             )
         )
+    seen_subclaims: set[str] = set()
+    for subclaim in item.subclaims:
+        if subclaim.subclaim_id in seen_subclaims:
+            issues.append(
+                _issue(
+                    "duplicate_subclaim_id",
+                    f"Duplicate subclaim_id {subclaim.subclaim_id!r}.",
+                    source=source,
+                    item=item,
+                )
+            )
+            continue
+        seen_subclaims.add(subclaim.subclaim_id)
+        if item.status == "full" and subclaim.mandatory and not subclaim.implemented:
+            issues.append(
+                _issue(
+                    "full_item_missing_mandatory_subclaim",
+                    (
+                        "Full coverage requires every mandatory subclaim to be "
+                        "implemented."
+                    ),
+                    source=source,
+                    item=item,
+                )
+            )
+        for binding in subclaim.bindings:
+            if binding.kind == "rule":
+                if binding.target not in evidence.rule_ids:
+                    issues.append(
+                        _issue(
+                            "subclaim_binding_invalid",
+                            f"Subclaim rule binding {binding.target!r} is not present in rule_ids.",
+                            source=source,
+                            item=item,
+                            rule_id=binding.target,
+                        )
+                    )
+                    continue
+                if registry.get_meta(binding.target) is None:
+                    issues.append(
+                        _issue(
+                            "subclaim_binding_invalid",
+                            f"Subclaim rule binding {binding.target!r} is not a registered rule.",
+                            source=source,
+                            item=item,
+                            rule_id=binding.target,
+                        )
+                    )
+                    continue
+                matching_claim = next(
+                    (
+                        claim
+                        for claim in claims_for_item
+                        if claim.rule_id == binding.target
+                        and claim.strength == binding.strength
+                        and claim.origin == binding.origin
+                    ),
+                    None,
+                )
+                if matching_claim is None:
+                    issues.append(
+                        _issue(
+                            "subclaim_binding_invalid",
+                            (
+                                f"Subclaim rule binding {binding.target!r} must "
+                                "match a counted-item registry reference claim."
+                            ),
+                            source=source,
+                            item=item,
+                            rule_id=binding.target,
+                        )
+                    )
+            elif binding.kind == "control":
+                matching_control = next(
+                    (
+                        entry
+                        for entry in evidence.assessment_controls
+                        if entry.control_id == binding.target
+                        and entry.strength == binding.strength
+                        and entry.origin == binding.origin
+                    ),
+                    None,
+                )
+                if matching_control is None:
+                    issues.append(
+                        _issue(
+                            "subclaim_binding_invalid",
+                            (
+                                f"Subclaim control binding {binding.target!r} must "
+                                "match an assessment_controls entry."
+                            ),
+                            source=source,
+                            item=item,
+                        )
+                    )
+            elif binding.target not in evidence.evidence_kinds:
+                issues.append(
+                    _issue(
+                        "subclaim_binding_invalid",
+                        (
+                            f"Subclaim evidence-kind binding {binding.target!r} is "
+                            "not present in evidence_kinds."
+                        ),
+                        source=source,
+                        item=item,
+                    )
+                )
     return issues
 
 
@@ -1071,9 +1988,17 @@ def _read_markdown_summary(
     path: Path,
 ) -> dict[str, tuple[int, int, int, int, int, str]]:
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        text = path.read_text(encoding="utf-8")
     except OSError:
         return {}
+    if (
+        _RECONCILIATION_SNAPSHOT_BEGIN in text
+        and _RECONCILIATION_SNAPSHOT_END in text
+    ):
+        begin = text.index(_RECONCILIATION_SNAPSHOT_BEGIN)
+        end = text.index(_RECONCILIATION_SNAPSHOT_END)
+        text = text[begin:end]
+    lines = text.splitlines()
     summaries: dict[str, tuple[int, int, int, int, int, str]] = {}
     for line in lines:
         stripped = line.strip()
@@ -1139,13 +2064,16 @@ def _issue_sort_key(
 
 
 __all__ = [
+    "check_coverage_reconciliation",
     "CoverageLedgerLoadError",
     "DEFAULT_LEDGER_MAX_BYTES",
     "check_coverage_documentation",
     "load_coverage_ledger",
+    "reconcile_coverage_documents",
     "render_coverage_markdown",
     "render_coverage_json",
     "summarize_coverage",
     "validate_coverage_ledger",
+    "write_coverage_reconciliation",
     "write_coverage_output",
 ]

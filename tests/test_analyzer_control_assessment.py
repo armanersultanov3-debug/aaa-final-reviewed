@@ -195,7 +195,13 @@ def test_related_or_derived_native_result_cannot_independently_pass_or_fail(
 
 def test_unmapped_native_assessment_does_not_change_existing_result(tmp_path) -> None:
     ensure_rules_loaded()
-    ledger = subset_ledger(source_id=SOURCE_ID, item_id=ITEM_ID)
+    ledger = subset_ledger(
+        source_id=SOURCE_ID,
+        item_id=ITEM_ID,
+        status="partial",
+        assessment_controls=(),
+        subclaims=(),
+    )
     policy = resolve_policy(
         ledger,
         source_id=SOURCE_ID,

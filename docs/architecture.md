@@ -302,10 +302,11 @@ offline: authoritative URLs are metadata and are never fetched during
 analysis or release checks.
 
 The rule registry remains the source of rule-to-standard evidence. The
-Markdown coverage tracker is only a temporary counted-claim adapter until the
-machine-readable ledger planned for the next follow-up. A derived, partial, or
-related reference cannot independently justify `full` coverage, and a coverage
-assessment never suppresses a `Finding`.
+machine-readable coverage ledger is the counted-coverage source of truth, and
+the tracked Markdown snapshot documents are reconciled from it via
+`webconf-audit coverage reconcile`. A derived, partial, or related reference
+cannot independently justify `full` coverage, and a coverage assessment never
+suppresses a `Finding`.
 
 ## 9. Reporting model
 
