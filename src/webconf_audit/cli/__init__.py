@@ -31,7 +31,10 @@ from webconf_audit.coverage_ledger import (
     load_coverage_ledger,
     write_coverage_output,
 )
-from webconf_audit.external import analyze_external_target
+from webconf_audit.external import (
+    analyze_external_target,
+    analyze_external_tls_inventory,
+)
 from webconf_audit.local.apache import analyze_apache_config
 from webconf_audit.local.iis import analyze_iis_config
 from webconf_audit.local.lighttpd import analyze_lighttpd_config
@@ -941,6 +944,57 @@ def analyze_external(
         ports=parsed_ports,
         **kwargs,
     )
+    _output_result(
+        result,
+        output_format,
+        fail_on,
+        suppressions,
+        baseline,
+        write_baseline,
+        fail_on_new,
+        group_by,
+        group_repeated,
+        group_by_cause,
+    )
+
+
+@app.command("analyze-tls-inventory")
+def analyze_tls_inventory(
+    inventory_id: str = typer.Argument(
+        ...,
+        help="Declared TLS inventory id from the audit policy.",
+    ),
+    policy: str = typer.Option(
+        ...,
+        "--policy",
+        help="Apply an explicit audit policy YAML file.",
+    ),
+    output_format: OutputFormat = typer.Option(
+        OutputFormat.text, "--format", "-f", help="Output format: text, json.",
+    ),
+    fail_on: FailOnSeverity | None = typer.Option(
+        None,
+        "--fail-on",
+        help="Exit 2 when unsuppressed findings at or above this severity exist.",
+    ),
+    suppressions: str | None = _suppressions_option(),
+    baseline: str | None = _baseline_option(),
+    write_baseline: str | None = _write_baseline_option(),
+    fail_on_new: FailOnSeverity | None = _fail_on_new_option(),
+    group_by: GroupBy = _group_by_option(),
+    group_repeated: bool = _group_repeated_option(),
+    group_by_cause: bool = _group_by_cause_option(),
+) -> None:
+    result = analyze_external_tls_inventory(policy, inventory_id)
+    if any(issue.level == "error" for issue in result.issues):
+        _output_fatal_result(
+            result,
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        return
     _output_result(
         result,
         output_format,

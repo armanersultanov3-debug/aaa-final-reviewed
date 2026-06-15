@@ -96,6 +96,14 @@ class AssessableRuleEvidence(_StrictModel):
     assessed_facets: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
 
 
+class AssessableControlEvidence(_StrictModel):
+    control_id: RuleIdentifier
+    strength: MappingStrength
+    origin: MappingOrigin
+    absence_semantics: AbsenceSemantics = "none"
+    assessed_facets: tuple[NonEmptyText, ...] = Field(default=(), max_length=64)
+
+
 class CoverageEvidence(_StrictModel):
     rule_ids: tuple[RuleIdentifier, ...] = Field(default=(), max_length=1024)
     registry_references: tuple[RegistryReferenceClaim, ...] = Field(
@@ -103,6 +111,10 @@ class CoverageEvidence(_StrictModel):
         max_length=1024,
     )
     assessment_rules: tuple[AssessableRuleEvidence, ...] = Field(
+        default=(),
+        max_length=1024,
+    )
+    assessment_controls: tuple[AssessableControlEvidence, ...] = Field(
         default=(),
         max_length=1024,
     )
@@ -172,6 +184,7 @@ class SourceCoverageSummary(_StrictModel):
 
 __all__ = [
     "AbsenceSemantics",
+    "AssessableControlEvidence",
     "AssessableRuleEvidence",
     "Applicability",
     "ControlReference",

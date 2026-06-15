@@ -18,6 +18,7 @@ from webconf_audit.external.rules._https import collect_https_findings
 from webconf_audit.external.rules._methods import collect_method_findings
 from webconf_audit.external.rules._sensitive_paths import collect_sensitive_path_findings
 from webconf_audit.external.rules._tls import collect_tls_findings
+from webconf_audit.external.rules._helpers import _tls_observed_attempts_for_scheme
 from webconf_audit.external.rules.iis_native_header_probe import (
     find_iis_server_header_removal_not_applied,
 )
@@ -401,6 +402,26 @@ def run_external_rules(
         )
     )
     return findings
+
+
+def run_external_tls_rules(
+    probe_attempts: list["ProbeAttempt"],
+    target: str,
+    *,
+    expected_certificate_names: tuple[str, ...] = (),
+    execution_recorder: RuleExecutionRecorder | None = None,
+) -> list[Finding]:
+    """Run only TLS external rules for declared endpoint/SNI inventory checks."""
+    return _collect_group(
+        _TLS_RULE_IDS,
+        lambda: collect_tls_findings(
+            probe_attempts,
+            target,
+            expected_certificate_names=expected_certificate_names,
+        ),
+        execution_recorder=execution_recorder,
+        runnable=bool(_tls_observed_attempts_for_scheme(probe_attempts, "https")),
+    )
 
 
 def _registered_execution_recorder(

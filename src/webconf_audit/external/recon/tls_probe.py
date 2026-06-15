@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 # Own timeout constant — avoids coupling to recon.py and circular-import
 # fragility.  Kept in sync with recon.DEFAULT_TIMEOUT_SECONDS by convention.
 DEFAULT_PROBE_TIMEOUT_SECONDS: float = 2.0
+_DEFAULT_SNI = object()
 _CIPHER_PREFERENCE_ORDER_A = "ECDHE-RSA-AES128-GCM-SHA256:AES128-GCM-SHA256"
 _CIPHER_PREFERENCE_ORDER_B = "AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
 _CIPHER_PREFERENCE_INDETERMINATE = (
@@ -333,12 +334,17 @@ def _probe_single_version(
     min_ver: ssl.TLSVersion,
     max_ver: ssl.TLSVersion,
     timeout: float,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> TLSVersionProbeResult:
     """Try a TLS handshake constrained to one protocol version."""
     try:
         ctx = _build_tls_context(min_ver, max_ver)
         with socket.create_connection((host, port), timeout=timeout) as raw_sock:
-            with ctx.wrap_socket(raw_sock, server_hostname=host) as _tls_sock:
+            with ctx.wrap_socket(
+                raw_sock,
+                server_hostname=_server_hostname(host, sni_name),
+            ) as _tls_sock:
                 return TLSVersionProbeResult(label=label, supported=True)
     except (OSError, ssl.SSLError) as exc:
         return TLSVersionProbeResult(
@@ -350,6 +356,8 @@ def probe_tls_versions(
     host: str,
     port: int,
     timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> list[TLSVersionProbeResult]:
     """Probe *host*:*port* for each known TLS version.
 
@@ -358,9 +366,18 @@ def probe_tls_versions(
     supported.
     """
     results: list[TLSVersionProbeResult] = []
+    probe_kwargs = {} if sni_name is _DEFAULT_SNI else {"sni_name": sni_name}
     for label, min_ver, max_ver in _TLS_VERSIONS:
         results.append(
-            _probe_single_version(host, port, label, min_ver, max_ver, timeout)
+            _probe_single_version(
+                host,
+                port,
+                label,
+                min_ver,
+                max_ver,
+                timeout,
+                **probe_kwargs,
+            )
         )
     return results
 
@@ -526,11 +543,16 @@ def _probe_tls12_cipher(
     port: int,
     ciphers: str,
     timeout: float,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> str | None:
     try:
         ctx = _build_tls12_cipher_context(ciphers)
         with socket.create_connection((host, port), timeout=timeout) as raw_sock:
-            with ctx.wrap_socket(raw_sock, server_hostname=host) as tls_sock:
+            with ctx.wrap_socket(
+                raw_sock,
+                server_hostname=_server_hostname(host, sni_name),
+            ) as tls_sock:
                 cipher_tuple = tls_sock.cipher()
     except (OSError, ssl.SSLError, ValueError):
         return None
@@ -544,6 +566,8 @@ def probe_server_cipher_preference(
     host: str,
     port: int,
     timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> CipherPreferenceProbeResult:
     """Infer whether a TLS 1.2 endpoint prefers server-side cipher order.
 
@@ -551,17 +575,20 @@ def probe_server_cipher_preference(
     full cipher-suite inventory and returns indeterminate when either
     suite pair is unsupported.
     """
+    probe_kwargs = {} if sni_name is _DEFAULT_SNI else {"sni_name": sni_name}
     first_cipher = _probe_tls12_cipher(
         host,
         port,
         _CIPHER_PREFERENCE_ORDER_A,
         timeout,
+        **probe_kwargs,
     )
     reversed_cipher = _probe_tls12_cipher(
         host,
         port,
         _CIPHER_PREFERENCE_ORDER_B,
         timeout,
+        **probe_kwargs,
     )
 
     if first_cipher is None or reversed_cipher is None:
@@ -574,8 +601,20 @@ def probe_server_cipher_preference(
 
     if first_cipher == reversed_cipher:
         cipher_a, cipher_b = _CIPHER_PREFERENCE_ORDER_A.split(":")
-        cipher_a_result = _probe_tls12_cipher(host, port, cipher_a, timeout)
-        cipher_b_result = _probe_tls12_cipher(host, port, cipher_b, timeout)
+        cipher_a_result = _probe_tls12_cipher(
+            host,
+            port,
+            cipher_a,
+            timeout,
+            **probe_kwargs,
+        )
+        cipher_b_result = _probe_tls12_cipher(
+            host,
+            port,
+            cipher_b,
+            timeout,
+            **probe_kwargs,
+        )
         if cipher_a_result != cipher_a or cipher_b_result != cipher_b:
             return CipherPreferenceProbeResult(
                 server_order=None,
@@ -606,6 +645,8 @@ def probe_ocsp_stapling(
     host: str,
     port: int,
     timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> OCSPStaplingProbeResult:
     """Request OCSP stapling support and report whether a response was stapled.
 
@@ -633,7 +674,7 @@ def probe_ocsp_stapling(
 
         raw_sock = socket.create_connection((host, port), timeout=timeout)
         conn = _OSSL.Connection(ctx, raw_sock)
-        conn.set_tlsext_host_name(host.encode("idna"))
+        _set_openssl_sni(conn, _server_hostname(host, sni_name))
         conn.request_ocsp()
         conn.set_connect_state()
         conn.do_handshake()
@@ -687,6 +728,9 @@ def verify_certificate_chain(
     host: str,
     port: int,
     timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
+    cafile: str | None = None,
 ) -> ChainVerificationResult:
     """Verify the certificate trust chain against the system CA store.
 
@@ -703,10 +747,17 @@ def verify_certificate_chain(
     Generic network or TLS errors also yield ``verified=None``.
     """
     try:
-        ctx = ssl.create_default_context()
+        if cafile is None:
+            ctx = ssl.create_default_context()
+        else:
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            ctx.load_verify_locations(cafile=cafile)
         ctx.check_hostname = False  # hostname mismatch is NOT a chain issue
         with socket.create_connection((host, port), timeout=timeout) as raw_sock:
-            with ctx.wrap_socket(raw_sock, server_hostname=host) as _tls_sock:
+            with ctx.wrap_socket(
+                raw_sock,
+                server_hostname=_server_hostname(host, sni_name),
+            ) as _tls_sock:
                 return ChainVerificationResult(verified=True)
     except ssl.SSLCertVerificationError as exc:
         # Distinguish chain failures from leaf-validity failures.
@@ -743,6 +794,8 @@ def probe_chain_depth(
     host: str,
     port: int,
     timeout: float = DEFAULT_PROBE_TIMEOUT_SECONDS,
+    *,
+    sni_name: str | None | object = _DEFAULT_SNI,
 ) -> ChainDepthResult:
     """Return the number of certificates the server supplied in the handshake.
 
@@ -761,7 +814,7 @@ def probe_chain_depth(
 
         raw_sock = socket.create_connection((host, port), timeout=timeout)
         conn = _OSSL.Connection(ctx, raw_sock)
-        conn.set_tlsext_host_name(host.encode("idna"))
+        _set_openssl_sni(conn, _server_hostname(host, sni_name))
         conn.set_connect_state()
         conn.do_handshake()
 
@@ -782,6 +835,21 @@ def probe_chain_depth(
                 raw_sock.close()
             except Exception:  # noqa: BLE001
                 _logger.debug("Failed to close TLS probe raw socket.", exc_info=True)
+
+
+def _server_hostname(
+    host: str,
+    sni_name: str | None | object = _DEFAULT_SNI,
+) -> str | None:
+    if sni_name is _DEFAULT_SNI:
+        return host
+    return sni_name if isinstance(sni_name, str) else None
+
+
+def _set_openssl_sni(conn: _OSSL.Connection, server_name: str | None) -> None:
+    if server_name is None:
+        return
+    conn.set_tlsext_host_name(server_name.encode("idna"))
 
 
 __all__ = [

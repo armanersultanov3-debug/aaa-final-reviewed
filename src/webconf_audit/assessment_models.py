@@ -48,6 +48,12 @@ AssessmentStatus = Literal[
 ]
 AssessmentIssueSeverity = Literal["error", "warning"]
 ExecutionState = Literal["completed", "skipped", "failed"]
+AnalyzerAssessmentStatus = Literal[
+    "pass",
+    "fail",
+    "not-applicable",
+    "indeterminate",
+]
 MissingEvidenceReason = Literal[
     "not-selected",
     "skipped",
@@ -204,6 +210,23 @@ class AssessmentEvidence(_StrictModel):
     note: NonEmptyText
 
 
+class AnalyzerControlEvidence(_StrictModel):
+    control_id: RuleIdentifier
+    target_id: NonEmptyText
+    mapping_strength: MappingStrength
+    mapping_origin: MappingOrigin
+    absence_semantics: AbsenceSemantics
+    status: AnalyzerAssessmentStatus
+    summary: NonEmptyText
+    inventory_id: Identifier | None = None
+    inventory_complete: bool | None = None
+    observations_complete: bool | None = None
+    evidence_references: tuple[NonEmptyText, ...] = Field(default=(), max_length=4096)
+    related_rule_ids: tuple[RuleIdentifier, ...] = Field(default=(), max_length=256)
+    missing_evidence: tuple[NonEmptyText, ...] = Field(default=(), max_length=4096)
+    limitations: tuple[NonEmptyText, ...] = Field(default=(), max_length=256)
+
+
 class MissingEvidence(_StrictModel):
     rule_id: RuleIdentifier | None = None
     expectation: EvidenceExpectation
@@ -221,6 +244,10 @@ class ControlAssessment(_StrictModel):
     status: AssessmentStatus
     rationale: NonEmptyText
     evidence: tuple[AssessmentEvidence, ...] = Field(default=(), max_length=4096)
+    analyzer_evidence: tuple[AnalyzerControlEvidence, ...] = Field(
+        default=(),
+        max_length=4096,
+    )
     missing_evidence: tuple[MissingEvidence, ...] = Field(default=(), max_length=4096)
     issues: tuple[NonEmptyText, ...] = Field(default=(), max_length=256)
 
@@ -280,6 +307,8 @@ __all__ = [
     "AnalysisReport",
     "AnalysisReportFinding",
     "AnalysisReportResult",
+    "AnalyzerAssessmentStatus",
+    "AnalyzerControlEvidence",
     "AssessmentEvidence",
     "AssessmentInputs",
     "AssessmentIssue",

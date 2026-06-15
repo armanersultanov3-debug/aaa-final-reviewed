@@ -115,6 +115,12 @@ target -> port discovery -> HTTP/HTTPS probing -> TLS enrichment
 7. Reporting through the same result and report models used by local
    mode.
 
+External mode also has a policy-gated TLS inventory path. The dedicated
+`analyze-tls-inventory` command reuses the same bounded TLS probes, but keeps
+`connect_host`, SNI, HTTP host, and expected certificate names separate and
+records operator-declared completeness per inventory instead of inferring scope
+from a single URL or handshake.
+
 External mode reuses the result and report models, but does not
 depend on the AST or effective-configuration modules of local mode.
 

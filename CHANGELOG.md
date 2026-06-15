@@ -29,6 +29,10 @@ release artifacts are prepared.
   and route-manifest evaluation for CSP, Referrer-Policy, HSTS,
   `X-Content-Type-Options`, and COOP without changing canonical coverage
   percentages.
+- Add declared endpoint/SNI TLS inventory analysis with a dedicated
+  `analyze-tls-inventory` command, typed `external.tls_inventories` policy
+  input, bounded TLS observation records, and follow-up-04-compatible native
+  control assessment evidence without changing canonical coverage percentages.
 - Correct the reviewed no-policy Nginx header edge cases called out by the
   follow-up design: location or `if in location` header replacement can now
   surface a missing CSP that was previously hidden, report-only CSP does not

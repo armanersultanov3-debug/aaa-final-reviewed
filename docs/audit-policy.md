@@ -38,6 +38,7 @@ webconf-audit analyze-apache httpd.conf --policy .webconf-audit-policy.yml
 webconf-audit analyze-lighttpd lighttpd.conf --policy .webconf-audit-policy.yml
 webconf-audit analyze-iis web.config --policy .webconf-audit-policy.yml
 webconf-audit analyze-external https://example.test --policy .webconf-audit-policy.yml
+webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml
 ```
 
 There is no ambient policy discovery in schema version 1. If `--policy` is not
@@ -54,7 +55,8 @@ Schema version 1 policy files contain:
 - optional requests for known opt-in rule tags such as `policy-review`;
 - optional analyzer-specific contracts under bounded top-level sections such as
   `nginx.logging`, `nginx.rate_limits`, `nginx.response_headers`,
-  `nginx.reverse_proxy_headers`, and `nginx.sensitive_locations`.
+  `nginx.reverse_proxy_headers`, `nginx.sensitive_locations`, and
+  `external.tls_inventories`.
 
 YAML is loaded with bounded safe parsing. Aliases, anchors, tags, and merge
 keys are rejected.
@@ -570,6 +572,92 @@ Important boundaries:
 - Coverage percentages do not increase because this policy exists or because a
   route-level assessment passes. CIS NGINX В§5.1.1 remains `partial` in the
   canonical coverage tracker.
+
+## External TLS inventory policy
+
+Schema version 1 also supports `external.tls_inventories` for declared
+endpoint and SNI inventories. This workflow is separate from
+`analyze-external`: it does not discover scope from DNS, SANs, redirects, or
+port scans, and it does not treat one handshake as deployment-wide proof.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: external-tls-inventory
+policy_version: "2026.06"
+title: External TLS inventory
+description: Declared endpoint and SNI inventory for bounded TLS assessment.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: production-edge
+    title: Production edge inventory
+    selectors:
+      - mode: external
+        target_glob: "tls-inventory/*"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+external:
+  tls_inventories:
+    - id: production-edge
+      environment: production
+      declared_complete: true
+      completeness_attestation:
+        asserted_by: platform-team
+        asserted_at: "2026-06-12T08:00:00Z"
+        basis: load-balancer-listener-export
+      trust:
+        mode: system
+      required_evidence:
+        - handshake
+        - certificate_name
+        - certificate_chain
+        - protocol_support
+        - negotiated_cipher
+        - ocsp_stapling
+      entries:
+        - id: api-primary
+          connect_host: 203.0.113.10
+          connect_port: 443
+          sni_name: api.example.test
+          http_host: api.example.test
+          path: /
+          expected_certificate_names:
+            - api.example.test
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-15
+  change_ref: SEC-2026-210
+```
+
+Run it with:
+
+```bash
+webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml
+webconf-audit analyze-tls-inventory production-edge --policy .webconf-audit-policy.yml --format json
+webconf-audit assess --report tls-inventory-analysis.json --fail-on fail,indeterminate
+```
+
+Important boundaries:
+
+- `connect_host`, `sni_name`, `http_host`, and `expected_certificate_names`
+  are distinct fields. Evidence from one entry is never joined to another.
+- `declared_complete` is operator-declared completeness. The analyzer does not
+  infer completeness from DNS, SANs, redirects, or port discovery.
+- A positive run is bounded TLS observation and scanner-evidence coverage
+  within the declared endpoint/SNI inventory only.
+- Missing mandatory observations, missing completeness attestation, probe
+  failures, or unsupported bounded observations produce `indeterminate`, not
+  an inferred `pass`.
+- Existing TLS findings remain independently visible. A control assessment does
+  not suppress `Finding` records.
+- This workflow does not claim full revocation validation or certification
+  against CIS, OWASP ASVS, NIST SP 800-52 Rev. 2, PCI DSS, or ISO/IEC 27002.
 
 ## Assessment interaction
 

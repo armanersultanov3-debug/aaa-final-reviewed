@@ -778,6 +778,70 @@ def _validate_item(
                     rule_id=assessment_rule.rule_id,
                 )
             )
+    seen_assessment_controls: set[str] = set()
+    for assessment_control in evidence.assessment_controls:
+        if assessment_control.control_id in seen_assessment_controls:
+            issues.append(
+                _issue(
+                    "assessment_control_mapping_invalid",
+                    (
+                        "Assessment control evidence cannot repeat the same "
+                        "control_id within one control item."
+                    ),
+                    source=source,
+                    item=item,
+                )
+            )
+            continue
+        seen_assessment_controls.add(assessment_control.control_id)
+        if (
+            assessment_control.origin == "derived"
+            and assessment_control.absence_semantics != "none"
+        ):
+            issues.append(
+                _issue(
+                    "assessment_control_mapping_invalid",
+                    (
+                        "Derived assessment control evidence must use "
+                        "absence_semantics 'none'."
+                    ),
+                    source=source,
+                    item=item,
+                )
+            )
+        if (
+            assessment_control.strength == "related"
+            and assessment_control.absence_semantics != "none"
+        ):
+            issues.append(
+                _issue(
+                    "assessment_control_mapping_invalid",
+                    (
+                        "Related assessment control evidence must use "
+                        "absence_semantics 'none'."
+                    ),
+                    source=source,
+                    item=item,
+                )
+            )
+        if (
+            assessment_control.absence_semantics == "control-pass"
+            and not (
+                assessment_control.strength == "direct"
+                and assessment_control.origin == "declared"
+            )
+        ):
+            issues.append(
+                _issue(
+                    "assessment_control_mapping_invalid",
+                    (
+                        "control-pass assessment control evidence requires a "
+                        "declared direct mapping for the counted item."
+                    ),
+                    source=source,
+                    item=item,
+                )
+            )
     claims_by_rule = {claim.rule_id for claim in claims_for_item}
     for rule_id in evidence.rule_ids:
         if rule_id not in claims_by_rule:
