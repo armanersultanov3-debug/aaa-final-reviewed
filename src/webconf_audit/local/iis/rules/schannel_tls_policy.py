@@ -1,13 +1,15 @@
-"""Implements rules: ``iis.schannel_tls12_not_enabled``, ``iis.schannel_weak_protocol_enabled``, ``iis.schannel_aes128_enabled``, ``iis.schannel_aes256_not_enabled``, ``iis.schannel_cipher_suite_order_not_preferred``.
-
-Location: ``src/webconf_audit/local/iis/rules/schannel_tls_policy.py``.
-"""
+"""IIS SChannel rules backed by canonical v2 registry evidence semantics."""
 
 from __future__ import annotations
 
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import IISConfigDocument
-from webconf_audit.local.iis.registry import IISRegistryTLS
+from webconf_audit.local.iis.registry import IISRegistryTLS, coerce_schannel_evidence
+from webconf_audit.local.iis.schannel_models import (
+    IISSchannelEvidence,
+    SchannelCipherEvidence,
+    SchannelProtocolEvidence,
+)
 from webconf_audit.models import Finding, SourceLocation
 from webconf_audit.rule_registry import rule
 from webconf_audit.standards import asvs_5, cwe, owasp_top10_2021, rfc
@@ -29,10 +31,10 @@ _CIS_CIPHER_SUITE_PREFIX = (
     "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
     "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
     "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+    "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
+    "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
     "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384",
     "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256",
-    "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384",
-    "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
 )
 
 
@@ -52,21 +54,24 @@ def find_schannel_tls12_not_enabled(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> list[Finding]:
-    if registry_tls is None or registry_tls.protocols_enabled is None:
+    evidence = coerce_schannel_evidence(registry_tls)
+    if evidence is None:
         return []
-    if "TLSv1.2" in registry_tls.protocols_enabled:
+    protocol = evidence.protocol("TLSv1.2")
+    if protocol is None or protocol.effective_state == "unknown":
         return []
-    protocols = ", ".join(registry_tls.protocols_enabled) or "none"
+    if protocol.effective_state == "enabled":
+        return []
     return [
         _finding(
-            registry_tls,
+            evidence,
             rule_id=TLS12_RULE_ID,
             title="IIS SChannel TLS 1.2 is not enabled",
             description=(
-                "Windows SChannel registry data does not show TLS 1.2 enabled "
-                f"for IIS. Enabled server protocols: {protocols}."
+                "Windows SChannel evidence shows TLS 1.2 is not effectively enabled for IIS. "
+                f"{_protocol_summary(protocol)}."
             ),
             recommendation="Set the SChannel TLS 1.2 Server Enabled value to 1 and DisabledByDefault to 0.",
         )
@@ -99,23 +104,27 @@ def find_schannel_weak_protocol_enabled(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> list[Finding]:
-    if registry_tls is None or registry_tls.protocols_enabled is None:
+    evidence = coerce_schannel_evidence(registry_tls)
+    if evidence is None:
         return []
     weak_protocols = [
-        protocol for protocol in registry_tls.protocols_enabled if protocol in _WEAK_PROTOCOLS
+        protocol
+        for protocol in evidence.schannel.protocols
+        if protocol.name in _WEAK_PROTOCOLS and protocol.effective_state == "enabled"
     ]
     if not weak_protocols:
         return []
     return [
         _finding(
-            registry_tls,
+            evidence,
             rule_id=WEAK_PROTOCOL_RULE_ID,
             title="IIS SChannel weak TLS/SSL protocol is enabled",
             description=(
-                "Windows SChannel registry data shows weak server protocols "
-                f"enabled for IIS: {', '.join(weak_protocols)}."
+                "Windows SChannel evidence shows weak server protocols enabled for IIS: "
+                + ", ".join(_protocol_observation(protocol) for protocol in weak_protocols)
+                + "."
             ),
             recommendation=(
                 "Set the SChannel Server Enabled value to 0 for SSL 2.0, "
@@ -141,20 +150,22 @@ def find_schannel_aes128_enabled(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> list[Finding]:
-    if registry_tls is None or registry_tls.ciphers_enabled is None:
+    evidence = coerce_schannel_evidence(registry_tls)
+    if evidence is None:
         return []
-    if _AES128_CIPHER not in _normalized_ciphers(registry_tls):
+    cipher = _cipher_by_key(evidence, _AES128_CIPHER)
+    if cipher is None or cipher.effective_state != "enabled":
         return []
     return [
         _finding(
-            registry_tls,
+            evidence,
             rule_id=AES128_RULE_ID,
             title="IIS SChannel AES 128/128 cipher is enabled",
             description=(
-                "Windows SChannel registry data shows AES 128/128 enabled, "
-                "while the CIS IIS benchmark recommends disabling it."
+                "Windows SChannel evidence shows AES 128/128 is effectively enabled, "
+                f"while the CIS IIS benchmark recommends disabling it. {_cipher_summary(cipher)}."
             ),
             recommendation="Set the SChannel Ciphers\\AES 128/128 Enabled value to 0.",
         )
@@ -177,21 +188,24 @@ def find_schannel_aes256_not_enabled(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> list[Finding]:
-    if registry_tls is None or registry_tls.ciphers_enabled is None:
+    evidence = coerce_schannel_evidence(registry_tls)
+    if evidence is None:
         return []
-    if _AES256_CIPHER in _normalized_ciphers(registry_tls):
+    cipher = _cipher_by_key(evidence, _AES256_CIPHER)
+    if cipher is None or cipher.effective_state == "unknown":
         return []
-    ciphers = ", ".join(registry_tls.ciphers_enabled) or "none"
+    if cipher.effective_state == "enabled":
+        return []
     return [
         _finding(
-            registry_tls,
+            evidence,
             rule_id=AES256_RULE_ID,
             title="IIS SChannel AES 256/256 cipher is not enabled",
             description=(
-                "Windows SChannel registry data does not show AES 256/256 enabled. "
-                f"Enabled SChannel ciphers: {ciphers}."
+                "Windows SChannel evidence shows AES 256/256 is not effectively enabled. "
+                f"{_cipher_summary(cipher)}."
             ),
             recommendation="Set the SChannel Ciphers\\AES 256/256 Enabled value to 1.",
         )
@@ -214,21 +228,31 @@ def find_schannel_cipher_suite_order_not_preferred(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | IISRegistryTLS | None = None,
 ) -> list[Finding]:
-    if registry_tls is None or registry_tls.cipher_suite_order is None:
+    evidence = coerce_schannel_evidence(registry_tls)
+    if evidence is None:
         return []
-    if _cipher_suite_order_has_cis_prefix(registry_tls.cipher_suite_order):
+    order = evidence.schannel.cipher_suite_order
+    if order.order_source == "unknown":
         return []
-    first_suite = registry_tls.cipher_suite_order[0] if registry_tls.cipher_suite_order else "none"
+    effective_order = list(order.effective_order)
+    if _cipher_suite_order_has_cis_prefix(effective_order):
+        return []
+    first_suite = effective_order[0] if effective_order else "none"
+    source_phrase = (
+        "Windows default order"
+        if order.order_source == "default"
+        else "Configured cipher-suite order"
+    )
     return [
         _finding(
-            registry_tls,
+            evidence,
             rule_id=CIPHER_ORDER_RULE_ID,
             title="IIS SChannel cipher suite order is not CIS preferred",
             description=(
-                "Windows SChannel cipher suite order does not start with the "
-                f"CIS IIS preferred order. First configured suite: {first_suite}."
+                f"{source_phrase} does not start with the CIS IIS preferred order. "
+                f"First effective suite: {first_suite}."
             ),
             recommendation=(
                 "Set HKLM\\SOFTWARE\\Policies\\Microsoft\\Cryptography\\Configuration\\SSL\\00010002:"
@@ -238,8 +262,18 @@ def find_schannel_cipher_suite_order_not_preferred(
     ]
 
 
-def _normalized_ciphers(registry_tls: IISRegistryTLS) -> set[str]:
-    return {_normalize_cipher_name(cipher) for cipher in registry_tls.ciphers_enabled or []}
+def _cipher_by_key(
+    evidence: IISSchannelEvidence,
+    normalized_cipher: str,
+) -> SchannelCipherEvidence | None:
+    return next(
+        (
+            cipher
+            for cipher in evidence.schannel.ciphers
+            if _normalize_cipher_name(cipher.name) == normalized_cipher
+        ),
+        None,
+    )
 
 
 def _normalize_cipher_name(value: str) -> str:
@@ -256,8 +290,34 @@ def _normalize_suite_name(value: str) -> str:
     return value.strip().upper()
 
 
+def _protocol_observation(protocol: SchannelProtocolEvidence) -> str:
+    if protocol.state == "default":
+        return f"{protocol.raw_name} (default resolves to {protocol.effective_state})"
+    return f"{protocol.raw_name} ({protocol.state})"
+
+
+def _protocol_summary(protocol: SchannelProtocolEvidence) -> str:
+    if protocol.state == "default":
+        if protocol.effective_state == "unknown":
+            return (
+                "The protocol uses OS defaults, but the exact build was not reviewed for default resolution."
+            )
+        return f"The protocol uses OS defaults, which resolve to {protocol.effective_state}."
+    return protocol.state_reason
+
+
+def _cipher_summary(cipher: SchannelCipherEvidence) -> str:
+    if cipher.state == "default":
+        if cipher.effective_state == "unknown":
+            return (
+                "The cipher uses OS defaults, but the exact build was not reviewed for default resolution."
+            )
+        return f"The cipher uses OS defaults, which resolve to {cipher.effective_state}."
+    return cipher.state_reason
+
+
 def _finding(
-    registry_tls: IISRegistryTLS,
+    evidence: IISSchannelEvidence,
     *,
     rule_id: str,
     title: str,
@@ -273,8 +333,8 @@ def _finding(
         location=SourceLocation(
             mode="local",
             kind="tls",
-            file_path=registry_tls.source_file_path,
-            details=registry_tls.source_details,
+            file_path=evidence.source_file_path,
+            details=evidence.source_details,
         ),
     )
 

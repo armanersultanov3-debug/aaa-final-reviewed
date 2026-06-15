@@ -14,7 +14,7 @@ from inspect import signature
 from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.iis.effective import IISEffectiveConfig
 from webconf_audit.local.iis.parser import IISConfigDocument
-from webconf_audit.local.iis.registry import IISRegistryTLS
+from webconf_audit.local.iis.schannel_models import IISSchannelEvidence
 from webconf_audit.local.rule_runner_utils import executable_rule_entries, run_rule_entry
 from webconf_audit.models import AnalysisIssue, Finding
 from webconf_audit.rule_registry import OPT_IN_TAGS
@@ -27,7 +27,7 @@ def run_iis_rules(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None = None,
-    registry_tls: IISRegistryTLS | None = None,
+    registry_tls: IISSchannelEvidence | None = None,
     issues: list[AnalysisIssue] | None = None,
     enable_policy_review: bool = False,
     execution_recorder: RuleExecutionRecorder | None = None,
@@ -68,7 +68,7 @@ def _invoke_rule(
     doc: IISConfigDocument,
     *,
     effective_config: IISEffectiveConfig | None,
-    registry_tls: IISRegistryTLS | None,
+    registry_tls: IISSchannelEvidence | None,
 ) -> list[Finding]:
     if _accepts_registry_tls(fn):
         return fn(doc, effective_config=effective_config, registry_tls=registry_tls)

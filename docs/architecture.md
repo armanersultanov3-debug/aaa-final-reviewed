@@ -203,7 +203,13 @@ The Apache analyzer handles both:
   the host name in the TLS source metadata. For copied configs or
   offline review, `--tls-registry <path>` can supply a JSON SChannel
   export from the target host; `--no-tls-registry` disables live
-  registry enrichment.
+  registry enrichment. Canonical SChannel evidence distinguishes
+  `enabled`, `disabled`, `default`, and `unknown` states, tracks
+  completeness independently for OS build, protocols, ciphers, and
+  cipher-suite order, resolves defaults only for reviewed exact
+  Windows builds, and adapts legacy v1 list-based exports
+  conservatively so omitted entries do not imply `disabled` or
+  `default`.
 
 ## 7. Normalization
 
@@ -363,8 +369,11 @@ Reporting features:
   documented condition operators or `else if` chains are modeled.
 - IIS local analysis can enrich TLS protocol and cipher visibility
   from the local Windows SChannel registry or an explicit JSON export.
-  Missing registry keys remain "unknown" because effective OS defaults
-  depend on the Windows version.
+  Complete evidence can distinguish explicit `enabled` / `disabled`
+  state from `default`; incomplete or contradictory data stays
+  `unknown`. Effective defaults are resolved only for reviewed exact
+  Windows builds, so unsupported builds remain indeterminate rather
+  than inheriting a nearest-known default.
 - The Nginx tokenizer supports both double- and single-quoted directive
   arguments. Single-quoted values follow the same un-escaping rules as
   double quotes (see `tests/test_nginx_tokenizer.py`).

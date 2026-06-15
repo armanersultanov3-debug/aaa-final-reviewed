@@ -671,8 +671,24 @@ def test_analyze_iis_cli_passes_machine_config_option(monkeypatch) -> None:
     }
 
 
-def test_analyze_iis_cli_passes_tls_registry_options(monkeypatch) -> None:
+def test_analyze_iis_cli_passes_tls_registry_options(tmp_path: Path, monkeypatch) -> None:
     captured: dict[str, object] = {}
+    export_path = tmp_path / "schannel.json"
+    export_path.write_text(
+        json.dumps(
+            {
+                "schannel": {
+                    "protocols": {
+                        "TLS 1.2": {
+                            "server_enabled": 1,
+                            "server_disabled_by_default": 0,
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
 
     def fake_analyze_iis_config(
         config_path: str,
@@ -696,7 +712,7 @@ def test_analyze_iis_cli_passes_tls_registry_options(monkeypatch) -> None:
             "analyze-iis",
             "web.config",
             "--tls-registry",
-            "schannel.json",
+            str(export_path),
             "--no-tls-registry",
         ],
     )
@@ -704,9 +720,52 @@ def test_analyze_iis_cli_passes_tls_registry_options(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured == {
         "config_path": "web.config",
-        "tls_registry_path": "schannel.json",
+        "tls_registry_path": str(export_path),
         "use_tls_registry": False,
     }
+
+
+def test_analyze_iis_cli_invalid_tls_registry_exits_1_before_analyzer_runs(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = tmp_path / "web.config"
+    config_path.write_text("<configuration />", encoding="utf-8")
+    export_path = tmp_path / "schannel.json"
+    export_path.write_text(
+        json.dumps({"schema_version": 3, "kind": "iis-schannel-evidence"}),
+        encoding="utf-8",
+    )
+    called = False
+
+    def fake_analyze_iis_config(config_path_arg: str, **kwargs) -> AnalysisResult:
+        nonlocal called
+        called = True
+        return AnalysisResult(
+            mode="local",
+            target=config_path_arg,
+            server_type="iis",
+            findings=[],
+            issues=[],
+        )
+
+    monkeypatch.setattr("webconf_audit.cli.analyze_iis_config", fake_analyze_iis_config)
+
+    result = runner.invoke(
+        app,
+        [
+            "analyze-iis",
+            str(config_path),
+            "--tls-registry",
+            str(export_path),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert called is False
+    assert "iis_tls_registry_export_error" in result.stdout
 
 
 def test_analyze_lighttpd_cli_prints_issue_section(monkeypatch) -> None:
