@@ -53,8 +53,8 @@ Schema version 1 policy files contain:
 - selected coverage sources and per-item overrides;
 - optional requests for known opt-in rule tags such as `policy-review`;
 - optional analyzer-specific contracts under bounded top-level sections such as
-  `nginx.logging`, `nginx.rate_limits`, `nginx.reverse_proxy_headers`, and
-  `nginx.sensitive_locations`.
+  `nginx.logging`, `nginx.rate_limits`, `nginx.response_headers`,
+  `nginx.reverse_proxy_headers`, and `nginx.sensitive_locations`.
 
 YAML is loaded with bounded safe parsing. Aliases, anchors, tags, and merge
 keys are rejected.
@@ -246,6 +246,134 @@ Important boundaries:
   findings and does not suppress existing findings.
 - Coverage percentages do not increase because this policy exists or because a
   route-level assessment passes.
+
+## Nginx response-header policy
+
+Schema version 1 also supports `nginx.response_headers` for route-aware CSP and
+security-header contracts. The policy is optional and only emits control
+assessments when it is supplied explicitly.
+
+Minimal example:
+
+```yaml
+schema_version: 1
+policy_id: nginx-response-header-contract
+policy_version: "2026.06"
+title: Nginx response-header contract
+description: Policy-backed response-header and CSP requirements for nginx.
+defaults:
+  disposition: advisory
+  evidence_expectation: ledger-default
+  include_unmapped_findings: true
+  require_complete_execution_manifest: true
+profiles:
+  - profile_id: nginx-production
+    title: Production nginx
+    selectors:
+      - mode: local
+        server_type: nginx
+        target_glob: "*nginx.conf"
+    sources:
+      - source_id: cis-nginx-3.0.0
+        disposition: required
+        controls: []
+nginx:
+  response_headers:
+    route_manifest:
+      - id: app-html
+        server_names: ["www.example.test"]
+        declared_location:
+          modifier: prefix
+          pattern: /
+        sample_uris: ["/", "/account"]
+        response_kind: html_document
+        schemes: [https]
+        expected_statuses: [200, 404, 500]
+        profile: browser-document
+    profiles:
+      browser-document:
+        conditional_branches: require_all
+        csp:
+          enforcement:
+            required: true
+            baseline_policy: any_enforcing
+            additional_policies: require_parseable
+          required_directives:
+            object-src: ["'none'"]
+            base-uri: ["'none'"]
+          script_authorization:
+            mode: nonce_or_hash
+            allowed_nonce_variables: ["$csp_nonce"]
+            allow_static_nonce: false
+            allowed_hashes: []
+            allow_host_allowlist_fallback: false
+            require_strict_dynamic: false
+          forbidden_effective_capabilities:
+            - unsafe-eval
+            - generic-unsafe-inline
+          frame_ancestors:
+            mode: deny
+          reporting:
+            required: true
+            modes: [report-to, report-uri]
+            allowed_groups: [csp]
+            allowed_endpoint_origins: ["https://reports.example.test"]
+          report_only:
+            required: false
+        headers:
+          Referrer-Policy:
+            required: true
+            allowed_values: [no-referrer, strict-origin-when-cross-origin]
+            require_all_expected_statuses: true
+          X-Content-Type-Options:
+            required: true
+            allowed_values: [nosniff]
+            require_all_expected_statuses: true
+          Cross-Origin-Opener-Policy:
+            required: true
+            allowed_values: [same-origin, same-origin-allow-popups]
+            require_all_expected_statuses: true
+          Permissions-Policy:
+            required: true
+            allowed_values: ["geolocation=(), camera=()"]
+            require_all_expected_statuses: true
+          Strict-Transport-Security:
+            required_on_schemes: [https]
+            min_max_age: 31536000
+            include_subdomains: true
+            require_all_expected_statuses: true
+          X-Frame-Options:
+            mode: transitional_optional
+    reporting_endpoints:
+      csp:
+        allowed_urls: ["https://reports.example.test/csp"]
+    unmatched_routes: indeterminate
+    unresolved_internal_redirects: indeterminate
+provenance:
+  owner: Security Engineering
+  approved_on: 2026-06-12
+  change_ref: SEC-2026-206
+```
+
+Important boundaries:
+
+- If the `nginx.response_headers` section is omitted, no CSP or
+  response-header `control_assessments` are emitted and existing no-policy
+  analyzer behavior remains in place apart from the explicitly documented
+  header-semantics corrections.
+- The evaluator uses effective `add_header` inheritance across `http`,
+  `server`, `location`, and `if in location`, including
+  `add_header_inherit on|off|merge` and `always` status applicability.
+- The route manifest is explicit input. The analyzer does not crawl routes,
+  infer response kinds, prove nonce freshness, match hashes to bodies, or
+  execute rewrites and internal redirects.
+- Report-only CSP never satisfies an enforcement requirement.
+- `Permissions-Policy` is checked against the profile's explicit allowed
+  values. `X-Frame-Options` is optional transitional evidence and does not
+  replace the authoritative CSP `frame-ancestors` requirement.
+- Policy-backed CSP/header results are assessments only. They do not suppress
+  findings automatically, they do not raise coverage percentages, and they do
+  not claim CIS / ASVS / NIST / PCI DSS / ISO certification.
 
 ## Nginx rate-limit policy
 

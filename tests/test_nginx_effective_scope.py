@@ -87,3 +87,34 @@ def test_build_scope_graph_marks_only_affected_branch_incomplete(
     assert len(incomplete_locations) == 1
     assert incomplete_locations[0].completeness_issues == ("nginx_include_not_found",)
     assert len(complete_locations) == 1
+
+
+def test_build_scope_graph_ignores_stream_servers_but_keeps_top_level_server(
+    tmp_path: Path,
+) -> None:
+    config_path = tmp_path / "nginx.conf"
+    config_path.write_text(
+        "server {\n"
+        "    listen 80;\n"
+        "}\n"
+        "stream {\n"
+        "    server {\n"
+        "        listen 9000;\n"
+        "    }\n"
+        "}\n"
+        "http {\n"
+        "    server {\n"
+        "        listen 443 ssl;\n"
+        "    }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    graph = build_scope_graph(_parse_config(config_path), root_file=str(config_path))
+
+    assert [scope.kind for scope in graph.scopes] == [
+        NginxScopeKind.MAIN,
+        NginxScopeKind.SERVER,
+        NginxScopeKind.HTTP,
+        NginxScopeKind.SERVER,
+    ]

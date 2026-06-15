@@ -10,6 +10,9 @@ from webconf_audit.execution_manifest import RuleExecutionRecorder
 from webconf_audit.local.load_context import LoadContext
 from webconf_audit.local.nginx.assessments.logging import evaluate_logging_policy
 from webconf_audit.local.nginx.assessments.rate_limits import evaluate_rate_limit_policy
+from webconf_audit.local.nginx.assessments.response_headers import (
+    evaluate_response_header_policy,
+)
 from webconf_audit.local.nginx.assessments.reverse_proxy_headers import (
     evaluate_reverse_proxy_header_policy,
 )
@@ -19,6 +22,9 @@ from webconf_audit.local.nginx.assessments.sensitive_locations import (
 from webconf_audit.local.nginx.effective_scope import build_scope_graph
 from webconf_audit.local.nginx.include import resolve_includes
 from webconf_audit.local.nginx.parser.parser import NginxParseError, NginxParser, NginxTokenizer
+from webconf_audit.local.nginx.response_header_semantics import (
+    NginxResponseHeaderSemantics,
+)
 from webconf_audit.local.normalized import NormalizedConfig
 from webconf_audit.local.nginx.rules_runner import run_nginx_rules
 from webconf_audit.local.normalizers import normalize_config
@@ -187,10 +193,24 @@ def analyze_nginx_config(
         findings=findings,
     )
     findings = _suppress_rate_limit_policy_review_findings(findings, rate_limit_assessments)
+    response_header_assessments, response_header_semantics = evaluate_response_header_policy(
+        ast,
+        scope_graph=scope_graph,
+        policy=policy.nginx.response_headers
+        if policy is not None and policy.nginx is not None
+        else None,
+        findings=findings,
+    )
+    findings = _suppress_response_header_policy_review_findings(
+        findings,
+        assessments=response_header_assessments,
+        semantics=response_header_semantics,
+    )
     control_assessments = (
         logging_assessments
         + sensitive_location_assessments
         + rate_limit_assessments
+        + response_header_assessments
         + evaluate_reverse_proxy_header_policy(
             ast,
             scope_graph=scope_graph,
@@ -332,4 +352,87 @@ def _suppress_rate_limit_policy_review_findings(
                 )
             )
         )
+    ]
+
+
+def _suppress_response_header_policy_review_findings(
+    findings: list[Finding],
+    *,
+    assessments: list[PolicyControlAssessment],
+    semantics: NginxResponseHeaderSemantics | None,
+) -> list[Finding]:
+    if not any(finding.rule_id == "nginx.csp_value_review" for finding in findings):
+        return findings
+
+    assessed_scope_ids: set[str] = set()
+    for assessment in assessments:
+        if assessment.control_id not in {
+            "cis-nginx-5.3.2.csp",
+            "asvs-5.0.0-v3.4.3.csp-quality",
+            "asvs-5.0.0-v3.4.6.frame-ancestors",
+            "asvs-5.0.0-v3.4.7.csp-reporting",
+        }:
+            continue
+        response_scope_id = assessment.metadata.get("response_scope_id")
+        if isinstance(response_scope_id, str):
+            assessed_scope_ids.add(response_scope_id)
+        for header in assessment.metadata.get("effective_headers", []):
+            if not isinstance(header, dict):
+                continue
+            if header.get("normalized_name") not in {
+                "content-security-policy",
+                "content-security-policy-report-only",
+            }:
+                continue
+            branch_scope_id = header.get("branch_scope_id")
+            if isinstance(branch_scope_id, str):
+                assessed_scope_ids.add(branch_scope_id)
+
+    if not assessed_scope_ids:
+        return findings
+
+    if semantics is None:
+        return findings
+    source_scope_ids: dict[tuple[str | None, int | None], set[str]] = {}
+    for effective_scope in semantics.effective_scopes:
+        for header in effective_scope.base_headers:
+            if (
+                header.normalized_name
+                not in {
+                    "content-security-policy",
+                    "content-security-policy-report-only",
+                }
+                or not header.rendered_static_value
+            ):
+                continue
+            key = (header.source.file_path, header.source.line)
+            source_scope_ids.setdefault(key, set()).add(effective_scope.scope_id)
+        for branch in effective_scope.conditional_branches:
+            for header in branch.headers:
+                if (
+                    header.normalized_name
+                    not in {
+                        "content-security-policy",
+                        "content-security-policy-report-only",
+                    }
+                    or not header.rendered_static_value
+                ):
+                    continue
+                key = (header.source.file_path, header.source.line)
+                source_scope_ids.setdefault(key, set()).add(branch.branch_scope_id)
+
+    suppress_sources = {
+        source_key
+        for source_key, scope_ids in source_scope_ids.items()
+        if scope_ids and scope_ids.issubset(assessed_scope_ids)
+    }
+    if not suppress_sources:
+        return findings
+
+    return [
+        finding
+        for finding in findings
+        if finding.rule_id != "nginx.csp_value_review"
+        or finding.location is None
+        or (finding.location.file_path, finding.location.line) not in suppress_sources
     ]

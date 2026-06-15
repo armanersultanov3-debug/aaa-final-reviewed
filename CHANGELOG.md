@@ -24,6 +24,16 @@ release artifacts are prepared.
   version-disclosure coverage.
 - Add exposed Nginx, Apache HTTP Server, and Lighttpd configuration-file
   probes to the external safe-probe catalog.
+- Add policy-gated `nginx.response_headers` control assessments with shared
+  Nginx `add_header` / `add_header_inherit` semantics, a structured CSP AST,
+  and route-manifest evaluation for CSP, Referrer-Policy, HSTS,
+  `X-Content-Type-Options`, and COOP without changing canonical coverage
+  percentages.
+- Correct the reviewed no-policy Nginx header edge cases called out by the
+  follow-up design: location or `if in location` header replacement can now
+  surface a missing CSP that was previously hidden, report-only CSP does not
+  satisfy enforcement, and multiple enforcing CSP headers use conjunction
+  semantics for unsafe-inline / unsafe-eval checks.
 - Add application settings JSON exposure probes to the external safe-probe
   catalog.
 - Document the TLS source-coverage explanation across NIST, PCI DSS, ISO/IEC

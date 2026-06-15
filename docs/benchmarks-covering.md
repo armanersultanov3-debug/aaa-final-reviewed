@@ -28,6 +28,14 @@ remain additive evidence only: they do not prove SIEM delivery, retention,
 clock synchronization, or application event completeness, and they do not
 raise the canonical full numerator by themselves.
 
+The same conservative boundary now applies to policy-gated Nginx
+`response_headers` assessments. Route-scoped CSP, Referrer-Policy, HSTS,
+`X-Content-Type-Options`, and COOP checks can now be evaluated against an
+explicit manifest, but those assessments remain additive evidence only: they
+do not prove nonce freshness, hash/body correspondence, reporting delivery,
+runtime content types, or application routing, and they do not raise the
+canonical full numerator by themselves.
+
 This revision includes the implemented opt-in
 `nginx.http3_alt_svc_review` policy-review rule and the corresponding
 control-source mapping updates. Candidate mappings elsewhere in the document
