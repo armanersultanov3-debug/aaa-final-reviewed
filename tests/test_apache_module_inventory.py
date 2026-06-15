@@ -425,6 +425,7 @@ def test_evaluate_apache_modules_missing_benchmark_scope_is_indeterminate(
     evaluation = evaluate_apache_modules(snapshot, module_policy, config_ast)
 
     assert evaluation.status == "indeterminate"
+    assert evaluation.benchmark_applicable is None
     assert (
         "benchmark applicability was not declared for cis_apache_2_4_v2_3_0"
         in evaluation.missing_evidence

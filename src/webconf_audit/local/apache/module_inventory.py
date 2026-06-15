@@ -410,7 +410,7 @@ def evaluate_apache_modules(
     return ApacheModuleEvaluation(
         policy_id=policy.policy_id,
         snapshot_id=snapshot.snapshot_id,
-        benchmark_applicable=True,
+        benchmark_applicable=benchmark.applicable if benchmark is not None else None,
         status=status,
         summary=summary,
         inventory_complete=inventory_complete,
