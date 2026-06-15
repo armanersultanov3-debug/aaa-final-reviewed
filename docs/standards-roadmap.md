@@ -111,6 +111,50 @@ Documentation-only fence:
 - New rules, parser depth, probe depth, and output-contract changes belong in
   separate implementation PRs after the mapping need is clear.
 
+<!-- BEGIN GENERATED: final-coverage-reconciliation -->
+## Final Counted Coverage Reconciliation (2026-06-16)
+
+This terminal program recount freezes the accepted follow-up merge SHAs, recomputes each counted source from the packaged ledger, and keeps generated coverage prose synchronized with the rule registry and the machine-readable tracker.
+
+Accepted follow-up merge SHAs:
+
+| Follow-up | Merge SHA | Summary |
+| --- | --- | --- |
+| `followup-01` | `424bc51ad8207d660a88915040f8b53bd75e72ff` | Crosswalk integrity baseline validation. |
+| `followup-02` | `f9d0e71933f0579b42afd62473720bfed20559d0` | Machine-readable control-source coverage ledger. |
+| `followup-03` | `6d1701f88072a1e55f6e142afeb818374c134165` | Audit policy foundation. |
+| `followup-04` | `68ed38e75e7cbedcf52ed18acd781df657abe707` | Control assessment reporting. |
+| `followup-05` | `c3e483653a3aedcd9ed68e20546cf333ce5114be` | Nginx reverse-proxy header semantics. |
+| `followup-06` | `b588a9585d2356895a1365920904d5b42efe2f0d` | Nginx logging policy assessments. |
+| `followup-07` | `fbcbc578c97841d2a249a029f61fe033df2330da` | Nginx sensitive-location policy assessments. |
+| `followup-08` | `4a4016cd8052a60943a09eea26daf2a9567c9c00` | Nginx rate-limit policy assessments. |
+| `followup-09` | `f4628a88a7ea28fa7b535c340aeab570ce2acd8b` | CSP and response-header policy assessments. |
+| `followup-10` | `7dc1cdf8ffede81d8c97749a29420320e8df1488` | External TLS inventory analysis. |
+| `followup-11` | `1af6f51de68ee4bd9e8370db0fbaffd31a7cd592` | Apache root authorization baseline split. |
+| `followup-12` | `92bb24af430bc716aa36c740105329f85aa0d16b` | Apache module inventory policy. |
+| `followup-13` | `4658297b912c44d73bf2ed926e39059e2e8b96d4` | IIS SChannel evidence v2. |
+
+Final source snapshot:
+
+| Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| CIS NGINX Benchmark v3.0.0 | 15 | 8 | 6 | 1 | 0 | 53.3% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 19 | 1 | 0 | 0 | 95.0% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
+| OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
+| OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
+| NIST SP 800-52 Rev. 2 | 10 | 6 | 4 | 0 | 0 | 60.0% |
+| PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
+| ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
+
+Reconciliation guardrails:
+
+- Apache's denominator is explicitly +1 versus PR #9 because follow-up 11 split the historical grouped CIS 4.1 / 4.2 row into two counted items.
+- IIS FTP remains visible, applicable, `uncovered`, and outside implementation scope.
+- NIST TLS rows that still rely on bounded cipher-preference or revocation observations remain `partial` rather than inheriting an old 100% snapshot.
+- Documentation uses scanner-scope and technical-control-alignment wording rather than compliance or certification language.
+<!-- END GENERATED: final-coverage-reconciliation -->
+
 ## Mapping Rules
 
 - Cite exact standard versions and exact identifiers. Do not add a CIS, ASVS,

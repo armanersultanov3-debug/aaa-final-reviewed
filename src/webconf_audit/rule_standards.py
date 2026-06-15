@@ -1233,6 +1233,21 @@ def _ledger_reference_bindings(rule_id: str) -> list[StandardReference]:
         "iis.request_filtering_allow_double_escaping": (
             cis_iis_10_v1_2_1("4.2 / §4.3 / §4.7 / §4.9 / §4.10"),
         ),
+        "iis.schannel_tls12_not_enabled": (
+            cis_iis_10_v1_2_1("7.1-§7.6 / §7.10-§7.12"),
+        ),
+        "iis.schannel_weak_protocol_enabled": (
+            cis_iis_10_v1_2_1("7.1-§7.6 / §7.10-§7.12"),
+        ),
+        "iis.schannel_aes128_enabled": (
+            cis_iis_10_v1_2_1("7.1-§7.6 / §7.10-§7.12"),
+        ),
+        "iis.schannel_aes256_not_enabled": (
+            cis_iis_10_v1_2_1("7.1-§7.6 / §7.10-§7.12"),
+        ),
+        "iis.schannel_cipher_suite_order_not_preferred": (
+            cis_iis_10_v1_2_1("7.1-§7.6 / §7.10-§7.12"),
+        ),
         "iis.ssl_weak_cipher_strength": (
             cis_iis_10_v1_2_1(
                 "7.1-§7.6 / §7.10-§7.12",

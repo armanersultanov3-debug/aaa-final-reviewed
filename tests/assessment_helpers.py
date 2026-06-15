@@ -12,6 +12,7 @@ from webconf_audit.coverage_models import (
     AssessableControlEvidence,
     AssessableRuleEvidence,
     CoverageLedger,
+    CoverageSubclaim,
     CoverageSummary,
 )
 from webconf_audit.execution_manifest import (
@@ -74,24 +75,29 @@ def subset_ledger(
     source_id: str,
     item_id: str,
     status: str | None = None,
-    assessment_rules: tuple[AssessableRuleEvidence, ...] = (),
-    assessment_controls: tuple[AssessableControlEvidence, ...] = (),
+    assessment_rules: tuple[AssessableRuleEvidence, ...] | None = None,
+    assessment_controls: tuple[AssessableControlEvidence, ...] | None = None,
+    subclaims: tuple[CoverageSubclaim, ...] | None = None,
 ) -> CoverageLedger:
     ensure_rules_loaded()
     ledger = load_coverage_ledger()
     source = next(source for source in ledger.sources if source.source_id == source_id)
     item = next(item for item in source.items if item.item_id == item_id)
-    if assessment_rules or assessment_controls:
+    evidence_updates: dict[str, object] = {}
+    if assessment_rules is not None:
+        evidence_updates["assessment_rules"] = assessment_rules
+    if assessment_controls is not None:
+        evidence_updates["assessment_controls"] = assessment_controls
+    if evidence_updates:
         item = item.model_copy(
             update={
                 "evidence": item.evidence.model_copy(
-                    update={
-                        "assessment_rules": assessment_rules,
-                        "assessment_controls": assessment_controls,
-                    }
+                    update=evidence_updates
                 )
             }
         )
+    if subclaims is not None:
+        item = item.model_copy(update={"subclaims": subclaims})
     if status is not None:
         if status not in _ALLOWED_FIXTURE_STATUSES:
             raise AssertionError(f"Unsupported status for test fixture: {status!r}")
@@ -102,7 +108,12 @@ def subset_ledger(
             "expected_summary": _summary_for_status(item.status),
         }
     )
-    return ledger.model_copy(update={"sources": (source,)})
+    return ledger.model_copy(
+        update={
+            "snapshot": ledger.snapshot.model_copy(update={"accepted_revisions": ()}),
+            "sources": (source,),
+        }
+    )
 
 
 def policy_for_control(

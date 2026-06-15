@@ -1,10 +1,50 @@
 schema_version: 1
 snapshot:
-  snapshot_id: followup-02-machine-readable-ledger
-  effective_date: '2026-06-13'
-  base_revision: 424bc51
-  description: Corrected follow-up 01 coverage baseline migrated into a versioned package ledger without
-    changing any numerator.
+  snapshot_id: followup-14-final-cross-standard-reconciliation
+  effective_date: '2026-06-16'
+  base_revision: '4658297'
+  description: Final cross-standard counted-coverage reconciliation after accepted follow-ups 01-13, with
+    frozen merge SHAs, explicit denominator deltas, and synchronized generated documentation.
+  accepted_revisions:
+  - step_id: followup-01
+    merge_sha: 424bc51ad8207d660a88915040f8b53bd75e72ff
+    summary: Crosswalk integrity baseline validation.
+  - step_id: followup-02
+    merge_sha: f9d0e71933f0579b42afd62473720bfed20559d0
+    summary: Machine-readable control-source coverage ledger.
+  - step_id: followup-03
+    merge_sha: 6d1701f88072a1e55f6e142afeb818374c134165
+    summary: Audit policy foundation.
+  - step_id: followup-04
+    merge_sha: 68ed38e75e7cbedcf52ed18acd781df657abe707
+    summary: Control assessment reporting.
+  - step_id: followup-05
+    merge_sha: c3e483653a3aedcd9ed68e20546cf333ce5114be
+    summary: Nginx reverse-proxy header semantics.
+  - step_id: followup-06
+    merge_sha: b588a9585d2356895a1365920904d5b42efe2f0d
+    summary: Nginx logging policy assessments.
+  - step_id: followup-07
+    merge_sha: fbcbc578c97841d2a249a029f61fe033df2330da
+    summary: Nginx sensitive-location policy assessments.
+  - step_id: followup-08
+    merge_sha: 4a4016cd8052a60943a09eea26daf2a9567c9c00
+    summary: Nginx rate-limit policy assessments.
+  - step_id: followup-09
+    merge_sha: f4628a88a7ea28fa7b535c340aeab570ce2acd8b
+    summary: CSP and response-header policy assessments.
+  - step_id: followup-10
+    merge_sha: 7dc1cdf8ffede81d8c97749a29420320e8df1488
+    summary: External TLS inventory analysis.
+  - step_id: followup-11
+    merge_sha: 1af6f51de68ee4bd9e8370db0fbaffd31a7cd592
+    summary: Apache root authorization baseline split.
+  - step_id: followup-12
+    merge_sha: 92bb24af430bc716aa36c740105329f85aa0d16b
+    summary: Apache module inventory policy.
+  - step_id: followup-13
+    merge_sha: 4658297b912c44d73bf2ed926e39059e2e8b96d4
+    summary: IIS SChannel evidence v2.
 sources:
 - source_id: cis-nginx-3.0.0
   title: CIS NGINX Benchmark v3.0.0
@@ -15,12 +55,12 @@ sources:
     outside this scanner-evidence denominator.
   expected_summary:
     applicable: 15
-    full: 7
-    partial: 7
+    full: 8
+    partial: 6
     policy_review: 1
     uncovered: 0
     excluded: 0
-    full_percent: '46.7'
+    full_percent: '53.3'
   items:
   - item_id: nginx-2.4.2-unknown-host-handling
     title: Unknown-host handling
@@ -243,10 +283,18 @@ sources:
       reference: NGINX v3.0.0 §4.1.2
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - external.cert_chain_incomplete
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - inventory-completeness
+        - certificate-chain
       registry_references:
       - rule_id: external.cert_chain_incomplete
         standard: CIS
@@ -255,14 +303,43 @@ sources:
         origin: declared
       evidence_kinds:
       - safe-probe
-      rationale: Runtime certificate probing detects an incomplete served chain.
+      rationale: Bounded certificate-chain probing plus the declared `external.tls_inventory` control path
+        cover every endpoint in an operator-declared complete TLS inventory without assuming undeclared
+        listeners.
       limitations:
-      - A local ssl_certificate path alone cannot prove every chain served by the deployed endpoint.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through
+        `external.tls_inventory`; local `ssl_certificate` paths alone are not sufficient.
     exclusion: null
+    subclaims:
+    - subclaim_id: nginx-4.1.2-declared-endpoint-inventory
+      title: Declared endpoint inventory requires complete certificate-chain observation for every covered
+        endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported scope is limited to declared complete endpoint inventories.
+    - subclaim_id: nginx-4.1.2-chain-defect-detection
+      title: Served certificate-chain defects are surfaced as findings for the declared inventory.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: rule
+        target: external.cert_chain_incomplete
+        strength: partial
+        origin: declared
+      limitations: []
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://www.cisecurity.org/benchmark/nginx
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: nginx-4.1.5-cipher-policy
     title: Cipher policy
     references:
@@ -484,12 +561,18 @@ sources:
     remain outside this scanner-evidence denominator.
   expected_summary:
     applicable: 20
-    full: 18
-    partial: 2
+    full: 19
+    partial: 1
     policy_review: 0
     uncovered: 0
     excluded: 0
-    full_percent: '90.0'
+    full_percent: '95.0'
+  denominator_notes:
+  - change_id: apache-4.1-4.2-split
+    delta_applicable: 1
+    reason: Follow-up 11 split the historical Apache 4.1/4.2 grouped row into two counted items without
+      automatically increasing the full numerator.
+    change_ref: followup-11-apache-root-authorization-baseline
   items:
   - item_id: apache-2.1-module-minimization
     title: Module minimization
@@ -507,7 +590,7 @@ sources:
       - Apache HTTP Server 2.4 v2.3.0 §2.8
       - Apache HTTP Server 2.4 v2.3.0 §2.9
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - apache.modsecurity_module_missing
@@ -527,19 +610,43 @@ sources:
         origin: declared
       evidence_kinds:
       - local-config
-      rationale: Visible LoadModule inventory and selected risky-module checks remain the counted built-in
-        basis, while optional explicit module snapshots plus typed operator policy can now produce bounded
-        concrete-run control assessments without executing Apache.
+      rationale: Config-visible `LoadModule` corroboration plus the supported `apache.module_inventory`
+        snapshot-and-policy path now satisfy the grouped module-minimization subclaims without executing
+        Apache.
       limitations:
-      - Repository source capability remains partial until the final cross-standard evidence recount in
-        follow-up 14 validates every grouped module-minimization subclaim.
-      - Concrete runs still require an explicit operator snapshot and typed module policy; config-visible
-        LoadModule evidence alone is not sufficient.
+      - Full status is limited to explicit complete module snapshots evaluated through `apache.module_inventory`.
+      - Config-visible `LoadModule` evidence alone is not sufficient without the supported snapshot-plus-policy
+        path.
     exclusion: null
+    subclaims:
+    - subclaim_id: apache-2.1-complete-module-inventory
+      title: A complete runtime or build module inventory is evaluated against an explicit typed policy.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: apache.module_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: local-config
+      limitations:
+      - Concrete runs still require an explicit module snapshot and typed policy.
+    - subclaim_id: apache-2.1-risky-module-corroboration
+      title: Visible Apache configuration still corroborates risky-module presence for the grouped benchmark item.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: rule
+        target: apache.modsecurity_module_missing
+        strength: partial
+        origin: declared
+      limitations: []
     provenance:
-      reviewed_on: '2026-06-15'
+      reviewed_on: '2026-06-16'
       source_url: https://www.cisecurity.org/benchmark/apache_http_server
-      change_ref: followup-12-apache-module-inventory-policy
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: apache-4.1-os-root-access-denied
     title: OS-root access denied by default
     references:
@@ -1104,12 +1211,12 @@ sources:
     outside this scanner-evidence denominator. FTP stays applicable and uncovered.
   expected_summary:
     applicable: 10
-    full: 8
-    partial: 1
+    full: 9
+    partial: 0
     policy_review: 0
     uncovered: 1
     excluded: 0
-    full_percent: '80.0'
+    full_percent: '90.0'
   items:
   - item_id: iis-1.2-host-header-bindings
     title: Host header bindings
@@ -1403,11 +1510,41 @@ sources:
       - Microsoft IIS 10 v1.2.1 §7.11
       - Microsoft IIS 10 v1.2.1 §7.12
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
+      - iis.schannel_tls12_not_enabled
+      - iis.schannel_weak_protocol_enabled
+      - iis.schannel_aes128_enabled
+      - iis.schannel_aes256_not_enabled
+      - iis.schannel_cipher_suite_order_not_preferred
       - iis.ssl_weak_cipher_strength
       registry_references:
+      - rule_id: iis.schannel_tls12_not_enabled
+        standard: CIS
+        reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
+        strength: direct
+        origin: declared
+      - rule_id: iis.schannel_weak_protocol_enabled
+        standard: CIS
+        reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
+        strength: direct
+        origin: declared
+      - rule_id: iis.schannel_aes128_enabled
+        standard: CIS
+        reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
+        strength: direct
+        origin: declared
+      - rule_id: iis.schannel_aes256_not_enabled
+        standard: CIS
+        reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
+        strength: direct
+        origin: declared
+      - rule_id: iis.schannel_cipher_suite_order_not_preferred
+        standard: CIS
+        reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
+        strength: direct
+        origin: declared
       - rule_id: iis.ssl_weak_cipher_strength
         standard: CIS
         reference: Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12
@@ -1416,15 +1553,62 @@ sources:
       evidence_kinds:
       - local-config
       - registry-export
-      rationale: Registry or JSON-export evidence and external TLS probes cover selected SChannel protocol
-        and cipher settings.
+      rationale: Reviewed live-registry and v2 export evidence now cover protocol, cipher, and server-preference
+        posture while preserving unsupported, incomplete, or contradictory states as indeterminate rather
+        than pass.
       limitations:
-      - Full credit requires complete SChannel evidence when registry data is absent or incomplete.
+      - Full status is limited to reviewed live-registry or v2 export evidence; incomplete or contradictory
+        SChannel data remains indeterminate in real runs.
     exclusion: null
+    subclaims:
+    - subclaim_id: iis-7.1-protocol-posture
+      title: SChannel protocol posture is evaluated for disabled legacy protocols and required TLS 1.2 support.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: rule
+        target: iis.schannel_tls12_not_enabled
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: iis.schannel_weak_protocol_enabled
+        strength: direct
+        origin: declared
+      limitations: []
+    - subclaim_id: iis-7.1-cipher-posture
+      title: SChannel cipher posture is evaluated for weak and preferred cipher configuration.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: rule
+        target: iis.schannel_aes128_enabled
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: iis.schannel_aes256_not_enabled
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: iis.ssl_weak_cipher_strength
+        strength: partial
+        origin: declared
+      limitations: []
+    - subclaim_id: iis-7.1-cipher-suite-order
+      title: SChannel server cipher-suite ordering is evaluated from reviewed registry or v2 export evidence.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: rule
+        target: iis.schannel_cipher_suite_order_not_preferred
+        strength: direct
+        origin: declared
+      - kind: evidence-kind
+        target: registry-export
+      limitations: []
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://www.cisecurity.org/benchmark/microsoft_iis
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
 - source_id: owasp-top10-2025
   title: OWASP Top 10:2025
   version: '2025'
@@ -3667,12 +3851,12 @@ sources:
   scope_note: Selected TLS server requirements from NIST SP 800-52 Rev. 2.
   expected_summary:
     applicable: 10
-    full: 10
-    partial: 0
+    full: 6
+    partial: 4
     policy_review: 0
     uncovered: 0
     excluded: 0
-    full_percent: '100.0'
+    full_percent: '60.0'
   items:
   - item_id: nist-3.1-tls-version-posture
     title: TLS version posture
@@ -3777,7 +3961,7 @@ sources:
       reference: 3.3.1
       grouped_references: []
     applicability: applicable
-    status: full
+    status: partial
     evidence:
       rule_ids:
       - apache.ssl_cipher_suite_missing
@@ -3857,14 +4041,17 @@ sources:
       - local-config
       - normalized-config
       - safe-probe
-      rationale: Weak cipher checks and runtime AEAD or forward-secrecy observations cover the selected
-        posture.
-      limitations: []
+      rationale: Weak cipher checks and bounded AEAD or forward-secrecy observations cover selected aspects
+        of the recommended cipher posture.
+      limitations:
+      - The scanner does not prove a complete negotiated-cipher inventory across every endpoint and client
+        profile.
+      - Single-handshake forward-secrecy and AEAD observations remain bounded runtime evidence.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: nist-3.3.2-server-cipher-preference
     title: Server cipher preference
     references:
@@ -3872,7 +4059,7 @@ sources:
       reference: 3.3.2
       grouped_references: []
     applicability: applicable
-    status: full
+    status: partial
     evidence:
       rule_ids:
       - apache.ssl_honor_cipher_order_not_on
@@ -3909,14 +4096,16 @@ sources:
       evidence_kinds:
       - local-config
       - safe-probe
-      rationale: Local preference directives and bounded runtime observations provide server preference
-        evidence.
-      limitations: []
+      rationale: Local preference directives and bounded runtime observations provide partial server
+        preference evidence.
+      limitations:
+      - Bounded TLS 1.2 preference observations do not prove preference order across every endpoint and
+        client offer set.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: nist-3.4-certificate-chain-quality
     title: Certificate validity and chain quality
     references:
@@ -4083,7 +4272,7 @@ sources:
       reference: '4.2'
       grouped_references: []
     applicability: applicable
-    status: full
+    status: partial
     evidence:
       rule_ids:
       - external.tls_must_staple_not_observed
@@ -4095,13 +4284,15 @@ sources:
         origin: declared
       evidence_kinds:
       - safe-probe
-      rationale: Local stapling rules and runtime must-staple observations provide OCSP-related evidence.
-      limitations: []
+      rationale: Runtime must-staple observations provide bounded OCSP-related evidence.
+      limitations:
+      - Must-staple observations do not prove complete OCSP stapling deployment or revocation responder
+        behavior for every endpoint.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: nist-4.3-revocation-evidence
     title: Revocation evidence
     references:
@@ -4109,7 +4300,7 @@ sources:
       reference: '4.3'
       grouped_references: []
     applicability: applicable
-    status: full
+    status: partial
     evidence:
       rule_ids:
       - external.ocsp_stapling_not_observed
@@ -4121,13 +4312,15 @@ sources:
         origin: declared
       evidence_kinds:
       - safe-probe
-      rationale: The runtime OCSP stapling probe provides direct observable revocation evidence.
-      limitations: []
+      rationale: The runtime OCSP stapling probe provides bounded observable revocation evidence.
+      limitations:
+      - One stapling observation does not prove revocation evidence across every declared endpoint or every
+        handshake path.
     exclusion: null
     provenance:
-      reviewed_on: '2026-06-13'
+      reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-02-machine-readable-coverage-ledger
+      change_ref: followup-14-final-cross-standard-reconciliation
   - item_id: nist-4.2.4-hsts
     title: HTTP Strict Transport Security
     references:

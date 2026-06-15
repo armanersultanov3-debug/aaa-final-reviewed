@@ -147,6 +147,47 @@ def test_coverage_export_force_overwrites_existing_file(tmp_path: Path) -> None:
     assert payload["valid"] is True
 
 
+def test_coverage_reconcile_check_text_succeeds() -> None:
+    result = runner.invoke(app, ["coverage", "reconcile", "--check"])
+
+    assert result.exit_code == 0, result.output
+    assert "Coverage reconciliation is clean" in result.stdout
+    assert "3 tracked artifacts" in result.stdout
+
+
+def test_coverage_reconcile_check_json_has_stable_top_level_shape() -> None:
+    result = runner.invoke(
+        app,
+        ["coverage", "reconcile", "--check", "--format", "json"],
+    )
+
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.stdout)
+    assert set(payload) == {
+        "artifacts",
+        "issues",
+        "schema_version",
+        "sources",
+        "valid",
+    }
+    assert payload["schema_version"] == 1
+    assert payload["valid"] is True
+    assert payload["issues"] == []
+    assert len(payload["sources"]) == 8
+    assert [artifact["label"] for artifact in payload["artifacts"]] == [
+        "coverage-tracker",
+        "benchmarks-snapshot",
+        "standards-roadmap-final-reconciliation",
+    ]
+
+
+def test_coverage_reconcile_rejects_conflicting_modes() -> None:
+    result = runner.invoke(app, ["coverage", "reconcile", "--check", "--write"])
+
+    assert result.exit_code == 2
+    assert "Choose exactly one of --check or --write." in result.stderr
+
+
 def test_coverage_validate_detects_semantic_summary_drift(
     tmp_path: Path,
 ) -> None:

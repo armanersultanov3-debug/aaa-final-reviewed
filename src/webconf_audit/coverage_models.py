@@ -6,7 +6,14 @@ from datetime import date
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    model_validator,
+)
 
 Identifier = Annotated[
     str,
@@ -59,6 +66,10 @@ class LedgerSnapshot(_StrictModel):
     effective_date: date
     base_revision: NonEmptyText
     description: NonEmptyText
+    accepted_revisions: tuple["AcceptedProgramRevision", ...] = Field(
+        default=(),
+        max_length=32,
+    )
 
 
 class CoverageSummary(_StrictModel):
@@ -86,6 +97,63 @@ class RegistryReferenceClaim(_StrictModel):
     reference: NonEmptyText
     strength: MappingStrength
     origin: MappingOrigin
+
+
+class AcceptedProgramRevision(_StrictModel):
+    step_id: Identifier
+    merge_sha: NonEmptyText
+    summary: NonEmptyText
+
+
+class CoverageSubclaimBinding(_StrictModel):
+    kind: Literal["rule", "control", "evidence-kind"]
+    target: NonEmptyText
+    strength: MappingStrength | None = None
+    origin: MappingOrigin | None = None
+    absence_semantics: AbsenceSemantics = "none"
+
+    @model_validator(mode="after")
+    def _validate_binding(self) -> "CoverageSubclaimBinding":
+        if self.kind == "evidence-kind":
+            if self.target not in {
+                "local-config",
+                "normalized-config",
+                "registry-export",
+                "safe-probe",
+                "policy-review",
+            }:
+                raise ValueError(
+                    "evidence-kind bindings must target a known evidence kind."
+                )
+            if self.strength is not None or self.origin is not None:
+                raise ValueError(
+                    "evidence-kind bindings cannot declare registry mapping provenance."
+                )
+            if self.absence_semantics != "none":
+                raise ValueError(
+                    "evidence-kind bindings cannot declare automated pass semantics."
+                )
+            return self
+        if self.strength is None or self.origin is None:
+            raise ValueError(
+                "rule and control bindings require both strength and origin."
+            )
+        return self
+
+
+class CoverageSubclaim(_StrictModel):
+    subclaim_id: Identifier
+    title: NonEmptyText
+    mandatory: bool = True
+    implemented: bool = True
+    bindings: tuple[CoverageSubclaimBinding, ...] = Field(default=(), max_length=64)
+    limitations: tuple[NonEmptyText, ...] = Field(default=(), max_length=32)
+
+    @model_validator(mode="after")
+    def _validate_subclaim(self) -> "CoverageSubclaim":
+        if self.implemented and not self.bindings:
+            raise ValueError("Implemented subclaims require at least one binding.")
+        return self
 
 
 class AssessableRuleEvidence(_StrictModel):
@@ -128,6 +196,13 @@ class Exclusion(_StrictModel):
     boundary: NonEmptyText
 
 
+class DenominatorChangeNote(_StrictModel):
+    change_id: Identifier
+    delta_applicable: int
+    reason: NonEmptyText
+    change_ref: NonEmptyText
+
+
 class ItemProvenance(_StrictModel):
     reviewed_on: date
     source_url: AnyHttpUrl
@@ -142,6 +217,7 @@ class CoverageItem(_StrictModel):
     status: CoverageStatus
     evidence: CoverageEvidence
     exclusion: Exclusion | None = None
+    subclaims: tuple[CoverageSubclaim, ...] = Field(default=(), max_length=64)
     provenance: ItemProvenance
 
 
@@ -152,6 +228,10 @@ class CoverageSource(_StrictModel):
     authority_url: AnyHttpUrl
     scope_note: NonEmptyText
     expected_summary: CoverageSummary
+    denominator_notes: tuple[DenominatorChangeNote, ...] = Field(
+        default=(),
+        max_length=16,
+    )
     items: tuple[CoverageItem, ...] = Field(min_length=1, max_length=512)
 
 
@@ -182,25 +262,97 @@ class SourceCoverageSummary(_StrictModel):
     full_percent: Decimal = Field(ge=0, le=100, decimal_places=1)
 
 
+class SourceRecount(_StrictModel):
+    source_id: Identifier
+    title: NonEmptyText
+    version: NonEmptyText
+    applicable: int = Field(ge=0)
+    full: int = Field(ge=0)
+    partial: int = Field(ge=0)
+    policy_review: int = Field(ge=0)
+    uncovered: int = Field(ge=0)
+    excluded: int = Field(ge=0)
+    full_percent: Decimal = Field(ge=0, le=100, decimal_places=1)
+
+
+class SourceCoverageDelta(_StrictModel):
+    applicable: int
+    full: int
+    partial: int
+    policy_review: int
+    uncovered: int
+    excluded: int
+
+
+class CoverageStatusChange(_StrictModel):
+    source_id: Identifier
+    item_id: Identifier
+    title: NonEmptyText
+    from_status: CoverageStatus
+    to_status: CoverageStatus
+    change_ref: NonEmptyText
+
+
+class GeneratedCoverageArtifact(_StrictModel):
+    label: Identifier
+    path: str = Field(min_length=1, max_length=4096)
+    content: str = Field(min_length=1)
+
+
+class ReconciledSourceCoverage(_StrictModel):
+    source_id: Identifier
+    title: NonEmptyText
+    baseline: SourceRecount
+    current: SourceRecount
+    delta: SourceCoverageDelta
+    changed_items: tuple[CoverageStatusChange, ...] = Field(default=(), max_length=128)
+    denominator_notes: tuple[DenominatorChangeNote, ...] = Field(
+        default=(),
+        max_length=16,
+    )
+
+
+class CoverageReconciliation(_StrictModel):
+    schema_version: Literal[1] = 1
+    sources: tuple[ReconciledSourceCoverage, ...] = Field(
+        min_length=1,
+        max_length=32,
+    )
+    artifacts: tuple[GeneratedCoverageArtifact, ...] = Field(
+        min_length=1,
+        max_length=16,
+    )
+
+
 __all__ = [
+    "AcceptedProgramRevision",
     "AbsenceSemantics",
     "AssessableControlEvidence",
     "AssessableRuleEvidence",
     "Applicability",
     "ControlReference",
+    "CoverageReconciliation",
     "CoverageEvidence",
     "CoverageItem",
     "CoverageLedger",
     "CoverageLedgerIssue",
     "CoverageSource",
+    "CoverageStatusChange",
     "CoverageStatus",
+    "CoverageSubclaim",
+    "CoverageSubclaimBinding",
     "CoverageSummary",
+    "DenominatorChangeNote",
     "EvidenceKind",
     "Exclusion",
+    "GeneratedCoverageArtifact",
     "ItemProvenance",
     "LedgerSnapshot",
     "MappingOrigin",
     "MappingStrength",
+    "ReconciledSourceCoverage",
     "RegistryReferenceClaim",
+    "SourceCoverageDelta",
     "SourceCoverageSummary",
+    "SourceRecount",
 ]

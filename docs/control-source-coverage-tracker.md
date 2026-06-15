@@ -1,4 +1,4 @@
-<!-- Generated from src/webconf_audit/data/control_source_coverage.yml; refresh with `webconf-audit coverage export --format markdown --output docs/control-source-coverage-tracker.md --force`. -->
+<!-- Generated from src/webconf_audit/data/control_source_coverage.yml; refresh with `webconf-audit coverage reconcile --write`. -->
 # Control Source Coverage Tracker
 
 This generated view summarizes scanner-evidence coverage within the declared project scope. It does not certify compliance with any source.
@@ -11,12 +11,12 @@ The denominator is `full + partial + policy-review + uncovered`. Only `full` ite
 
 | Control source | Applicable | Full | Partial | `policy-review` | Uncovered | Full coverage |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| CIS NGINX Benchmark v3.0.0 | 15 | 7 | 7 | 1 | 0 | 46.7% |
-| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 18 | 2 | 0 | 0 | 90.0% |
-| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 8 | 1 | 0 | 1 | 80.0% |
+| CIS NGINX Benchmark v3.0.0 | 15 | 8 | 6 | 1 | 0 | 53.3% |
+| CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 19 | 1 | 0 | 0 | 95.0% |
+| CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
 | OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
-| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
+| NIST SP 800-52 Rev. 2 | 10 | 6 | 4 | 0 | 0 | 60.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
@@ -34,7 +34,7 @@ The denominator is `full + partial + policy-review + uncovered`. Only `full` ite
 
 Selected web-server-visible CIS NGINX controls. Package source, service-account, operating-system permission, approved-port, private-key permission, and mandatory-access-control requirements remain outside this scanner-evidence denominator.
 
-Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1. Uncovered count: 0. Excluded count: 0.
+Applicable count: 15. Full count: 8. Partial count: 6. `policy-review` count: 1. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
@@ -45,7 +45,7 @@ Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1.
 | NGINX v3.0.0 §3.3 Error log level | `partial` | Built-in findings detect an error log level that is too restrictive for useful security diagnostics, and optional `nginx.logging` control assessments can enforce explicit destination and threshold contracts without changing the counted source status. Limitations: The preferred warn, notice, or info level depends on operating policy and workload.; Static policy-backed assessments do not prove downstream alerting, retention, or successful log delivery. |
 | NGINX v3.0.0 §3.4 Forwarded source-IP headers | `full` | The rule checks source-IP forwarding headers for proxy-like upstream directives. |
 | NGINX v3.0.0 §4.1.1 HTTP to HTTPS redirect | `full` | Local redirect analysis and runtime redirect probes identify cleartext listeners without an HTTPS transition. |
-| NGINX v3.0.0 §4.1.2 Trusted certificate chain | `partial` | Runtime certificate probing detects an incomplete served chain. Limitations: A local ssl_certificate path alone cannot prove every chain served by the deployed endpoint. |
+| NGINX v3.0.0 §4.1.2 Trusted certificate chain | `full` | Bounded certificate-chain probing plus the declared `external.tls_inventory` control path cover every endpoint in an operator-declared complete TLS inventory without assuming undeclared listeners. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through `external.tls_inventory`; local `ssl_certificate` paths alone are not sufficient. |
 | NGINX v3.0.0 §4.1.5 Cipher policy | `full` | The rule parses configured cipher strings and reports known weak cipher posture. |
 | NGINX v3.0.0 §4.1.9 / §4.1.10 (NGINX v3.0.0 §4.1.9, NGINX v3.0.0 §4.1.10) TLS session cache and timeout | `full` | The rules validate session cache and timeout configuration in effective HTTP and server scopes. |
 | NGINX v3.0.0 §4.1.12 HTTP/3 and Alt-Svc posture | `policy-review` | The opt-in rule reports the QUIC listener, effective http3 state, and effective Alt-Svc advertisement for operator review. Limitations: Runtime HTTP/3 negotiation is not proven. |
@@ -58,11 +58,11 @@ Applicable count: 15. Full count: 7. Partial count: 7. `policy-review` count: 1.
 
 Selected configuration-visible CIS Apache HTTP Server controls. Installation planning, service accounts, filesystem permissions, log storage and rotation, private-key metadata, SELinux, and AppArmor remain outside this scanner-evidence denominator.
 
-Applicable count: 20. Full count: 18. Partial count: 2. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+Applicable count: 20. Full count: 19. Partial count: 1. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
-| Apache HTTP Server 2.4 v2.3.0 §2.1-§2.9 (Apache HTTP Server 2.4 v2.3.0 §2.1, Apache HTTP Server 2.4 v2.3.0 §2.2, Apache HTTP Server 2.4 v2.3.0 §2.3, Apache HTTP Server 2.4 v2.3.0 §2.4, Apache HTTP Server 2.4 v2.3.0 §2.5, Apache HTTP Server 2.4 v2.3.0 §2.6, Apache HTTP Server 2.4 v2.3.0 §2.7, Apache HTTP Server 2.4 v2.3.0 §2.8, Apache HTTP Server 2.4 v2.3.0 §2.9) Module minimization | `partial` | Visible LoadModule inventory and selected risky-module checks remain the counted built-in basis, while optional explicit module snapshots plus typed operator policy can now produce bounded concrete-run control assessments without executing Apache. Limitations: Repository source capability remains partial until the final cross-standard evidence recount in follow-up 14 validates every grouped module-minimization subclaim.; Concrete runs still require an explicit operator snapshot and typed module policy; config-visible LoadModule evidence alone is not sufficient. |
+| Apache HTTP Server 2.4 v2.3.0 §2.1-§2.9 (Apache HTTP Server 2.4 v2.3.0 §2.1, Apache HTTP Server 2.4 v2.3.0 §2.2, Apache HTTP Server 2.4 v2.3.0 §2.3, Apache HTTP Server 2.4 v2.3.0 §2.4, Apache HTTP Server 2.4 v2.3.0 §2.5, Apache HTTP Server 2.4 v2.3.0 §2.6, Apache HTTP Server 2.4 v2.3.0 §2.7, Apache HTTP Server 2.4 v2.3.0 §2.8, Apache HTTP Server 2.4 v2.3.0 §2.9) Module minimization | `full` | Config-visible `LoadModule` corroboration plus the supported `apache.module_inventory` snapshot-and-policy path now satisfy the grouped module-minimization subclaims without executing Apache. Limitations: Full status is limited to explicit complete module snapshots evaluated through `apache.module_inventory`.; Config-visible `LoadModule` evidence alone is not sufficient without the supported snapshot-plus-policy path. |
 | Apache HTTP Server 2.4 v2.3.0 §4.1 OS-root access denied by default | `full` | A direct root-baseline rule evaluates exact OS-root Directory authorization, same-path AuthMerging behavior, legacy Order/Allow/Deny defaults, and incomplete evidence as indeterminate rather than pass. |
 | Apache HTTP Server 2.4 v2.3.0 §4.2 Appropriate access to web content | `partial` | Visible Apache and .htaccess authentication signals can highlight incomplete web-content access declarations in the configuration surface. Limitations: Intended principals, content inventory, and business access matrix remain deployment-specific.; Application-layer authorization beyond Apache is outside static web-server configuration evidence. |
 | Apache HTTP Server 2.4 v2.3.0 §4.3-§4.4 (Apache HTTP Server 2.4 v2.3.0 §4.3, Apache HTTP Server 2.4 v2.3.0 §4.4) AllowOverride baseline | `full` | Root and inherited AllowOverride rules cover the visible configuration baseline. |
@@ -87,7 +87,7 @@ Applicable count: 20. Full count: 18. Partial count: 2. `policy-review` count: 0
 
 Selected IIS and SChannel configuration-visible controls. Broader Windows host hardening, filesystem ACLs, Dynamic IP Restrictions, log storage, ETW, and legacy IIS benchmark editions remain outside this scanner-evidence denominator. FTP stays applicable and uncovered.
 
-Applicable count: 10. Full count: 8. Partial count: 1. `policy-review` count: 0. Uncovered count: 1. Excluded count: 0.
+Applicable count: 10. Full count: 9. Partial count: 0. `policy-review` count: 0. Uncovered count: 1. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
@@ -100,7 +100,7 @@ Applicable count: 10. Full count: 8. Partial count: 1. `policy-review` count: 0.
 | Microsoft IIS 10 v1.2.1 §4.2 / §4.3 / §4.7 / §4.9 / §4.10 (Microsoft IIS 10 v1.2.1 §4.2, Microsoft IIS 10 v1.2.1 §4.3, Microsoft IIS 10 v1.2.1 §4.7, Microsoft IIS 10 v1.2.1 §4.9, Microsoft IIS 10 v1.2.1 §4.10) Request filtering | `full` | Rules evaluate unsafe request limits, unlisted file extensions, and CGI restriction settings. |
 | Microsoft IIS 10 v1.2.1 §4.8 Handler write, script, and execute policy | `full` | The handler rule detects write, script, or execute access combined with executable handlers. |
 | Microsoft IIS 10 v1.2.1 §6.1 / §6.2 (Microsoft IIS 10 v1.2.1 §6.1, Microsoft IIS 10 v1.2.1 §6.2) FTP encryption and logon restrictions | `uncovered` | The project does not parse IIS FTP authorization, logon, or channel-encryption configuration. |
-| Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12 (Microsoft IIS 10 v1.2.1 §7.1, Microsoft IIS 10 v1.2.1 §7.2, Microsoft IIS 10 v1.2.1 §7.3, Microsoft IIS 10 v1.2.1 §7.4, Microsoft IIS 10 v1.2.1 §7.5, Microsoft IIS 10 v1.2.1 §7.6, Microsoft IIS 10 v1.2.1 §7.10, Microsoft IIS 10 v1.2.1 §7.11, Microsoft IIS 10 v1.2.1 §7.12) SChannel TLS posture | `partial` | Registry or JSON-export evidence and external TLS probes cover selected SChannel protocol and cipher settings. Limitations: Full credit requires complete SChannel evidence when registry data is absent or incomplete. |
+| Microsoft IIS 10 v1.2.1 §7.1-§7.6 / §7.10-§7.12 (Microsoft IIS 10 v1.2.1 §7.1, Microsoft IIS 10 v1.2.1 §7.2, Microsoft IIS 10 v1.2.1 §7.3, Microsoft IIS 10 v1.2.1 §7.4, Microsoft IIS 10 v1.2.1 §7.5, Microsoft IIS 10 v1.2.1 §7.6, Microsoft IIS 10 v1.2.1 §7.10, Microsoft IIS 10 v1.2.1 §7.11, Microsoft IIS 10 v1.2.1 §7.12) SChannel TLS posture | `full` | Reviewed live-registry and v2 export evidence now cover protocol, cipher, and server-preference posture while preserving unsupported, incomplete, or contradictory states as indeterminate rather than pass. Limitations: Full status is limited to reviewed live-registry or v2 export evidence; incomplete or contradictory SChannel data remains indeterminate in real runs. |
 
 ## OWASP Top 10:2025
 
@@ -156,18 +156,18 @@ Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0
 
 Selected TLS server requirements from NIST SP 800-52 Rev. 2.
 
-Applicable count: 10. Full count: 10. Partial count: 0. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+Applicable count: 10. Full count: 6. Partial count: 4. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
 | 3.1.1 / 3.1.2 (3.1.1, 3.1.2) TLS version posture | `full` | Local, SChannel, normalized, and external rules detect deprecated TLS versions. |
-| 3.3.1 Recommended cipher posture | `full` | Weak cipher checks and runtime AEAD or forward-secrecy observations cover the selected posture. |
-| 3.3.2 Server cipher preference | `full` | Local preference directives and bounded runtime observations provide server preference evidence. |
+| 3.3.1 Recommended cipher posture | `partial` | Weak cipher checks and bounded AEAD or forward-secrecy observations cover selected aspects of the recommended cipher posture. Limitations: The scanner does not prove a complete negotiated-cipher inventory across every endpoint and client profile.; Single-handshake forward-secrecy and AEAD observations remain bounded runtime evidence. |
+| 3.3.2 Server cipher preference | `partial` | Local preference directives and bounded runtime observations provide partial server preference evidence. Limitations: Bounded TLS 1.2 preference observations do not prove preference order across every endpoint and client offer set. |
 | 3.4 Certificate validity and chain quality | `full` | External X.509 probes validate expiry, identity, chain, and selected signature properties. |
 | 3.5 Secure renegotiation | `full` | Local unsafe-renegotiation checks and runtime handshake evidence cover renegotiation posture. |
 | 3.6 TLS compression | `full` | Local and runtime rules detect enabled or negotiated TLS compression. |
-| 4.2 OCSP and must-staple | `full` | Local stapling rules and runtime must-staple observations provide OCSP-related evidence. |
-| 4.3 Revocation evidence | `full` | The runtime OCSP stapling probe provides direct observable revocation evidence. |
+| 4.2 OCSP and must-staple | `partial` | Runtime must-staple observations provide bounded OCSP-related evidence. Limitations: Must-staple observations do not prove complete OCSP stapling deployment or revocation responder behavior for every endpoint. |
+| 4.3 Revocation evidence | `partial` | The runtime OCSP stapling probe provides bounded observable revocation evidence. Limitations: One stapling observation does not prove revocation evidence across every declared endpoint or every handshake path. |
 | 4.2.4 HTTP Strict Transport Security | `full` | Universal, local, and external HSTS rules cover significant policy posture. |
 | NO PLAINTEXT FALLBACK No plaintext fallback | `full` | Redirect, TLS-intent, and runtime HTTPS rules detect plaintext fallback. |
 
