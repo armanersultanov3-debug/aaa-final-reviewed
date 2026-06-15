@@ -788,6 +788,11 @@ def test_reconcile_coverage_documents_renders_final_deltas() -> None:
 
     assert isinstance(reconciliation, CoverageReconciliation)
     assert len(reconciliation.artifacts) == 3
+    assert "## Final Counted Coverage Reconciliation (2026-06-16)" in next(
+        artifact.content
+        for artifact in reconciliation.artifacts
+        if artifact.label == "standards-roadmap-final-reconciliation"
+    )
     nist = next(
         source
         for source in reconciliation.sources
@@ -959,6 +964,42 @@ def test_write_coverage_reconciliation_rolls_back_on_replace_failure(
     assert [issue.code for issue in issues] == ["reconciliation_write_failed"]
     assert first.read_text(encoding="utf-8") == "first-old\n"
     assert second.read_text(encoding="utf-8") == "second-old\n"
+
+
+def test_write_coverage_reconciliation_reports_cross_drive_staging_failure(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source = reconcile_coverage_documents(  # type: ignore[arg-type]
+        load_coverage_ledger(),
+        _registry(),
+        repo_root=Path(__file__).resolve().parents[1],
+    ).sources[0]
+    reconciliation = CoverageReconciliation(
+        sources=(source,),
+        artifacts=(
+            {
+                "label": "first-artifact",
+                "path": str(tmp_path / "first.md"),
+                "content": "first-new\n",
+            },
+            {
+                "label": "second-artifact",
+                "path": str(tmp_path / "second.md"),
+                "content": "second-new\n",
+            },
+        ),
+    )
+
+    def fail_commonpath(paths: list[str]) -> str:
+        raise ValueError("Paths don't have the same drive")
+
+    monkeypatch.setattr("webconf_audit.coverage_ledger.os.path.commonpath", fail_commonpath)
+
+    issues = write_coverage_reconciliation(reconciliation)
+
+    assert [issue.code for issue in issues] == ["reconciliation_write_failed"]
+    assert "different drives" in issues[0].message
 
 
 def test_write_coverage_output_refuses_existing_file(tmp_path: Path) -> None:

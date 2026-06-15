@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
 
 from pydantic import (
     AnyHttpUrl,
@@ -115,13 +115,7 @@ class CoverageSubclaimBinding(_StrictModel):
     @model_validator(mode="after")
     def _validate_binding(self) -> "CoverageSubclaimBinding":
         if self.kind == "evidence-kind":
-            if self.target not in {
-                "local-config",
-                "normalized-config",
-                "registry-export",
-                "safe-probe",
-                "policy-review",
-            }:
+            if self.target not in set(get_args(EvidenceKind)):
                 raise ValueError(
                     "evidence-kind bindings must target a known evidence kind."
                 )

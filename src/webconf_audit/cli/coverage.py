@@ -211,6 +211,14 @@ def reconcile_command(
         "--ledger",
         help="Use a local ledger instead of the packaged canonical ledger.",
     ),
+    repo_root: Path | None = typer.Option(
+        None,
+        "--repo-root",
+        help=(
+            "Repository root whose tracked coverage documents should be checked "
+            "or rewritten. Defaults to the package-relative repository root."
+        ),
+    ),
     output_format: CoverageDisplayFormat = typer.Option(
         CoverageDisplayFormat.text,
         "--format",
@@ -234,9 +242,17 @@ def reconcile_command(
     from webconf_audit.rule_registry import registry
 
     _ensure_all_rules_loaded()
-    reconciliation = reconcile_coverage_documents(ledger, registry)
+    reconciliation = reconcile_coverage_documents(
+        ledger,
+        registry,
+        repo_root=repo_root,
+    )
     if check_mode:
-        issues = check_coverage_reconciliation(ledger, registry)
+        issues = check_coverage_reconciliation(
+            ledger,
+            registry,
+            repo_root=repo_root,
+        )
         if output_format == CoverageDisplayFormat.json:
             typer.echo(_render_reconciliation_json(reconciliation, issues))
         elif issues:
@@ -250,7 +266,12 @@ def reconcile_command(
             raise typer.Exit(1)
         return
 
-    issues = check_coverage_reconciliation(ledger, registry, compare_tracked=False)
+    issues = check_coverage_reconciliation(
+        ledger,
+        registry,
+        repo_root=repo_root,
+        compare_tracked=False,
+    )
     if issues:
         if output_format == CoverageDisplayFormat.json:
             typer.echo(_render_reconciliation_json(reconciliation, issues))

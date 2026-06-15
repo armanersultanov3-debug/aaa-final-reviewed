@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import yaml
 from typer.testing import CliRunner
 
+import webconf_audit.cli
 import webconf_audit.cli.coverage as coverage_cli
 from webconf_audit.cli import app
 from webconf_audit.coverage_ledger import load_coverage_ledger
@@ -186,6 +188,51 @@ def test_coverage_reconcile_rejects_conflicting_modes() -> None:
 
     assert result.exit_code == 2
     assert "Choose exactly one of --check or --write." in result.stderr
+
+
+def test_coverage_reconcile_check_passes_repo_root(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        coverage_cli,
+        "_load_and_validate",
+        lambda ledger_path: (object(), ()),
+    )
+    monkeypatch.setattr(webconf_audit.cli, "_ensure_all_rules_loaded", lambda: None)
+
+    def fake_reconcile(ledger, registry, *, repo_root=None):
+        captured["reconciliation_repo_root"] = repo_root
+        return SimpleNamespace(artifacts=[object()], sources=[])
+
+    def fake_check(ledger, registry, *, repo_root=None, compare_tracked=True):
+        captured["check_repo_root"] = repo_root
+        return ()
+
+    monkeypatch.setattr(
+        coverage_cli,
+        "reconcile_coverage_documents",
+        fake_reconcile,
+    )
+    monkeypatch.setattr(
+        coverage_cli,
+        "check_coverage_reconciliation",
+        fake_check,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "coverage",
+            "reconcile",
+            "--check",
+            "--repo-root",
+            str(tmp_path),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["reconciliation_repo_root"] == tmp_path
+    assert captured["check_repo_root"] == tmp_path
 
 
 def test_coverage_validate_detects_semantic_summary_drift(

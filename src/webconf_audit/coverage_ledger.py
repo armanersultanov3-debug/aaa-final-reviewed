@@ -941,7 +941,7 @@ def _render_standards_reconciliation_section(
     sources: tuple[ReconciledSourceCoverage, ...],
 ) -> str:
     lines = [
-        "## Final Counted Coverage Reconciliation (2026-06-16)",
+        f"## Final Counted Coverage Reconciliation ({ledger.snapshot.effective_date.isoformat()})",
         "",
         "This terminal program recount freezes the accepted follow-up merge SHAs, "
         "recomputes each counted source from the packaged ledger, and keeps "
@@ -1179,7 +1179,13 @@ def _preflight_reconciliation_outputs(
 
 def _common_output_root(outputs: dict[Path, str]) -> Path:
     roots = [path.parent.resolve() for path in outputs]
-    common = Path(os.path.commonpath([str(root) for root in roots]))
+    try:
+        common = Path(os.path.commonpath([str(root) for root in roots]))
+    except ValueError as exc:
+        raise OSError(
+            "Could not compute a common staging directory for reconciliation "
+            "artifacts because the output paths are on different drives."
+        ) from exc
     return common
 
 

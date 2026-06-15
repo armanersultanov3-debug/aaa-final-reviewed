@@ -2,7 +2,7 @@ schema_version: 1
 snapshot:
   snapshot_id: followup-14-final-cross-standard-reconciliation
   effective_date: '2026-06-16'
-  base_revision: '4658297'
+  base_revision: 4658297b912c44d73bf2ed926e39059e2e8b96d4
   description: Final cross-standard counted-coverage reconciliation after accepted follow-ups 01-13, with
     frozen merge SHAs, explicit denominator deltas, and synchronized generated documentation.
   accepted_revisions:

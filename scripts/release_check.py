@@ -36,7 +36,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     work_dir = _resolve_inside_repo(repo_root, args.work_dir)
 
     if args.dry_run:
-        _print_dry_run_plan(work_dir)
+        _print_dry_run_plan(work_dir, repo_root=repo_root)
         return 0
 
     _prepare_work_dir(repo_root, work_dir)
@@ -92,6 +92,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "--check",
                 "--format",
                 "json",
+                "--repo-root",
+                str(repo_root),
             ],
         )
         _validate_coverage_payload(coverage_payload)
@@ -142,7 +144,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _print_dry_run_plan(work_dir: Path) -> None:
+def _print_dry_run_plan(work_dir: Path, *, repo_root: Path) -> None:
     dist_dir = work_dir / "dist"
     venv_dir = work_dir / "venv"
     venv_python = _venv_python(venv_dir)
@@ -157,7 +159,16 @@ def _print_dry_run_plan(work_dir: Path) -> None:
             [str(venv_python), "-m", "pip", "check"],
             "Validate installed rule crosswalk",
             "Validate installed coverage ledger",
-            ["webconf-audit", "coverage", "reconcile", "--check", "--format", "json"],
+            [
+                "webconf-audit",
+                "coverage",
+                "reconcile",
+                "--check",
+                "--format",
+                "json",
+                "--repo-root",
+                str(repo_root),
+            ],
             ["webconf-audit", "list-rules", "--format", "json"],
             [
                 "webconf-audit",
