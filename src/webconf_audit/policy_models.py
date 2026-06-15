@@ -20,6 +20,10 @@ from pydantic import (
     model_validator,
 )
 
+from webconf_audit.apache_module_names import (
+    module_aliases,
+    normalized_module_identifier,
+)
 from webconf_audit.coverage_models import Identifier, NonEmptyText, RuleIdentifier
 
 PolicySchemaVersion = Literal[1]
@@ -98,6 +102,12 @@ CspFrameAncestorsMode = Literal["deny"]
 CspReportingMode = Literal["report-to", "report-uri"]
 SingleValueHeaderMode = Literal["transitional_optional"]
 TLSTrustMode = Literal["system", "custom"]
+ModuleEvidenceState = Literal["loaded", "absent", "unknown"]
+ModuleLinkage = Literal["static", "shared", "unknown"]
+ModuleExpectation = Literal["required", "forbidden", "allowed", "not-applicable"]
+CompletenessState = Literal["complete", "partial", "unknown"]
+ModulePredicateResult = Literal["satisfied", "violated", "unknown", "not-applicable"]
+ApacheUnlistedLoadedModules = Literal["fail", "indeterminate", "allow"]
 TLSRequiredEvidence = Literal[
     "handshake",
     "certificate_name",
@@ -1026,6 +1036,111 @@ class ExternalPolicy(_StrictModel):
         return self
 
 
+class ApacheBenchmarkApplicability(_StrictModel):
+    applicable: bool
+    rationale: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_rationale(self) -> "ApacheBenchmarkApplicability":
+        if not self.applicable and self.rationale is None:
+            raise ValueError(
+                "benchmark applicability marked not applicable requires rationale."
+            )
+        return self
+
+
+class ApacheModuleBenchmarkScope(_StrictModel):
+    cis_apache_2_4_v2_3_0: ApacheBenchmarkApplicability | None = None
+
+
+class ApacheModuleExpectationEntry(_StrictModel):
+    expectation: ModuleExpectation
+    rationale: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_rationale(self) -> "ApacheModuleExpectationEntry":
+        if self.expectation in {"required", "allowed", "not-applicable"} and self.rationale is None:
+            raise ValueError(
+                "required, allowed, and not-applicable module expectations require rationale."
+            )
+        return self
+
+
+class ApacheModulePolicySelector(_StrictModel):
+    host: NonEmptyText | None = None
+    environment: NonEmptyText | None = None
+    configuration_id: NonEmptyText | None = None
+
+    @model_validator(mode="after")
+    def validate_selector(self) -> "ApacheModulePolicySelector":
+        if (
+            self.host is None
+            and self.environment is None
+            and self.configuration_id is None
+        ):
+            raise ValueError(
+                "apache.module_inventory selectors must declare host, environment, or configuration_id."
+            )
+        return self
+
+
+class ApacheModulePolicy(_StrictModel):
+    policy_id: Identifier = Field(alias="id")
+    selectors: ApacheModulePolicySelector | None = None
+    inventory_snapshot_id: NonEmptyText
+    unlisted_loaded_modules: ApacheUnlistedLoadedModules
+    benchmark_scope: ApacheModuleBenchmarkScope = Field(
+        default_factory=ApacheModuleBenchmarkScope
+    )
+    modules: dict[RuleIdentifier, ApacheModuleExpectationEntry] = Field(
+        default_factory=dict
+    )
+
+    @field_validator("modules", mode="before")
+    @classmethod
+    def normalize_modules(
+        cls,
+        value,
+    ):
+        if value is None:
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("apache.module_inventory modules must be a mapping.")
+        normalized: dict[str, object] = {}
+        seen_aliases: dict[str, str] = {}
+        for raw_key, raw_entry in value.items():
+            if not isinstance(raw_key, str):
+                raise ValueError("apache.module_inventory module keys must be strings.")
+            normalized_key = normalized_module_identifier(raw_key)
+            if not normalized_key:
+                raise ValueError("apache.module_inventory module keys must not be empty.")
+            existing_key = seen_aliases.get(normalized_key)
+            if existing_key is not None and existing_key != raw_key:
+                raise ValueError(
+                    "apache.module_inventory policy contains duplicate module aliases "
+                    f"{existing_key!r} and {raw_key!r} for {normalized_key!r}."
+                )
+            normalized[normalized_key] = raw_entry
+            for alias in module_aliases(raw_key):
+                seen_aliases.setdefault(alias, raw_key)
+        return normalized
+
+
+class ApacheModuleInventoryPolicySet(_StrictModel):
+    policies: tuple[ApacheModulePolicy, ...] = Field(default=(), max_length=128)
+
+    @model_validator(mode="after")
+    def validate_policy_ids(self) -> "ApacheModuleInventoryPolicySet":
+        policy_ids = [policy.policy_id for policy in self.policies]
+        if len(set(policy_ids)) != len(policy_ids):
+            raise ValueError("apache.module_inventory policy ids must be unique.")
+        return self
+
+
+class ApachePolicy(_StrictModel):
+    module_inventory: ApacheModuleInventoryPolicySet | None = None
+
+
 class ControlPolicy(_StrictModel):
     item_id: Identifier
     disposition: ControlDisposition
@@ -1070,6 +1185,10 @@ class AuditPolicy(_StrictModel):
     description: NonEmptyText
     defaults: PolicyDefaults
     profiles: tuple[AuditProfile, ...] = Field(min_length=1, max_length=64)
+    apache: ApachePolicy | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     nginx: NginxPolicy | None = None
     external: ExternalPolicy | None = Field(
         default=None,
@@ -1120,6 +1239,10 @@ class ResolvedAuditPolicy(_StrictModel):
     target: ResolvedTarget
     requested_opt_in_tags: tuple[Identifier, ...] = Field(default=(), max_length=32)
     sources: tuple[ResolvedSourcePolicy, ...] = Field(min_length=1, max_length=32)
+    apache: ApachePolicy | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     nginx: NginxPolicy | None = None
     external: ExternalPolicy | None = Field(
         default=None,
@@ -1138,11 +1261,20 @@ class AuditPolicyIssue(_StrictModel):
 
 
 __all__ = [
+    "ApacheBenchmarkApplicability",
+    "ApacheModuleBenchmarkScope",
+    "ApacheModuleExpectationEntry",
+    "ApacheModuleInventoryPolicySet",
+    "ApacheModulePolicy",
+    "ApacheModulePolicySelector",
+    "ApachePolicy",
+    "ApacheUnlistedLoadedModules",
     "AnalysisMode",
     "AuditPolicy",
     "AuditPolicyIssue",
     "AuditProfile",
     "AuditTarget",
+    "CompletenessState",
     "ControlDisposition",
     "CspAdditionalPoliciesMode",
     "CspBaselinePolicy",
@@ -1155,6 +1287,10 @@ __all__ = [
     "HeaderExpression",
     "HeaderName",
     "LoadedPolicyProvenance",
+    "ModuleEvidenceState",
+    "ModuleExpectation",
+    "ModuleLinkage",
+    "ModulePredicateResult",
     "NginxAccessDestinationEntry",
     "NginxAccessDestinationKind",
     "NginxAccessDestinationPolicy",

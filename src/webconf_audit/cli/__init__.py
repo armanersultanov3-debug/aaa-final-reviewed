@@ -36,6 +36,10 @@ from webconf_audit.external import (
     analyze_external_tls_inventory,
 )
 from webconf_audit.local.apache import analyze_apache_config
+from webconf_audit.local.apache.module_inventory import (
+    ApacheModuleSnapshotLoadError,
+    load_apache_module_snapshot,
+)
 from webconf_audit.local.iis import analyze_iis_config
 from webconf_audit.local.lighttpd import analyze_lighttpd_config
 from webconf_audit.local.nginx import analyze_nginx_config
@@ -148,6 +152,14 @@ def _policy_option() -> str | None:
         None,
         "--policy",
         help="Apply an explicit audit policy YAML file.",
+    )
+
+
+def _apache_module_inventory_option() -> str | None:
+    return typer.Option(
+        None,
+        "--module-inventory",
+        help="Apply an explicit Apache module inventory JSON snapshot.",
     )
 
 
@@ -626,6 +638,48 @@ def _load_validated_policy_or_exit(
         raise AssertionError("unreachable")
 
 
+def _load_validated_apache_module_inventory_or_exit(
+    *,
+    module_inventory_path: str,
+    mode: str,
+    target: str,
+    server_type: str | None,
+    output_format: OutputFormat,
+    group_by: GroupBy,
+    group_repeated: bool,
+    group_by_cause: bool,
+) -> str:
+    try:
+        load_apache_module_snapshot(Path(module_inventory_path))
+    except ApacheModuleSnapshotLoadError as exc:
+        _output_fatal_result(
+            AnalysisResult(
+                mode=mode,
+                target=target,
+                server_type=server_type,
+                issues=[
+                    AnalysisIssue(
+                        code=exc.code,
+                        level="error",
+                        message=str(exc),
+                        location=SourceLocation(
+                            mode=mode,
+                            kind="check",
+                            file_path=exc.path or module_inventory_path,
+                            details="apache_module_inventory",
+                        ),
+                    )
+                ],
+            ),
+            fmt=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+        raise AssertionError("unreachable")
+    return module_inventory_path
+
+
 @app.command("analyze-nginx")
 def analyze_nginx(
     config_path: str = typer.Argument(..., help="Path to nginx config file"),
@@ -680,6 +734,7 @@ def analyze_nginx(
 def analyze_apache(
     config_path: str = typer.Argument(..., help="Path to Apache config file"),
     policy: str | None = _policy_option(),
+    module_inventory: str | None = _apache_module_inventory_option(),
     output_format: OutputFormat = typer.Option(
         OutputFormat.text, "--format", "-f", help="Output format: text, json.",
     ),
@@ -701,6 +756,17 @@ def analyze_apache(
     if policy is not None:
         kwargs["policy"] = _load_validated_policy_or_exit(
             policy_path=policy,
+            mode="local",
+            target=config_path,
+            server_type="apache",
+            output_format=output_format,
+            group_by=group_by,
+            group_repeated=group_repeated,
+            group_by_cause=group_by_cause,
+        )
+    if module_inventory is not None:
+        kwargs["module_inventory_path"] = _load_validated_apache_module_inventory_or_exit(
+            module_inventory_path=module_inventory,
             mode="local",
             target=config_path,
             server_type="apache",

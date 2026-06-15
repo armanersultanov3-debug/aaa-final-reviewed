@@ -6,8 +6,11 @@ Location: ``src/webconf_audit/local/apache/rules/_policy_semantics_utils.py``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
+from webconf_audit.apache_module_names import (
+    module_aliases,
+    normalized_module_identifier,
+)
 from webconf_audit.local.apache.effective import ApacheVirtualHostContext
 from webconf_audit.local.apache.parser import (
     ApacheBlockNode,
@@ -54,6 +57,31 @@ def explicit_module_inventory(
     return frozenset(modules)
 
 
+def explicit_module_identifiers(
+    config_ast: ApacheConfigAst,
+) -> frozenset[str]:
+    modules: set[str] = set()
+
+    def walk(nodes: list[ApacheDirectiveNode | ApacheBlockNode]) -> None:
+        for node in nodes:
+            if isinstance(node, ApacheDirectiveNode):
+                if node.name.lower() == "loadmodule":
+                    _add_loadmodule_identifiers(node, modules)
+                continue
+
+            name = node.name.lower()
+            if name == "ifmodule":
+                if ifmodule_matches(node.args, frozenset(modules)) is True:
+                    walk(node.children)
+                continue
+
+            if name in TRANSPARENT_WRAPPER_BLOCKS:
+                walk(node.children)
+
+    walk(config_ast.nodes)
+    return frozenset(modules)
+
+
 def _add_loadmodule_aliases(
     directive: ApacheDirectiveNode,
     modules: set[str],
@@ -63,6 +91,16 @@ def _add_loadmodule_aliases(
     modules.update(_module_aliases(directive.args[0]))
     if len(directive.args) >= 2:
         modules.update(_module_aliases(directive.args[1]))
+
+
+def _add_loadmodule_identifiers(
+    directive: ApacheDirectiveNode,
+    modules: set[str],
+) -> None:
+    for argument in directive.args[:2]:
+        normalized = normalized_module_identifier(argument)
+        if normalized:
+            modules.add(normalized)
 
 
 def module_explicitly_loaded(
@@ -208,36 +246,7 @@ def _is_https_proxy_target(raw_value: str) -> bool:
 
 
 def _module_aliases(raw_value: str) -> set[str]:
-    value = raw_value.strip().strip('"').strip("'").lower()
-    if not value:
-        return set()
-
-    file_name = Path(value).name.lower()
-    aliases = {value, file_name}
-    aliases.update(_normalized_module_aliases(value))
-    if file_name != value:
-        aliases.update(_normalized_module_aliases(file_name))
-    return {alias for alias in aliases if alias}
-
-
-def _normalized_module_aliases(value: str) -> set[str]:
-    normalized = value.removeprefix("!")
-    aliases = {normalized}
-
-    if normalized.endswith("_module"):
-        bare = normalized.removesuffix("_module")
-        aliases.update({bare, f"mod_{bare}.c"})
-    elif normalized.startswith("mod_") and normalized.endswith(".c"):
-        bare = normalized.removeprefix("mod_").removesuffix(".c")
-        aliases.update({bare, f"{bare}_module"})
-    elif normalized.startswith("mod_") and normalized.endswith(".so"):
-        bare = normalized.removeprefix("mod_").removesuffix(".so")
-        aliases.update({bare, f"{bare}_module", f"mod_{bare}.c"})
-    elif normalized.endswith(".so"):
-        bare = normalized.removesuffix(".so")
-        aliases.add(bare)
-
-    return aliases
+    return set(module_aliases(raw_value))
 
 
 def iter_enabled_nodes(
@@ -851,13 +860,16 @@ __all__ = [
     "block_has_unapproved_allowed_methods",
     "effective_location_guarantees_ip_restriction",
     "explicit_module_inventory",
+    "explicit_module_identifiers",
     "has_https_upstream_proxy",
     "ifmodule_matches",
     "iter_enabled_directives",
     "iter_enabled_nodes",
     "iter_enabled_scoped_directives",
     "matching_location_scopes_for_path",
+    "module_aliases",
     "module_explicitly_loaded",
+    "normalized_module_identifier",
     "nodes_define_method_policy",
     "nodes_guarantee_method_restriction",
 ]
