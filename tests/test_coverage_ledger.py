@@ -740,6 +740,45 @@ def test_packaged_ledger_matches_final_reconciled_source_counts() -> None:
     }
 
 
+def test_check_coverage_reconciliation_requires_frozen_accepted_revisions() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    snapshot = ledger.snapshot.model_copy(
+        update={"accepted_revisions": ledger.snapshot.accepted_revisions[:-1]}
+    )
+
+    issues = check_coverage_reconciliation(
+        ledger.model_copy(update={"snapshot": snapshot}),
+        registry,
+        compare_tracked=False,
+    )
+
+    assert "accepted_revisions_missing" in {issue.code for issue in issues}
+
+
+def test_validate_coverage_ledger_requires_denominator_reason_for_program_delta() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id == "cis-apache-http-server-2.4-2.3.0":
+            source = source.model_copy(update={"denominator_notes": ()})
+        sources.append(source)
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert "missing_denominator_change_reason" in {issue.code for issue in issues}
+
+
 def test_reconcile_coverage_documents_renders_final_deltas() -> None:
     from webconf_audit.cli import _ensure_all_rules_loaded
     from webconf_audit.rule_registry import registry
