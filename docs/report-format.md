@@ -17,7 +17,7 @@ Schema version 1 analysis reports include top-level provenance:
   "schema_version": 1,
   "generator": {
     "package_name": "webconf-audit",
-    "package_version": "0.1.0",
+    "package_version": "0.1.1",
     "registry_revision": "sha256:..."
   }
 }

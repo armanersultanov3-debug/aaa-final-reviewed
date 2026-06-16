@@ -8,6 +8,8 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-16
+
 - Add a schema-versioned packaged control-source coverage ledger, strict
   registry reconciliation, deterministic Markdown/JSON views, additive
   `coverage validate/show/export` commands, and release checks for document
