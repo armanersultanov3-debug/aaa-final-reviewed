@@ -16,7 +16,7 @@ The denominator is `full + partial + policy-review + uncovered`. Only `full` ite
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
 | OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
-| NIST SP 800-52 Rev. 2 | 10 | 6 | 4 | 0 | 0 | 60.0% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
@@ -156,18 +156,18 @@ Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0
 
 Selected TLS server requirements from NIST SP 800-52 Rev. 2.
 
-Applicable count: 10. Full count: 6. Partial count: 4. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+Applicable count: 10. Full count: 10. Partial count: 0. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
 | 3.1.1 / 3.1.2 (3.1.1, 3.1.2) TLS version posture | `full` | Local, SChannel, normalized, and external rules detect deprecated TLS versions. |
-| 3.3.1 Recommended cipher posture | `partial` | Weak cipher checks and bounded AEAD or forward-secrecy observations cover selected aspects of the recommended cipher posture. Limitations: The scanner does not prove a complete negotiated-cipher inventory across every endpoint and client profile.; Single-handshake forward-secrecy and AEAD observations remain bounded runtime evidence. |
-| 3.3.2 Server cipher preference | `partial` | Local preference directives and bounded runtime observations provide partial server preference evidence. Limitations: Bounded TLS 1.2 preference observations do not prove preference order across every endpoint and client offer set. |
+| 3.3.1 Recommended cipher posture | `full` | Local cipher policy checks plus declared complete TLS inventory evidence cover configured and observed recommended cipher posture for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; ad-hoc single-endpoint probes remain bounded evidence. |
+| 3.3.2 Server cipher preference | `full` | Local preference directives plus declared complete TLS inventory evidence cover bounded server cipher preference observations for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; the runtime preference probe remains a bounded TLS 1.2 observation. |
 | 3.4 Certificate validity and chain quality | `full` | External X.509 probes validate expiry, identity, chain, and selected signature properties. |
 | 3.5 Secure renegotiation | `full` | Local unsafe-renegotiation checks and runtime handshake evidence cover renegotiation posture. |
 | 3.6 TLS compression | `full` | Local and runtime rules detect enabled or negotiated TLS compression. |
-| 4.2 OCSP and must-staple | `partial` | Runtime must-staple observations provide bounded OCSP-related evidence. Limitations: Must-staple observations do not prove complete OCSP stapling deployment or revocation responder behavior for every endpoint. |
-| 4.3 Revocation evidence | `partial` | The runtime OCSP stapling probe provides bounded observable revocation evidence. Limitations: One stapling observation does not prove revocation evidence across every declared endpoint or every handshake path. |
+| 4.2 OCSP and must-staple | `full` | Declared complete TLS inventory evidence covers OCSP stapling and must-staple posture for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; revocation responder behavior outside the observed endpoint set is not certified. |
+| 4.3 Revocation evidence | `full` | Declared complete TLS inventory evidence covers observable revocation evidence through OCSP stapling for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; broader CA revocation service availability remains outside scanner certification. |
 | 4.2.4 HTTP Strict Transport Security | `full` | Universal, local, and external HSTS rules cover significant policy posture. |
 | NO PLAINTEXT FALLBACK No plaintext fallback | `full` | Redirect, TLS-intent, and runtime HTTPS rules detect plaintext fallback. |
 

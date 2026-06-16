@@ -143,7 +143,7 @@ Final source snapshot:
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
 | OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
-| NIST SP 800-52 Rev. 2 | 10 | 6 | 4 | 0 | 0 | 60.0% |
+| NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
 
@@ -151,7 +151,7 @@ Reconciliation guardrails:
 
 - Apache's denominator is explicitly +1 versus PR #9 because follow-up 11 split the historical grouped CIS 4.1 / 4.2 row into two counted items.
 - IIS FTP remains visible, applicable, `uncovered`, and outside implementation scope.
-- NIST TLS rows that still rely on bounded cipher-preference or revocation observations remain `partial` rather than inheriting an old 100% snapshot.
+- NIST TLS rows are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc single-endpoint TLS probes remain bounded evidence.
 - Documentation uses scanner-scope and technical-control-alignment wording rather than compliance or certification language.
 <!-- END GENERATED: final-coverage-reconciliation -->
 

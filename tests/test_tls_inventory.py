@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from webconf_audit.external.tls_inventory import (
@@ -314,6 +315,98 @@ def test_tls_inventory_optional_tls_finding_does_not_block_pass(
         "Optional TLS evidence produced a finding" in limitation
         for limitation in result.control_assessments[0].metadata["limitations"]
     )
+
+
+@pytest.mark.parametrize(
+    ("requirement", "rule_id"),
+    [
+        ("negotiated_cipher", "external.weak_cipher_suite"),
+        ("ocsp_stapling", "external.ocsp_stapling_not_observed"),
+    ],
+)
+def test_tls_inventory_required_tls_finding_blocks_control_pass(
+    tmp_path: Path,
+    monkeypatch,
+    requirement: str,
+    rule_id: str,
+) -> None:
+    finding = Finding(
+        rule_id=rule_id,
+        title="Required TLS evidence failed",
+        severity="medium",
+        description="The bounded TLS probe found failing required evidence.",
+        recommendation="Correct the TLS endpoint posture.",
+        location=SourceLocation(
+            mode="external",
+            kind="tls",
+            target="https://api.example.test/",
+            details=requirement,
+        ),
+    )
+
+    def fake_probe(entry, inventory, **_kwargs):
+        return TLSInventoryEntryAnalysis(
+            result=_observed_analysis(inventory.inventory_id, entry.entry_id).result,
+            findings=(finding,),
+        )
+
+    monkeypatch.setattr(
+        "webconf_audit.external.tls_inventory._probe_inventory_entry",
+        fake_probe,
+    )
+
+    payload = _policy_payload()
+    _set_required_evidence(payload, ["handshake", requirement])
+    result = analyze_external_tls_inventory(
+        _write_policy(tmp_path, payload),
+        "production-edge",
+    )
+
+    assessment = result.control_assessments[0]
+    assert assessment.status == "fail"
+    assert rule_id in assessment.related_rule_ids
+    assert "failing evidence" in assessment.summary
+
+
+@pytest.mark.parametrize("requirement", ["negotiated_cipher", "ocsp_stapling"])
+def test_tls_inventory_unavailable_required_tls_observation_is_indeterminate(
+    tmp_path: Path,
+    monkeypatch,
+    requirement: str,
+) -> None:
+    def fake_probe(entry, inventory, **_kwargs):
+        analysis = _observed_analysis(inventory.inventory_id, entry.entry_id)
+        observations = tuple(
+            observation.model_copy(
+                update={
+                    "state": "unavailable",
+                    "reason": f"{requirement} observation was unavailable.",
+                }
+            )
+            if observation.requirement == requirement
+            else observation
+            for observation in analysis.result.observations
+        )
+        return TLSInventoryEntryAnalysis(
+            result=analysis.result.model_copy(update={"observations": observations})
+        )
+
+    monkeypatch.setattr(
+        "webconf_audit.external.tls_inventory._probe_inventory_entry",
+        fake_probe,
+    )
+
+    payload = _policy_payload()
+    _set_required_evidence(payload, ["handshake", requirement])
+    result = analyze_external_tls_inventory(
+        _write_policy(tmp_path, payload),
+        "production-edge",
+    )
+
+    assessment = result.control_assessments[0]
+    assert result.metadata["tls_inventory"]["observation_complete"] is False
+    assert assessment.status == "indeterminate"
+    assert f"api-primary:{requirement}" in assessment.metadata["missing_evidence"]
 
 
 def test_tls_inventory_unknown_id_returns_analysis_issue(tmp_path: Path) -> None:
