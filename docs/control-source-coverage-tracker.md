@@ -15,7 +15,7 @@ The denominator is `full + partial + policy-review + uncovered`. Only `full` ite
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 19 | 1 | 0 | 0 | 95.0% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
-| OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
+| OWASP ASVS v5.0.0 | 22 | 16 | 6 | 0 | 0 | 72.7% |
 | NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
@@ -125,7 +125,7 @@ Applicable count: 8. Full count: 0. Partial count: 8. `policy-review` count: 0. 
 
 Selected ASVS 5.0 web frontend, transport, and deployed-resource requirements. The ledger records scanner evidence, not an ASVS verification or certification.
 
-Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
+Applicable count: 22. Full count: 16. Partial count: 6. `policy-review` count: 0. Uncovered count: 0. Excluded count: 0.
 
 | Counted item | Status | Current basis / limitations |
 | --- | --- | --- |
@@ -140,8 +140,8 @@ Applicable count: 22. Full count: 14. Partial count: 8. `policy-review` count: 0
 | v5.0.0-3.4.8 Cross-Origin-Opener-Policy | `partial` | A runtime rule observes a missing COOP header. Limitations: Document isolation relevance depends on application behavior. |
 | v5.0.0-3.7.1 Authenticated routes require TLS | `full` | The normalized universal rule detects authentication-requiring scopes exposed on non-TLS listeners. |
 | v5.0.0-12.1.1 Deprecated TLS protocols | `full` | Local, SChannel, normalized, and external rules detect deprecated protocol posture. |
-| v5.0.0-12.1.2 TLS cipher posture | `partial` | Local and runtime checks detect selected weak cipher and negotiation signals. Limitations: The project is not a complete cipher-inventory and client-compatibility suite. |
-| v5.0.0-12.1.4 OCSP and must-staple | `partial` | Local stapling checks and runtime observations provide revocation-related evidence. Limitations: End-to-end revocation availability and policy assurance are not proven. |
+| v5.0.0-12.1.2 TLS cipher posture | `full` | Local cipher checks plus declared complete TLS inventory evidence cover configured and observed cipher posture, forward secrecy, and bounded server cipher preference for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; ad-hoc runtime probes remain bounded evidence. |
+| v5.0.0-12.1.4 OCSP and must-staple | `full` | Local stapling checks plus declared complete TLS inventory evidence cover observable OCSP and must-staple posture for the declared endpoint/SNI set. Limitations: Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory; revocation responder behavior outside the observed endpoint set is not certified. |
 | v5.0.0-12.2.1 HTTPS without cleartext fallback | `full` | TLS-intent, redirect, authentication-over-HTTP, and runtime HTTPS probes cover cleartext fallback posture. |
 | v5.0.0-12.2.2 Certificate validation | `full` | Runtime and proxy-trust rules detect selected certificate validation failures. |
 | v5.0.0-13.4.1 Source-control metadata exposure | `full` | Safe probes detect exposed .git and .svn metadata. |

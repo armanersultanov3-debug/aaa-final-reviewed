@@ -2749,12 +2749,12 @@ sources:
     records scanner evidence, not an ASVS verification or certification.
   expected_summary:
     applicable: 22
-    full: 14
-    partial: 8
+    full: 16
+    partial: 6
     policy_review: 0
     uncovered: 0
     excluded: 0
-    full_percent: '63.6'
+    full_percent: '72.7'
   items:
   - item_id: asvs-3.3.1-cookie-attributes
     title: Cookie security attributes
@@ -3270,10 +3270,12 @@ sources:
       reference: v5.0.0-12.1.2
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - external.tls_aead_cipher_not_negotiated
+      - external.tls_forward_secrecy_not_observed
+      - external.tls_server_cipher_preference_not_observed
       - nginx.ssl_ciphers_weak
       - universal.weak_tls_ciphers
       registry_references:
@@ -3281,6 +3283,16 @@ sources:
         standard: OWASP ASVS
         reference: v5.0.0-12.1.2
         strength: direct
+        origin: declared
+      - rule_id: external.tls_forward_secrecy_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.2
+        strength: partial
+        origin: declared
+      - rule_id: external.tls_server_cipher_preference_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.2
+        strength: partial
         origin: declared
       - rule_id: nginx.ssl_ciphers_weak
         standard: OWASP ASVS
@@ -3292,18 +3304,77 @@ sources:
         reference: v5.0.0-12.1.2
         strength: partial
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - forward_secrecy
+        - negotiated_cipher
+        - server_cipher_preference
       evidence_kinds:
       - local-config
       - normalized-config
       - safe-probe
-      rationale: Local and runtime checks detect selected weak cipher and negotiation signals.
+      rationale: Local cipher checks plus declared complete TLS inventory evidence cover configured and observed
+        cipher posture, forward secrecy, and bounded server cipher preference for the declared endpoint/SNI
+        set.
       limitations:
-      - The project is not a complete cipher-inventory and client-compatibility suite.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory;
+        ad-hoc runtime probes remain bounded evidence.
     exclusion: null
+    subclaims:
+    - subclaim_id: asvs-12.1.2-declared-cipher-inventory
+      title: Declared complete TLS inventories require negotiated cipher, forward secrecy, and bounded
+        server preference evidence for every covered endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: asvs-12.1.2-cipher-defect-detection
+      title: Weak configured or negotiated cipher posture is surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.tls_aead_cipher_not_negotiated
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: external.tls_forward_secrecy_not_observed
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: external.tls_server_cipher_preference_not_observed
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: nginx.ssl_ciphers_weak
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: universal.weak_tls_ciphers
+        strength: partial
+        origin: declared
+      limitations: []
     provenance:
-      reviewed_on: '2026-06-13'
-      source_url: https://github.com/OWASP/ASVS/blob/master/5.0/en/0x12-V3-Web-Frontend-Security.md
-      change_ref: followup-02-machine-readable-coverage-ledger
+      reviewed_on: '2026-06-16'
+      source_url: https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x21-V12-Secure-Communication.md
+      change_ref: asvs-tls-evidence-completion
   - item_id: asvs-12.1.4-ocsp-must-staple
     title: OCSP and must-staple
     references:
@@ -3311,14 +3382,20 @@ sources:
       reference: v5.0.0-12.1.4
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
+      - external.ocsp_stapling_not_observed
       - external.tls_must_staple_not_observed
       - nginx.ssl_stapling_disabled
       - nginx.ssl_stapling_missing_resolver
       - nginx.ssl_stapling_without_verify
       registry_references:
+      - rule_id: external.ocsp_stapling_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.4
+        strength: partial
+        origin: declared
       - rule_id: external.tls_must_staple_not_observed
         standard: OWASP ASVS
         reference: v5.0.0-12.1.4
@@ -3339,17 +3416,71 @@ sources:
         reference: v5.0.0-12.1.4
         strength: partial
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - ocsp_stapling
       evidence_kinds:
       - local-config
       - safe-probe
-      rationale: Local stapling checks and runtime observations provide revocation-related evidence.
+      rationale: Local stapling checks plus declared complete TLS inventory evidence cover observable OCSP
+        and must-staple posture for the declared endpoint/SNI set.
       limitations:
-      - End-to-end revocation availability and policy assurance are not proven.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory;
+        revocation responder behavior outside the observed endpoint set is not certified.
     exclusion: null
+    subclaims:
+    - subclaim_id: asvs-12.1.4-declared-ocsp-inventory
+      title: Declared complete TLS inventories require OCSP stapling evidence for every covered endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: asvs-12.1.4-ocsp-defect-detection
+      title: Missing observed OCSP stapling is surfaced as a bounded finding for declared covered endpoints.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.ocsp_stapling_not_observed
+        strength: partial
+        origin: declared
+      limitations: []
+    - subclaim_id: asvs-12.1.4-must-staple-defect-detection
+      title: Certificates that require must-staple without observed stapling are surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.tls_must_staple_not_observed
+        strength: direct
+        origin: declared
+      limitations: []
     provenance:
-      reviewed_on: '2026-06-13'
-      source_url: https://github.com/OWASP/ASVS/blob/master/5.0/en/0x12-V3-Web-Frontend-Security.md
-      change_ref: followup-02-machine-readable-coverage-ledger
+      reviewed_on: '2026-06-16'
+      source_url: https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x21-V12-Secure-Communication.md
+      change_ref: asvs-tls-evidence-completion
   - item_id: asvs-12.2.1-https-no-cleartext-fallback
     title: HTTPS without cleartext fallback
     references:
