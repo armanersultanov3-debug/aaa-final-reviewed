@@ -150,6 +150,8 @@ _FINAL_STATUS_BASELINE_BY_ITEM: dict[str, str] = {
     "nginx-4.1.2-trusted-certificate-chain": "partial",
     "apache-2.1-module-minimization": "partial",
     "iis-7.1-schannel-tls": "partial",
+    "asvs-12.1.2-cipher-posture": "partial",
+    "asvs-12.1.4-ocsp-must-staple": "partial",
     "nist-3.3.1-recommended-cipher-posture": "full",
     "nist-3.3.2-server-cipher-preference": "full",
     "nist-4.2-ocsp-must-staple": "full",
@@ -160,6 +162,25 @@ _NIST_TLS_INVENTORY_FULL_FACETS: dict[str, frozenset[str]] = {
     "nist-3.3.2-server-cipher-preference": frozenset({"negotiated_cipher"}),
     "nist-4.2-ocsp-must-staple": frozenset({"ocsp_stapling"}),
     "nist-4.3-revocation-evidence": frozenset({"ocsp_stapling"}),
+}
+_ASVS_TLS_INVENTORY_FULL_FACETS: dict[str, frozenset[str]] = {
+    "asvs-12.1.2-cipher-posture": frozenset({"negotiated_cipher"}),
+    "asvs-12.1.4-ocsp-must-staple": frozenset({"ocsp_stapling"}),
+}
+_TLS_INVENTORY_FULL_INVARIANTS: dict[
+    str,
+    tuple[str, str, dict[str, frozenset[str]]],
+] = {
+    "nist-sp-800-52r2": (
+        "nist_tls_inventory_full_invariant_failed",
+        "Full NIST TLS coverage requires complete declared TLS inventory evidence",
+        _NIST_TLS_INVENTORY_FULL_FACETS,
+    ),
+    "owasp-asvs-5.0.0": (
+        "asvs_tls_inventory_full_invariant_failed",
+        "Full ASVS TLS coverage requires complete declared TLS inventory evidence",
+        _ASVS_TLS_INVENTORY_FULL_FACETS,
+    ),
 }
 _PROHIBITED_COMPLIANCE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("cis compliant", "Use scanner-evidence coverage wording, not compliance claims."),
@@ -355,7 +376,7 @@ def validate_coverage_ledger(
                 enforce_program_baseline=enforce_program_baseline,
             )
         )
-    issues.extend(_validate_nist_tls_inventory_full_invariant(ledger))
+    issues.extend(_validate_tls_inventory_full_invariant(ledger))
     return tuple(sorted(set(issues), key=_issue_sort_key))
 
 
@@ -936,7 +957,7 @@ def _render_benchmark_snapshot_section(
             "",
             "- IIS FTP Section 6.1 / 6.2 remains one applicable `uncovered` item in the IIS denominator.",
             "- OWASP Top 10:2025 remains bounded category alignment rather than application-wide coverage proof.",
-            "- ASVS TLS cipher and revocation groups stay `partial` where only bounded runtime evidence is available.",
+            "- ASVS TLS cipher and revocation groups are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc runtime probes remain bounded evidence.",
             "- PCI DSS organizational, governance, and password-reset process controls remain outside scanner-evidence `full` coverage.",
             "",
             "Each source reconciles as `Applicable = Full + Partial + Policy review + "
@@ -1089,90 +1110,93 @@ def _validate_iis_ftp_invariant(
     return tuple(issues)
 
 
-def _validate_nist_tls_inventory_full_invariant(
+def _validate_tls_inventory_full_invariant(
     ledger: CoverageLedger,
 ) -> tuple[CoverageLedgerIssue, ...]:
-    source = next(
-        (
-            candidate
-            for candidate in ledger.sources
-            if candidate.source_id == "nist-sp-800-52r2"
-        ),
-        None,
-    )
-    if source is None:
-        return ()
-
     issues: list[CoverageLedgerIssue] = []
-    by_item_id = {item.item_id: item for item in source.items}
-    for item_id, required_facets in _NIST_TLS_INVENTORY_FULL_FACETS.items():
-        item = by_item_id.get(item_id)
-        if item is None or item.status != "full":
+    for source_id, (
+        issue_code,
+        issue_prefix,
+        required_facets_by_item,
+    ) in _TLS_INVENTORY_FULL_INVARIANTS.items():
+        source = next(
+            (
+                candidate
+                for candidate in ledger.sources
+                if candidate.source_id == source_id
+            ),
+            None,
+        )
+        if source is None:
             continue
+        by_item_id = {item.item_id: item for item in source.items}
+        for item_id, required_facets in required_facets_by_item.items():
+            item = by_item_id.get(item_id)
+            if item is None or item.status != "full":
+                continue
 
-        control_evidence = tuple(
-            control
-            for control in item.evidence.assessment_controls
-            if control.control_id == "external.tls_inventory"
-        )
-        assessed_facets = {
-            facet
-            for control in control_evidence
-            for facet in control.assessed_facets
-        }
-        has_control_pass = any(
-            control.strength == "direct"
-            and control.origin == "declared"
-            and control.absence_semantics == "control-pass"
-            for control in control_evidence
-        )
-        mandatory_subclaims = tuple(
-            subclaim for subclaim in item.subclaims if subclaim.mandatory
-        )
-        has_mandatory_subclaim_control_bindings = bool(mandatory_subclaims) and all(
-            any(
-                binding.kind == "control"
-                and binding.target == "external.tls_inventory"
-                and binding.strength == "direct"
-                and binding.origin == "declared"
-                and binding.absence_semantics == "control-pass"
+            control_evidence = tuple(
+                control
+                for control in item.evidence.assessment_controls
+                if control.control_id == "external.tls_inventory"
+            )
+            assessed_facets = {
+                facet
+                for control in control_evidence
+                for facet in control.assessed_facets
+            }
+            has_control_pass = any(
+                control.strength == "direct"
+                and control.origin == "declared"
+                and control.absence_semantics == "control-pass"
+                for control in control_evidence
+            )
+            mandatory_subclaims = tuple(
+                subclaim for subclaim in item.subclaims if subclaim.mandatory
+            )
+            has_mandatory_subclaim_control_bindings = bool(mandatory_subclaims) and all(
+                any(
+                    binding.kind == "control"
+                    and binding.target == "external.tls_inventory"
+                    and binding.strength == "direct"
+                    and binding.origin == "declared"
+                    and binding.absence_semantics == "control-pass"
+                    for binding in subclaim.bindings
+                )
+                for subclaim in mandatory_subclaims
+            )
+            has_safe_probe_binding = "safe-probe" in item.evidence.evidence_kinds or any(
+                binding.kind == "evidence-kind" and binding.target == "safe-probe"
+                for subclaim in item.subclaims
                 for binding in subclaim.bindings
             )
-            for subclaim in mandatory_subclaims
-        )
-        has_safe_probe_binding = "safe-probe" in item.evidence.evidence_kinds or any(
-            binding.kind == "evidence-kind" and binding.target == "safe-probe"
-            for subclaim in item.subclaims
-            for binding in subclaim.bindings
-        )
 
-        missing: list[str] = []
-        if not control_evidence:
-            missing.append("external.tls_inventory assessment control")
-        if not has_control_pass:
-            missing.append("control-pass absence semantics")
-        if not required_facets.issubset(assessed_facets):
-            missing.append(
-                "assessed facets: " + ", ".join(sorted(required_facets - assessed_facets))
-            )
-        if not has_mandatory_subclaim_control_bindings:
-            missing.append("mandatory subclaim binding to external.tls_inventory")
-        if not has_safe_probe_binding:
-            missing.append("safe-probe evidence")
-        if missing:
-            issues.append(
-                CoverageLedgerIssue(
-                    code="nist_tls_inventory_full_invariant_failed",
-                    message=(
-                        "Full NIST TLS coverage requires complete declared TLS "
-                        "inventory evidence; missing "
-                        + "; ".join(missing)
-                        + "."
-                    ),
-                    source_id=source.source_id,
-                    item_id=item.item_id,
+            missing: list[str] = []
+            if not control_evidence:
+                missing.append("external.tls_inventory assessment control")
+            if not has_control_pass:
+                missing.append("control-pass absence semantics")
+            if not required_facets.issubset(assessed_facets):
+                missing.append(
+                    "assessed facets: "
+                    + ", ".join(sorted(required_facets - assessed_facets))
                 )
-            )
+            if not has_mandatory_subclaim_control_bindings:
+                missing.append("mandatory subclaim binding to external.tls_inventory")
+            if not has_safe_probe_binding:
+                missing.append("safe-probe evidence")
+            if missing:
+                issues.append(
+                    CoverageLedgerIssue(
+                        code=issue_code,
+                        message=issue_prefix
+                        + "; missing "
+                        + "; ".join(missing)
+                        + ".",
+                        source_id=source.source_id,
+                        item_id=item.item_id,
+                    )
+                )
     return tuple(issues)
 
 

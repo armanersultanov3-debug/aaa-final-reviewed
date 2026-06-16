@@ -148,7 +148,7 @@ Russian sources verified on the same date:
 | CWE | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:cwe()` | Complete across all five rule families. |
 | OWASP Top 10 2021 | `docs/rule-coverage.md` (per-rule column) and `webconf_audit/standards.py:owasp_top10_2021()` | Complete across all five rule families. |
 | OWASP Top 10 2025 | `standards_secondary` JSON metadata via `webconf_audit/standards.py:owasp_top10_2025()` | Current-edition alignment derived from the reviewed OWASP Top 10 2021 primary mappings. |
-| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; direct-rule follow-up from `STD-GAP-013` is now folded into the current mapping, with deeper TLS/runtime follow-up still tracked in `STD-GAP-014`. |
+| OWASP ASVS v5.0.0 | `docs/rule-coverage.md` (`ASVS` column) plus follow-up gap list in `docs/standards-roadmap.md` | First-pass complete; direct-rule follow-up from `STD-GAP-013` and TLS runtime work from `STD-GAP-014` are folded into the current mapping. ASVS TLS full evidence is bounded to declared complete `external.tls_inventory` control-pass results. |
 | CIS NGINX Benchmark v3.0.0 | `docs/rule-coverage.md` (`CIS / Vendor` column) plus the Nginx gap table in the same file | Existing-rule reference pass complete. |
 | CIS Apache HTTP Server 2.4 v2.3.0 | `docs/rule-coverage.md` plus the Apache gap table in the same file | Existing-rule reference pass complete. |
 | CIS Microsoft IIS 10 v1.2.1 (incl. SChannel) | `docs/rule-coverage.md` plus the IIS/SChannel gap table in the same file | Existing-rule reference pass complete. |
@@ -183,7 +183,7 @@ Final reconciled snapshot (accepted follow-ups 01-13 frozen in the standards roa
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | 20 | 19 | 1 | 0 | 0 | 95.0% |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | 10 | 9 | 0 | 0 | 1 | 90.0% |
 | OWASP Top 10:2025 | 8 | 0 | 8 | 0 | 0 | 0.0% |
-| OWASP ASVS v5.0.0 | 22 | 14 | 8 | 0 | 0 | 63.6% |
+| OWASP ASVS v5.0.0 | 22 | 16 | 6 | 0 | 0 | 72.7% |
 | NIST SP 800-52 Rev. 2 | 10 | 10 | 0 | 0 | 0 | 100.0% |
 | PCI DSS v4.0.1 | 11 | 0 | 9 | 0 | 2 | 0.0% |
 | ISO/IEC 27002:2022 | 10 | 8 | 2 | 0 | 0 | 80.0% |
@@ -196,7 +196,7 @@ Per-source numerator and denominator deltas vs PR #9:
 | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | +1 | +2 | -1 | +0 | +0 |
 | CIS Microsoft IIS 10 Benchmark v1.2.1 | +0 | +1 | -1 | +0 | +0 |
 | OWASP Top 10:2025 | +0 | -2 | +2 | +0 | +0 |
-| OWASP ASVS v5.0.0 | +0 | -1 | +1 | +0 | +0 |
+| OWASP ASVS v5.0.0 | +0 | +1 | -1 | +0 | +0 |
 | NIST SP 800-52 Rev. 2 | +0 | +0 | +0 | +0 | +0 |
 | PCI DSS v4.0.1 | +0 | -11 | +9 | +0 | +2 |
 | ISO/IEC 27002:2022 | +0 | +0 | +0 | +0 | +0 |
@@ -208,6 +208,8 @@ Status and evidence-basis changes finalized by this recount:
 | `nginx-4.1.2-trusted-certificate-chain` Trusted certificate chain | CIS NGINX Benchmark v3.0.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
 | `apache-2.1-module-minimization` Module minimization | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
 | `iis-7.1-schannel-tls` SChannel TLS posture | CIS Microsoft IIS 10 Benchmark v1.2.1 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
+| `asvs-12.1.2-cipher-posture` TLS cipher posture | OWASP ASVS v5.0.0 | `partial` -> `full` | `asvs-tls-evidence-completion` |
+| `asvs-12.1.4-ocsp-must-staple` OCSP and must-staple | OWASP ASVS v5.0.0 | `partial` -> `full` | `asvs-tls-evidence-completion` |
 | `nist-3.3.1-recommended-cipher-posture` Recommended cipher posture | NIST SP 800-52 Rev. 2 | `full` with updated evidence basis | `nist-tls-evidence-completion` |
 | `nist-3.3.2-server-cipher-preference` Server cipher preference | NIST SP 800-52 Rev. 2 | `full` with updated evidence basis | `nist-tls-evidence-completion` |
 | `nist-4.2-ocsp-must-staple` OCSP and must-staple | NIST SP 800-52 Rev. 2 | `full` with updated evidence basis | `nist-tls-evidence-completion` |
@@ -223,7 +225,7 @@ Unchanged conservative boundaries remain explicit in the ledger:
 
 - IIS FTP Section 6.1 / 6.2 remains one applicable `uncovered` item in the IIS denominator.
 - OWASP Top 10:2025 remains bounded category alignment rather than application-wide coverage proof.
-- ASVS TLS cipher and revocation groups stay `partial` where only bounded runtime evidence is available.
+- ASVS TLS cipher and revocation groups are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc runtime probes remain bounded evidence.
 - PCI DSS organizational, governance, and password-reset process controls remain outside scanner-evidence `full` coverage.
 
 Each source reconciles as `Applicable = Full + Partial + Policy review + Uncovered`. Excluded items do not enter the applicable denominator. The counted-item ledger and evidence rationale are recorded in `docs/control-source-coverage-tracker.md`.
