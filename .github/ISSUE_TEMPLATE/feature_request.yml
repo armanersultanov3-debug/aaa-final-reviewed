@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest a rule, analyzer improvement, report improvement, or documentation change.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - local analyzer
+        - external safe probe
+        - rule metadata / standards mapping
+        - coverage ledger
+        - report output
+        - CLI / workflow
+        - documentation
+        - packaging / release
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user or maintainer problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the scanner signal, policy input, report output, or documentation change.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and references
+      description: Link exact benchmark sections, server docs, CVEs, or examples when relevant.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope checks
+      options:
+        - label: This does not require unsafe or mutating external probes.
+        - label: This does not claim certification or compliance by itself.
+        - label: I can provide sanitized fixtures or examples.

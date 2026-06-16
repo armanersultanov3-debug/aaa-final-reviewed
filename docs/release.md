@@ -1,7 +1,6 @@
 # Release Checks
 
-This document describes the repeatable release preparation flow. It does not
-publish anything to PyPI or TestPyPI.
+This document describes the repeatable release preparation and publishing flow.
 
 ## Version And Changelog Policy
 
@@ -96,9 +95,8 @@ maintainer is preparing an actual release candidate.
 
 ## Publishing Boundary
 
-Publishing remains a separate explicit decision. The repository is now prepared
-for repeatable release artifacts, but uploading to a package index is not part
-of the default workflow.
+Publishing remains a separate explicit decision. Build and smoke-test artifacts
+before uploading them to a package index.
 
 Before publishing, confirm at least the following:
 
@@ -110,3 +108,13 @@ Before publishing, confirm at least the following:
 
 After a release tag exists, downstream CI examples can install from the tag as
 documented in [ci-integration.md](ci-integration.md).
+
+For PyPI upload with a short-lived local token, publish only the checked
+artifacts from `.tmp/release-check/dist`:
+
+```bash
+uv publish .tmp/release-check/dist/webconf_audit-X.Y.Z-py3-none-any.whl .tmp/release-check/dist/webconf_audit-X.Y.Z.tar.gz
+```
+
+Prefer project-scoped PyPI tokens or Trusted Publishing over account-wide
+tokens for future releases.

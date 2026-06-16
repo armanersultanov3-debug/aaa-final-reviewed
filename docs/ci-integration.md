@@ -79,10 +79,9 @@ JSON under `suppressed_findings`.
 
 ## GitHub Actions
 
-Before the first public release tag is created, install from an immutable commit
-SHA by default. A reviewed branch is acceptable only for short-lived development
-experiments because branch refs can move. After a release is tagged, replace
-`<ref>` with the release tag such as `v0.1.0`.
+For normal CI usage, install the published package from PyPI and pin the
+version. For unreleased development experiments, install from an immutable
+Git commit SHA rather than a moving branch.
 
 ```yaml
 name: webconf-audit
@@ -100,7 +99,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install "webconf-audit @ git+https://github.com/LucMorningstar/aaa-final-reviewed.git@<ref>"
+      - run: python -m pip install webconf-audit==0.1.1
       # To create the initial committed baseline:
       # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
       - run: webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json
@@ -117,7 +116,7 @@ jobs:
 webconf-audit:
   image: python:3.12
   script:
-    - python -m pip install "webconf-audit @ git+https://github.com/LucMorningstar/aaa-final-reviewed.git@<ref>"
+    - python -m pip install webconf-audit==0.1.1
     # To create the initial committed baseline:
     # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
     - webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json
@@ -141,7 +140,7 @@ steps:
     inputs:
       versionSpec: "3.12"
   - script: |
-      python -m pip install "webconf-audit @ git+https://github.com/LucMorningstar/aaa-final-reviewed.git@<ref>"
+      python -m pip install webconf-audit==0.1.1
       # To create the initial committed baseline:
       # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
       webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json

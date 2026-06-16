@@ -1,5 +1,10 @@
 # webconf-audit
 
+[![CI](https://github.com/armanersultanov3-debug/aaa-final-reviewed/actions/workflows/ci.yml/badge.svg)](https://github.com/armanersultanov3-debug/aaa-final-reviewed/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/webconf-audit.svg)](https://pypi.org/project/webconf-audit/)
+[![Python versions](https://img.shields.io/pypi/pyversions/webconf-audit.svg)](https://pypi.org/project/webconf-audit/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A security auditing tool for web server configurations.
 
 `webconf-audit` has two independent analysis modes:
@@ -27,11 +32,24 @@ Apache `mod_status` exposure or IIS detailed error pages).
 `webconf-audit` requires Python 3.10 or later.
 
 ```bash
-pip install .
+pip install webconf-audit
+```
+
+For reproducible CI usage, pin the published release:
+
+```bash
+pip install webconf-audit==0.1.1
 ```
 
 The package exposes a `webconf-audit` console entry point. Every
 command is also available via `python -m webconf_audit.cli`.
+
+Project links:
+
+- PyPI: [webconf-audit](https://pypi.org/project/webconf-audit/)
+- Changelog: [CHANGELOG.md](CHANGELOG.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Quick start
 
@@ -418,3 +436,7 @@ The release check builds wheel and source distribution artifacts, installs the
 wheel into a clean virtual environment, verifies the installed console entry
 point, and runs a small installed-package smoke test. See
 [docs/release.md](docs/release.md) for the full checklist.
+
+## License
+
+This project is distributed under the [MIT License](LICENSE).

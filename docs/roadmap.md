@@ -78,7 +78,8 @@ The foundation needed for source-driven work is already in place:
 - `--group-by standard`, `--group-repeated`, and `--group-by-cause` report
   modes;
 - a declarative external safe-probe catalog for fixed, non-mutating probes;
-- `v0.1.0` tag and repeatable release-check workflow.
+- `v0.1.1` PyPI publication, MIT licensing, and repeatable release-check
+  workflow.
 
 These items are not active roadmap work unless a regression or a concrete
 reporting gap appears.
@@ -188,17 +189,18 @@ Next work:
    metadata;
 3. preserve the stable JSON contract unless a new field has a clear consumer.
 
-### 7. Release Readiness Without Public Publishing
+### 7. Release Operations
 
-Public package publishing is deferred. The useful near-term work is keeping
-release mechanics repeatable.
+The project now has a public PyPI release. The useful near-term work is keeping
+release mechanics repeatable and reducing long-lived publishing credentials.
 
 Next work:
 
 1. keep tag-based release checks working;
 2. keep changelog entries tied to merged PRs;
-3. create GitHub releases only when we want a packaged milestone;
-4. publish to PyPI only when there is a real external installation need.
+3. create GitHub releases for public package milestones;
+4. replace account-wide upload tokens with a project-scoped token or PyPI
+   Trusted Publishing.
 
 ## Deferred Research
 
@@ -234,8 +236,8 @@ Use this order for the next source-coverage PRs:
    data mappings.
 4. **Report wording PR** - improve `--group-by standard` and
    `--group-by-cause` explanations without changing rule behavior.
-5. **Release artifact PR** - prepare a GitHub Release only after the next
-   meaningful code milestone, without PyPI publishing.
+5. **Release artifact PR** - keep PyPI metadata, GitHub Release notes, and
+   release-check artifacts aligned for the next meaningful milestone.
 
 ## Acceptance Criteria
 

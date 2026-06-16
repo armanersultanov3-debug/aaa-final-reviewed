@@ -2,7 +2,43 @@
 name = "webconf-audit"
 version = "0.1.1"
 description = "Web server configuration security audit tool"
+readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Arman Ersultanov" },
+]
+keywords = [
+    "apache",
+    "audit",
+    "configuration",
+    "iis",
+    "lighttpd",
+    "nginx",
+    "security",
+    "tls",
+    "web-server",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Security",
+    "Topic :: System :: Systems Administration",
+]
 dependencies = [
     # In the absence of a dedicated oldest-supported CI job, keep the
     # lower bounds aligned with the dependency set exercised by the
@@ -19,6 +55,13 @@ dependencies = [
 
 [project.scripts]
 webconf-audit = "webconf_audit.cli:app"
+
+[project.urls]
+Changelog = "https://github.com/armanersultanov3-debug/aaa-final-reviewed/blob/master/CHANGELOG.md"
+Documentation = "https://github.com/armanersultanov3-debug/aaa-final-reviewed/tree/master/docs"
+Homepage = "https://github.com/armanersultanov3-debug/aaa-final-reviewed"
+Issues = "https://github.com/armanersultanov3-debug/aaa-final-reviewed/issues"
+Repository = "https://github.com/armanersultanov3-debug/aaa-final-reviewed"
 
 [build-system]
 requires = ["hatchling>=1.28,<2"]

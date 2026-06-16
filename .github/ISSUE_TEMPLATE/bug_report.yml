@@ -1,0 +1,64 @@
+name: Bug report
+description: Report a reproducible problem in webconf-audit.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not paste real secrets, production configuration files, or private target details.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Run `webconf-audit --version` if available, or use package metadata.
+      placeholder: "0.1.1"
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Analyzer mode
+      options:
+        - local nginx
+        - local apache
+        - local lighttpd
+        - local iis
+        - external
+        - coverage / ledger
+        - report / baseline / suppression
+        - packaging / installation
+        - documentation
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide sanitized input and the exact command.
+      placeholder: |
+        Command:
+        webconf-audit analyze-nginx sanitized.conf --format json
+
+        Sanitized input:
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        OS:
+        Python:
+        Installation method:
