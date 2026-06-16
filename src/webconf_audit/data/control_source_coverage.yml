@@ -4075,6 +4075,11 @@ sources:
       mandatory: true
       implemented: true
       bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
       - kind: rule
         target: external.weak_cipher_suite
         strength: direct
@@ -4171,6 +4176,11 @@ sources:
       mandatory: true
       implemented: true
       bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
       - kind: rule
         target: external.tls_server_cipher_preference_not_observed
         strength: partial
@@ -4400,6 +4410,11 @@ sources:
       mandatory: true
       implemented: true
       bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
       - kind: rule
         target: external.tls_must_staple_not_observed
         strength: direct
@@ -4463,6 +4478,11 @@ sources:
       mandatory: true
       implemented: true
       bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
       - kind: rule
         target: external.ocsp_stapling_not_observed
         strength: direct

@@ -791,6 +791,16 @@ def test_nist_tls_full_items_require_tls_inventory_control_subclaims() -> None:
             and binding.target == "external.tls_inventory"
         ]
         assert subclaim_control_bindings
+        for subclaim in item.subclaims:
+            if subclaim.mandatory:
+                assert any(
+                    binding.kind == "control"
+                    and binding.target == "external.tls_inventory"
+                    and binding.absence_semantics == "control-pass"
+                    and binding.strength == "direct"
+                    and binding.origin == "declared"
+                    for binding in subclaim.bindings
+                )
         assert all(subclaim.implemented for subclaim in item.subclaims)
 
 
@@ -864,6 +874,55 @@ def test_validate_coverage_ledger_rejects_full_nist_tls_without_complete_invento
     assert "nist_tls_inventory_full_invariant_failed" in {
         issue.code for issue in issues
     }
+
+
+def test_validate_coverage_ledger_rejects_full_nist_tls_without_mandatory_subclaim_bindings() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id != "nist-sp-800-52r2":
+            sources.append(source)
+            continue
+        items = []
+        for item in source.items:
+            if item.item_id == "nist-4.3-revocation-evidence":
+                item = item.model_copy(
+                    update={
+                        "subclaims": tuple(
+                            subclaim.model_copy(
+                                update={
+                                    "bindings": tuple(
+                                        binding
+                                        for binding in subclaim.bindings
+                                        if not (
+                                            binding.kind == "control"
+                                            and binding.target
+                                            == "external.tls_inventory"
+                                        )
+                                    )
+                                }
+                            )
+                            for subclaim in item.subclaims
+                        )
+                    }
+                )
+            items.append(item)
+        sources.append(source.model_copy(update={"items": tuple(items)}))
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert any(
+        issue.code == "nist_tls_inventory_full_invariant_failed"
+        and issue.item_id == "nist-4.3-revocation-evidence"
+        for issue in issues
+    )
 
 
 def test_check_coverage_reconciliation_reports_full_nist_tls_inventory_invariant() -> None:

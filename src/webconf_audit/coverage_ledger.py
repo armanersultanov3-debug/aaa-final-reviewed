@@ -1126,14 +1126,19 @@ def _validate_nist_tls_inventory_full_invariant(
             and control.absence_semantics == "control-pass"
             for control in control_evidence
         )
-        has_subclaim_control_binding = any(
-            binding.kind == "control"
-            and binding.target == "external.tls_inventory"
-            and binding.strength == "direct"
-            and binding.origin == "declared"
-            and binding.absence_semantics == "control-pass"
-            for subclaim in item.subclaims
-            for binding in subclaim.bindings
+        mandatory_subclaims = tuple(
+            subclaim for subclaim in item.subclaims if subclaim.mandatory
+        )
+        has_mandatory_subclaim_control_bindings = bool(mandatory_subclaims) and all(
+            any(
+                binding.kind == "control"
+                and binding.target == "external.tls_inventory"
+                and binding.strength == "direct"
+                and binding.origin == "declared"
+                and binding.absence_semantics == "control-pass"
+                for binding in subclaim.bindings
+            )
+            for subclaim in mandatory_subclaims
         )
         has_safe_probe_binding = "safe-probe" in item.evidence.evidence_kinds or any(
             binding.kind == "evidence-kind" and binding.target == "safe-probe"
@@ -1150,8 +1155,8 @@ def _validate_nist_tls_inventory_full_invariant(
             missing.append(
                 "assessed facets: " + ", ".join(sorted(required_facets - assessed_facets))
             )
-        if not has_subclaim_control_binding:
-            missing.append("subclaim binding to external.tls_inventory")
+        if not has_mandatory_subclaim_control_bindings:
+            missing.append("mandatory subclaim binding to external.tls_inventory")
         if not has_safe_probe_binding:
             missing.append("safe-probe evidence")
         if missing:

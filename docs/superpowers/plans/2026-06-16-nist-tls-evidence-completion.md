@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Add NIST TLS Coverage Guardrail Tests
+## Task 1: Add NIST TLS Coverage Guardrail Tests
 
 **Files:**
 - Modify: `tests/test_coverage_ledger.py`
@@ -73,7 +73,7 @@ uv run --locked pytest tests\test_coverage_ledger.py::test_nist_tls_full_items_r
 
 Expected: FAIL because the current packaged ledger keeps these items `partial`.
 
-### Task 2: Implement NIST TLS Reconciliation Guardrail
+## Task 2: Implement NIST TLS Reconciliation Guardrail
 
 **Files:**
 - Modify: `src/webconf_audit/coverage_ledger.py`
@@ -110,7 +110,7 @@ Expected: PASS.
 Add a CLI regression for `coverage validate --ledger broken.yml --format json`
 so the user-facing command reports the same guardrail.
 
-### Task 3: Update the Coverage Ledger
+## Task 3: Update the Coverage Ledger
 
 **Files:**
 - Modify: `src/webconf_audit/data/control_source_coverage.yml`
@@ -161,7 +161,7 @@ excluded: 0
 full_percent: '100.0'
 ```
 
-### Task 4: Update Reconciliation Baselines and Generated Docs
+## Task 4: Update Reconciliation Baselines and Generated Docs
 
 **Files:**
 - Modify: `src/webconf_audit/coverage_ledger.py`
@@ -191,7 +191,7 @@ uv run --locked python -m webconf_audit.cli coverage reconcile --write
 
 Expected: tracked coverage docs update deterministically.
 
-### Task 5: Verify and Commit
+## Task 5: Verify and Commit
 
 **Files:**
 - All files changed by Tasks 1-4
