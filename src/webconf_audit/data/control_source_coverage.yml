@@ -3851,12 +3851,12 @@ sources:
   scope_note: Selected TLS server requirements from NIST SP 800-52 Rev. 2.
   expected_summary:
     applicable: 10
-    full: 6
-    partial: 4
+    full: 10
+    partial: 0
     policy_review: 0
     uncovered: 0
     excluded: 0
-    full_percent: '60.0'
+    full_percent: '100.0'
   items:
   - item_id: nist-3.1-tls-version-posture
     title: TLS version posture
@@ -3961,7 +3961,7 @@ sources:
       reference: 3.3.1
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - apache.ssl_cipher_suite_missing
@@ -4037,21 +4037,66 @@ sources:
         reference: 3.3.1
         strength: direct
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - negotiated_cipher
       evidence_kinds:
       - local-config
       - normalized-config
       - safe-probe
-      rationale: Weak cipher checks and bounded AEAD or forward-secrecy observations cover selected aspects
-        of the recommended cipher posture.
+      rationale: Local cipher policy checks plus declared complete TLS inventory evidence cover configured
+        and observed recommended cipher posture for the declared endpoint/SNI set.
       limitations:
-      - The scanner does not prove a complete negotiated-cipher inventory across every endpoint and client
-        profile.
-      - Single-handshake forward-secrecy and AEAD observations remain bounded runtime evidence.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through
+        external.tls_inventory; ad-hoc single-endpoint probes remain bounded evidence.
     exclusion: null
+    subclaims:
+    - subclaim_id: nist-3.3.1-declared-cipher-inventory
+      title: Declared complete TLS inventories require negotiated cipher posture evidence for every
+        covered endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: nist-3.3.1-weak-cipher-defect-detection
+      title: Weak configured or negotiated cipher posture is surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.weak_cipher_suite
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: external.tls_aead_cipher_not_negotiated
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: external.tls_forward_secrecy_not_observed
+        strength: partial
+        origin: declared
+      limitations: []
     provenance:
       reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-14-final-cross-standard-reconciliation
+      change_ref: nist-tls-evidence-completion
   - item_id: nist-3.3.2-server-cipher-preference
     title: Server cipher preference
     references:
@@ -4059,7 +4104,7 @@ sources:
       reference: 3.3.2
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - apache.ssl_honor_cipher_order_not_on
@@ -4093,19 +4138,66 @@ sources:
         reference: 3.3.2
         strength: direct
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - negotiated_cipher
       evidence_kinds:
       - local-config
       - safe-probe
-      rationale: Local preference directives and bounded runtime observations provide partial server
-        preference evidence.
+      rationale: Local preference directives plus declared complete TLS inventory evidence cover bounded
+        server cipher preference observations for the declared endpoint/SNI set.
       limitations:
-      - Bounded TLS 1.2 preference observations do not prove preference order across every endpoint and
-        client offer set.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through
+        external.tls_inventory; the runtime preference probe remains a bounded TLS 1.2 observation.
     exclusion: null
+    subclaims:
+    - subclaim_id: nist-3.3.2-declared-preference-inventory
+      title: Declared complete TLS inventories require bounded server cipher preference evidence for
+        every applicable covered endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - TLS 1.3 endpoints without TLS 1.2 preference semantics remain governed by TLS inventory
+        applicability and indeterminate handling.
+    - subclaim_id: nist-3.3.2-preference-defect-detection
+      title: Missing local or observed server cipher preference is surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.tls_server_cipher_preference_not_observed
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: nginx.missing_ssl_prefer_server_ciphers
+        strength: direct
+        origin: declared
+      - kind: rule
+        target: apache.ssl_honor_cipher_order_not_on
+        strength: direct
+        origin: declared
+      limitations: []
     provenance:
       reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-14-final-cross-standard-reconciliation
+      change_ref: nist-tls-evidence-completion
   - item_id: nist-3.4-certificate-chain-quality
     title: Certificate validity and chain quality
     references:
@@ -4272,7 +4364,7 @@ sources:
       reference: '4.2'
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - external.tls_must_staple_not_observed
@@ -4282,17 +4374,56 @@ sources:
         reference: '4.2'
         strength: direct
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - ocsp_stapling
       evidence_kinds:
       - safe-probe
-      rationale: Runtime must-staple observations provide bounded OCSP-related evidence.
+      rationale: Declared complete TLS inventory evidence covers OCSP stapling and must-staple posture
+        for the declared endpoint/SNI set.
       limitations:
-      - Must-staple observations do not prove complete OCSP stapling deployment or revocation responder
-        behavior for every endpoint.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through
+        external.tls_inventory; revocation responder behavior outside the observed endpoint set is not
+        certified.
     exclusion: null
+    subclaims:
+    - subclaim_id: nist-4.2-declared-ocsp-inventory
+      title: Declared complete TLS inventories require OCSP stapling evidence for every covered endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: nist-4.2-must-staple-defect-detection
+      title: Certificates that require must-staple without observed stapling are surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.tls_must_staple_not_observed
+        strength: direct
+        origin: declared
+      limitations: []
     provenance:
       reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-14-final-cross-standard-reconciliation
+      change_ref: nist-tls-evidence-completion
   - item_id: nist-4.3-revocation-evidence
     title: Revocation evidence
     references:
@@ -4300,7 +4431,7 @@ sources:
       reference: '4.3'
       grouped_references: []
     applicability: applicable
-    status: partial
+    status: full
     evidence:
       rule_ids:
       - external.ocsp_stapling_not_observed
@@ -4310,17 +4441,57 @@ sources:
         reference: '4.3'
         strength: direct
         origin: declared
+      assessment_controls:
+      - control_id: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+        assessed_facets:
+        - ocsp_stapling
       evidence_kinds:
       - safe-probe
-      rationale: The runtime OCSP stapling probe provides bounded observable revocation evidence.
+      rationale: Declared complete TLS inventory evidence covers observable revocation evidence through
+        OCSP stapling for the declared endpoint/SNI set.
       limitations:
-      - One stapling observation does not prove revocation evidence across every declared endpoint or every
-        handshake path.
+      - Full status is limited to operator-declared complete endpoint inventories evaluated through
+        external.tls_inventory; broader CA revocation service availability remains outside scanner
+        certification.
     exclusion: null
+    subclaims:
+    - subclaim_id: nist-4.3-declared-revocation-inventory
+      title: Declared complete TLS inventories require OCSP stapling revocation evidence for every covered
+        endpoint.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: evidence-kind
+        target: safe-probe
+      limitations:
+      - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: nist-4.3-ocsp-defect-detection
+      title: Missing OCSP stapling observations are surfaced as findings.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.ocsp_stapling_not_observed
+        strength: direct
+        origin: declared
+      limitations: []
     provenance:
       reviewed_on: '2026-06-16'
       source_url: https://csrc.nist.gov/publications/detail/sp/800-52/rev-2/final
-      change_ref: followup-14-final-cross-standard-reconciliation
+      change_ref: nist-tls-evidence-completion
   - item_id: nist-4.2.4-hsts
     title: HTTP Strict Transport Security
     references:

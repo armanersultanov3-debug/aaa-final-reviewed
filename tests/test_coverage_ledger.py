@@ -708,12 +708,12 @@ def test_packaged_ledger_matches_final_reconciled_source_counts() -> None:
             "source_id": "nist-sp-800-52r2",
             "title": "NIST SP 800-52 Rev. 2",
             "applicable": 10,
-            "full": 6,
-            "partial": 4,
+            "full": 10,
+            "partial": 0,
             "policy_review": 0,
             "uncovered": 0,
             "excluded": 0,
-            "full_percent": "60.0",
+            "full_percent": "100.0",
         },
         "pci-dss-4.0.1": {
             "source_id": "pci-dss-4.0.1",
@@ -737,6 +737,226 @@ def test_packaged_ledger_matches_final_reconciled_source_counts() -> None:
             "excluded": 0,
             "full_percent": "80.0",
         },
+    }
+
+
+_NIST_TLS_INVENTORY_FULL_FACETS = {
+    "nist-3.3.1-recommended-cipher-posture": {"negotiated_cipher"},
+    "nist-3.3.2-server-cipher-preference": {"negotiated_cipher"},
+    "nist-4.2-ocsp-must-staple": {"ocsp_stapling"},
+    "nist-4.3-revocation-evidence": {"ocsp_stapling"},
+}
+
+
+def _packaged_coverage_item(
+    ledger: CoverageLedger,
+    source_id: str,
+    item_id: str,
+):
+    source = next(source for source in ledger.sources if source.source_id == source_id)
+    return next(item for item in source.items if item.item_id == item_id)
+
+
+def test_nist_tls_full_items_require_tls_inventory_control_subclaims() -> None:
+    ledger = load_coverage_ledger()
+
+    for item_id, facets in _NIST_TLS_INVENTORY_FULL_FACETS.items():
+        item = _packaged_coverage_item(ledger, "nist-sp-800-52r2", item_id)
+
+        assert item.status == "full"
+        assert "safe-probe" in item.evidence.evidence_kinds
+        control_evidence = [
+            control
+            for control in item.evidence.assessment_controls
+            if control.control_id == "external.tls_inventory"
+        ]
+        assert control_evidence
+        assert any(
+            control.absence_semantics == "control-pass"
+            and control.strength == "direct"
+            and control.origin == "declared"
+            for control in control_evidence
+        )
+        assessed_facets = {
+            facet
+            for control in control_evidence
+            for facet in control.assessed_facets
+        }
+        assert facets.issubset(assessed_facets)
+        subclaim_control_bindings = [
+            binding
+            for subclaim in item.subclaims
+            for binding in subclaim.bindings
+            if binding.kind == "control"
+            and binding.target == "external.tls_inventory"
+        ]
+        assert subclaim_control_bindings
+        for subclaim in item.subclaims:
+            if subclaim.mandatory:
+                assert any(
+                    binding.kind == "control"
+                    and binding.target == "external.tls_inventory"
+                    and binding.absence_semantics == "control-pass"
+                    and binding.strength == "direct"
+                    and binding.origin == "declared"
+                    for binding in subclaim.bindings
+                )
+        assert all(subclaim.implemented for subclaim in item.subclaims)
+
+
+@pytest.mark.parametrize(
+    "evidence_update",
+    [
+        {"assessment_controls": ()},
+        {
+            "assessment_controls": [
+                {
+                    "control_id": "external.tls_inventory",
+                    "strength": "direct",
+                    "origin": "declared",
+                    "absence_semantics": "control-pass",
+                    "assessed_facets": ["ocsp_stapling"],
+                }
+            ]
+        },
+        {
+            "assessment_controls": [
+                {
+                    "control_id": "external.tls_inventory",
+                    "strength": "direct",
+                    "origin": "declared",
+                    "absence_semantics": "none",
+                    "assessed_facets": ["negotiated_cipher"],
+                }
+            ]
+        },
+    ],
+)
+def test_validate_coverage_ledger_rejects_full_nist_tls_without_complete_inventory_control(
+    evidence_update: dict[str, object],
+) -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id != "nist-sp-800-52r2":
+            sources.append(source)
+            continue
+        items = []
+        for item in source.items:
+            if item.item_id == "nist-3.3.1-recommended-cipher-posture":
+                updated_evidence_payload = {
+                    **item.evidence.model_dump(mode="json"),
+                    **evidence_update,
+                }
+                item = item.model_copy(
+                    update={
+                        "evidence": type(item.evidence).model_validate(
+                            updated_evidence_payload
+                        )
+                    }
+                )
+            items.append(item)
+        sources.append(
+            source.model_copy(
+                update={"items": tuple(items)}
+            )
+        )
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert "nist_tls_inventory_full_invariant_failed" in {
+        issue.code for issue in issues
+    }
+
+
+def test_validate_coverage_ledger_rejects_full_nist_tls_without_mandatory_subclaim_bindings() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id != "nist-sp-800-52r2":
+            sources.append(source)
+            continue
+        items = []
+        for item in source.items:
+            if item.item_id == "nist-4.3-revocation-evidence":
+                item = item.model_copy(
+                    update={
+                        "subclaims": tuple(
+                            subclaim.model_copy(
+                                update={
+                                    "bindings": tuple(
+                                        binding
+                                        for binding in subclaim.bindings
+                                        if not (
+                                            binding.kind == "control"
+                                            and binding.target
+                                            == "external.tls_inventory"
+                                        )
+                                    )
+                                }
+                            )
+                            for subclaim in item.subclaims
+                        )
+                    }
+                )
+            items.append(item)
+        sources.append(source.model_copy(update={"items": tuple(items)}))
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert any(
+        issue.code == "nist_tls_inventory_full_invariant_failed"
+        and issue.item_id == "nist-4.3-revocation-evidence"
+        for issue in issues
+    )
+
+
+def test_check_coverage_reconciliation_reports_full_nist_tls_inventory_invariant() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id != "nist-sp-800-52r2":
+            sources.append(source)
+            continue
+        items = []
+        for item in source.items:
+            if item.item_id == "nist-4.2-ocsp-must-staple":
+                item = item.model_copy(
+                    update={
+                        "evidence": item.evidence.model_copy(
+                            update={"assessment_controls": ()}
+                        )
+                    }
+                )
+            items.append(item)
+        sources.append(source.model_copy(update={"items": tuple(items)}))
+
+    issues = check_coverage_reconciliation(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+        compare_tracked=False,
+    )
+
+    assert "nist_tls_inventory_full_invariant_failed" in {
+        issue.code for issue in issues
     }
 
 
@@ -799,8 +1019,8 @@ def test_reconcile_coverage_documents_renders_final_deltas() -> None:
         if source.source_id == "nist-sp-800-52r2"
     )
     assert nist.baseline.full == 10
-    assert nist.current.full == 6
-    assert nist.delta.full == -4
+    assert nist.current.full == 10
+    assert nist.delta.full == 0
     assert any(
         item.item_id == "apache-2.1-module-minimization"
         and item.from_status == "partial"

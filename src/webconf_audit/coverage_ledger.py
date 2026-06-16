@@ -155,6 +155,12 @@ _FINAL_STATUS_BASELINE_BY_ITEM: dict[str, str] = {
     "nist-4.2-ocsp-must-staple": "full",
     "nist-4.3-revocation-evidence": "full",
 }
+_NIST_TLS_INVENTORY_FULL_FACETS: dict[str, frozenset[str]] = {
+    "nist-3.3.1-recommended-cipher-posture": frozenset({"negotiated_cipher"}),
+    "nist-3.3.2-server-cipher-preference": frozenset({"negotiated_cipher"}),
+    "nist-4.2-ocsp-must-staple": frozenset({"ocsp_stapling"}),
+    "nist-4.3-revocation-evidence": frozenset({"ocsp_stapling"}),
+}
 _PROHIBITED_COMPLIANCE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("cis compliant", "Use scanner-evidence coverage wording, not compliance claims."),
     ("owasp compliant", "Use scanner-evidence coverage wording, not compliance claims."),
@@ -349,6 +355,7 @@ def validate_coverage_ledger(
                 enforce_program_baseline=enforce_program_baseline,
             )
         )
+    issues.extend(_validate_nist_tls_inventory_full_invariant(ledger))
     return tuple(sorted(set(issues), key=_issue_sort_key))
 
 
@@ -890,17 +897,22 @@ def _render_benchmark_snapshot_section(
         lines.extend(
             [
                 "",
-                "Status changes finalized by this recount:",
+                "Status and evidence-basis changes finalized by this recount:",
                 "",
-                "| Counted item | Source | Status change | Accepted implementation |",
+                "| Counted item | Source | Status / evidence basis | Accepted implementation |",
                 "| --- | --- | --- | --- |",
             ]
         )
         for change in changed_items:
+            status_update = (
+                f"`{change.from_status}` -> `{change.to_status}`"
+                if change.from_status != change.to_status
+                else f"`{change.to_status}` with updated evidence basis"
+            )
             lines.append(
                 f"| `{change.item_id}` { _markdown_cell(change.title)} | "
                 f"{_markdown_cell(next(source.title for source in sources if source.source_id == change.source_id))} | "
-                f"`{change.from_status}` -> `{change.to_status}` | `{change.change_ref}` |"
+                f"{status_update} | `{change.change_ref}` |"
             )
     if denominator_notes:
         lines.extend(
@@ -981,7 +993,7 @@ def _render_standards_reconciliation_section(
             "",
             "- Apache's denominator is explicitly +1 versus PR #9 because follow-up 11 split the historical grouped CIS 4.1 / 4.2 row into two counted items.",
             "- IIS FTP remains visible, applicable, `uncovered`, and outside implementation scope.",
-            "- NIST TLS rows that still rely on bounded cipher-preference or revocation observations remain `partial` rather than inheriting an old 100% snapshot.",
+            "- NIST TLS rows are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc single-endpoint TLS probes remain bounded evidence.",
             "- Documentation uses scanner-scope and technical-control-alignment wording rather than compliance or certification language.",
         ]
     )
@@ -1074,6 +1086,93 @@ def _validate_iis_ftp_invariant(
                 item_id=item.item_id,
             )
         )
+    return tuple(issues)
+
+
+def _validate_nist_tls_inventory_full_invariant(
+    ledger: CoverageLedger,
+) -> tuple[CoverageLedgerIssue, ...]:
+    source = next(
+        (
+            candidate
+            for candidate in ledger.sources
+            if candidate.source_id == "nist-sp-800-52r2"
+        ),
+        None,
+    )
+    if source is None:
+        return ()
+
+    issues: list[CoverageLedgerIssue] = []
+    by_item_id = {item.item_id: item for item in source.items}
+    for item_id, required_facets in _NIST_TLS_INVENTORY_FULL_FACETS.items():
+        item = by_item_id.get(item_id)
+        if item is None or item.status != "full":
+            continue
+
+        control_evidence = tuple(
+            control
+            for control in item.evidence.assessment_controls
+            if control.control_id == "external.tls_inventory"
+        )
+        assessed_facets = {
+            facet
+            for control in control_evidence
+            for facet in control.assessed_facets
+        }
+        has_control_pass = any(
+            control.strength == "direct"
+            and control.origin == "declared"
+            and control.absence_semantics == "control-pass"
+            for control in control_evidence
+        )
+        mandatory_subclaims = tuple(
+            subclaim for subclaim in item.subclaims if subclaim.mandatory
+        )
+        has_mandatory_subclaim_control_bindings = bool(mandatory_subclaims) and all(
+            any(
+                binding.kind == "control"
+                and binding.target == "external.tls_inventory"
+                and binding.strength == "direct"
+                and binding.origin == "declared"
+                and binding.absence_semantics == "control-pass"
+                for binding in subclaim.bindings
+            )
+            for subclaim in mandatory_subclaims
+        )
+        has_safe_probe_binding = "safe-probe" in item.evidence.evidence_kinds or any(
+            binding.kind == "evidence-kind" and binding.target == "safe-probe"
+            for subclaim in item.subclaims
+            for binding in subclaim.bindings
+        )
+
+        missing: list[str] = []
+        if not control_evidence:
+            missing.append("external.tls_inventory assessment control")
+        if not has_control_pass:
+            missing.append("control-pass absence semantics")
+        if not required_facets.issubset(assessed_facets):
+            missing.append(
+                "assessed facets: " + ", ".join(sorted(required_facets - assessed_facets))
+            )
+        if not has_mandatory_subclaim_control_bindings:
+            missing.append("mandatory subclaim binding to external.tls_inventory")
+        if not has_safe_probe_binding:
+            missing.append("safe-probe evidence")
+        if missing:
+            issues.append(
+                CoverageLedgerIssue(
+                    code="nist_tls_inventory_full_invariant_failed",
+                    message=(
+                        "Full NIST TLS coverage requires complete declared TLS "
+                        "inventory evidence; missing "
+                        + "; ".join(missing)
+                        + "."
+                    ),
+                    source_id=source.source_id,
+                    item_id=item.item_id,
+                )
+            )
     return tuple(issues)
 
 

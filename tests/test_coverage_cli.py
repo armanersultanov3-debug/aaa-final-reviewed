@@ -60,6 +60,48 @@ def test_coverage_validate_json_reports_schema_failure(tmp_path: Path) -> None:
     assert payload["issues"][0]["code"] == "ledger_schema_unsupported"
 
 
+def test_coverage_validate_json_reports_nist_tls_inventory_guardrail(
+    tmp_path: Path,
+) -> None:
+    payload = load_coverage_ledger().model_dump(mode="json")
+    for source in payload["sources"]:
+        if source["source_id"] != "nist-sp-800-52r2":
+            continue
+        for item in source["items"]:
+            if item["item_id"] == "nist-3.3.2-server-cipher-preference":
+                item["evidence"]["assessment_controls"] = [
+                    {
+                        "control_id": "external.tls_inventory",
+                        "strength": "direct",
+                        "origin": "declared",
+                        "absence_semantics": "control-pass",
+                        "assessed_facets": ["ocsp_stapling"],
+                    }
+                ]
+                break
+        break
+    ledger = tmp_path / "invalid-nist-tls.yml"
+    ledger.write_text(yaml.safe_dump(payload, sort_keys=False), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "coverage",
+            "validate",
+            "--ledger",
+            str(ledger),
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 1
+    rendered = json.loads(result.stdout)
+    assert "nist_tls_inventory_full_invariant_failed" in {
+        issue["code"] for issue in rendered["issues"]
+    }
+
+
 def test_coverage_show_filters_source_and_status() -> None:
     result = runner.invoke(
         app,
