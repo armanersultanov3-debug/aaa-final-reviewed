@@ -208,6 +208,7 @@ Status and evidence-basis changes finalized by this recount:
 | `nginx-4.1.2-trusted-certificate-chain` Trusted certificate chain | CIS NGINX Benchmark v3.0.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
 | `apache-2.1-module-minimization` Module minimization | CIS Apache HTTP Server 2.4 Benchmark v2.3.0 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
 | `iis-7.1-schannel-tls` SChannel TLS posture | CIS Microsoft IIS 10 Benchmark v1.2.1 | `partial` -> `full` | `followup-14-final-cross-standard-reconciliation` |
+| `asvs-3.4.7-csp-reporting` CSP reporting | OWASP ASVS v5.0.0 | `full` -> `partial` | `followup-02-machine-readable-coverage-ledger` |
 | `asvs-12.1.2-cipher-posture` TLS cipher posture | OWASP ASVS v5.0.0 | `partial` -> `full` | `asvs-tls-evidence-completion` |
 | `asvs-12.1.4-ocsp-must-staple` OCSP and must-staple | OWASP ASVS v5.0.0 | `partial` -> `full` | `asvs-tls-evidence-completion` |
 | `nist-3.3.1-recommended-cipher-posture` Recommended cipher posture | NIST SP 800-52 Rev. 2 | `full` with updated evidence basis | `nist-tls-evidence-completion` |

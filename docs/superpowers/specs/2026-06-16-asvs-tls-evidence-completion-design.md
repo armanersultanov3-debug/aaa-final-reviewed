@@ -23,9 +23,18 @@ The new full basis is valid only when the ledger item includes:
 - `origin: declared`;
 - `absence_semantics: control-pass`;
 - the required assessed facet:
-  - `negotiated_cipher` for `asvs-12.1.2-cipher-posture`;
+  - `negotiated_cipher`, `forward_secrecy`, and
+    `server_cipher_preference` for `asvs-12.1.2-cipher-posture`;
   - `ocsp_stapling` for `asvs-12.1.4-ocsp-must-staple`;
 - mandatory subclaims bound to `external.tls_inventory`;
+- rule bindings for the ASVS TLS defects that remain observable as findings:
+  - `external.tls_aead_cipher_not_negotiated`,
+    `external.tls_forward_secrecy_not_observed`, and
+    `external.tls_server_cipher_preference_not_observed` for
+    `asvs-12.1.2-cipher-posture`;
+  - `external.ocsp_stapling_not_observed` and
+    `external.tls_must_staple_not_observed` for
+    `asvs-12.1.4-ocsp-must-staple`;
 - `safe-probe` evidence.
 
 ## Non-Goals
@@ -42,7 +51,7 @@ This PR does not:
 
 `validate_coverage_ledger` rejects a full ASVS TLS claim when the declared TLS
 inventory control evidence, required facets, safe-probe evidence, or mandatory
-subclaim bindings are missing.
+subclaim and rule bindings are missing.
 
 ## Expected Count Change
 

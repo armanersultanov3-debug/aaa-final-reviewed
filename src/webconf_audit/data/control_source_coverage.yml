@@ -3274,6 +3274,8 @@ sources:
     evidence:
       rule_ids:
       - external.tls_aead_cipher_not_negotiated
+      - external.tls_forward_secrecy_not_observed
+      - external.tls_server_cipher_preference_not_observed
       - nginx.ssl_ciphers_weak
       - universal.weak_tls_ciphers
       registry_references:
@@ -3281,6 +3283,16 @@ sources:
         standard: OWASP ASVS
         reference: v5.0.0-12.1.2
         strength: direct
+        origin: declared
+      - rule_id: external.tls_forward_secrecy_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.2
+        strength: partial
+        origin: declared
+      - rule_id: external.tls_server_cipher_preference_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.2
+        strength: partial
         origin: declared
       - rule_id: nginx.ssl_ciphers_weak
         standard: OWASP ASVS
@@ -3298,21 +3310,24 @@ sources:
         origin: declared
         absence_semantics: control-pass
         assessed_facets:
+        - forward_secrecy
         - negotiated_cipher
+        - server_cipher_preference
       evidence_kinds:
       - local-config
       - normalized-config
       - safe-probe
       rationale: Local cipher checks plus declared complete TLS inventory evidence cover configured and observed
-        cipher posture for the declared endpoint/SNI set.
+        cipher posture, forward secrecy, and bounded server cipher preference for the declared endpoint/SNI
+        set.
       limitations:
       - Full status is limited to operator-declared complete endpoint inventories evaluated through external.tls_inventory;
         ad-hoc runtime probes remain bounded evidence.
     exclusion: null
     subclaims:
     - subclaim_id: asvs-12.1.2-declared-cipher-inventory
-      title: Declared complete TLS inventories require negotiated cipher posture evidence for every covered
-        endpoint.
+      title: Declared complete TLS inventories require negotiated cipher, forward secrecy, and bounded
+        server preference evidence for every covered endpoint.
       mandatory: true
       implemented: true
       bindings:
@@ -3340,6 +3355,14 @@ sources:
         strength: direct
         origin: declared
       - kind: rule
+        target: external.tls_forward_secrecy_not_observed
+        strength: partial
+        origin: declared
+      - kind: rule
+        target: external.tls_server_cipher_preference_not_observed
+        strength: partial
+        origin: declared
+      - kind: rule
         target: nginx.ssl_ciphers_weak
         strength: partial
         origin: declared
@@ -3350,7 +3373,7 @@ sources:
       limitations: []
     provenance:
       reviewed_on: '2026-06-16'
-      source_url: https://github.com/OWASP/ASVS/blob/master/5.0/en/0x12-V3-Web-Frontend-Security.md
+      source_url: https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x21-V12-Secure-Communication.md
       change_ref: asvs-tls-evidence-completion
   - item_id: asvs-12.1.4-ocsp-must-staple
     title: OCSP and must-staple
@@ -3362,11 +3385,17 @@ sources:
     status: full
     evidence:
       rule_ids:
+      - external.ocsp_stapling_not_observed
       - external.tls_must_staple_not_observed
       - nginx.ssl_stapling_disabled
       - nginx.ssl_stapling_missing_resolver
       - nginx.ssl_stapling_without_verify
       registry_references:
+      - rule_id: external.ocsp_stapling_not_observed
+        standard: OWASP ASVS
+        reference: v5.0.0-12.1.4
+        strength: partial
+        origin: declared
       - rule_id: external.tls_must_staple_not_observed
         standard: OWASP ASVS
         reference: v5.0.0-12.1.4
@@ -3418,6 +3447,21 @@ sources:
         target: safe-probe
       limitations:
       - The supported full scope is limited to declared complete endpoint inventories.
+    - subclaim_id: asvs-12.1.4-ocsp-defect-detection
+      title: Missing observed OCSP stapling is surfaced as a bounded finding for declared covered endpoints.
+      mandatory: true
+      implemented: true
+      bindings:
+      - kind: control
+        target: external.tls_inventory
+        strength: direct
+        origin: declared
+        absence_semantics: control-pass
+      - kind: rule
+        target: external.ocsp_stapling_not_observed
+        strength: partial
+        origin: declared
+      limitations: []
     - subclaim_id: asvs-12.1.4-must-staple-defect-detection
       title: Certificates that require must-staple without observed stapling are surfaced as findings.
       mandatory: true
@@ -3435,7 +3479,7 @@ sources:
       limitations: []
     provenance:
       reviewed_on: '2026-06-16'
-      source_url: https://github.com/OWASP/ASVS/blob/master/5.0/en/0x12-V3-Web-Frontend-Security.md
+      source_url: https://github.com/OWASP/ASVS/blob/v5.0.0/5.0/en/0x21-V12-Secure-Communication.md
       change_ref: asvs-tls-evidence-completion
   - item_id: asvs-12.2.1-https-no-cleartext-fallback
     title: HTTPS without cleartext fallback

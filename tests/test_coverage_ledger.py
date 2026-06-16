@@ -747,8 +747,23 @@ _NIST_TLS_INVENTORY_FULL_FACETS = {
     "nist-4.3-revocation-evidence": {"ocsp_stapling"},
 }
 _ASVS_TLS_INVENTORY_FULL_FACETS = {
-    "asvs-12.1.2-cipher-posture": {"negotiated_cipher"},
+    "asvs-12.1.2-cipher-posture": {
+        "forward_secrecy",
+        "negotiated_cipher",
+        "server_cipher_preference",
+    },
     "asvs-12.1.4-ocsp-must-staple": {"ocsp_stapling"},
+}
+_ASVS_TLS_INVENTORY_REQUIRED_RULE_BINDINGS = {
+    "asvs-12.1.2-cipher-posture": {
+        "external.tls_aead_cipher_not_negotiated",
+        "external.tls_forward_secrecy_not_observed",
+        "external.tls_server_cipher_preference_not_observed",
+    },
+    "asvs-12.1.4-ocsp-must-staple": {
+        "external.ocsp_stapling_not_observed",
+        "external.tls_must_staple_not_observed",
+    },
 }
 
 
@@ -845,6 +860,15 @@ def test_asvs_tls_full_items_require_tls_inventory_control_subclaims() -> None:
                     for binding in subclaim.bindings
                 )
         assert all(subclaim.implemented for subclaim in item.subclaims)
+        rule_bindings = {
+            binding.target
+            for subclaim in item.subclaims
+            for binding in subclaim.bindings
+            if binding.kind == "rule"
+        }
+        assert _ASVS_TLS_INVENTORY_REQUIRED_RULE_BINDINGS[item_id].issubset(
+            rule_bindings
+        )
 
 
 @pytest.mark.parametrize(
@@ -984,25 +1008,13 @@ def test_validate_coverage_ledger_rejects_full_asvs_tls_without_inventory_contro
             if item.item_id == "asvs-12.1.2-cipher-posture":
                 item = item.model_copy(
                     update={
-                        "status": "full",
                         "evidence": item.evidence.model_copy(
                             update={"assessment_controls": ()}
                         ),
                     }
                 )
             items.append(item)
-        summary = source.expected_summary.model_copy(
-            update={
-                "full": source.expected_summary.full + 1,
-                "partial": source.expected_summary.partial - 1,
-                "full_percent": "68.2",
-            }
-        )
-        sources.append(
-            source.model_copy(
-                update={"items": tuple(items), "expected_summary": summary}
-            )
-        )
+        sources.append(source.model_copy(update={"items": tuple(items)}))
 
     issues = validate_coverage_ledger(
         ledger.model_copy(update={"sources": tuple(sources)}),
@@ -1042,6 +1054,55 @@ def test_validate_coverage_ledger_rejects_full_asvs_tls_without_mandatory_subcla
                                             binding.kind == "control"
                                             and binding.target
                                             == "external.tls_inventory"
+                                        )
+                                    )
+                                }
+                            )
+                            for subclaim in item.subclaims
+                        )
+                    }
+                )
+            items.append(item)
+        sources.append(source.model_copy(update={"items": tuple(items)}))
+
+    issues = validate_coverage_ledger(
+        ledger.model_copy(update={"sources": tuple(sources)}),
+        registry,
+    )
+
+    assert any(
+        issue.code == "asvs_tls_inventory_full_invariant_failed"
+        and issue.item_id == "asvs-12.1.4-ocsp-must-staple"
+        for issue in issues
+    )
+
+
+def test_validate_coverage_ledger_rejects_full_asvs_tls_without_required_rule_bindings() -> None:
+    from webconf_audit.cli import _ensure_all_rules_loaded
+    from webconf_audit.rule_registry import registry
+
+    _ensure_all_rules_loaded()
+    ledger = load_coverage_ledger()
+    sources = []
+    for source in ledger.sources:
+        if source.source_id != "owasp-asvs-5.0.0":
+            sources.append(source)
+            continue
+        items = []
+        for item in source.items:
+            if item.item_id == "asvs-12.1.4-ocsp-must-staple":
+                item = item.model_copy(
+                    update={
+                        "subclaims": tuple(
+                            subclaim.model_copy(
+                                update={
+                                    "bindings": tuple(
+                                        binding
+                                        for binding in subclaim.bindings
+                                        if not (
+                                            binding.kind == "rule"
+                                            and binding.target
+                                            == "external.ocsp_stapling_not_observed"
                                         )
                                     )
                                 }
@@ -1179,6 +1240,14 @@ def test_reconcile_coverage_documents_renders_final_deltas() -> None:
         "asvs-12.1.2-cipher-posture",
         "asvs-12.1.4-ocsp-must-staple",
     }
+    assert any(
+        item.item_id == "asvs-3.4.7-csp-reporting"
+        and item.from_status == "full"
+        and item.to_status == "partial"
+        for source in reconciliation.sources
+        for item in source.changed_items
+        if source.source_id == "owasp-asvs-5.0.0"
+    )
 
 
 def test_packaged_ledger_keeps_iis_ftp_uncovered_and_unbound() -> None:

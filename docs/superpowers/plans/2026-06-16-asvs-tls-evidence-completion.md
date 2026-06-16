@@ -4,7 +4,7 @@
 
 Add regression tests proving that the packaged ASVS TLS full rows require
 `external.tls_inventory` control-pass evidence, required facets, safe-probe
-evidence, and mandatory subclaim bindings.
+evidence, and mandatory subclaim and rule bindings.
 
 ## Task 2: Generalize TLS Inventory Ledger Validation
 
@@ -16,7 +16,8 @@ source-specific issue codes.
 
 Update `src/webconf_audit/data/control_source_coverage.yml` so
 `asvs-12.1.2-cipher-posture` and `asvs-12.1.4-ocsp-must-staple` are `full`
-only through declared complete `external.tls_inventory` evidence.
+only through declared complete `external.tls_inventory` evidence plus the
+required ASVS TLS defect rule bindings.
 
 ## Task 4: Reconcile Documentation
 

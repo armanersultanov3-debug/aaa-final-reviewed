@@ -150,6 +150,7 @@ _FINAL_STATUS_BASELINE_BY_ITEM: dict[str, str] = {
     "nginx-4.1.2-trusted-certificate-chain": "partial",
     "apache-2.1-module-minimization": "partial",
     "iis-7.1-schannel-tls": "partial",
+    "asvs-3.4.7-csp-reporting": "full",
     "asvs-12.1.2-cipher-posture": "partial",
     "asvs-12.1.4-ocsp-must-staple": "partial",
     "nist-3.3.1-recommended-cipher-posture": "full",
@@ -164,22 +165,41 @@ _NIST_TLS_INVENTORY_FULL_FACETS: dict[str, frozenset[str]] = {
     "nist-4.3-revocation-evidence": frozenset({"ocsp_stapling"}),
 }
 _ASVS_TLS_INVENTORY_FULL_FACETS: dict[str, frozenset[str]] = {
-    "asvs-12.1.2-cipher-posture": frozenset({"negotiated_cipher"}),
+    "asvs-12.1.2-cipher-posture": frozenset(
+        {"forward_secrecy", "negotiated_cipher", "server_cipher_preference"}
+    ),
     "asvs-12.1.4-ocsp-must-staple": frozenset({"ocsp_stapling"}),
+}
+_ASVS_TLS_INVENTORY_REQUIRED_RULE_BINDINGS: dict[str, frozenset[str]] = {
+    "asvs-12.1.2-cipher-posture": frozenset(
+        {
+            "external.tls_aead_cipher_not_negotiated",
+            "external.tls_forward_secrecy_not_observed",
+            "external.tls_server_cipher_preference_not_observed",
+        }
+    ),
+    "asvs-12.1.4-ocsp-must-staple": frozenset(
+        {
+            "external.ocsp_stapling_not_observed",
+            "external.tls_must_staple_not_observed",
+        }
+    ),
 }
 _TLS_INVENTORY_FULL_INVARIANTS: dict[
     str,
-    tuple[str, str, dict[str, frozenset[str]]],
+    tuple[str, str, dict[str, frozenset[str]], dict[str, frozenset[str]]],
 ] = {
     "nist-sp-800-52r2": (
         "nist_tls_inventory_full_invariant_failed",
         "Full NIST TLS coverage requires complete declared TLS inventory evidence",
         _NIST_TLS_INVENTORY_FULL_FACETS,
+        {},
     ),
     "owasp-asvs-5.0.0": (
         "asvs_tls_inventory_full_invariant_failed",
         "Full ASVS TLS coverage requires complete declared TLS inventory evidence",
         _ASVS_TLS_INVENTORY_FULL_FACETS,
+        _ASVS_TLS_INVENTORY_REQUIRED_RULE_BINDINGS,
     ),
 }
 _PROHIBITED_COMPLIANCE_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -1118,6 +1138,7 @@ def _validate_tls_inventory_full_invariant(
         issue_code,
         issue_prefix,
         required_facets_by_item,
+        required_rule_bindings_by_item,
     ) in _TLS_INVENTORY_FULL_INVARIANTS.items():
         source = next(
             (
@@ -1170,6 +1191,16 @@ def _validate_tls_inventory_full_invariant(
                 for subclaim in item.subclaims
                 for binding in subclaim.bindings
             )
+            rule_bindings = {
+                binding.target
+                for subclaim in item.subclaims
+                for binding in subclaim.bindings
+                if binding.kind == "rule"
+            }
+            required_rule_bindings = required_rule_bindings_by_item.get(
+                item_id,
+                frozenset(),
+            )
 
             missing: list[str] = []
             if not control_evidence:
@@ -1185,6 +1216,11 @@ def _validate_tls_inventory_full_invariant(
                 missing.append("mandatory subclaim binding to external.tls_inventory")
             if not has_safe_probe_binding:
                 missing.append("safe-probe evidence")
+            if not required_rule_bindings.issubset(rule_bindings):
+                missing.append(
+                    "rule bindings: "
+                    + ", ".join(sorted(required_rule_bindings - rule_bindings))
+                )
             if missing:
                 issues.append(
                     CoverageLedgerIssue(

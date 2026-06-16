@@ -1255,7 +1255,32 @@ def _ledger_reference_bindings(rule_id: str) -> list[StandardReference]:
                 note=partial,
             ),
         ),
+        "external.tls_forward_secrecy_not_observed": (
+            StandardReference(
+                standard="OWASP ASVS",
+                reference="v5.0.0-12.1.2",
+                url="https://owasp.org/www-project-application-security-verification-standard/",
+                coverage="partial",
+                note="Observed negotiated cipher posture only.",
+            ),
+        ),
+        "external.tls_server_cipher_preference_not_observed": (
+            StandardReference(
+                standard="OWASP ASVS",
+                reference="v5.0.0-12.1.2",
+                url="https://owasp.org/www-project-application-security-verification-standard/",
+                coverage="partial",
+                note="Bounded TLS 1.2 probe only.",
+            ),
+        ),
         "external.ocsp_stapling_not_observed": (
+            StandardReference(
+                standard="OWASP ASVS",
+                reference="v5.0.0-12.1.4",
+                url="https://owasp.org/www-project-application-security-verification-standard/",
+                coverage="partial",
+                note="Handshake observation only.",
+            ),
             StandardReference(
                 standard="NIST SP 800-52 Rev. 2",
                 reference="4.3",
