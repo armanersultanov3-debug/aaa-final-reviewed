@@ -340,6 +340,10 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
                 "large_client_header_buffers 2 1k;",
                 "location /listing/ { autoindex on; }",
                 "location /static/ { alias /srv/static; }",
+                "location /dav/ {",
+                "    alias /srv/dav/;",
+                "    dav_methods PUT DELETE MKCOL COPY MOVE;",
+                "}",
                 "location /admin/ {",
                 "    allow all;",
                 "    deny all;",
@@ -368,6 +372,7 @@ def _nginx_scenarios() -> tuple[Scenario, ...]:
                 "nginx.client_header_timeout_too_high",
                 "nginx.client_max_body_size_unlimited",
                 "nginx.duplicate_listen",
+                "nginx.dav_move_copy_alias_prefix_location",
                 "nginx.executable_scripts_allowed_in_uploads",
                 "nginx.if_in_location",
                 "nginx.keepalive_timeout_too_high",
@@ -785,6 +790,10 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
             "LimitRequestLine 16384",
             "LimitRequestFieldSize 32768",
             "FileETag INode MTime Size",
+            "AllowEncodedSlashes On",
+            "MergeSlashes Off",
+            "ProxyPreserveHost On",
+            'ProxyPass "/h2-api" "h2://backend.example/"',
             'LogFormat "%h" weak',
             'CustomLog "/proc/self/fd/1" weak',
             'CustomLog "/proc/self/fd/1" ghost',
@@ -818,10 +827,15 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
             "    ServerName missing.example.test",
             "    SSLEngine On",
             "</VirtualHost>",
+            "<VirtualHost *:443>",
+            "    ServerName optional.example.test",
+            "    SSLEngine optional",
+            "</VirtualHost>",
             include_backup_restriction=True,
         ),
         expected_rule_ids=frozenset(
             {
+                "apache.allow_encoded_slashes_with_merge_slashes_off",
                 "apache.content_security_policy_missing_reporting_endpoint",
                 "apache.default_tls_vhost_not_rejecting_unknown_hosts",
                 "apache.error_log_unsafe_destination",
@@ -840,10 +854,12 @@ def _apache_scenarios() -> tuple[Scenario, ...]:
                 "apache.missing_http_to_https_redirect",
                 "apache.missing_log_format",
                 "apache.permissions_policy_unsafe",
+                "apache.proxy_http2_backend_with_preserve_host",
                 "apache.referrer_policy_unsafe",
                 "apache.ssl_cipher_suite_missing",
                 "apache.ssl_cipher_suite_weak",
                 "apache.ssl_compression_enabled",
+                "apache.ssl_engine_optional",
                 "apache.ssl_honor_cipher_order_not_on",
                 "apache.ssl_insecure_renegotiation_enabled",
                 "apache.ssl_protocol_missing_or_weak",
@@ -1164,10 +1180,15 @@ def test_public_repo_linux_local_rule_pack_coverage(
                 f"STDOUT:\n{validation.stdout}\nSTDERR:\n{validation.stderr}"
             )
 
-        if scenario.service == "nginx":
-            # The Nginx Linux demo containers validate native syntax/boot
-            # behavior, but rule-pack coverage should exercise the current
-            # workspace analyzer implementation directly.
+        if scenario.service == "nginx" or (
+            scenario.service == "apache" and scenario.name == "policy_controls"
+        ):
+            # The Linux demo containers validate native syntax/boot behavior,
+            # but these rule-pack coverage scenarios must exercise the current
+            # workspace analyzer implementation rather than the public-repo
+            # package baked into the service image. Other Apache scenarios stay
+            # container-analyzed because their .htaccess fixtures intentionally
+            # use container-relative paths.
             finding_ids = _analyze_scenario_locally(
                 scenario,
                 scenarios_root=scenarios_root,

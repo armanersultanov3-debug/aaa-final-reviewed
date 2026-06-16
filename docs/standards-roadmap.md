@@ -42,14 +42,14 @@ Sources checked on 2026-04-28 unless noted otherwise:
   unsupported or archived IIS benchmarks as non-authoritative unless a future
   task explicitly scopes them.
 
-The current project inventory is 473 rules (synchronized with
+The current project inventory is 478 rules (synchronized with
 `docs/rule-coverage.md` Total rules header; the registry is the source of
 truth and `tests/test_rule_coverage_doc.py` enforces drift between the
 registry and `docs/rule-coverage.md`):
 
 - Universal: 14
-- Nginx local: 96
-- Apache local: 88
+- Nginx local: 98
+- Apache local: 91
 - Lighttpd local: 50
 - IIS local: 53
 - External probes: 172
@@ -87,8 +87,8 @@ Canonical mapping surfaces:
 
 Current health:
 
-- Registry and documentation counters are synchronized at 473 rules:
-  Universal 14, Nginx 96, Apache 88, Lighttpd 50, IIS 53, External 172.
+- Registry and documentation counters are synchronized at 478 rules:
+  Universal 14, Nginx 98, Apache 91, Lighttpd 50, IIS 53, External 172.
 - `tests/test_rule_coverage_doc.py` verifies that every registered rule is
   documented, that no unknown rule IDs are referenced, and that repeated rule
   counters in `README.md`, `docs/architecture.md`,

@@ -332,18 +332,18 @@ documents from the packaged ledger. The generated human-readable view remains av
 the methodology and headline summary are documented in
 [docs/benchmarks-covering.md](docs/benchmarks-covering.md).
 
-The catalog currently contains 473 rules:
+The catalog currently contains 478 rules:
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 96 |
-| Local — Apache | 88 |
+| Local — Nginx | 98 |
+| Local — Apache | 91 |
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |
 | External | 172 |
 
-Ten rules in the inventory above are opt-in `policy-review` rules.
+Eleven rules in the inventory above are opt-in `policy-review` rules.
 They are excluded from default `analyze-*` runs and surfaced only when
 `--enable-policy-review` is passed. See
 [docs/rule-coverage.md](docs/rule-coverage.md#documented-scope-limits)
