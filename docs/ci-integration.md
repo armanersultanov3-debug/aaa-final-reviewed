@@ -99,7 +99,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python -m pip install webconf-audit==0.1.2
+      - run: python -m pip install webconf-audit==0.1.3
       # To create the initial committed baseline:
       # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
       - run: webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json
@@ -116,7 +116,7 @@ jobs:
 webconf-audit:
   image: python:3.12
   script:
-    - python -m pip install webconf-audit==0.1.2
+    - python -m pip install webconf-audit==0.1.3
     # To create the initial committed baseline:
     # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
     - webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json
@@ -140,7 +140,7 @@ steps:
     inputs:
       versionSpec: "3.12"
   - script: |
-      python -m pip install webconf-audit==0.1.2
+      python -m pip install webconf-audit==0.1.3
       # To create the initial committed baseline:
       # webconf-audit analyze-nginx nginx.conf --write-baseline webconf-audit-baseline.json
       webconf-audit analyze-nginx nginx.conf --baseline webconf-audit-baseline.json --fail-on-new medium --format json > webconf-audit.json
