@@ -151,7 +151,7 @@ Reconciliation guardrails:
 
 - Apache's denominator is explicitly +1 versus PR #9 because follow-up 11 split the historical grouped CIS 4.1 / 4.2 row into two counted items.
 - IIS FTP remains visible, applicable, `uncovered`, and outside implementation scope.
-- NIST TLS rows are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc single-endpoint TLS probes remain bounded evidence.
+- NIST and ASVS TLS rows are `full` only when backed by declared complete `external.tls_inventory` control-pass evidence; ad-hoc single-endpoint TLS probes remain bounded evidence.
 - Documentation uses scanner-scope and technical-control-alignment wording rather than compliance or certification language.
 <!-- END GENERATED: final-coverage-reconciliation -->
 
