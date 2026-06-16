@@ -8,6 +8,13 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-16
+
+- Add MIT license metadata, package classifiers, project URLs, README badges,
+  contribution and security documents, GitHub issue templates, and a pull
+  request template for public project presentation without changing analyzer
+  behavior.
+
 ## [0.1.1] - 2026-06-16
 
 - Add a schema-versioned packaged control-source coverage ledger, strict

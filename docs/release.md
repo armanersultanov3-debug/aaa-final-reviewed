@@ -40,8 +40,8 @@ Before tagging a release candidate:
 Recommended tag command:
 
 ```bash
-git tag -a v0.1.0 -m "webconf-audit 0.1.0"
-git push origin v0.1.0
+git tag -a vX.Y.Z -m "webconf-audit X.Y.Z"
+git push origin vX.Y.Z
 ```
 
 If a tag was created from the wrong commit, do not move it silently. Delete and

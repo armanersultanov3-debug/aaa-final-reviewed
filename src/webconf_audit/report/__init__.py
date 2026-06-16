@@ -1137,7 +1137,7 @@ def _package_version() -> str:
     try:
         return package_version(_PACKAGE_NAME)
     except PackageNotFoundError:
-        return "0.1.1"
+        return "0.1.2"
 
 
 def _standards_for_rule(

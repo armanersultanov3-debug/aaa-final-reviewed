@@ -38,7 +38,7 @@ pip install webconf-audit
 For reproducible CI usage, pin the published release:
 
 ```bash
-pip install webconf-audit==0.1.1
+pip install webconf-audit==0.1.2
 ```
 
 The package exposes a `webconf-audit` console entry point. Every

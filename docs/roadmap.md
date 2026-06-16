@@ -78,7 +78,7 @@ The foundation needed for source-driven work is already in place:
 - `--group-by standard`, `--group-repeated`, and `--group-by-cause` report
   modes;
 - a declarative external safe-probe catalog for fixed, non-mutating probes;
-- `v0.1.1` PyPI publication, MIT licensing, and repeatable release-check
+- `v0.1.2` PyPI publication, MIT licensing, and repeatable release-check
   workflow.
 
 These items are not active roadmap work unless a regression or a concrete
