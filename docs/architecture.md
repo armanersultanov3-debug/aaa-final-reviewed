@@ -253,12 +253,12 @@ dependency for the rule's default severity. The methodology is
 documented in [severity-methodology.md](severity-methodology.md), and
 `list-rules --format json` exposes the profile for tooling.
 
-Current catalog: 473 rules total.
+Current catalog: 478 rules total.
 
 | Category | Rules |
 |----------|------:|
-| Local — Nginx | 96 |
-| Local — Apache | 88 |
+| Local — Nginx | 98 |
+| Local — Apache | 91 |
 | Local — Lighttpd | 50 |
 | Local — IIS | 53 |
 | Universal (local) | 14 |
@@ -272,8 +272,9 @@ caller explicitly opts in. Currently `OPT_IN_TAGS = {"policy-review"}`.
 
 `policy-review` rules surface configuration choices that depend on
 manual operator judgment (default log-format selection, rate-limit
-value review, CSP policy review, IIS logging field selection, and
-Nginx HTTP/3 / `Alt-Svc` consistency review). They all use
+value review, CSP policy review, IIS logging field selection,
+Nginx HTTP/3 / `Alt-Svc` consistency review, and version-dependent
+rewrite-sequence review). They all use
 `severity="info"` and are activated via the
 `--enable-policy-review` flag on every `analyze-*` command. The opt-in
 contract is enforced by `rule_registry.rules_for(...,

@@ -8,7 +8,7 @@ Covers:
    ``analyze_*_config`` API.
 2. The rule registry honours the same ``OPT_IN_TAGS`` filter for
    ``rules_for(...)``.
-3. Each of the ten shipped policy-review rules surfaces a finding on a
+3. Each of the eleven shipped policy-review rules surfaces a finding on a
    matching configuration and stays silent on a non-matching one when
    policy review IS enabled.
 
@@ -35,6 +35,7 @@ POLICY_REVIEW_RULE_IDS = {
     "nginx.limit_conn_zone_review",
     "nginx.csp_value_review",
     "nginx.http3_alt_svc_review",
+    "nginx.rewrite_unnamed_capture_question_mark_review",
     "apache.custom_log_uses_default_format",
     "apache.csp_value_review",
     "apache.limit_request_body_value_review",
@@ -108,6 +109,7 @@ def test_rules_for_excludes_policy_review_by_default() -> None:
     assert "nginx.access_log_uses_default_format" not in returned_ids
     assert "nginx.csp_value_review" not in returned_ids
     assert "nginx.http3_alt_svc_review" not in returned_ids
+    assert "nginx.rewrite_unnamed_capture_question_mark_review" not in returned_ids
 
 
 def test_rules_for_includes_policy_review_when_opted_in() -> None:
@@ -120,6 +122,7 @@ def test_rules_for_includes_policy_review_when_opted_in() -> None:
     assert "nginx.access_log_uses_default_format" in returned_ids
     assert "nginx.csp_value_review" in returned_ids
     assert "nginx.http3_alt_svc_review" in returned_ids
+    assert "nginx.rewrite_unnamed_capture_question_mark_review" in returned_ids
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,14 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-06-16
+
+- Add CVE-related configuration-pattern rules for Apache HTTP Server and Nginx,
+  including conservative `related` CVE metadata and an opt-in Nginx rewrite
+  review rule for version-dependent rewrite semantics.
+- Update rule corpus fixtures, Linux local rule-pack coverage, registry
+  counters, and rule inventory documentation to the 478-rule catalog.
+
 ## [0.1.2] - 2026-06-16
 
 - Add MIT license metadata, package classifiers, project URLs, README badges,
