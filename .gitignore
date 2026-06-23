@@ -17,8 +17,6 @@ src/*.egg-info/
 # Local working directory and generated reports
 /.lab/
 /.tmp/
-/.codex-tmp/
-/.codex-docx-render*/
 /tmpkd_ok9wt/
 /demo/local_admin/reports/
 

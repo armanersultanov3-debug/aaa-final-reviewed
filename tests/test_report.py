@@ -175,7 +175,10 @@ class TestTextFormatter:
     def test_severity_group_headers(self) -> None:
         r = _result(findings=[_finding(severity="high")])
         out = TextFormatter().format(ReportData(results=[r]))
+        assert "Critical:" not in out
+        assert "High: 1  Medium: 0  Low: 0  Info: 0" in out
         assert "=== HIGH (1) ===" in out
+        assert "=== CRITICAL (0) ===" not in out
         assert "=== MEDIUM (0) ===" in out
 
     def test_findings_grouped_critical_before_low(self) -> None:

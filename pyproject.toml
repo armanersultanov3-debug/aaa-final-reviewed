@@ -125,7 +125,5 @@ exclude = [
     "tests",
     ".tmp",
     ".venv",
-    ".codex-tmp",
-    ".codex-docx-render*",
     "tmpkd_ok9wt",
 ]

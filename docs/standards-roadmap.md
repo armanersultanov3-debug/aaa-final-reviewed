@@ -508,7 +508,7 @@ standard section before implementation.
 
 ## PR Slicing
 
-Keep standards work small enough for CodeRabbit and human review:
+Keep standards work small enough for focused human review:
 
 1. ASVS first-pass mapping for already-covered rules in `docs/rule-coverage.md`.
 2. Combined CIS / IIS planning pass for the three server-family standards

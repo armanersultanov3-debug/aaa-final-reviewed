@@ -435,17 +435,19 @@ def _report_summary_lines(
     summary: ReportSummary,
 ) -> list[str]:
     sev = summary.by_severity
+    severity_counts = [
+        f"{severity.title()}: {sev[severity]}"
+        for severity in _ALL_SEVERITIES
+        if severity != "critical" or sev[severity] > 0
+    ]
     lines = [
         f"  Generated: {generated_at}",
         "-" * 50,
         f"  Findings: {summary.total_findings}",
-        (
-            f"    Critical: {sev['critical']}  High: {sev['high']}"
-            f"  Medium: {sev['medium']}  Low: {sev['low']}"
-            f"  Info: {sev['info']}"
-        ),
         f"  Analysis issues: {summary.total_issues}",
     ]
+    if severity_counts:
+        lines.insert(3, f"    {'  '.join(severity_counts)}")
     if summary.suppressed_findings > 0:
         lines.append(f"  Suppressed findings: {summary.suppressed_findings}")
     if summary.suppressed_duplicates > 0:
@@ -555,6 +557,8 @@ def _severity_section_lines(
     by_severity = _findings_by_severity(result_findings)
     for severity in _ALL_SEVERITIES:
         group = by_severity[severity]
+        if severity == "critical" and not group:
+            continue
         lines.append(f"=== {severity.upper()} ({len(group)}) ===")
         if group_repeated:
             lines.extend(_grouped_finding_lines(group))
