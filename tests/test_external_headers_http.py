@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 from tests.external_helpers import (
     ProbeAttempt,
@@ -1709,13 +1710,23 @@ def test_csrf_cookies_do_not_trigger_cookie_rules(monkeypatch) -> None:
 def test_set_cookie_headers_in_metadata(monkeypatch) -> None:
     probe_attempts = [
         _https_probe_with_headers(
-            set_cookie_headers=("session_id=abc; Secure", "lang=en"),
+            set_cookie_headers=(
+                "session_id=super-secret-token; Secure; HttpOnly; SameSite=Lax; Path=/",
+                "lang=en",
+            ),
         ),
         _http_redirect_probe(),
     ]
     result = _analyze_with_probe_attempts(monkeypatch, probe_attempts)
     cookies = result.metadata["probe_attempts"][0]["set_cookie_headers"]
-    assert cookies == ["session_id=abc; Secure", "lang=en"]
+    assert cookies == [
+        "session_id=<redacted>; Secure; HttpOnly; SameSite=Lax; Path=/",
+        "lang=<redacted>",
+    ]
+    serialized = json.dumps(result.metadata, sort_keys=True)
+    assert "super-secret-token" not in serialized
+    assert "session_id=super-secret-token" not in serialized
+    assert "lang=en" not in serialized
 
 
 def test_set_cookie_empty_when_no_cookies(monkeypatch) -> None:

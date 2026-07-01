@@ -27,6 +27,12 @@ INCLUDE_DIRECTIVES = frozenset({"include", "include_shell"})
 _SHELL_SKIPPED_TARGET = "shell:skipped"
 
 
+def _shell_include_target(directive: LighttpdDirectiveNode) -> str:
+    line = directive.source.line
+    line_part = str(line) if line is not None else "unknown"
+    return f"shell:include_shell:{line_part}"
+
+
 def resolve_includes(
     config_ast: LighttpdConfigAst,
     config_path: str | Path,
@@ -142,7 +148,7 @@ def _resolve_include_shell_nodes(
     load_context: LoadContext | None,
     execute_shell: bool,
 ) -> list[object]:
-    shell_target = f"shell:{directive.args[0]}"
+    shell_target = _shell_include_target(directive)
     source_file = _directive_source_file(directive, current_file)
 
     if shell_target in include_chain:
@@ -181,7 +187,7 @@ def _resolve_include_shell_nodes(
             _build_include_issue(
                 code="lighttpd_include_shell_execution_failed",
                 level="warning",
-                message=f"include_shell command failed: {directive.args[0]}",
+                message="include_shell command failed",
                 directive=directive,
             )
         )

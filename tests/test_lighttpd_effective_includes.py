@@ -1,3 +1,5 @@
+import json
+
 from tests.lighttpd_helpers import (
     AnalysisResult,
     LighttpdAssignmentNode,
@@ -265,7 +267,7 @@ def test_lighttpd_include_shell_is_inlined_when_enabled(
     assert len(ast.nodes) == 2
     assert isinstance(ast.nodes[0], LighttpdAssignmentNode)
     assert ast.nodes[0].name == "server.tag"
-    assert ast.nodes[0].source.file_path == "shell:generate-config"
+    assert ast.nodes[0].source.file_path == "shell:include_shell:1"
     assert ast.nodes[0].source.line == 1
 
 
@@ -381,6 +383,7 @@ def test_analyze_lighttpd_config_reports_include_shell_execution_failure(
     assert len(result.issues) == 1
     assert result.issues[0].code == "lighttpd_include_shell_execution_failed"
     assert result.issues[0].level == "warning"
+    assert "generate-config" not in result.issues[0].message
     assert not any(f.rule_id == "lighttpd.dir_listing_enabled" for f in result.findings)
 
 
@@ -404,13 +407,13 @@ def test_analyze_lighttpd_config_executes_include_shell_when_enabled(
     dir_findings = [f for f in result.findings if f.rule_id == "lighttpd.dir_listing_enabled"]
     assert len(dir_findings) == 1
     assert dir_findings[0].location is not None
-    assert dir_findings[0].location.file_path == "shell:generate-config"
+    assert dir_findings[0].location.file_path == "shell:include_shell:1"
     assert result.issues == []
     assert result.metadata["load_context"]["edges"] == [
         {
             "source_file": str(config_path),
             "source_line": 1,
-            "target_file": "shell:generate-config",
+            "target_file": "shell:include_shell:1",
         }
     ]
 
@@ -435,8 +438,35 @@ def test_analyze_lighttpd_config_detects_shell_include_cycle(
     assert len(result.issues) == 1
     assert result.issues[0].code == "lighttpd_include_cycle"
     assert result.issues[0].location is not None
-    assert result.issues[0].location.file_path == "shell:generate-config"
+    assert result.issues[0].location.file_path == "shell:include_shell:1"
     assert result.issues[0].level == "error"
+
+
+def test_analyze_lighttpd_config_redacts_include_shell_command_from_report_surfaces(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    config_path = tmp_path / "lighttpd.conf"
+    config_path.write_text(
+        'include_shell "generate-config --token super-secret-token"\nserver.tag = ""\n',
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "webconf_audit.local.lighttpd.include.execute_include_shell",
+        _fake_shell_include_result('dir-listing.activate = "enable"\n'),
+    )
+
+    result = analyze_lighttpd_config(str(config_path), execute_shell=True)
+    serialized = json.dumps(result.model_dump(mode="json"), sort_keys=True)
+
+    assert "super-secret-token" not in serialized
+    assert "generate-config --token" not in serialized
+    assert result.metadata["load_context"]["edges"][0]["target_file"] == "shell:include_shell:1"
+    dir_findings = [f for f in result.findings if f.rule_id == "lighttpd.dir_listing_enabled"]
+    assert len(dir_findings) == 1
+    assert dir_findings[0].location is not None
+    assert dir_findings[0].location.file_path == "shell:include_shell:1"
 
 
 def test_analyze_lighttpd_config_reports_self_include_issue(tmp_path: Path) -> None:

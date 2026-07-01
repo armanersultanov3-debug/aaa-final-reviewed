@@ -31,6 +31,7 @@ from webconf_audit.external.recon.tls_probe import (
     observe_tls_handshake_features,
     parse_sct_list,
 )
+from webconf_audit.external.recon._cookie import parse_cookie
 from webconf_audit.external.rules import run_external_rules
 from webconf_audit.external.rules._runner import register_external_rule_metas
 from webconf_audit.models import AnalysisIssue, AnalysisResult, SourceLocation
@@ -2623,13 +2624,34 @@ def _attempt_to_metadata(attempt: ProbeAttempt) -> dict[str, object]:
         "access_control_allow_origin_header": attempt.access_control_allow_origin_header,
         "access_control_allow_credentials_header": attempt.access_control_allow_credentials_header,
         "allow_header": attempt.allow_header,
-        "set_cookie_headers": list(attempt.set_cookie_headers),
+        "set_cookie_headers": [
+            _redacted_set_cookie_header(cookie) for cookie in attempt.set_cookie_headers
+        ],
         "html_recon": _html_recon_to_metadata(attempt.html_recon),
         "tls_info": _tls_info_to_metadata(attempt.tls_info),
         "options_observation": _options_observation_to_metadata(attempt.options_observation),
         "unknown_host_probe": _unknown_host_probe_to_metadata(attempt.unknown_host_probe),
         "error_message": attempt.error_message,
     }
+
+
+def _redacted_set_cookie_header(raw_cookie: str) -> str:
+    cookie = parse_cookie(raw_cookie)
+    if not cookie.name:
+        return "<redacted>"
+
+    parts = [f"{cookie.name}=<redacted>"]
+    if cookie.has_secure:
+        parts.append("Secure")
+    if cookie.has_httponly:
+        parts.append("HttpOnly")
+    if cookie.samesite_value is not None:
+        parts.append(f"SameSite={cookie.samesite_value}")
+    if cookie.domain_value is not None:
+        parts.append("Domain=<redacted>")
+    if cookie.path_value is not None:
+        parts.append(f"Path={cookie.path_value}")
+    return "; ".join(parts)
 
 
 def _redirect_chain_analysis_to_metadata(

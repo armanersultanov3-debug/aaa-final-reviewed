@@ -8,6 +8,13 @@ release artifacts are prepared.
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-07-01
+
+- Redact `Set-Cookie` values from external probe metadata while preserving
+  cookie names and security attributes for report review.
+- Redact executed Lighttpd `include_shell` command strings from report
+  locations, load-context targets, and execution-failure messages.
+
 ## [0.1.3] - 2026-06-16
 
 - Add CVE-related configuration-pattern rules for Apache HTTP Server and Nginx,

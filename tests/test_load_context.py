@@ -180,12 +180,12 @@ def test_lighttpd_load_context_records_executed_include_shell(
     load_context = result.metadata["load_context"]
 
     assert load_context["root_file"] == str(root)
-    assert set(load_context["files"]) == {str(root), "shell:generate-config"}
+    assert set(load_context["files"]) == {str(root), "shell:include_shell:1"}
     assert load_context["edges"] == [
         {
             "source_file": str(root),
             "source_line": 1,
-            "target_file": "shell:generate-config",
+            "target_file": "shell:include_shell:1",
         }
     ]
 

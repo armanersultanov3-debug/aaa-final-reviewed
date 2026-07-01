@@ -17,7 +17,7 @@ Schema version 1 analysis reports include top-level provenance:
   "schema_version": 1,
   "generator": {
     "package_name": "webconf-audit",
-    "package_version": "0.1.3",
+    "package_version": "0.1.4",
     "registry_revision": "sha256:..."
   }
 }
@@ -42,6 +42,9 @@ Each result keeps its full finding and issue payloads and now also carries:
 - `result.metadata.audit_policy`
 - `result.metadata.rule_execution`
 - optional `result.control_assessments`
+
+External probe metadata redacts `Set-Cookie` values and keeps only cookie names
+and security attributes needed for report review.
 
 `result.control_assessments` is reserved for analyzer-native, policy-gated
 assessment records. In schema version 1 it is emitted only when a compatible
